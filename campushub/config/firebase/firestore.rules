@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function getCurrentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function hasRole(role) {
+      return isSignedIn() && getCurrentUser().role == role;
+    }
+    
+    function isAdminOrTeacher() {
+      return hasRole('admin') || hasRole('teacher');
+    }
+    
+    function isMemberOfChannel(channelId) {
+      return exists(/databases/$(database)/documents/channels/$(channelId)/members/$(request.auth.uid));
+    }
+    
+    function getChannel(channelId) {
+      return get(/databases/$(database)/documents/channels/$(channelId)).data;
+    }
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || hasRole('admin');
+      
+      allow create: if isOwner(userId) && 
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.email == request.auth.token.email;
+      
+      allow update: if isOwner(userId) && 
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['uid', 'email', 'role', 'createdAt']);
+      
+      allow delete: if hasRole('admin');
+    }
+    
+    match /roles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if hasRole('admin');
+    }
+    
+    match /channels/{channelId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.type == 'public' || 
+                      isMemberOfChannel(channelId) ||
+                      hasRole('admin'));
+      
+      allow create: if isAdminOrTeacher() &&
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.createdBy == request.auth.uid || 
+                        hasRole('admin'));
+      
+      allow delete: if hasRole('admin');
+      
+      match /members/{memberId} {
+        allow read: if isMemberOfChannel(channelId) || hasRole('admin');
+        
+        allow create: if (isOwner(memberId) && getChannel(channelId).type == 'public') ||
+                         hasRole('admin') ||
+                         hasRole('teacher');
+        
+        allow update: if isOwner(memberId) || hasRole('admin');
+        
+        allow delete: if isOwner(memberId) || hasRole('admin');
+      }
+      
+      match /messages/{messageId} {
+        allow read: if isMemberOfChannel(channelId);
+        
+        allow create: if isMemberOfChannel(channelId) &&
+                         request.resource.data.senderId == request.auth.uid &&
+                         request.resource.data.text.size() > 0 &&
+                         request.resource.data.text.size() <= 5000;
+        
+        allow update: if isSignedIn() && 
+                         resource.data.senderId == request.auth.uid &&
+                         !request.resource.data.diff(resource.data).affectedKeys()
+                           .hasAny(['senderId', 'createdAt', 'senderName', 'senderPhoto']);
+        
+        allow delete: if isSignedIn() && 
+                         (resource.data.senderId == request.auth.uid || 
+                          hasRole('admin') ||
+                          hasRole('teacher'));
+      }
+    }
+  }
+}
