@@ -1,13 +1,21 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
-node_modules/
+# Node modules
+**/node_modules/
 package-lock.json
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/package-lock.json
 
 # Expo
 .expo/
+**/.expo/
+**/.expo-shared/
 dist/
+**/dist/
 web-build/
+**/web-build/
 expo-env.d.ts
 
 # Native
@@ -27,12 +35,20 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# Environment variables
+**/.env
+**/.env.local
+**/.env*.local
+
+# Firebase sensitive files
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase-config.json
+mobile/scripts/serviceAccountKey.json
+
 # macOS
 .DS_Store
 *.pem
-
-# local env files
-.env*.local
 
 # typescript
 *.tsbuildinfo
@@ -43,16 +59,25 @@ app-example
 /ios
 /android
 
-# test files
-test-firebase.js
-
-# Editor directories and files
+# IDE
+.vscode/
 .vscode/*
 !.vscode/extensions.json
 .idea
+**/*.swp
+**/*.swo
+**/*~
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+
+# Build
+**/build/
+**/dist/
+**/*.log
+
+# Test files
+test-firebase.js
+**/test-firebase.js
+
