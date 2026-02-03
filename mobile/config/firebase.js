@@ -1,25 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-// import { getAnalytics } from "firebase/analytics";
 
-//Configuración de Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyA2Bvno8r2bi7Uv_2SuTiQ2HsmO3fGPLjs",
-  authDomain: "campushub-52343.firebaseapp.com",
-  projectId: "campushub-52343",
-  storageBucket: "campushub-52343.firebasestorage.app",
-  messagingSenderId: "989790879586",
-  appId: "1:989790879586:web:a746592970c447eed0f63b",
-  measurementId: "G-EP45ZLG6GC"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
 
-
-// Inicializar servicios
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
