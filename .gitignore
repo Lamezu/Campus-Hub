@@ -56,3 +56,4 @@ test-firebase.js
 *.njsproj
 *.sln
 *.sw?
+campushub/scripts/serviceAccountKey.json
