@@ -57,7 +57,8 @@ Campus-Hub/
 ```bash
 cd mobile
 npm install
-npx expo start
+npm install expo
+npx expo start --tunnel
 ```
 
 ### Web
