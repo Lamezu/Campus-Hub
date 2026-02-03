@@ -29,11 +29,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '989790879586-d8rdadk5gnjv4t9u4p63fo06jl7n55i3.apps.googleusercontent.com',
-    androidClientId: 'TU_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    redirectUri: Platform.OS === 'web' 
-      ? 'https://acwxzcq-anonymous-8081.exp.direct/auth/login'
-      : 'https://auth.expo.io',
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   React.useEffect(() => {
