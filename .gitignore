@@ -44,6 +44,7 @@ yarn-error.*
 **/google-services.json
 **/GoogleService-Info.plist
 **/firebase-config.json
+mobile/scripts/serviceAccountKey.json
 
 # macOS
 .DS_Store
