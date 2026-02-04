@@ -12,13 +12,9 @@ package-lock.json
 .expo/
 **/.expo/
 **/.expo-shared/
-**/.expo/
-**/.expo-shared/
 dist/
 **/dist/
-**/dist/
 web-build/
-**/web-build/
 **/web-build/
 expo-env.d.ts
 
@@ -65,16 +61,9 @@ app-example
 
 # IDE
 .vscode/
-# IDE
-.vscode/
 .vscode/*
 !.vscode/extensions.json
 .idea
-**/*.swp
-**/*.swo
-**/*~
-
-# OS
 **/*.swp
 **/*.swo
 **/*~
@@ -91,4 +80,3 @@ Thumbs.db
 # Test files
 test-firebase.js
 **/test-firebase.js
-
