@@ -77,6 +77,6 @@ See `/docs` for detailed project documentation.
 
 ## 🔗 Links
 
-- [Trello Board](https://trello.com/b/VUESTRO_BOARD)
-- [Firebase Console](https://console.firebase.google.com)
+- [Trello Board]([https://trello.com/b/VUESTRO_BOARD](https://trello.com/b/3Iiylmju/mi-tablero-de-trello))
+- [Firebase Console]([https://console.firebase.google.com](https://console.firebase.google.com/project/campushub-52343/overview))
 - [GitHub Repository](https://github.com/Lamezu/Campus-Hub)
