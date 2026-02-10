@@ -1,9 +1,23 @@
-# Shared Code
+# Firebase Configuration
 
-Shared utilities, types, and constants used across mobile, web, and desktop apps.
+This directory contains Firebase configuration files for the CampusHub project.
 
-## Structure
+## Files
 
-- `/types` - TypeScript type definitions
-- `/utils` - Utility functions
-- `/constants` - Shared constants
+- `firestore.rules.example` - Example Firestore security rules
+- `firestore.indexes.json` - Database indexes configuration
+- `schema.md` - Database schema documentation (public version)
+- `config.example.js` - Firebase config template
+
+## Setup
+
+1. Copy `.env.example` to `.env` in each project (mobile, web, desktop)
+2. Fill in your Firebase credentials
+3. Never commit real credentials to Git
+
+## Security
+
+⚠️ **NEVER commit:**
+- Real API keys
+- Production credentials
+- Detailed security rules

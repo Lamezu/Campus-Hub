@@ -1,6 +1,5 @@
 # Esquema de Base de Datos - CampusHub
 **Sprint 2: Sistema de Mensajería**
-**Autor:** Samuel Morán
 **Fecha:** Febrero 2026
 
 ---
@@ -23,7 +22,7 @@
   department: string | null;
   createdAt: Timestamp;
   lastActive: Timestamp;
-  fcmToken: string | null;  // Token para notificaciones
+  fcmToken: string | null;
 }
 ```
 
