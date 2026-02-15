@@ -1,18 +1,17 @@
-export interface Channel {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  unreadCount: number;
-  lastMessage?: string;
-  lastMessageTime?: string;
-}
+import type { Channel } from '@/types';
 
 export const MOCK_CHANNELS: Channel[] = [
   {
     id: '1',
     name: 'General',
     description: 'Canal general para todos',
+    type: 'public',
+    createdBy: 'admin',
+    createdAt: new Date('2026-02-01').toISOString(),
+    memberCount: 25,
+    lastMessageAt: new Date().toISOString(),
+    departmentRestricted: false,
+    allowedDepartments: [],
     icon: '💬',
     unreadCount: 3,
     lastMessage: 'Hola a todos!',
@@ -22,6 +21,13 @@ export const MOCK_CHANNELS: Channel[] = [
     id: '2',
     name: 'Programación',
     description: 'Dudas y recursos de código',
+    type: 'public',
+    createdBy: 'teacher_1',
+    createdAt: new Date('2026-02-01').toISOString(),
+    memberCount: 18,
+    lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
+    departmentRestricted: false,
+    allowedDepartments: [],
     icon: '💻',
     unreadCount: 0,
     lastMessage: 'Alguien tiene el enlace del repo?',
@@ -31,6 +37,13 @@ export const MOCK_CHANNELS: Channel[] = [
     id: '3',
     name: 'Proyectos',
     description: 'Coordinación de proyectos',
+    type: 'public',
+    createdBy: 'teacher_2',
+    createdAt: new Date('2026-02-01').toISOString(),
+    memberCount: 12,
+    lastMessageAt: new Date(Date.now() - 7200000).toISOString(),
+    departmentRestricted: false,
+    allowedDepartments: [],
     icon: '📁',
     unreadCount: 5,
     lastMessage: 'Reunión mañana a las 10',
@@ -40,6 +53,13 @@ export const MOCK_CHANNELS: Channel[] = [
     id: '4',
     name: 'Eventos',
     description: 'Eventos y actividades',
+    type: 'public',
+    createdBy: 'admin',
+    createdAt: new Date('2026-02-01').toISOString(),
+    memberCount: 30,
+    lastMessageAt: new Date(Date.now() - 86400000).toISOString(),
+    departmentRestricted: false,
+    allowedDepartments: [],
     icon: '🎉',
     unreadCount: 1,
     lastMessage: 'Hackathon este fin de semana',
@@ -49,6 +69,13 @@ export const MOCK_CHANNELS: Channel[] = [
     id: '5',
     name: 'Ayuda',
     description: 'Soporte y asistencia',
+    type: 'public',
+    createdBy: 'admin',
+    createdAt: new Date('2026-02-01').toISOString(),
+    memberCount: 20,
+    lastMessageAt: new Date(Date.now() - 172800000).toISOString(),
+    departmentRestricted: false,
+    allowedDepartments: [],
     icon: '❓',
     unreadCount: 0,
     lastMessage: 'Gracias por la ayuda!',
