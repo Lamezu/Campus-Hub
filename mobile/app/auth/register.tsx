@@ -11,8 +11,8 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { router } from 'expo-router';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 
 export default function RegisterScreen() {
@@ -43,12 +43,20 @@ export default function RegisterScreen() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      await updateProfile(user, {
+        displayName: name,
+      });
+
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
         displayName: name,
-        role: 'alumno',
-        createdAt: new Date().toISOString(),
+        photoURL: null,
+        role: 'student',
+        department: null,
+        createdAt: serverTimestamp(),
+        lastActive: serverTimestamp(),
+        fcmToken: null,
       });
 
       Alert.alert('¡Éxito!', 'Cuenta creada correctamente');
