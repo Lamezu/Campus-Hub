@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -11,12 +11,17 @@ import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import type { Message } from '@/types';
 
+const MESSAGES_PER_PAGE = 50;
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const lastDocRef = useRef<any>(null);
   
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
   const channelName = channel?.name || `Channel ${id}`;
@@ -26,7 +31,7 @@ export default function ChatScreen() {
     if (!id) return;
 
     const messagesRef = collection(db, 'channels', id, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
+    const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
 
     const unsubscribe = onSnapshot(
       q,
@@ -45,13 +50,18 @@ export default function ChatScreen() {
             attachments: data.attachments || null,
             reactions: data.reactions || {}
           };
-        });
+        }).reverse();
 
         setMessages(messagesData);
         setLoading(false);
+        setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
+        
+        if (snapshot.docs.length > 0) {
+          lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+        }
 
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToEnd({ animated: false });
         }, 100);
       },
       (error) => {
@@ -62,6 +72,51 @@ export default function ChatScreen() {
 
     return () => unsubscribe();
   }, [id]);
+
+  const loadMoreMessages = async () => {
+    if (!id || !hasMore || loadingMore || !lastDocRef.current) return;
+
+    setLoadingMore(true);
+
+    try {
+      const messagesRef = collection(db, 'channels', id, 'messages');
+      const q = query(
+        messagesRef,
+        orderBy('createdAt', 'desc'),
+        startAfter(lastDocRef.current),
+        limit(MESSAGES_PER_PAGE)
+      );
+
+      const snapshot = await getDocs(q);
+      
+      const olderMessages: Message[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          text: data.text || '',
+          senderId: data.senderId || '',
+          senderName: data.senderName || 'Unknown',
+          senderPhoto: data.senderPhoto || null,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          edited: data.edited || false,
+          editedAt: data.editedAt?.toDate?.()?.toISOString() || null,
+          attachments: data.attachments || null,
+          reactions: data.reactions || {}
+        };
+      }).reverse();
+
+      if (olderMessages.length > 0) {
+        setMessages(prev => [...olderMessages, ...prev]);
+        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+      }
+
+      setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleSendMessage = async (text: string) => {
     if (!currentUser || !id || sending) return;
@@ -126,9 +181,15 @@ export default function ChatScreen() {
               />
             )}
             contentContainerStyle={styles.messageList}
-            onContentSizeChange={() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }}
+            onEndReached={loadMoreMessages}
+            onEndReachedThreshold={0.5}
+            ListHeaderComponent={
+              loadingMore ? (
+                <View style={styles.loadingMoreContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <ThemedText style={styles.emptyText}>
@@ -136,8 +197,9 @@ export default function ChatScreen() {
                 </ThemedText>
               </View>
             }
+            inverted
           />
-          <MessageInput onSend={handleSendMessage} />
+          <MessageInput onSend={handleSendMessage} disabled={sending} />
         </ThemedView>
       </KeyboardAvoidingView>
     </>
@@ -169,5 +231,9 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: spacing.md,
     opacity: 0.6,
+  },
+  loadingMoreContainer: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
   },
 });
