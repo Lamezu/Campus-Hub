@@ -8,10 +8,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { MOCK_CHANNELS } from '@/constants/mockData';
-import { colors, spacing, typography } from '@/constants/styles';
+import { spacing, typography } from '@/constants/styles';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Channel } from '@/types';
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,61 +25,42 @@ export default function HomeScreen() {
         setLoading(false);
         return;
       }
-
       setUser(currentUser);
-
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           setUserData(userDoc.data());
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
     });
-
     return unsubscribe;
   }, []);
 
   const handleChannelPress = (channel: Channel) => {
-    router.push({
-      pathname: '/chat/[id]',
-      params: { id: channel.id }
-    });
+    router.push({ pathname: '/chat/[id]', params: { id: channel.id } });
   };
 
   if (!user) return null;
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
-          <ThemedText type="title">
-            Bienvenido, {userData?.displayName || user.displayName || 'User'}!
-          </ThemedText>
-          <TouchableOpacity 
-            style={styles.settingsButton}
-            onPress={() => router.push('/settings')}
-          >
+          <ThemedText type="title">Bienvenido, {userData?.displayName || user.displayName || 'User'}!</ThemedText>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
             <ThemedText style={styles.settingsIcon}>⚙️</ThemedText>
           </TouchableOpacity>
         </View>
-        <ThemedText style={styles.subtitle}>
-          Selecciona un canal para comenzar a chatear.
-        </ThemedText>
+        <ThemedText style={styles.subtitle}>Selecciona un canal para comenzar a chatear.</ThemedText>
       </View>
-
       <FlatList
         data={MOCK_CHANNELS}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ChannelCard 
-            channel={item} 
-            onPress={() => handleChannelPress(item)}
-          />
-        )}
+        renderItem={({ item }) => <ChannelCard channel={item} onPress={() => handleChannelPress(item)} />}
         contentContainerStyle={styles.listContent}
       />
     </ThemedView>
@@ -85,33 +68,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    transform: [{ translateY: 60 }],
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  settingsButton: {
-    padding: spacing.sm,
-  },
-  settingsIcon: {
-    fontSize: 24,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-    fontSize: typography.sizes.sm,
-    opacity: 0.6,
-  },
-  listContent: {
-    paddingBottom: spacing.lg,
-    paddingTop: 60,
-  },
+  container: { flex: 1 },
+  header: { padding: spacing.lg, borderBottomWidth: 1, paddingTop: 60 },
+  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  settingsButton: { padding: spacing.sm },
+  settingsIcon: { fontSize: 24 },
+  subtitle: { marginTop: spacing.xs, fontSize: typography.sizes.sm, opacity: 0.6 },
+  listContent: { paddingBottom: spacing.lg }
 });
