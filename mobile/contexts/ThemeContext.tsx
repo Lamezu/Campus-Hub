@@ -47,7 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setChatSettingsState(JSON.parse(savedChatSettings));
       }
     } catch (error) {
-      console.error('Error loading theme:', error);
+      console.error(error);
     }
   };
 
@@ -56,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem('theme', newTheme);
       setThemeState(newTheme);
     } catch (error) {
-      console.error('Error saving theme:', error);
+      console.error(error);
     }
   };
 
@@ -68,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         await setTheme('monochromatic');
       }
     } catch (error) {
-      console.error('Error saving custom color:', error);
+      console.error(error);
     }
   };
 
@@ -78,7 +78,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem('chatSettings', JSON.stringify(updated));
       setChatSettingsState(updated);
     } catch (error) {
-      console.error('Error saving chat settings:', error);
+      console.error(error);
     }
   };
 
