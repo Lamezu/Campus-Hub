@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
-import { colors, spacing, typography } from '@/constants/styles';
+import { spacing, typography } from '@/constants/styles';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Channel } from '@/types';
 
 interface ChannelCardProps {
@@ -9,21 +10,23 @@ interface ChannelCardProps {
 }
 
 export function ChannelCard({ channel, onPress }: ChannelCardProps) {
+  const { colors } = useTheme();
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.container}>
-        <View style={styles.iconContainer}>
+      <View style={[styles.container, { borderBottomColor: colors.border }]}>
+        <View style={[styles.iconContainer, { backgroundColor: colors.backgroundSecondary }]}>
           <Text style={styles.icon}>{channel.icon}</Text>
         </View>
-        
+
         <View style={styles.content}>
-          <Text style={styles.name}>{channel.name}</Text>
-          <Text style={styles.description} numberOfLines={1}>
+          <Text style={[styles.name, { color: colors.text }]}>{channel.name}</Text>
+          <Text style={[styles.description, { color: colors.text }]} numberOfLines={1}>
             {channel.description}
           </Text>
         </View>
-        
-        <Text style={styles.chevron}>›</Text>
+
+        <Text style={[styles.chevron, { color: colors.textSecondary }]}>›</Text>
       </View>
     </TouchableOpacity>
   );
@@ -34,14 +37,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
     alignItems: 'center',
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -55,17 +56,14 @@ const styles = StyleSheet.create({
   name: {
     fontSize: typography.sizes.md,
     fontWeight: typography.weights.semibold,
-    color: colors.background,
     marginBottom: spacing.xs,
   },
   description: {
     fontSize: typography.sizes.sm,
-    color: colors.background,
     opacity: 0.6,
   },
   chevron: {
     fontSize: 24,
-    color: colors.textSecondary,
     marginLeft: spacing.sm,
   },
-}); 
+});
