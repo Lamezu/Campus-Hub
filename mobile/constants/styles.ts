@@ -55,7 +55,6 @@ const defaultChatTheme: ChatTheme = {
   nameColor: '#8E8E93',
 };
 
-// --- Helper functions for dynamic theme generation ---
 const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
   let r = parseInt(hex.slice(1, 3), 16) / 255;
   let g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -265,7 +264,6 @@ export const getColors = (
 
   if (theme === 'monochromatic' && customPrimary) {
     const { h, s } = hexToHsl(customPrimary);
-
     const bg = hslToHex(h, Math.max(s * 0.2, 12), 94);
     const bgSec = hslToHex(h, Math.max(s * 0.3, 20), 88);
     const border = hslToHex(h, Math.max(s * 0.4, 30), 80);
@@ -273,7 +271,6 @@ export const getColors = (
     const textSec = hslToHex(h, s, 40);
     const text = hslToHex(h, s, 12);
     const card = hslToHex(h, Math.max(s * 0.15, 8), 96);
-
     baseColors = {
       primary: customPrimary,
       secondary: secondary,
@@ -291,7 +288,6 @@ export const getColors = (
     baseColors = themes[theme as keyof typeof themes] || themes.light;
   }
 
-  // Resolve chat theme
   let chatTheme = chatThemes[userChatSettings.themeId] || chatThemes.default;
 
   if (userChatSettings.themeId === 'default') {
