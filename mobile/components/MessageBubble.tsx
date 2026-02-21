@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { colors, spacing, typography } from '@/constants/styles';
+import { View, StyleSheet } from 'react-native';
+import { ThemedText } from './themed-text';
+import { spacing, typography } from '@/constants/styles';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
@@ -9,70 +11,56 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isOwnMessage }: MessageBubbleProps) {
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  };
+  const { colors } = useTheme();
+  const chatTheme = colors.chat;
+  const settings = colors.chatSettings;
 
   return (
-    <View style={[styles.container, isOwnMessage && styles.ownContainer]}>
+    <View style={[styles.container, isOwnMessage ? styles.ownContainer : styles.otherContainer]}>
       {!isOwnMessage && (
-        <Text style={styles.senderName}>{message.senderName}</Text>
+        <ThemedText style={[styles.senderName, { color: chatTheme.nameColor }]}>
+          {message.senderName}
+        </ThemedText>
       )}
-      
-      <View style={[styles.bubble, isOwnMessage && styles.ownBubble]}>
-        <Text style={[styles.messageText, isOwnMessage && styles.ownMessageText]}>
+      <View style={[
+        styles.bubble,
+        {
+          backgroundColor: isOwnMessage ? chatTheme.bubbleOwn : chatTheme.bubbleOther,
+          borderBottomRightRadius: isOwnMessage ? 4 : 20,
+          borderBottomLeftRadius: isOwnMessage ? 20 : 4,
+        }
+      ]}>
+        <ThemedText style={[
+          styles.messageText,
+          {
+            color: isOwnMessage ? chatTheme.textOwn : chatTheme.textOther,
+            fontSize: settings.fontSize,
+            fontWeight: settings.fontWeight,
+            fontStyle: settings.fontStyle
+          }
+        ]}>
           {message.text}
-        </Text>
-        <Text style={[styles.time, isOwnMessage && styles.ownTime]}>
-          {formatTime(message.createdAt)}
-        </Text>
+        </ThemedText>
+        <ThemedText style={[
+          styles.time,
+          {
+            color: isOwnMessage ? chatTheme.textOwn + '99' : chatTheme.textOther + '99',
+            fontSize: Math.max(10, settings.fontSize - 4)
+          }
+        ]}>
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </ThemedText>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.md,
-    alignItems: 'flex-start',
-  },
-  ownContainer: {
-    alignItems: 'flex-end',
-  },
-  senderName: {
-    fontSize: typography.sizes.xs,
-    color: colors.background,
-    opacity: 0.7,
-    marginBottom: spacing.xs,
-    marginLeft: spacing.sm,
-    fontWeight: typography.weights.semibold,
-  },
-  bubble: {
-    backgroundColor: '#e6ebe8ff',
-    padding: spacing.md,
-    borderRadius: 18,
-    maxWidth: '80%',
-  },
-  ownBubble: {
-    backgroundColor: colors.primary,
-  },
-  messageText: {
-    fontSize: typography.sizes.md,
-    color: '#000000ff',
-    lineHeight: 20,
-  },
-  ownMessageText: {
-    color: '#ffffffff',
-  },
-  time: {
-    fontSize: typography.sizes.xs,
-    color: '#000000ff',
-    opacity: 0.5,
-    marginTop: spacing.xs,
-  },
-  ownTime: {
-    color: '#ffffffff',
-    opacity: 0.8,
-  },
-}); 
+  container: { marginBottom: spacing.sm, maxWidth: '80%' },
+  ownContainer: { alignSelf: 'flex-end' },
+  otherContainer: { alignSelf: 'flex-start' },
+  senderName: { fontSize: typography.sizes.xs, marginBottom: 4, marginLeft: 12 },
+  bubble: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
+  messageText: { fontSize: typography.sizes.md },
+  time: { fontSize: 10, alignSelf: 'flex-end', marginTop: 2 }
+});
