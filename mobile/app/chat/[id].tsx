@@ -190,7 +190,11 @@ export default function ChatScreen() {
         )
       }} />
 
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
+      >
         <ImageBackground source={colors.chat.backgroundImage ? { uri: colors.chat.backgroundImage } : undefined} style={[styles.container, { backgroundColor: colors.chat.background }]} resizeMode="cover">
           <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
             <FlatList
