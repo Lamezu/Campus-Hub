@@ -9,14 +9,16 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { colors, spacing, typography } from '@/constants/styles';
+import { spacing, typography } from '@/constants/styles';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MessageInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
 }
 
-export function MessageInput({ onSend, disabled = false }: MessageInputProps) { 
+export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
+  const { colors } = useTheme();
   const [text, setText] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -53,10 +55,20 @@ export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={[
           styles.container,
-          { paddingBottom: appliedPadding },
+          {
+            paddingBottom: appliedPadding,
+            borderTopColor: colors.border,
+            backgroundColor: colors.background
+          },
         ]}>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.backgroundSecondary,
+                color: colors.text
+              }
+            ]}
             placeholder="Escribe un mensaje..."
             placeholderTextColor={colors.textSecondary}
             value={text}
@@ -66,7 +78,11 @@ export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
             editable={!disabled}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!text.trim() || disabled) && styles.sendButtonDisabled]}
+            style={[
+              styles.sendButton,
+              { backgroundColor: colors.primary },
+              (!text.trim() || disabled) && styles.sendButtonDisabled
+            ]}
             onPress={handleSend}
             disabled={!text.trim() || disabled}
             activeOpacity={0.7}
@@ -88,23 +104,18 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'android' ? spacing.lg + 16 : spacing.md,
     marginBottom: Platform.OS === 'android' ? 12 : 0,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
     alignItems: 'flex-end',
   },
   input: {
     flex: 1,
-    backgroundColor: '#ffffffff',
     borderRadius: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     marginRight: spacing.sm,
     fontSize: typography.sizes.md,
     maxHeight: 100,
-    color: '#030303ff',
   },
   sendButton: {
-    backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -127,7 +138,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
     borderTopWidth: 6,
     borderBottomWidth: 6,
-    borderLeftColor: '#ffffffff',
+    borderLeftColor: '#FFFFFF',
     borderRightColor: 'transparent',
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
