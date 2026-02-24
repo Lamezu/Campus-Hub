@@ -5,6 +5,7 @@ import Explore from './pages/Explore';
 import Create from './pages/Create';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
+import Chat from './pages/Chat';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/chat/:id" element={<Chat />} />
       </Routes>
     </BrowserRouter>
   );

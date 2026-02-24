@@ -1,5 +1,4 @@
 :root {
-  /* Modo claro (por defecto) */
   --primary: #007AFF;
   --secondary: #5856D6;
   --success: #34C759;
@@ -13,11 +12,10 @@
   --card-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-/* Modo oscuro - se activa automáticamente con la preferencia del sistema */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #000000;           /* Fondo negro puro */
-    --background-secondary: #1C1C1E; /* Gris oscuro para tarjetas */
+    --background: #000000;
+    --background-secondary: #1C1C1E;
     --text: #FFFFFF;
     --text-secondary: #8E8E93;
     --border: #38383A;
@@ -147,12 +145,12 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-color: var(--background); /* Fondo negro en modo oscuro */
+  background-color: var(--background);
   transition: background-color 0.3s ease;
 }
 
 .login-card {
-  background: var(--background-secondary); /* Tarjeta gris oscuro en modo oscuro */
+  background: var(--background-secondary);
   padding: 32px;
   border-radius: 12px;
   width: 100%;
@@ -187,7 +185,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 16px;
-  background-color: var(--background); /* Input con fondo negro en modo oscuro */
+  background-color: var(--background);
   color: var(--text);
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
@@ -269,7 +267,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--background-secondary); /* Footer gris oscuro en modo oscuro */
+  background: var(--background-secondary);
   border-top: 1px solid var(--border);
   padding: 8px 16px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
@@ -301,6 +299,7 @@ body {
 }
 
 /* Enlaces */
+
 a {
   color: var(--primary);
   text-decoration: none;
@@ -309,4 +308,213 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+.chat-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+}
+
+.chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.chat-header-content {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-back-button {
+  font-size: 24px;
+  padding-left: 0;
+  margin-left: -8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.chat-title {
+  flex: 1;
+}
+
+.chat-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+}
+
+.chat-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.chat-message-own {
+  align-items: flex-end;
+}
+
+.chat-message-other {
+  align-items: flex-start;
+}
+
+.chat-sender-name {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.7;
+  margin-bottom: 4px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  max-width: 80%;
+  position: relative;
+}
+
+.chat-bubble-own {
+  background-color: var(--primary);
+}
+
+.chat-bubble-other {
+  background-color: #e6ebe8;
+}
+
+.chat-bubble-text {
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 4px;
+}
+
+.chat-bubble-text-own {
+  color: #ffffff;
+}
+
+.chat-bubble-text-other {
+  color: #000000;
+}
+
+.chat-bubble-time {
+  font-size: 11px;
+  text-align: right;
+}
+
+.chat-bubble-time-own {
+  color: rgba(255,255,255,0.8);
+}
+
+.chat-bubble-time-other {
+  color: rgba(0,0,0,0.5);
+}
+
+.chat-input-container {
+  display: flex;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+  align-items: flex-end;
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+}
+
+.chat-textarea {
+  flex: 1;
+  background-color: var(--background-secondary);
+  border: none;
+  border-radius: 20px;
+  padding: 10px 16px;
+  margin-right: 8px;
+  font-size: 14px;
+  max-height: 100px;
+  color: var(--text);
+  resize: none;
+  font-family: inherit;
+}
+
+.chat-textarea:focus {
+  outline: none;
+}
+
+.chat-send-button {
+  background-color: var(--primary);
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.chat-send-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.chat-send-icon {
+  width: 0;
+  height: 0;
+  border-left-width: 9px;
+  border-right-width: 0;
+  border-top-width: 6px;
+  border-bottom-width: 6px;
+  border-left-color: #ffffff;
+  border-right-color: transparent;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-style: solid;
+  margin-left: 2px;
+}
+
+.chat-loading-more {
+  padding: 16px;
+  text-align: center;
+}
+
+.chat-empty-state {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+.chat-empty-text {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.chat-loading-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+}
+
+.chat-loading-header {
+  composes: header;
+}
+
+.chat-loading-content {
+  composes: loading-container;
+}
+
+.chat-loading-text {
+  margin-top: 16px;
+  color: var(--text-secondary);
 }
