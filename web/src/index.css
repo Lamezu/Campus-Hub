@@ -518,3 +518,30 @@ a:hover {
   margin-top: 16px;
   color: var(--text-secondary);
 }
+
+.register-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--background-secondary);
+}
+
+.register-card {
+  background: var(--background);
+  padding: 32px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--card-shadow);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.register-title {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 32px;
+  color: var(--text);
+  transition: color 0.3s ease;
+}

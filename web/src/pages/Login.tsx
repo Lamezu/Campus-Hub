@@ -69,7 +69,7 @@ export default function Login() {
         </button>
 
         <p className="text-subtitle" style={{ textAlign: 'center' }}>
-          ¿No tienes cuenta? <a href="#">Registrate</a>
+          ¿No tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>Registrate</a>
         </p>
       </div>
     </div>

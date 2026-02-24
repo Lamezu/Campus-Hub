@@ -6,12 +6,14 @@ import Create from './pages/Create';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 import Chat from './pages/Chat';
+import Register from './pages/Register';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/home" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/create" element={<Create />} />
