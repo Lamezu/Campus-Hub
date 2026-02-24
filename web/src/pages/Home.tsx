@@ -42,6 +42,10 @@ export default function Home() {
     navigate(`/chat/${channel.id}`);
   };
 
+  const handleSettingsClick = () => {
+    navigate('/settings');
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -53,9 +57,20 @@ export default function Home() {
   if (!user) return null;
 
   const displayName = userData?.displayName || user.displayName || 'User';
-
+  
   return (
-    <Layout title={`Bienvenido, ${displayName}!`}>
+    <Layout 
+      title={`Bienvenido, ${displayName}!`}
+      rightAction={
+        <button 
+          className="settings-button"
+          onClick={handleSettingsClick}
+          style={{ fontSize: '24px' }}
+        >
+          ⚙️
+        </button>
+      }
+    >
       <div style={{ padding: '0 16px' }}>
         <p className="text-subtitle" style={{ marginBottom: '16px' }}>
           Selecciona un canal para comenzar a chatear.

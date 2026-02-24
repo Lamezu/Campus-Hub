@@ -236,18 +236,15 @@ export default function Chat() {
   if (loading) {
     return (
       <div className="chat-loading-container">
-        <header className="chat-loading-header">
-          <div className="header-content" style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <button 
-              className="settings-button"
-              onClick={() => navigate('/home')}
-              style={{ marginRight: 'auto'}}
-            >
-              ←
-            </button>
-            <h1 className="text-title">{channelName}</h1>
-          </div>
-        </header>
+        <div className="chat-loading-header">
+          <button
+            className="chat-back-button"
+            onClick={() => navigate('/home')}
+          >
+            ←
+          </button>
+          <h1 className="chat-header-title">{channelName}</h1>
+        </div>
         <div className="chat-loading-content">
           <div className="loading-spinner"></div>
           <p className="chat-loading-text">Cargando mensajes...</p>
@@ -257,23 +254,22 @@ export default function Chat() {
   }
 
   return (
-    <div className="chat-container">
-      <header className="header chat-header">
-        <div className="chat-header-content">
-          <button 
-            className="settings-button chat-back-button"
-            onClick={() => navigate('/home')}
-          >
-            ←
-          </button>
-          <h1 className="text-title chat-title">{channelName}</h1>
-        </div>
-      </header>
-
+    <div className="chat-loading-container">
+      <div className="chat-header">
+        <button
+          className="chat-back-button"
+          onClick={() => navigate('/home')}
+        >
+          ←
+        </button>
+        <h1 className="chat-header-title">{channelName}</h1>
+      </div>
+      
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="chat-messages-container"
+        style={{ flex: 1, overflowY: 'auto' }}
       >
         {loadingMore && (
           <div className="chat-loading-more">

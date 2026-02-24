@@ -7,6 +7,7 @@ import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 import Chat from './pages/Chat';
 import Register from './pages/Register';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
   );

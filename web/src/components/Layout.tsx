@@ -9,6 +9,7 @@ interface LayoutProps {
   showBackButton?: boolean;
   onBack?: () => void;
   rightAction?: React.ReactNode;
+  titleAlignLeft?: boolean;
 }
 
 export default function Layout({ 
@@ -16,7 +17,8 @@ export default function Layout({
   title, 
   showBackButton = false, 
   onBack,
-  rightAction 
+  rightAction,
+  titleAlignLeft = false
 }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,6 +34,7 @@ export default function Layout({
         flexDirection: 'column',
         backgroundColor: 'var(--background)'
       }}>
+        {/* Header */}
         <header className="header" style={{ 
           position: 'sticky', 
           top: 0, 
@@ -58,13 +61,22 @@ export default function Layout({
                 ←
               </button>
             )}
-            <h1 className="text-title" style={{ flex: 1 }}>{title}</h1>
+            <h1 
+              className="text-title" 
+              style={{ 
+                flex: 1,
+                textAlign: titleAlignLeft ? 'left' : 'center'
+              }}
+            >
+              {title}
+            </h1>
             {rightAction && (
               <div>{rightAction}</div>
             )}
           </div>
         </header>
 
+        {/* Contenido principal */}
         <main style={{ 
           flex: 1,
           backgroundColor: 'var(--background)',
@@ -73,6 +85,7 @@ export default function Layout({
           {children}
         </main>
 
+        {/* Footer solo visible en móvil */}
         {!isDesktop && (
           <footer className="nav-footer">
             <ul className="nav-items">
