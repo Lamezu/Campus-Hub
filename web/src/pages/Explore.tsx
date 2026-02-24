@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import Layout from '../components/Layout';
 
 export default function Explore() {
   const [loading, setLoading] = useState(true);
@@ -27,20 +28,13 @@ export default function Explore() {
   }
 
   return (
-    <div className="min-vh-100" style={{ backgroundColor: 'var(--background)' }}>
-      <header className="header">
-        <div className="header-content" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h1 className="text-title">Buscar</h1>
-          <button 
-            className="settings-button"
-            onClick={() => navigate('/profile')}
-          >
-            👤
-          </button>
-        </div>
-      </header>
-
-      <main className="container" style={{ textAlign: 'center', paddingTop: '40px' }}>
+    <Layout title="Buscar">
+      <div style={{ 
+        maxWidth: '600px', 
+        margin: '0 auto', 
+        padding: '40px 20px',
+        textAlign: 'center'
+      }}>
         <p className="text-subtitle" style={{ marginBottom: '16px' }}>
           Busca usuarios, grupos y eventos en tu campus
         </p>
@@ -61,32 +55,7 @@ export default function Explore() {
             Sprint 3 - Exploración de contenido
           </p>
         </div>
-      </main>
-
-      <footer className="nav-footer">
-        <ul className="nav-items">
-          <li className="nav-item" onClick={() => navigate('/home')}>
-            <span className="nav-icon">🏠</span>
-            <span>Home</span>
-          </li>
-          <li className="nav-item active" onClick={() => navigate('/explore')}>
-            <span className="nav-icon">🔍</span>
-            <span>Explore</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/create')}>
-            <span className="nav-icon">➕</span>
-            <span>Create</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/messages')}>
-            <span className="nav-icon">💬</span>
-            <span>Messages</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/profile')}>
-            <span className="nav-icon">👤</span>
-            <span>Profile</span>
-          </li>
-        </ul>
-      </footer>
-    </div>
+      </div>
+    </Layout>
   );
 }

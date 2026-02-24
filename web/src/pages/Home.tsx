@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { MOCK_CHANNELS } from '../constants/mockData';
+import Layout from '../components/Layout';
 import type { Channel } from '../types';
 
 export default function Home() {
@@ -11,7 +12,6 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -55,25 +55,12 @@ export default function Home() {
   const displayName = userData?.displayName || user.displayName || 'User';
 
   return (
-    <div>
-      <header className="header">
-        <div className="header-content">
-          <div>
-            <h1 className="text-title">Bienvenido, {displayName}!</h1>
-            <p className="text-subtitle">
-              Selecciona un canal para comenzar a chatear.
-            </p>
-          </div>
-          <button 
-            className="settings-button"
-            onClick={() => navigate('/settings')}
-          >
-            ⚙️
-          </button>
-        </div>
-      </header>
+    <Layout title={`Bienvenido, ${displayName}!`}>
+      <div style={{ padding: '0 16px' }}>
+        <p className="text-subtitle" style={{ marginBottom: '16px' }}>
+          Selecciona un canal para comenzar a chatear.
+        </p>
 
-      <main className="container">
         <ul className="channels-list">
           {MOCK_CHANNELS.map((channel) => (
             <li
@@ -94,48 +81,7 @@ export default function Home() {
             </li>
           ))}
         </ul>
-      </main>
-
-      
-      <footer className="nav-footer">
-        <ul className="nav-items">
-          <li 
-            className={`nav-item ${location.pathname === '/home' ? 'active' : ''}`}
-            onClick={() => navigate('/home')}
-          >
-            <span className="nav-icon">🏠</span>
-            <span>Home</span>
-          </li>
-          <li 
-            className={`nav-item ${location.pathname === '/explore' ? 'active' : ''}`}
-            onClick={() => navigate('/explore')}
-          >
-            <span className="nav-icon">🔍</span>
-            <span>Explore</span>
-          </li>
-          <li 
-            className={`nav-item ${location.pathname === '/create' ? 'active' : ''}`}
-            onClick={() => navigate('/create')}
-          >
-            <span className="nav-icon">➕</span>
-            <span>Create</span>
-          </li>
-          <li 
-            className={`nav-item ${location.pathname === '/messages' ? 'active' : ''}`}
-            onClick={() => navigate('/messages')}
-          >
-            <span className="nav-icon">💬</span>
-            <span>Messages</span>
-          </li>
-          <li 
-            className={`nav-item ${location.pathname === '/profile' ? 'active' : ''}`}
-            onClick={() => navigate('/profile')}
-          >
-            <span className="nav-icon">👤</span>
-            <span>Profile</span>
-          </li>
-        </ul>
-      </footer>
-    </div>
+      </div>
+    </Layout>
   );
 }

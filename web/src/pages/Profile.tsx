@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import Layout from '../components/Layout';
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -50,20 +51,8 @@ export default function Profile() {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="min-vh-100" style={{ backgroundColor: 'var(--background)' }}>
-      <header className="header">
-        <div className="header-content" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h1 className="text-title">Perfil</h1>
-          <button 
-            className="settings-button"
-            onClick={() => {}}
-          >
-            ⚙️
-          </button>
-        </div>
-      </header>
-
-      <main className="container" style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <Layout title="Perfil">
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
@@ -114,7 +103,7 @@ export default function Profile() {
               backgroundColor: 'var(--primary)',
               color: 'white'
             }}
-            onClick={() => {}}
+            onClick={() => {/* Aquí irá editar perfil */}}
           >
             Editar Perfil
           </button>
@@ -194,32 +183,7 @@ export default function Profile() {
             </div>
           </div>
         </div>
-      </main>
-
-      <footer className="nav-footer">
-        <ul className="nav-items">
-          <li className="nav-item" onClick={() => navigate('/home')}>
-            <span className="nav-icon">🏠</span>
-            <span>Home</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/explore')}>
-            <span className="nav-icon">🔍</span>
-            <span>Explore</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/create')}>
-            <span className="nav-icon">➕</span>
-            <span>Create</span>
-          </li>
-          <li className="nav-item" onClick={() => navigate('/messages')}>
-            <span className="nav-icon">💬</span>
-            <span>Messages</span>
-          </li>
-          <li className="nav-item active" onClick={() => navigate('/profile')}>
-            <span className="nav-icon">👤</span>
-            <span>Profile</span>
-          </li>
-        </ul>
-      </footer>
-    </div>
+      </div>
+    </Layout>
   );
 }
