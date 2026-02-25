@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MessageInputProps {
   onSend: (text: string) => void;
@@ -10,6 +12,7 @@ interface MessageInputProps {
 
 export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
 
   const chatTheme = colors.chat;
@@ -26,7 +29,8 @@ export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
       styles.container,
       {
         backgroundColor: chatTheme.id === 'default' ? colors.background : chatTheme.background,
-        borderTopColor: colors.border
+        borderTopColor: colors.border,
+        paddingBottom: Math.max(insets.bottom, spacing.sm)
       }
     ]}>
       <TextInput
@@ -55,9 +59,7 @@ export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
         disabled={!text.trim() || disabled}
         activeOpacity={0.7}
       >
-        <View style={styles.sendIconContainer}>
-          <View style={styles.sendIcon} />
-        </View>
+        <Ionicons name="paper-plane" size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -68,7 +70,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.sm,
     borderTopWidth: 1,
     alignItems: 'flex-end',
   },
@@ -92,24 +93,5 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
-  },
-  sendIconContainer: {
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendIcon: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 0,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftColor: '#FFFFFF',
-    borderRightColor: 'transparent',
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    marginLeft: 2,
   },
 });
