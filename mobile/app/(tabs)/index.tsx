@@ -5,8 +5,8 @@ import { ChannelCard } from '@/components/ChannelCard';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { MOCK_CHANNELS } from '@/constants/mockData';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,25 +19,32 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeSnapshot: () => void;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         router.replace('/auth/login');
         setLoading(false);
         return;
       }
       setUser(currentUser);
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
+
+      const userRef = doc(db, 'users', currentUser.uid);
+      unsubscribeSnapshot = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          setUserData(doc.data());
         }
-      } catch (error) {
-        console.error(error);
-      } finally {
         setLoading(false);
-      }
+      }, (error) => {
+        console.error('Error listening to user data:', error);
+        setLoading(false);
+      });
     });
-    return unsubscribe;
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
   const handleChannelPress = (channel: Channel) => {
