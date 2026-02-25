@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
-import Layout from '../../components/Layout';
 
 export default function Settings() {
   const [userData, setUserData] = useState<any>(null);
@@ -14,7 +13,6 @@ export default function Settings() {
   useEffect(() => {
     const loadUserData = async () => {
       if (!currentUser) return;
-      
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
@@ -24,7 +22,6 @@ export default function Settings() {
         console.error('Error loading user:', error);
       }
     };
-
     loadUserData();
   }, [currentUser]);
 
@@ -48,9 +45,18 @@ export default function Settings() {
   };
 
   return (
-    <Layout title="Settings" showBackButton={true}>
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
-        
+    <div className="chat-loading-container">
+      <div className="chat-header">
+        <button
+          className="chat-back-button"
+          onClick={() => navigate(-1)}
+        >
+          ←
+        </button>
+        <h1 className="chat-header-title">Settings</h1>
+      </div>
+
+      <div className="container" style={{ paddingTop: '16px' }}>
         <div className="settings-section">
           <h2 className="settings-section-title">Profile</h2>
           
@@ -115,6 +121,6 @@ export default function Settings() {
           </p>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 }
