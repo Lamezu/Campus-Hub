@@ -34,7 +34,6 @@ export default function Layout({
         flexDirection: 'column',
         backgroundColor: 'var(--background)'
       }}>
-        {/* Header */}
         <header className="header" style={{ 
           position: 'sticky', 
           top: 0, 
@@ -76,7 +75,6 @@ export default function Layout({
           </div>
         </header>
 
-        {/* Contenido principal */}
         <main style={{ 
           flex: 1,
           backgroundColor: 'var(--background)',
@@ -85,7 +83,6 @@ export default function Layout({
           {children}
         </main>
 
-        {/* Footer solo visible en móvil */}
         {!isDesktop && (
           <footer className="nav-footer">
             <ul className="nav-items">

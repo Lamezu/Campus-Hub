@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import Layout from '../components/Layout';
+import { auth, db } from '../../config/firebase';
+import Layout from '../../components/Layout';
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);

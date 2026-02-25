@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import { MOCK_CHANNELS } from '../constants/mockData';
-import type { Message } from '../types';
+import { auth, db } from '../../config/firebase';
+import { MOCK_CHANNELS } from '../../constants/mockData';
+import type { Message } from '../../types';
 
 const MESSAGES_PER_PAGE = 50;
 

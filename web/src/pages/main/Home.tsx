@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import { MOCK_CHANNELS } from '../constants/mockData';
-import Layout from '../components/Layout';
-import type { Channel } from '../types';
+import { auth, db } from '../../config/firebase';
+import { MOCK_CHANNELS } from '../../constants/mockData';
+import Layout from '../../components/Layout';
+import type { Channel } from '../../types';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);

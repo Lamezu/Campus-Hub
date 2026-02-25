@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
-import Layout from '../components/Layout';
+import { auth } from '../../config/firebase';
+import Layout from '../../components/Layout';
 
-export default function Explore() {
+export default function Messages() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -28,15 +28,15 @@ export default function Explore() {
   }
 
   return (
-    <Layout title="Buscar">
+    <Layout title="Mensajes directos">
       <div style={{ 
         maxWidth: '600px', 
         margin: '0 auto', 
-        padding: '40px 20px',
+        padding: '20px',
         textAlign: 'center'
       }}>
         <p className="text-subtitle" style={{ marginBottom: '16px' }}>
-          Busca usuarios, grupos y eventos en tu campus
+          Conversaciones privadas con amigos
         </p>
         
         <div style={{ 
@@ -46,13 +46,13 @@ export default function Explore() {
           marginTop: '20px'
         }}>
           <span style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}>
-            🔍
+            💬
           </span>
           <h2 style={{ color: 'var(--text)', marginBottom: '8px' }}>
             Próximamente
           </h2>
           <p className="text-subtitle">
-            Sprint 3 - Exploración de contenido
+            Sprint 4 - Mensajería directa
           </p>
         </div>
       </div>

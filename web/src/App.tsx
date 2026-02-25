@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Explore from './pages/Explore';
-import Create from './pages/Create';
-import Messages from './pages/Messages';
-import Profile from './pages/Profile';
-import Chat from './pages/Chat';
-import Register from './pages/Register';
-import Settings from './pages/Settings';
+import Login from './pages/auth/Login';
+import Home from './pages/main/Home';
+import Explore from './pages/main/Explore';
+import Create from './pages/main/Create';
+import Messages from './pages/main/Messages';
+import Profile from './pages/main/Profile';
+import Chat from './pages/chat/Chat';
+import Register from './pages/auth/Register';
+import Settings from './pages/settings/Settings';
 
 function App() {
   return (
