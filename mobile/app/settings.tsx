@@ -5,8 +5,8 @@ import { Stack, router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { spacing, typography, type AppTheme } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -24,18 +24,18 @@ export default function SettingsScreen() {
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
 
   useEffect(() => {
-    const loadUserData = async () => {
-      if (!currentUser) return;
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
-      } catch (error) {
-        console.error(error);
+    if (!currentUser) return;
+
+    const userRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        setUserData(doc.data());
       }
-    };
-    loadUserData();
+    }, (error) => {
+      console.error('Error listening to user data in settings:', error);
+    });
+
+    return () => unsubscribe();
   }, [currentUser]);
 
   const handleLogout = async () => {
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.card }]} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.card} translucent={false} />
       <Stack.Screen options={{
-        title: 'Settings',
+        title: 'Ajustes',
         headerShown: true,
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.text,
@@ -120,7 +120,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.infoRow}>
               <ThemedText style={styles.label}>Email</ThemedText>
-              <ThemedText style={styles.value}>{currentUser?.email}</ThemedText>
+              <ThemedText style={styles.value}>{userData?.email || currentUser?.email}</ThemedText>
             </View>
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
