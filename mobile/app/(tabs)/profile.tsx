@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { auth, db } from '@/config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -17,24 +17,24 @@ export default function ProfileScreen() {
   const currentUser = auth.currentUser;
 
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!currentUser) {
-        router.replace('/auth/login');
-        return;
+    if (!currentUser) {
+      router.replace('/auth/login');
+      return;
+    }
+
+    const userRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        setUserData(doc.data());
       }
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, []);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error listening to user profile:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   if (loading) {
     return (
@@ -44,7 +44,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const displayName = userData?.displayName || currentUser?.displayName || 'User';
+  const displayName = userData?.displayName || currentUser?.displayName || 'Usuario';
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -70,11 +70,11 @@ export default function ProfileScreen() {
         </View>
 
         <ThemedText style={styles.name}>{displayName}</ThemedText>
-        <ThemedText style={styles.email}>{currentUser?.email}</ThemedText>
+        <ThemedText style={styles.email}>{userData?.email || currentUser?.email}</ThemedText>
 
         <TouchableOpacity
           style={[styles.editButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('../settings')}
+          onPress={() => router.push('/edit-profile' as any)}
         >
           <ThemedText style={styles.editButtonText}>Editar Perfil</ThemedText>
         </TouchableOpacity>
@@ -102,16 +102,16 @@ export default function ProfileScreen() {
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <ThemedText style={styles.actionTitle}>💾 Mensajes Guardados</ThemedText>
-          <ThemedText style={styles.actionSubtitle}>Ver tu contenido guardado</ThemedText>
+          <ThemedText style={styles.actionSubtitle}>Ver contenido guardado</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <ThemedText style={styles.actionTitle}>👥 Amigos</ThemedText>
-          <ThemedText style={styles.actionSubtitle}>Administrar tu lista de amigos</ThemedText>
+          <ThemedText style={styles.actionSubtitle}>Gestionar lista de amigos</ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <ThemedText style={styles.actionTitle}>⭐ Mejores amigos</ThemedText>
+          <ThemedText style={styles.actionTitle}>⭐ Mejores Amigos</ThemedText>
           <ThemedText style={styles.actionSubtitle}>Tus conexiones más cercanas</ThemedText>
         </TouchableOpacity>
       </View>
