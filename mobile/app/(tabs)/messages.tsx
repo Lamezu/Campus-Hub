@@ -10,7 +10,7 @@ export default function MessagesScreen() {
         Conversaciones privadas con amigos
       </ThemedText>
       <ThemedText style={styles.comingSoon}>
-        Coming in Sprint 4 💬
+        Próximamente en Sprint 4 💬
       </ThemedText>
     </ThemedView>
   );

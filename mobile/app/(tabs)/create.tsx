@@ -10,7 +10,7 @@ export default function CreateScreen() {
         Compartir posts y eventos
       </ThemedText>
       <ThemedText style={styles.comingSoon}>
-        Coming in Sprint 4 ✨
+        Próximamente en Sprint 4 ✨
       </ThemedText>
     </ThemedView>
   );

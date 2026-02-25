@@ -40,13 +40,13 @@ export default function LoginScreen() {
   });
 
   useEffect(() => {
-    setDebugInfo(`Platform: ${Platform.OS} | URI: ${redirectUri}`);
+    setDebugInfo(`Plataforma: ${Platform.OS} | URI: ${redirectUri}`);
   }, []);
 
   useEffect(() => {
     if (response?.type !== 'success') {
       if (response?.type === 'error') {
-        Alert.alert('Google Error', response.error?.message || 'Unknown error');
+        Alert.alert('Error de Google', response.error?.message || 'Error desconocido');
       }
       return;
     }
@@ -91,10 +91,10 @@ export default function LoginScreen() {
           handleSocialLogin(credential);
           return;
         }
-      } catch {}
+      } catch { }
     }
 
-    Alert.alert('Error', 'No authentication token received from Google');
+    Alert.alert('Error', 'No se ha recibido el token de autenticación de Google');
   }, [response]);
 
   useEffect(() => {
@@ -108,12 +108,12 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please complete all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email');
+      Alert.alert('Error', 'Por favor introduce un email válido');
       return;
     }
 
@@ -122,10 +122,10 @@ export default function LoginScreen() {
       await signInWithEmailAndPassword(auth, email, password);
       router.replace('/(tabs)');
     } catch (error: any) {
-      let message = 'Invalid credentials';
-      if (error.code === 'auth/user-not-found') message = 'User not found';
-      if (error.code === 'auth/wrong-password') message = 'Wrong password';
-      if (error.code === 'auth/too-many-requests') message = 'Too many attempts, try later';
+      let message = 'Credenciales inválidas';
+      if (error.code === 'auth/user-not-found') message = 'Usuario no encontrado';
+      if (error.code === 'auth/wrong-password') message = 'Contraseña incorrecta';
+      if (error.code === 'auth/too-many-requests') message = 'Demasiados intentos, prueba más tarde';
       Alert.alert('Error', message);
     } finally {
       setLoading(false);
@@ -155,20 +155,20 @@ export default function LoginScreen() {
       await setDoc(userRef, userData, { merge: true });
       router.replace('/(tabs)');
     } catch (error: any) {
-      let message = 'Unable to sign in with Google';
+      let message = 'No se ha podido iniciar sesión con Google';
       switch (error.code) {
         case 'auth/account-exists-with-different-credential':
-          message = 'This email is registered with a different sign-in method';
+          message = 'Este email ya está registrado con otro método de inicio de sesión';
           break;
         case 'auth/popup-blocked':
         case 'auth/popup-closed-by-user':
-          message = 'Google sign-in was cancelled or blocked';
+          message = 'El inicio de sesión de Google fue cancelado o bloqueado';
           break;
         case 'auth/unauthorized-domain':
-          message = 'Unauthorized domain configured in Firebase';
+          message = 'Dominio no autorizado configurado en Firebase';
           break;
         case 'auth/invalid-credential':
-          message = 'Invalid or expired credential';
+          message = 'Credencial inválida o caducada';
           break;
       }
       Alert.alert('Error', message);
@@ -186,9 +186,9 @@ export default function LoginScreen() {
     try {
       const testRef = doc(db, 'test', `test-${Date.now()}`);
       await setDoc(testRef, { test: true, timestamp: new Date().toISOString(), platform: Platform.OS });
-      Alert.alert('Firestore Test', 'Connection successful');
+      Alert.alert('Test de Firestore', 'Conexión exitosa');
     } catch (error: any) {
-      Alert.alert('Firestore Error', error.message);
+      Alert.alert('Error de Firestore', error.message);
     }
   };
 
@@ -253,7 +253,7 @@ export default function LoginScreen() {
               }}
               style={styles.debugButton}
             >
-              <ThemedText style={styles.debugButtonText}>Debug Log</ThemedText>
+              <ThemedText style={styles.debugButtonText}>Log de Depuración</ThemedText>
             </TouchableOpacity>
           </View>
         )}

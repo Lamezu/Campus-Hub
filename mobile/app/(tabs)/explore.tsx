@@ -10,7 +10,7 @@ export default function ExploreScreen() {
         Busca usuarios, grupos y eventos en tu campus
       </ThemedText>
       <ThemedText style={styles.comingSoon}>
-        Coming in Sprint 3 🔍
+        Próximamente en Sprint 3 🔍
       </ThemedText>
     </ThemedView>
   );

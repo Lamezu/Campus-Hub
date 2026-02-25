@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, ImageBackground, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useHeaderHeight } from '@react-navigation/elements';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
@@ -25,13 +26,14 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const insets = useSafeAreaInsets();
   const [userProfile, setUserProfile] = useState<any>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const lastDocRef = useRef<any>(null);
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
-  const channelName = channel?.name || `Channel ${id}`;
+  const channelName = channel?.name || `Canal ${id}`;
   const currentUser = auth.currentUser;
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function ChatScreen() {
           id: doc.id,
           text: data.text || '',
           senderId: data.senderId || '',
-          senderName: data.senderName || 'Unknown',
+          senderName: data.senderName || 'Desconocido',
           senderPhoto: data.senderPhoto || null,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           edited: data.edited || false,
@@ -79,9 +81,6 @@ export default function ChatScreen() {
       if (snapshot.docs.length > 0) {
         lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
       }
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 100);
     }, (error) => {
       console.error(error);
       setLoading(false);
@@ -102,7 +101,7 @@ export default function ChatScreen() {
           id: doc.id,
           text: data.text || '',
           senderId: data.senderId || '',
-          senderName: data.senderName || 'Unknown',
+          senderName: data.senderName || 'Desconocido',
           senderPhoto: data.senderPhoto || null,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           edited: data.edited || false,
@@ -112,7 +111,7 @@ export default function ChatScreen() {
         };
       });
       if (olderMessages.length > 0) {
-        setMessages(prev => [...olderMessages, ...prev]);
+        setMessages(prev => [...prev, ...olderMessages]);
         lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
       }
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
@@ -128,7 +127,7 @@ export default function ChatScreen() {
     setSending(true);
     try {
       const messagesRef = collection(db, 'channels', id, 'messages');
-      const finalSenderName = userProfile?.displayName || currentUser.displayName || 'User';
+      const finalSenderName = userProfile?.displayName || currentUser.displayName || 'Usuario';
       await addDoc(messagesRef, {
         text,
         senderId: currentUser.uid,
@@ -140,16 +139,15 @@ export default function ChatScreen() {
         attachments: null,
         reactions: {}
       });
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
     } catch (error) {
       console.error(error);
-      alert('Failed to send message.');
+      alert('Error al enviar el mensaje.');
     } finally {
       setSending(false);
     }
   };
+
+  const headerHeight = useHeaderHeight();
 
   if (loading) {
     return (
@@ -164,45 +162,80 @@ export default function ChatScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar
         barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.card}
-        translucent={Platform.OS === 'ios'}
+        backgroundColor="transparent"
+        translucent={true}
       />
       <Stack.Screen options={{
-        title: channelName,
         headerShown: true,
-        headerStyle: { backgroundColor: colors.card },
+        headerStyle: {
+          backgroundColor: colors.card,
+        },
         headerShadowVisible: false,
         headerTintColor: colors.text,
         headerTitleAlign: 'center',
         headerBackVisible: false,
+        headerTitle: () => (
+          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
+            <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>{channelName}</ThemedText>
+          </View>
+        ),
         headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs - 2, padding: 3 }}>
-            <IconSymbol name="chevron.left" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingLeft: spacing.xs }}>
+            <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+              <IconSymbol name="chevron.left" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         ),
         headerRight: () => (
-          <TouchableOpacity onPress={() => setShowSettings(true)} style={{ marginRight: spacing.xs - 3, padding: 4 }}>
-            <IconSymbol name="gear" size={25} color={colors.text} />
-          </TouchableOpacity>
+          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingRight: spacing.xs }}>
+            <TouchableOpacity onPress={() => setShowSettings(true)} style={{ padding: 4 }}>
+              <IconSymbol name="gear" size={25} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         )
       }} />
 
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
-      >
-        <ImageBackground source={colors.chat.backgroundImage ? { uri: colors.chat.backgroundImage } : undefined} style={[styles.container, { backgroundColor: colors.chat.background }]} resizeMode="cover">
+      <View style={[styles.container, { backgroundColor: colors.chat.background }]}>
+        {colors.chat.backgroundImage && (
+          <Image
+            source={{ uri: colors.chat.backgroundImage }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
+        )}
+        {Platform.OS === 'ios' ? (
+          <KeyboardAvoidingView
+            style={styles.container}
+            behavior="padding"
+            keyboardVerticalOffset={headerHeight}
+          >
+            <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <MessageBubble message={item} isOwnMessage={item.senderId === currentUser?.uid} />}
+                contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
+                onEndReached={loadMoreMessages}
+                onEndReachedThreshold={0.5}
+                ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
+                ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
+                inverted
+              />
+              <MessageInput onSend={handleSendMessage} disabled={sending} />
+            </View>
+          </KeyboardAvoidingView>
+        ) : (
           <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
             <FlatList
               ref={flatListRef}
               data={messages}
               keyExtractor={item => item.id}
               renderItem={({ item }) => <MessageBubble message={item} isOwnMessage={item.senderId === currentUser?.uid} />}
-              contentContainerStyle={[styles.messageList, Platform.OS === 'android' && { paddingTop: spacing.md }]}
+              contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.5}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
@@ -211,8 +244,8 @@ export default function ChatScreen() {
             />
             <MessageInput onSend={handleSendMessage} disabled={sending} />
           </View>
-        </ImageBackground>
-      </KeyboardAvoidingView>
+        )}
+      </View>
 
       <Modal visible={showSettings} animationType="slide" transparent={true} onRequestClose={() => setShowSettings(false)}>
         <View style={styles.modalOverlay}>

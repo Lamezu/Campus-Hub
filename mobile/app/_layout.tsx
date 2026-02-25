@@ -17,7 +17,9 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Ajustes' }} />
+        <Stack.Screen name="edit-profile" options={{ presentation: 'modal', title: 'Editar Perfil' }} />
+        <Stack.Screen name="account-details" options={{ presentation: 'modal', title: 'Datos de la Cuenta' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
