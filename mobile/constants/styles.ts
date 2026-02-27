@@ -240,7 +240,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#BBDEFB',
     textOwn: '#FFFFFF',
     textOther: '#0D47A1',
-    nameColor: '#000000',
+    nameColor: '#FFFFFF',
   },
   coffee: {
     id: 'coffee',
