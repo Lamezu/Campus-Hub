@@ -1,8 +1,26 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
+import { TouchableOpacity, StyleSheet, View } from 'react-native';
+import {
+  MessagesSquare,
+  CodeXml,
+  Folders,
+  CalendarFold,
+  MessageCircleQuestion,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Channel } from '@/types';
+
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  'messages-square': MessagesSquare,
+  'code-xml': CodeXml,
+  'folders': Folders,
+  'calendar-fold': CalendarFold,
+  'message-circle-question': MessageCircleQuestion,
+};
 
 interface ChannelCardProps {
   channel: Channel;
@@ -11,22 +29,23 @@ interface ChannelCardProps {
 
 export function ChannelCard({ channel, onPress }: ChannelCardProps) {
   const { colors } = useTheme();
+  const Icon: LucideIcon = channel.icon ? (CHANNEL_ICONS[channel.icon] ?? MessagesSquare) : MessagesSquare;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.container, { borderBottomColor: colors.border }]}>
         <View style={[styles.iconContainer, { backgroundColor: colors.backgroundSecondary }]}>
-          <Text style={styles.icon}>{channel.icon}</Text>
+          <Icon size={22} color={colors.primary} strokeWidth={1.8} />
         </View>
 
         <View style={styles.content}>
-          <Text style={[styles.name, { color: colors.text }]}>{channel.name}</Text>
-          <Text style={[styles.description, { color: colors.text }]} numberOfLines={1}>
+          <ThemedText style={[styles.name, { color: colors.text }]}>{channel.name}</ThemedText>
+          <ThemedText style={[styles.description, { color: colors.textSecondary }]} numberOfLines={1}>
             {channel.description}
-          </Text>
+          </ThemedText>
         </View>
 
-        <Text style={[styles.chevron, { color: colors.textSecondary }]}>›</Text>
+        <ChevronRight size={18} color={colors.textSecondary} strokeWidth={1.8} />
       </View>
     </TouchableOpacity>
   );
@@ -36,7 +55,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     padding: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   iconContainer: {
@@ -47,23 +66,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  icon: {
-    fontSize: 24,
-  },
   content: {
     flex: 1,
   },
   name: {
     fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
+    fontWeight: '600',
     marginBottom: spacing.xs,
   },
   description: {
     fontSize: typography.sizes.sm,
-    opacity: 0.6,
-  },
-  chevron: {
-    fontSize: 24,
-    marginLeft: spacing.sm,
   },
 });
