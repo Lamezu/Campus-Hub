@@ -12,13 +12,14 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { ChevronLeft } from 'lucide-react-native';
 import { auth, db } from '@/config/firebase';
 import { uploadPostMedia } from '@/config/cloudinary';
 import { useTheme } from '@/contexts/ThemeContext';
-import { router } from 'expo-router';
 import { spacing, typography } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { SongPicker } from '@/components/SongPicker';
@@ -27,36 +28,48 @@ import type { JamendoTrack } from '@/types';
 const TITLE_MAX = 50;
 const CONTENT_MAX = 500;
 
-interface MediaAsset {
+interface NewMedia {
   uri: string;
   type: 'image' | 'video';
 }
 
-interface UserProfile {
-  displayName: string;
-  photoURL: string | null;
-}
-
-export default function CreateScreen() {
+export default function EditPostScreen() {
   const { colors } = useTheme();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [media, setMedia] = useState<MediaAsset | null>(null);
+  const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
+  const [existingMediaType, setExistingMediaType] = useState<'image' | 'video' | null>(null);
+  const [newMedia, setNewMedia] = useState<NewMedia | null>(null);
+  const [mediaRemoved, setMediaRemoved] = useState(false);
   const [song, setSong] = useState<JamendoTrack | null>(null);
   const [showSongPicker, setShowSongPicker] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<UserProfile>({ displayName: '', photoURL: null });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    getDoc(doc(db, 'users', user.uid)).then((snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        setProfile({ displayName: d.displayName ?? user.displayName ?? '', photoURL: d.photoURL ?? null });
+    if (!id) return;
+    getDoc(doc(db, 'posts', id)).then((snap) => {
+      if (!snap.exists()) {
+        Alert.alert('Error', 'Post no encontrado.');
+        router.back();
+        return;
       }
+      const d = snap.data();
+      if (d.authorId !== auth.currentUser?.uid) {
+        Alert.alert('Error', 'No tienes permiso para editar este post.');
+        router.back();
+        return;
+      }
+      setTitle(d.title ?? '');
+      setContent(d.content ?? '');
+      setExistingMediaUrl(d.mediaUrl ?? null);
+      setExistingMediaType(d.mediaType ?? null);
+      setSong(d.song ?? null);
+      setLoading(false);
     });
-  }, []);
+  }, [id]);
 
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -72,62 +85,87 @@ export default function CreateScreen() {
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    setMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
+    setNewMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
+    setMediaRemoved(false);
     if (asset.type !== 'video') setSong(null);
   };
 
   const removeMedia = () => {
-    setMedia(null);
+    setNewMedia(null);
+    setExistingMediaUrl(null);
+    setExistingMediaType(null);
+    setMediaRemoved(true);
     setSong(null);
   };
 
-  const handlePublish = async () => {
-    const user = auth.currentUser;
-    if (!user || !title.trim()) return;
-
-    setLoading(true);
+  const handleSave = async () => {
+    if (!id || !title.trim()) return;
+    setSaving(true);
     try {
-      const postRef = doc(collection(db, 'posts'));
-      let mediaUrl: string | null = null;
+      let finalMediaUrl: string | null = null;
+      let finalMediaType: 'image' | 'video' | null = null;
 
-      if (media) {
-        mediaUrl = await uploadPostMedia(media.uri, media.type, postRef.id);
+      if (newMedia) {
+        finalMediaUrl = await uploadPostMedia(newMedia.uri, newMedia.type, id);
+        finalMediaType = newMedia.type;
+      } else if (!mediaRemoved && existingMediaUrl) {
+        finalMediaUrl = existingMediaUrl;
+        finalMediaType = existingMediaType;
       }
 
-      await addDoc(collection(db, 'posts'), {
+      await updateDoc(doc(db, 'posts', id), {
         title: title.trim(),
         content: content.trim(),
-        authorId: user.uid,
-        authorName: profile.displayName,
-        authorPhoto: profile.photoURL,
-        createdAt: serverTimestamp(),
-        updatedAt: null,
-        likes: [],
-        likesCount: 0,
-        commentsCount: 0,
-        mediaUrl: mediaUrl ?? null,
-        mediaType: media?.type ?? null,
+        mediaUrl: finalMediaUrl,
+        mediaType: finalMediaType,
         song: song ?? null,
+        updatedAt: serverTimestamp(),
       });
 
-      setTitle('');
-      setContent('');
-      setMedia(null);
-      setSong(null);
-      router.push('/(tabs)/explore');
+      router.back();
     } catch {
-      Alert.alert('Error', 'No se pudo publicar el post. Inténtalo de nuevo.');
+      Alert.alert('Error', 'No se pudo guardar el post. Inténtalo de nuevo.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const canPublish = title.trim().length > 0 && !loading;
+  const currentMediaUri = newMedia?.uri ?? (mediaRemoved ? null : existingMediaUrl);
+  const currentMediaType = newMedia?.type ?? (mediaRemoved ? null : existingMediaType);
+  const hasMedia = !!currentMediaUri;
+  const canSave = title.trim().length > 0 && !saving;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Crear Post</ThemedText>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
+        </TouchableOpacity>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Editar Post</ThemedText>
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: colors.primary }, !canSave && styles.saveBtnDisabled]}
+          onPress={handleSave}
+          disabled={!canSave}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <ThemedText style={styles.saveBtnText}>Guardar</ThemedText>
+          )}
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -163,22 +201,29 @@ export default function CreateScreen() {
 
           <TouchableOpacity
             style={[styles.mediaButton, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={media ? undefined : pickMedia}
-            activeOpacity={media ? 1 : 0.7}
+            onPress={hasMedia ? undefined : pickMedia}
+            activeOpacity={hasMedia ? 1 : 0.7}
           >
-            {media ? (
+            {hasMedia ? (
               <View style={styles.mediaPreview}>
-                {media.type === 'image' ? (
-                  <Image source={{ uri: media.uri }} style={styles.mediaImage} resizeMode="cover" />
+                {currentMediaType === 'image' ? (
+                  <Image source={{ uri: currentMediaUri! }} style={styles.mediaImage} resizeMode="cover" />
                 ) : (
                   <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                     <Ionicons name="videocam" size={32} color={colors.textSecondary} />
-                    <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>Vídeo seleccionado</ThemedText>
+                    <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>
+                      {newMedia ? 'Vídeo seleccionado' : 'Vídeo actual'}
+                    </ThemedText>
                   </View>
                 )}
-                <TouchableOpacity style={styles.removeMedia} onPress={removeMedia}>
-                  <Ionicons name="close-circle" size={26} color="#FF3B30" />
-                </TouchableOpacity>
+                <View style={styles.mediaActions}>
+                  <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: colors.primary }]} onPress={pickMedia}>
+                    <ThemedText style={styles.mediaActionText}>Cambiar</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: '#FF3B30' }]} onPress={removeMedia}>
+                    <ThemedText style={styles.mediaActionText}>Eliminar</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <View style={styles.mediaEmpty}>
@@ -190,7 +235,7 @@ export default function CreateScreen() {
             )}
           </TouchableOpacity>
 
-          {media && (
+          {hasMedia && (
             <TouchableOpacity
               style={[styles.songButton, { borderColor: song ? colors.primary : colors.border, backgroundColor: colors.card }]}
               onPress={() => setShowSongPicker(true)}
@@ -221,22 +266,9 @@ export default function CreateScreen() {
               )}
             </TouchableOpacity>
           )}
-        </ScrollView>
 
-        <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.publishButton, { backgroundColor: colors.primary }, !canPublish && styles.publishButtonDisabled]}
-            onPress={handlePublish}
-            disabled={!canPublish}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <ThemedText style={styles.publishButtonText}>Publicar</ThemedText>
-            )}
-          </TouchableOpacity>
-        </View>
+          <View style={{ height: spacing.xl }} />
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <SongPicker
@@ -251,15 +283,30 @@ export default function CreateScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  backBtn: { padding: spacing.xs },
   headerTitle: {
-    fontSize: typography.sizes.xl,
+    flex: 1,
+    fontSize: typography.sizes.lg,
     fontWeight: 'bold',
+    marginLeft: spacing.sm,
   },
+  saveBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 16,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  saveBtnDisabled: { opacity: 0.5 },
+  saveBtnText: { color: '#FFF', fontWeight: '600', fontSize: typography.sizes.sm },
   scrollContent: { padding: spacing.md },
   card: {
     borderWidth: 1,
@@ -296,30 +343,28 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     gap: spacing.sm,
   },
-  mediaEmptyText: {
-    fontSize: typography.sizes.sm,
-  },
-  mediaPreview: {
-    position: 'relative',
-  },
-  mediaImage: {
-    width: '100%',
-    height: 220,
-  },
+  mediaEmptyText: { fontSize: typography.sizes.sm },
+  mediaPreview: { position: 'relative' },
+  mediaImage: { width: '100%', height: 220 },
   videoPlaceholder: {
     height: 160,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  videoLabel: {
-    fontSize: typography.sizes.sm,
+  videoLabel: { fontSize: typography.sizes.sm },
+  mediaActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
-  removeMedia: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+  mediaActionBtn: {
+    flex: 1,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 8,
+    alignItems: 'center',
   },
+  mediaActionText: { color: '#FFF', fontWeight: '600', fontSize: typography.sizes.sm },
   songButton: {
     marginTop: spacing.md,
     borderWidth: 1,
@@ -331,45 +376,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  songEmptyText: {
-    fontSize: typography.sizes.sm,
-  },
+  songEmptyText: { fontSize: typography.sizes.sm },
   songSelected: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  songCover: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-  },
-  songName: {
-    fontSize: typography.sizes.sm,
-    fontWeight: '600',
-  },
-  songArtist: {
-    fontSize: typography.sizes.xs,
-    marginTop: 2,
-  },
-  footer: {
-    padding: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  publishButton: {
-    paddingVertical: spacing.md,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  publishButtonDisabled: { opacity: 0.5 },
-  publishButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-  },
+  songCover: { width: 40, height: 40, borderRadius: 6 },
+  songName: { fontSize: typography.sizes.sm, fontWeight: '600' },
+  songArtist: { fontSize: typography.sizes.xs, marginTop: 2 },
 });
