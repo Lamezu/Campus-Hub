@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TouchableOpacity, Image, StyleSheet, Platform, Text } from 'react-native';
+import { UserStar, SaveAll, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
@@ -69,7 +70,12 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <ThemedText style={styles.name}>{displayName}</ThemedText>
+        <View style={styles.nameRow}>
+          <ThemedText style={styles.name}>{displayName}</ThemedText>
+          {(userData?.role === 'teacher' || userData?.role === 'admin') && (
+            <UserStar size={18} color={colors.primary} strokeWidth={1.8} />
+          )}
+        </View>
         <ThemedText style={styles.email}>{userData?.email || currentUser?.email}</ThemedText>
 
         <TouchableOpacity
@@ -101,18 +107,27 @@ export default function ProfileScreen() {
         <ThemedText style={styles.sectionTitle}>Acciones Rápidas</ThemedText>
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <ThemedText style={styles.actionTitle}>💾 Mensajes Guardados</ThemedText>
-          <ThemedText style={styles.actionSubtitle}>Ver contenido guardado</ThemedText>
+          <SaveAll size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={styles.actionText}>
+            <ThemedText style={styles.actionTitle}>Mensajes Guardados</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>Ver contenido guardado</ThemedText>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <ThemedText style={styles.actionTitle}>👥 Amigos</ThemedText>
-          <ThemedText style={styles.actionSubtitle}>Gestionar lista de amigos</ThemedText>
+          <Users size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={styles.actionText}>
+            <ThemedText style={styles.actionTitle}>Amigos</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>Gestionar lista de amigos</ThemedText>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <ThemedText style={styles.actionTitle}>⭐ Mejores Amigos</ThemedText>
-          <ThemedText style={styles.actionSubtitle}>Tus conexiones más cercanas</ThemedText>
+          <UserStar size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={styles.actionText}>
+            <ThemedText style={styles.actionTitle}>Mejores Amigos</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>Tus conexiones más cercanas</ThemedText>
+          </View>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -126,7 +141,8 @@ const styles = StyleSheet.create({
   avatarContainer: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg, marginTop: spacing.md },
   avatar: { width: 96, height: 96, borderRadius: 48 },
   avatarText: { fontSize: 32, fontWeight: typography.weights.bold, textAlign: 'center', lineHeight: 32, paddingTop: 6, includeFontPadding: false },
-  name: { fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, marginBottom: spacing.xs },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
+  name: { fontSize: typography.sizes.xl, fontWeight: typography.weights.bold },
   email: { fontSize: typography.sizes.sm, opacity: 0.6, marginBottom: spacing.lg },
   editButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: 20 },
   editButtonText: { color: '#ffffff', fontWeight: typography.weights.semibold },
@@ -136,7 +152,8 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: typography.sizes.xs, opacity: 0.6, marginTop: spacing.xs },
   section: { padding: spacing.lg, paddingTop: spacing.md },
   sectionTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, marginBottom: spacing.md },
-  actionCard: { borderWidth: 1, padding: spacing.md, borderRadius: 12, marginBottom: spacing.sm },
+  actionCard: { borderWidth: 1, padding: spacing.md, borderRadius: 12, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  actionText: { flex: 1 },
   actionTitle: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
   actionSubtitle: { fontSize: typography.sizes.sm, opacity: 0.6, marginTop: spacing.xs }
 });

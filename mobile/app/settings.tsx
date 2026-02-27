@@ -20,6 +20,7 @@ const PRESET_COLORS = [
 
 export default function SettingsScreen() {
   const [userData, setUserData] = useState<any>(null);
+  const [showFullEmail, setShowFullEmail] = useState(false);
   const currentUser = auth.currentUser;
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
 
@@ -96,7 +97,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
-            <ThemedText style={styles.sectionTitle}>Color Personalizado (Monocromático)</ThemedText>
+            <ThemedText style={styles.sectionTitle}>Color Personalizado</ThemedText>
             <ThemedText style={styles.sectionDescription}>Selecciona un color para personalizar la interfaz instantáneamente.</ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll}>
               {PRESET_COLORS.map(color => (
@@ -118,10 +119,20 @@ export default function SettingsScreen() {
               <ThemedText style={styles.label}>Nombre</ThemedText>
               <ThemedText style={styles.value}>{userData?.displayName || currentUser?.displayName || 'User'}</ThemedText>
             </View>
-            <View style={styles.infoRow}>
+            <TouchableOpacity
+              style={styles.infoColumn}
+              activeOpacity={0.7}
+              onPress={() => setShowFullEmail(v => !v)}
+            >
               <ThemedText style={styles.label}>Email</ThemedText>
-              <ThemedText style={styles.value}>{userData?.email || currentUser?.email}</ThemedText>
-            </View>
+              <ThemedText
+                style={styles.value}
+                numberOfLines={showFullEmail ? 0 : 1}
+                ellipsizeMode="tail"
+              >
+                {userData?.email || currentUser?.email}
+              </ThemedText>
+            </TouchableOpacity>
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>Cuenta</ThemedText>
@@ -146,6 +157,7 @@ const styles = StyleSheet.create({
   colorScroll: { flexDirection: 'row', marginTop: spacing.sm },
   colorSwatch: { width: 44, height: 44, borderRadius: 22, marginRight: spacing.md },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm },
+  infoColumn: { paddingVertical: spacing.sm, gap: 4 },
   label: { fontSize: typography.sizes.md, opacity: 0.6 },
   value: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
   button: { padding: spacing.md, borderRadius: 8, alignItems: 'center', marginTop: spacing.sm },

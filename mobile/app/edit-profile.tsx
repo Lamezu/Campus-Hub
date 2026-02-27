@@ -24,7 +24,7 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
-import { uploadToCloudinary } from '@/config/cloudinary';
+import { uploadProfilePhoto } from '@/config/cloudinary';
 
 export default function EditProfileScreen() {
     const { colors, theme } = useTheme();
@@ -90,8 +90,7 @@ export default function EditProfileScreen() {
         try {
             let finalPhotoURL = photoURL;
             if (photoURL && (photoURL.startsWith('file://') || photoURL.includes('ExponentExperienceData'))) {
-                const uploadResult = await uploadToCloudinary(photoURL, currentUser.uid);
-                finalPhotoURL = uploadResult.secure_url;
+                finalPhotoURL = await uploadProfilePhoto(photoURL, currentUser.uid);
             }
 
             await updateProfile(currentUser, {

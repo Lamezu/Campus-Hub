@@ -1,4 +1,5 @@
 import { StyleSheet, FlatList, TouchableOpacity, View } from 'react-native';
+import { Settings } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ChannelCard } from '@/components/ChannelCard';
@@ -59,7 +60,7 @@ export default function HomeScreen() {
         <View style={styles.headerContent}>
           <ThemedText type="title">Bienvenido, {userData?.displayName || user.displayName || 'User'}!</ThemedText>
           <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
-            <ThemedText style={styles.settingsIcon}>⚙️</ThemedText>
+            <Settings size={24} color={colors.text} strokeWidth={1.8} />
           </TouchableOpacity>
         </View>
         <ThemedText style={styles.subtitle}>Selecciona un canal para comenzar a chatear.</ThemedText>
@@ -79,7 +80,6 @@ const styles = StyleSheet.create({
   header: { padding: spacing.lg, borderBottomWidth: 1, paddingTop: 60 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingsButton: { padding: spacing.sm },
-  settingsIcon: { fontSize: 24 },
   subtitle: { marginTop: spacing.xs, fontSize: typography.sizes.sm, opacity: 0.6 },
   listContent: { paddingBottom: spacing.lg }
 });
