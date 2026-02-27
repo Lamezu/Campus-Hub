@@ -20,6 +20,8 @@ function RootLayoutNav() {
         <Stack.Screen name="settings" options={{ presentation: 'modal', title: 'Ajustes' }} />
         <Stack.Screen name="edit-profile" options={{ presentation: 'modal', title: 'Editar Perfil' }} />
         <Stack.Screen name="account-details" options={{ presentation: 'modal', title: 'Datos de la Cuenta' }} />
+        <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-post" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />

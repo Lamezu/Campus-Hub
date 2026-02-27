@@ -27,6 +27,12 @@ export interface Channel {
   lastMessageTime?: string;
 }
 
+export interface ReplyPreview {
+  id: string;
+  text: string;
+  senderName: string;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -38,6 +44,8 @@ export interface Message {
   editedAt: string | null;
   attachments: Attachment[] | null;
   reactions: Record<string, string[]>;
+  replyTo?: ReplyPreview | null;
+  deletedForUsers?: string[];
 }
 
 export interface Attachment {
@@ -45,4 +53,44 @@ export interface Attachment {
   type: 'image' | 'file';
   name: string;
   size: number;
+}
+
+export interface JamendoTrack {
+  id: string;
+  name: string;
+  artistName: string;
+  audioUrl: string;
+  coverUrl: string;
+}
+
+export interface Post {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  likes: string[];
+  likesCount: number;
+  commentsCount: number;
+  tags?: string[];
+  mediaUrl?: string | null;
+  mediaType?: 'image' | 'video' | null;
+  song?: JamendoTrack | null;
+  viewsCount?: number;
+  views?: string[];
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto: string | null;
+  createdAt: string;
+  likes: string[];
+  likesCount: number;
 }
