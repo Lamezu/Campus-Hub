@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, ImageBackground, Image } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, Image, Alert, Animated } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -12,8 +12,8 @@ import { spacing, chatThemes, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
-import type { Message } from '@/types';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Message, ReplyPreview } from '@/types';
+import { Settings, ChevronLeft, Reply, Trash2 } from 'lucide-react-native';
 
 const MESSAGES_PER_PAGE = 50;
 
@@ -26,6 +26,10 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ReplyPreview | null>(null);
+  const [menuMessage, setMenuMessage] = useState<Message | null>(null);
+  const [isSwipingMessage, setIsSwipingMessage] = useState(false);
+  const menuScaleAnim = useRef(new Animated.Value(0.88)).current;
   const insets = useSafeAreaInsets();
   const [userProfile, setUserProfile] = useState<any>(null);
 
@@ -60,21 +64,25 @@ export default function ChatScreen() {
     const messagesRef = collection(db, 'channels', id, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messagesData: Message[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          text: data.text || '',
-          senderId: data.senderId || '',
-          senderName: data.senderName || 'Desconocido',
-          senderPhoto: data.senderPhoto || null,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          edited: data.edited || false,
-          editedAt: data.editedAt?.toDate?.()?.toISOString() || null,
-          attachments: data.attachments || null,
-          reactions: data.reactions || {}
-        };
-      });
+      const messagesData: Message[] = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            text: data.text || '',
+            senderId: data.senderId || '',
+            senderName: data.senderName || 'Desconocido',
+            senderPhoto: data.senderPhoto || null,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            edited: data.edited || false,
+            editedAt: data.editedAt?.toDate?.()?.toISOString() || null,
+            attachments: data.attachments || null,
+            reactions: data.reactions || {},
+            replyTo: data.replyTo || null,
+            deletedForUsers: data.deletedForUsers || [],
+          };
+        })
+        .filter(msg => !currentUser || !msg.deletedForUsers?.includes(currentUser.uid));
       setMessages(messagesData);
       setLoading(false);
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
@@ -95,21 +103,25 @@ export default function ChatScreen() {
       const messagesRef = collection(db, 'channels', id, 'messages');
       const q = query(messagesRef, orderBy('createdAt', 'desc'), startAfter(lastDocRef.current), limit(MESSAGES_PER_PAGE));
       const snapshot = await getDocs(q);
-      const olderMessages: Message[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          text: data.text || '',
-          senderId: data.senderId || '',
-          senderName: data.senderName || 'Desconocido',
-          senderPhoto: data.senderPhoto || null,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-          edited: data.edited || false,
-          editedAt: data.editedAt?.toDate?.()?.toISOString() || null,
-          attachments: data.attachments || null,
-          reactions: data.reactions || {}
-        };
-      });
+      const olderMessages: Message[] = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            text: data.text || '',
+            senderId: data.senderId || '',
+            senderName: data.senderName || 'Desconocido',
+            senderPhoto: data.senderPhoto || null,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            edited: data.edited || false,
+            editedAt: data.editedAt?.toDate?.()?.toISOString() || null,
+            attachments: data.attachments || null,
+            reactions: data.reactions || {},
+            replyTo: data.replyTo || null,
+            deletedForUsers: data.deletedForUsers || [],
+          };
+        })
+        .filter(msg => !currentUser || !msg.deletedForUsers?.includes(currentUser.uid));
       if (olderMessages.length > 0) {
         setMessages(prev => [...prev, ...olderMessages]);
         lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
@@ -125,6 +137,8 @@ export default function ChatScreen() {
   const handleSendMessage = async (text: string) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
+    const replyData = replyingTo;
+    setReplyingTo(null);
     try {
       const messagesRef = collection(db, 'channels', id, 'messages');
       const finalSenderName = userProfile?.displayName || currentUser.displayName || 'Usuario';
@@ -137,13 +151,71 @@ export default function ChatScreen() {
         edited: false,
         editedAt: null,
         attachments: null,
-        reactions: {}
+        reactions: {},
+        replyTo: replyData ?? null,
       });
     } catch (error) {
       console.error(error);
       alert('Error al enviar el mensaje.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const deleteForMe = async (messageId: string) => {
+    if (!currentUser || !id) return;
+    try {
+      await updateDoc(doc(db, 'channels', id, 'messages', messageId), {
+        deletedForUsers: arrayUnion(currentUser.uid),
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const deleteForAll = async (messageId: string) => {
+    if (!id) return;
+    try {
+      await deleteDoc(doc(db, 'channels', id, 'messages', messageId));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyingTo({ id: message.id, text: message.text, senderName: message.senderName });
+    setMenuMessage(null);
+  };
+
+  const onMessageSwipeStart = () => setIsSwipingMessage(true);
+  const onMessageSwipeEnd = () => setIsSwipingMessage(false);
+
+  useEffect(() => {
+    if (menuMessage) {
+      menuScaleAnim.setValue(0.88);
+      Animated.spring(menuScaleAnim, {
+        toValue: 1,
+        damping: 18,
+        stiffness: 280,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [menuMessage]);
+
+  const handleMenuDelete = (message: Message) => {
+    setMenuMessage(null);
+    const isOwn = message.senderId === currentUser?.uid;
+    if (isOwn) {
+      Alert.alert('Eliminar mensaje', '¿Cómo quieres eliminarlo?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar para mí', onPress: () => deleteForMe(message.id) },
+        { text: 'Eliminar para todos', style: 'destructive', onPress: () => deleteForAll(message.id) },
+      ]);
+    } else {
+      Alert.alert('Eliminar mensaje', 'Solo se eliminará para ti.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar para mí', style: 'destructive', onPress: () => deleteForMe(message.id) },
+      ]);
     }
   };
 
@@ -185,14 +257,14 @@ export default function ChatScreen() {
         headerLeft: () => (
           <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingLeft: spacing.xs }}>
             <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
-              <IconSymbol name="chevron.left" size={24} color={colors.text} />
+              <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
             </TouchableOpacity>
           </View>
         ),
         headerRight: () => (
           <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingRight: spacing.xs }}>
             <TouchableOpacity onPress={() => setShowSettings(true)} style={{ padding: 4 }}>
-              <IconSymbol name="gear" size={25} color={colors.text} />
+              <Settings size={22} color={colors.text} strokeWidth={1.8} />
             </TouchableOpacity>
           </View>
         )
@@ -217,15 +289,31 @@ export default function ChatScreen() {
                 ref={flatListRef}
                 data={messages}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <MessageBubble message={item} isOwnMessage={item.senderId === currentUser?.uid} />}
+                renderItem={({ item }) => (
+                  <MessageBubble
+                    message={item}
+                    isOwnMessage={item.senderId === currentUser?.uid}
+                    currentUserId={currentUser?.uid}
+                    onReply={handleReply}
+                    onLongPress={setMenuMessage}
+                    onSwipeStart={onMessageSwipeStart}
+                    onSwipeEnd={onMessageSwipeEnd}
+                  />
+                )}
                 contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
                 onEndReached={loadMoreMessages}
                 onEndReachedThreshold={0.5}
+                scrollEnabled={!isSwipingMessage}
                 ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
                 ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
                 inverted
               />
-              <MessageInput onSend={handleSendMessage} disabled={sending} />
+              <MessageInput
+                onSend={handleSendMessage}
+                replyTo={replyingTo}
+                onCancelReply={() => setReplyingTo(null)}
+                disabled={sending}
+              />
             </View>
           </KeyboardAvoidingView>
         ) : (
@@ -234,18 +322,67 @@ export default function ChatScreen() {
               ref={flatListRef}
               data={messages}
               keyExtractor={item => item.id}
-              renderItem={({ item }) => <MessageBubble message={item} isOwnMessage={item.senderId === currentUser?.uid} />}
+              renderItem={({ item }) => (
+                <MessageBubble
+                  message={item}
+                  isOwnMessage={item.senderId === currentUser?.uid}
+                  currentUserId={currentUser?.uid}
+                  onReply={handleReply}
+                  onLongPress={setMenuMessage}
+                  onSwipeStart={onMessageSwipeStart}
+                  onSwipeEnd={onMessageSwipeEnd}
+                />
+              )}
               contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.5}
+              scrollEnabled={!isSwipingMessage}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
               ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
               inverted
             />
-            <MessageInput onSend={handleSendMessage} disabled={sending} />
+            <MessageInput onSend={handleSendMessage} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
           </View>
         )}
       </View>
+
+      <Modal visible={!!menuMessage} animationType="fade" transparent={true} onRequestClose={() => setMenuMessage(null)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuMessage(null)}>
+          <Animated.View
+            style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}
+          >
+            {/* Message preview */}
+            <View style={styles.menuPreview}>
+              <ThemedText style={[styles.menuPreviewName, { color: colors.primary }]} numberOfLines={1}>
+                {menuMessage?.senderName}
+              </ThemedText>
+              <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
+                {menuMessage?.text}
+              </ThemedText>
+            </View>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => menuMessage && handleReply(menuMessage)}
+            >
+              <View style={[styles.menuIconCircle, { backgroundColor: colors.primary + '22' }]}>
+                <Reply size={18} color={colors.primary} strokeWidth={2} />
+              </View>
+              <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Responder</ThemedText>
+            </TouchableOpacity>
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => menuMessage && handleMenuDelete(menuMessage)}
+            >
+              <View style={[styles.menuIconCircle, { backgroundColor: '#FF3B3022' }]}>
+                <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
+              </View>
+              <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={showSettings} animationType="slide" transparent={true} onRequestClose={() => setShowSettings(false)}>
         <View style={styles.modalOverlay}>
@@ -323,5 +460,23 @@ const styles = StyleSheet.create({
   themeName: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center' },
   sizeButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm },
-  styleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 18, borderWidth: 1 }
+  styleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 18, borderWidth: 1 },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  menuContent: {
+    width: 272,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  menuPreview: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: 4 },
+  menuPreviewName: { fontSize: typography.sizes.sm, fontWeight: '700' },
+  menuPreviewText: { fontSize: typography.sizes.sm },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md },
+  menuIconCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  menuItemText: { fontSize: typography.sizes.md, flex: 1 },
+  menuDivider: { height: StyleSheet.hairlineWidth },
 });

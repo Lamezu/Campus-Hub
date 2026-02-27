@@ -1,66 +1,202 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, Animated, PanResponder, TouchableOpacity } from 'react-native';
+import { Reply } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Message } from '@/types';
 
+const SWIPE_THRESHOLD = 60;
+const MAX_SWIPE = 80;
+
 interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
+  currentUserId?: string;
+  onReply: (msg: Message) => void;
+  onLongPress: (msg: Message) => void;
+  onSwipeStart?: () => void;
+  onSwipeEnd?: () => void;
 }
 
-export function MessageBubble({ message, isOwnMessage }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  isOwnMessage,
+  currentUserId,
+  onReply,
+  onLongPress,
+  onSwipeStart,
+  onSwipeEnd,
+}: MessageBubbleProps) {
   const { colors } = useTheme();
   const chatTheme = colors.chat;
   const settings = colors.chatSettings;
 
+  const translateX = useRef(new Animated.Value(0)).current;
+  const replyIconOpacity = useRef(new Animated.Value(0)).current;
+
+  // Keep refs updated so stale closures inside the PanResponder always call the latest callbacks
+  const onSwipeStartRef = useRef(onSwipeStart);
+  const onSwipeEndRef = useRef(onSwipeEnd);
+  onSwipeStartRef.current = onSwipeStart;
+  onSwipeEndRef.current = onSwipeEnd;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      // Capture when clearly swiping right (dx > dy * 2 and dx > 8px)
+      onMoveShouldSetPanResponder: (_, gs) => {
+        return gs.dx > 8 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2;
+      },
+      onPanResponderGrant: () => {
+        onSwipeStartRef.current?.();
+      },
+      onPanResponderMove: (_, gs) => {
+        const dx = Math.min(Math.max(gs.dx, 0), MAX_SWIPE);
+        translateX.setValue(dx);
+        replyIconOpacity.setValue(Math.min(dx / SWIPE_THRESHOLD, 1));
+      },
+      onPanResponderRelease: (_, gs) => {
+        onSwipeEndRef.current?.();
+        if (gs.dx >= SWIPE_THRESHOLD) onReply(message);
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.timing(replyIconOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+        ]).start();
+      },
+      onPanResponderTerminate: () => {
+        onSwipeEndRef.current?.();
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.timing(replyIconOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+        ]).start();
+      },
+    })
+  ).current;
+
+  if (currentUserId && message.deletedForUsers?.includes(currentUserId)) {
+    return null;
+  }
+
+  const bubbleBg = isOwnMessage ? chatTheme.bubbleOwn : chatTheme.bubbleOther;
+  const textColor = isOwnMessage ? chatTheme.textOwn : chatTheme.textOther;
+  const timeColor = textColor.slice(0, 7) + '99';
+
   return (
-    <View style={[styles.container, isOwnMessage ? styles.ownContainer : styles.otherContainer]}>
-      {!isOwnMessage && (
-        <ThemedText style={[styles.senderName, { color: chatTheme.nameColor }]}>
-          {message.senderName}
-        </ThemedText>
-      )}
-      <View style={[
-        styles.bubble,
-        {
-          backgroundColor: isOwnMessage ? chatTheme.bubbleOwn : chatTheme.bubbleOther,
-          borderBottomRightRadius: isOwnMessage ? 4 : 20,
-          borderBottomLeftRadius: isOwnMessage ? 20 : 4,
-        }
-      ]}>
-        <ThemedText style={[
-          styles.messageText,
-          {
-            color: isOwnMessage ? chatTheme.textOwn : chatTheme.textOther,
-            fontSize: settings.fontSize,
-            fontWeight: settings.fontWeight,
-            fontStyle: settings.fontStyle
-          }
-        ]}>
-          {message.text}
-        </ThemedText>
-        <ThemedText style={[
-          styles.time,
-          {
-            color: isOwnMessage ? chatTheme.textOwn + '99' : chatTheme.textOther + '99',
-            fontSize: Math.max(10, settings.fontSize - 4)
-          }
-        ]}>
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </ThemedText>
-      </View>
+    <View
+      style={[styles.row, isOwnMessage ? styles.rowOwn : styles.rowOther]}
+      {...panResponder.panHandlers}
+    >
+      {/* Reply icon — always on the LEFT, revealed as the bubble slides right */}
+      <Animated.View style={[styles.replyIconWrap, { opacity: replyIconOpacity }]}>
+        <Reply size={18} color={colors.textSecondary} strokeWidth={1.8} />
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.container,
+          isOwnMessage ? styles.ownContainer : styles.otherContainer,
+          { transform: [{ translateX }] },
+        ]}
+      >
+        {!isOwnMessage && (
+          <ThemedText
+            style={[
+              styles.senderName,
+              { color: chatTheme.nameColor },
+              chatTheme.id === 'zen' && styles.senderNameZen,
+            ]}
+          >
+            {message.senderName}
+          </ThemedText>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onLongPress={() => onLongPress(message)}
+          delayLongPress={350}
+          style={[
+            styles.bubble,
+            {
+              backgroundColor: bubbleBg,
+              borderBottomRightRadius: isOwnMessage ? 4 : 20,
+              borderBottomLeftRadius: isOwnMessage ? 20 : 4,
+            },
+          ]}
+        >
+          {!!message.replyTo && (
+            <View
+              style={[
+                styles.replyPreview,
+                {
+                  borderLeftColor: colors.primary,
+                  backgroundColor: isOwnMessage ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.07)',
+                },
+              ]}
+            >
+              <ThemedText style={[styles.replyPreviewName, { color: colors.primary }]}>
+                {message.replyTo.senderName}
+              </ThemedText>
+              <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
+                {message.replyTo.text}
+              </ThemedText>
+            </View>
+          )}
+
+          <ThemedText
+            style={[
+              styles.messageText,
+              {
+                color: textColor,
+                fontSize: settings.fontSize,
+                fontWeight: settings.fontWeight,
+                fontStyle: settings.fontStyle,
+              },
+            ]}
+          >
+            {message.text}
+          </ThemedText>
+
+          <ThemedText
+            style={[styles.time, { color: timeColor, fontSize: Math.max(10, settings.fontSize - 4) }]}
+          >
+            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </ThemedText>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: spacing.sm, maxWidth: '80%' },
-  ownContainer: { alignSelf: 'flex-end' },
-  otherContainer: { alignSelf: 'flex-start' },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  rowOwn: { justifyContent: 'flex-end' },
+  rowOther: { justifyContent: 'flex-start' },
+  replyIconWrap: { width: 28, alignItems: 'center', position: 'absolute', left: 4, zIndex: 0 },
+  container: { maxWidth: '80%' },
+  ownContainer: { alignItems: 'flex-end' },
+  otherContainer: { alignItems: 'flex-start' },
   senderName: { fontSize: typography.sizes.xs, marginBottom: 4, marginLeft: 12 },
-  bubble: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
+  senderNameZen: { fontWeight: '700' },
+  bubble: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+  },
+  replyPreview: {
+    borderLeftWidth: 3,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    marginBottom: spacing.xs,
+  },
+  replyPreviewName: { fontSize: typography.sizes.xs, fontWeight: '600', marginBottom: 2 },
+  replyPreviewText: { fontSize: typography.sizes.xs, opacity: 0.85 },
   messageText: { fontSize: typography.sizes.md },
-  time: { fontSize: 10, alignSelf: 'flex-end', marginTop: 2 }
+  time: { fontSize: 10, alignSelf: 'flex-end', marginTop: 2 },
 });
