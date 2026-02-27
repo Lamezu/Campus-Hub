@@ -1,48 +1,39 @@
 import axios from 'axios';
 
-const CLOUDINARY_CLOUD_NAME = 'dcwzlpg7m';
-const CLOUDINARY_UPLOAD_PRESET = 'campushub-profiles';
-const CLOUDINARY_FOLDER = 'campushub/profiles';
+const CLOUD_NAME = 'dcwzlpg7m';
+const UPLOAD_PRESET = 'campushub-profiles';
 
-/**
- * Uploads a file to Cloudinary
- * @param uri Local file URI
- * @param userId Optional user identifier for filename
- * @returns Cloudinary response data
- */
-export async function uploadToCloudinary(uri: string, userId?: string): Promise<any> {
-    try {
-        const formData = new FormData();
-        const filename = userId ? `profile_${userId}_${Date.now()}.jpg` : `upload_${Date.now()}.jpg`;
+async function upload(
+  uri: string,
+  resourceType: 'image' | 'video',
+  folder: string,
+  filename: string,
+): Promise<string> {
+  const mimeType = resourceType === 'video' ? 'video/mp4' : 'image/jpeg';
+  const ext = resourceType === 'video' ? 'mp4' : 'jpg';
 
-        formData.append('file', {
-            uri,
-            type: 'image/jpeg',
-            name: filename,
-        } as any);
+  const formData = new FormData();
+  formData.append('file', { uri, type: mimeType, name: `${filename}.${ext}` } as any);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', folder);
 
-        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-        formData.append('folder', CLOUDINARY_FOLDER);
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`;
+  const response = await axios.post(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
 
-        const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
-        const response = await axios.post(endpoint, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-
-        if (response.data && response.data.secure_url) {
-            return response.data;
-        } else {
-            throw new Error('Cloudinary response missing secure_url');
-        }
-    } catch (error: any) {
-        const errorMessage = error?.response?.data?.error?.message
-            || error.message
-            || 'Unknown error uploading to Cloudinary';
-
-        throw new Error(`Upload failed: ${errorMessage}`);
-    }
+  if (!response.data?.secure_url) throw new Error('Upload failed: missing secure_url');
+  return response.data.secure_url as string;
 }
 
+export async function uploadProfilePhoto(uri: string, userId: string): Promise<string> {
+  return upload(uri, 'image', 'campushub/profiles', `profile_${userId}_${Date.now()}`);
+}
+
+export async function uploadPostMedia(
+  uri: string,
+  mediaType: 'image' | 'video',
+  postId: string,
+): Promise<string> {
+  return upload(uri, mediaType, 'campushub/posts', `post_${postId}_${Date.now()}`);
+}
