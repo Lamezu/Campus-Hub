@@ -1,6 +1,7 @@
 import { 
   collection, 
   doc, 
+  addDoc, 
   getDoc,
   getDocs,
   updateDoc, 
@@ -10,7 +11,9 @@ import {
   limit,
   serverTimestamp,
   onSnapshot,
-  writeBatch
+  writeBatch,
+  Timestamp,
+  Unsubscribe
 } from 'firebase/firestore';
 
 export class MessageService {
@@ -161,5 +164,13 @@ export class MessageService {
     }
     
     return unreadCount;
+  }
+
+  async saveFCMToken(userId, token) {
+    const userRef = doc(this.db, 'users', userId);
+    await updateDoc(userRef, {
+      fcmToken: token,
+      lastTokenUpdate: serverTimestamp()
+    });
   }
 }
