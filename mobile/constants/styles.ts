@@ -127,17 +127,17 @@ export const themes: Record<Exclude<AppTheme, 'monochromatic'>, Omit<ThemeColors
     card: '#000000',
   },
   pastel: {
-    primary: '#FFB7B2',
-    secondary: '#FFDAC1',
-    success: '#B2E2F2',
-    danger: '#FFABAB',
-    warning: '#FFF5BA',
-    background: '#FAF9F6',
-    backgroundSecondary: '#FFF0F5',
-    text: '#4A4A4A',
-    textSecondary: '#808080',
-    border: '#E8D2CC',
-    card: '#FFFFFF',
+    primary: '#C9527E',
+    secondary: '#7B5EA7',
+    success: '#3BAF8A',
+    danger: '#D95070',
+    warning: '#C98520',
+    background: '#EEE8FA',
+    backgroundSecondary: '#F8F5FF',
+    text: '#18103A',
+    textSecondary: '#5A4785',
+    border: '#C4B6E8',
+    card: '#F8F5FF',
   },
 };
 
@@ -263,16 +263,18 @@ export const getColors = (
   let baseColors: Omit<ThemeColors, 'chat' | 'chatSettings'>;
 
   if (theme === 'monochromatic' && customPrimary) {
-    const { h, s } = hexToHsl(customPrimary);
-    const bg = hslToHex(h, Math.max(s * 0.2, 12), 94);
-    const bgSec = hslToHex(h, Math.max(s * 0.3, 20), 88);
-    const border = hslToHex(h, Math.max(s * 0.4, 30), 80);
-    const secondary = hslToHex(h, s, 60);
-    const textSec = hslToHex(h, s, 40);
-    const text = hslToHex(h, s, 12);
-    const card = hslToHex(h, Math.max(s * 0.15, 8), 96);
+    const { h, s, l } = hexToHsl(customPrimary);
+    const isYellowRange = h >= 35 && h <= 85;
+    const primary = isYellowRange && l > 45 ? hslToHex(h, s, 38) : customPrimary;
+    const bg = hslToHex(h, Math.max(s * 0.45, 18), 84);
+    const bgSec = hslToHex(h, Math.max(s * 0.55, 25), 77);
+    const border = hslToHex(h, Math.max(s * 0.62, 32), 65);
+    const secondary = hslToHex(h, s, 58);
+    const textSec = hslToHex(h, Math.min(s, 65), 35);
+    const text = hslToHex(h, Math.min(s, 70), 10);
+    const card = hslToHex(h, Math.max(s * 0.28, 12), 90);
     baseColors = {
-      primary: customPrimary,
+      primary: primary,
       secondary: secondary,
       success: '#34C759',
       danger: '#FF3B30',
