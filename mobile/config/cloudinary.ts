@@ -37,3 +37,18 @@ export async function uploadPostMedia(
 ): Promise<string> {
   return upload(uri, mediaType, 'campushub/posts', `post_${postId}_${Date.now()}`);
 }
+
+export async function uploadAudio(uri: string): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', { uri, type: 'audio/m4a', name: `audio_${Date.now()}.m4a` } as any);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', 'campushub/audio');
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`;
+  const response = await axios.post(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  if (!response.data?.secure_url) throw new Error('Upload failed: missing secure_url');
+  return response.data.secure_url as string;
+}

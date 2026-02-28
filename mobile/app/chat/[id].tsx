@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, Image, Alert, Animated } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, Image, Animated } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
@@ -30,7 +29,6 @@ export default function ChatScreen() {
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [isSwipingMessage, setIsSwipingMessage] = useState(false);
   const menuScaleAnim = useRef(new Animated.Value(0.88)).current;
-  const insets = useSafeAreaInsets();
   const [userProfile, setUserProfile] = useState<any>(null);
 
   const flatListRef = useRef<FlatList>(null);
@@ -134,6 +132,17 @@ export default function ChatScreen() {
     }
   };
 
+  const buildMessageBase = () => ({
+    senderId: currentUser!.uid,
+    senderName: userProfile?.displayName || currentUser!.displayName || 'Usuario',
+    senderPhoto: userProfile?.photoURL || currentUser!.photoURL || null,
+    createdAt: serverTimestamp(),
+    edited: false,
+    editedAt: null,
+    reactions: {},
+    replyTo: null as null,
+  });
+
   const handleSendMessage = async (text: string) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
@@ -141,17 +150,10 @@ export default function ChatScreen() {
     setReplyingTo(null);
     try {
       const messagesRef = collection(db, 'channels', id, 'messages');
-      const finalSenderName = userProfile?.displayName || currentUser.displayName || 'Usuario';
       await addDoc(messagesRef, {
+        ...buildMessageBase(),
         text,
-        senderId: currentUser.uid,
-        senderName: finalSenderName,
-        senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
-        createdAt: serverTimestamp(),
-        edited: false,
-        editedAt: null,
         attachments: null,
-        reactions: {},
         replyTo: replyData ?? null,
       });
     } catch (error) {
@@ -159,6 +161,21 @@ export default function ChatScreen() {
       alert('Error al enviar el mensaje.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendAudio = async (url: string, duration: number) => {
+    if (!currentUser || !id) return;
+    try {
+      const messagesRef = collection(db, 'channels', id, 'messages');
+      await addDoc(messagesRef, {
+        ...buildMessageBase(),
+        text: '',
+        attachments: [{ url, type: 'audio', name: 'audio.m4a', size: 0, duration }],
+      });
+    } catch (error) {
+      console.error(error);
+      alert('Error al guardar el audio.');
     }
   };
 
@@ -202,21 +219,11 @@ export default function ChatScreen() {
     }
   }, [menuMessage]);
 
+  const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
+
   const handleMenuDelete = (message: Message) => {
     setMenuMessage(null);
-    const isOwn = message.senderId === currentUser?.uid;
-    if (isOwn) {
-      Alert.alert('Eliminar mensaje', '¿Cómo quieres eliminarlo?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar para mí', onPress: () => deleteForMe(message.id) },
-        { text: 'Eliminar para todos', style: 'destructive', onPress: () => deleteForAll(message.id) },
-      ]);
-    } else {
-      Alert.alert('Eliminar mensaje', 'Solo se eliminará para ti.', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar para mí', style: 'destructive', onPress: () => deleteForMe(message.id) },
-      ]);
-    }
+    setDeleteConfirmMsg(message);
   };
 
   const headerHeight = useHeaderHeight();
@@ -250,23 +257,23 @@ export default function ChatScreen() {
         headerTitleAlign: 'center',
         headerBackVisible: false,
         headerTitle: () => (
-          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-            <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>{channelName}</ThemedText>
-          </View>
+          <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>{channelName}</ThemedText>
         ),
         headerLeft: () => (
-          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingLeft: spacing.xs }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
-              <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ padding: 4, marginLeft: spacing.xs }}
+          >
+            <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+          </TouchableOpacity>
         ),
         headerRight: () => (
-          <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 4, paddingRight: spacing.xs }}>
-            <TouchableOpacity onPress={() => setShowSettings(true)} style={{ padding: 4 }}>
-              <Settings size={22} color={colors.text} strokeWidth={1.8} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={() => setShowSettings(true)}
+            style={{ padding: 4, marginRight: spacing.xs }}
+          >
+            <Settings size={22} color={colors.text} strokeWidth={1.8} />
+          </TouchableOpacity>
         )
       }} />
 
@@ -310,6 +317,7 @@ export default function ChatScreen() {
               />
               <MessageInput
                 onSend={handleSendMessage}
+                onSendAudio={handleSendAudio}
                 replyTo={replyingTo}
                 onCancelReply={() => setReplyingTo(null)}
                 disabled={sending}
@@ -341,7 +349,7 @@ export default function ChatScreen() {
               ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
               inverted
             />
-            <MessageInput onSend={handleSendMessage} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
+            <MessageInput onSend={handleSendMessage} onSendAudio={handleSendAudio} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
           </View>
         )}
       </View>
@@ -434,6 +442,72 @@ export default function ChatScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Themed delete confirmation dialog */}
+      <Modal
+        visible={!!deleteConfirmMsg}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDeleteConfirmMsg(null)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setDeleteConfirmMsg(null)}
+        >
+          <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
+            <View style={styles.deleteDialogHeader}>
+              <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
+                Eliminar mensaje
+              </ThemedText>
+              <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
+                {deleteConfirmMsg?.senderId === currentUser?.uid
+                  ? '¿Cómo quieres eliminarlo?'
+                  : 'Solo se eliminará para ti.'}
+              </ThemedText>
+            </View>
+            <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.deleteDialogBtn}
+              onPress={() => {
+                const msg = deleteConfirmMsg!;
+                setDeleteConfirmMsg(null);
+                deleteForMe(msg.id);
+              }}
+            >
+              <ThemedText style={[styles.deleteDialogBtnText, { color: colors.text }]}>
+                Eliminar para mí
+              </ThemedText>
+            </TouchableOpacity>
+            {deleteConfirmMsg?.senderId === currentUser?.uid && (
+              <>
+                <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                  style={styles.deleteDialogBtn}
+                  onPress={() => {
+                    const msg = deleteConfirmMsg!;
+                    setDeleteConfirmMsg(null);
+                    deleteForAll(msg.id);
+                  }}
+                >
+                  <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>
+                    Eliminar para todos
+                  </ThemedText>
+                </TouchableOpacity>
+              </>
+            )}
+            <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.deleteDialogBtn}
+              onPress={() => setDeleteConfirmMsg(null)}
+            >
+              <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
+                Cancelar
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -479,4 +553,20 @@ const styles = StyleSheet.create({
   menuIconCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   menuItemText: { fontSize: typography.sizes.md, flex: 1 },
   menuDivider: { height: StyleSheet.hairlineWidth },
+  deleteDialog: {
+    width: 280,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  deleteDialogHeader: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  deleteDialogTitle: { fontSize: typography.sizes.md, fontWeight: '700', marginBottom: 4 },
+  deleteDialogSubtitle: { fontSize: typography.sizes.sm },
+  deleteDialogDivider: { height: StyleSheet.hairlineWidth },
+  deleteDialogBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, alignItems: 'center' },
+  deleteDialogBtnText: { fontSize: typography.sizes.md },
 });

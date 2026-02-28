@@ -50,9 +50,10 @@ export interface Message {
 
 export interface Attachment {
   url: string;
-  type: 'image' | 'file';
+  type: 'image' | 'file' | 'audio';
   name: string;
   size: number;
+  duration?: number; // seconds, for audio
 }
 
 export interface JamendoTrack {
