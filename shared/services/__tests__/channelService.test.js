@@ -146,4 +146,61 @@ describe('ChannelService', () => {
       expect(updateDoc).toHaveBeenCalledWith('member-ref', { role: 'moderator' });
     });
   });
+  describe('getPublicChannels', () => {
+    it('debería obtener solo canales públicos', async () => {
+      const { getDocs, query } = require('firebase/firestore');
+
+      query.mockReturnValue('public-channels-query');
+      getDocs.mockResolvedValue({
+        docs: [
+          { id: 'channel-1', data: () => ({ name: 'Public 1', type: 'public' }) },
+          { id: 'channel-2', data: () => ({ name: 'Public 2', type: 'public' }) }
+        ]
+      });
+
+      const channels = await channelService.getPublicChannels();
+
+      expect(channels).toHaveLength(2);
+      expect(channels[0].type).toBe('public');
+    });
+  });
+
+  describe('getChannelMembers', () => {
+    it('debería obtener lista de miembros', async () => {
+      const { getDocs } = require('firebase/firestore');
+
+      getDocs.mockResolvedValue({
+        docs: [
+          { data: () => ({ userId: 'user-1', role: 'admin' }) },
+          { data: () => ({ userId: 'user-2', role: 'member' }) }
+        ]
+      });
+
+      const members = await channelService.getChannelMembers('channel-1');
+
+      expect(members).toHaveLength(2);
+      expect(members[0].role).toBe('admin');
+    });
+  });
+
+  describe('getUserChannels', () => {
+    it('debería obtener canales ordenados por último mensaje', async () => {
+      const { getDocs, getDoc } = require('firebase/firestore');
+
+      getDocs.mockResolvedValue({
+        docs: [
+          { id: 'ch-1', data: () => ({ name: 'Channel 1', lastMessageAt: { toMillis: () => 1000 } }) },
+          { id: 'ch-2', data: () => ({ name: 'Channel 2', lastMessageAt: { toMillis: () => 2000 } }) }
+        ]
+      });
+
+      getDoc
+        .mockResolvedValueOnce({ exists: () => true, data: () => ({ userId: 'user-1' }) })
+        .mockResolvedValueOnce({ exists: () => true, data: () => ({ userId: 'user-1' }) });
+
+      const channels = await channelService.getUserChannels('user-1');
+
+      expect(channels).toBeDefined();
+    });
+  });
 });

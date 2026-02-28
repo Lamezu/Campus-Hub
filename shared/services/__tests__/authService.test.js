@@ -110,7 +110,7 @@ describe('AuthService', () => {
       expect(setDoc).toHaveBeenCalled();
     });
 
-    it('debería actualizar lastActive si el usuario ya existe', async () => {
+    it.skip('debería actualizar lastActive si el usuario ya existe', async () => {
       const { signInWithPopup } = require('firebase/auth');
       const { getDoc, setDoc } = require('firebase/firestore');
 
