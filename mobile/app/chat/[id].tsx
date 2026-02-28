@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Modal, ScrollView, StatusBar, Image, Animated } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Share, Clipboard } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MessageBubble } from '@/components/MessageBubble';
-import { MessageInput } from '@/components/MessageInput';
+import { MessageInput, type MessageInputHandle } from '@/components/MessageInput';
 import { spacing, chatThemes, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import type { Message, ReplyPreview } from '@/types';
-import { Settings, ChevronLeft, Reply, Trash2 } from 'lucide-react-native';
+import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown } from 'lucide-react-native';
 
 const MESSAGES_PER_PAGE = 50;
+const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function ChatScreen() {
   const { colors, theme, chatSettings, setChatSettings } = useTheme();
@@ -33,6 +34,8 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const lastDocRef = useRef<any>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
   const channelName = channel?.name || `Canal ${id}`;
@@ -166,12 +169,15 @@ export default function ChatScreen() {
 
   const handleSendAudio = async (url: string, duration: number) => {
     if (!currentUser || !id) return;
+    const replyData = replyingTo;
+    setReplyingTo(null);
     try {
       const messagesRef = collection(db, 'channels', id, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text: '',
         attachments: [{ url, type: 'audio', name: 'audio.m4a', size: 0, duration }],
+        replyTo: replyData ?? null,
       });
     } catch (error) {
       console.error(error);
@@ -200,8 +206,25 @@ export default function ChatScreen() {
   };
 
   const handleReply = (message: Message) => {
-    setReplyingTo({ id: message.id, text: message.text, senderName: message.senderName });
+    const audioAttachment = message.attachments?.find(a => a.type === 'audio');
+    setReplyingTo({
+      id: message.id,
+      text: message.text,
+      senderName: message.senderName,
+      ...(audioAttachment ? { isAudio: true, audioDuration: audioAttachment.duration } : {}),
+    });
     setMenuMessage(null);
+  };
+
+  const handleReplyPreviewPress = (messageId: string) => {
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index === -1) return;
+    try {
+      flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    } catch {}
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    setHighlightedMessageId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 2000);
   };
 
   const onMessageSwipeStart = () => setIsSwipingMessage(true);
@@ -220,11 +243,88 @@ export default function ChatScreen() {
   }, [menuMessage]);
 
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
+  const [showEmojiInput, setShowEmojiInput] = useState(false);
+  const [customEmoji, setCustomEmoji] = useState('');
+  const menuMessageRef = useRef<Message | null>(null);
+  const messageInputRef = useRef<MessageInputHandle>(null);
+  const showScrollDownRef = useRef(false);
+  const scrollDownAnim = useRef(new Animated.Value(0)).current;
+  const [showScrollDown, setShowScrollDown] = useState(false);
+
+  const handleListScroll = (event: any) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const shouldShow = y > 120;
+    if (shouldShow !== showScrollDownRef.current) {
+      showScrollDownRef.current = shouldShow;
+      setShowScrollDown(shouldShow);
+      Animated.spring(scrollDownAnim, {
+        toValue: shouldShow ? 1 : 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 10,
+      }).start();
+    }
+  };
+
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+  };
+
+  const handleMessageDoubleTap = async (messageId: string, reactions: Record<string, string[]>) => {
+    if (!currentUser || !id) return;
+    const heartLikes = reactions['❤️'] ?? [];
+    if (!heartLikes.includes(currentUser.uid)) {
+      await updateDoc(doc(db, 'channels', id, 'messages', messageId), {
+        'reactions.❤️': arrayUnion(currentUser.uid),
+      });
+    }
+  };
 
   const handleMenuDelete = (message: Message) => {
     setMenuMessage(null);
     setDeleteConfirmMsg(message);
   };
+
+  const handleReaction = async (emoji: string, target?: Message) => {
+    const msg = target ?? menuMessage;
+    if (!currentUser || !msg || !id) return;
+    setMenuMessage(null);
+    const existing = msg.reactions?.[emoji] ?? [];
+    const hasReacted = existing.includes(currentUser.uid);
+    await updateDoc(doc(db, 'channels', id, 'messages', msg.id), {
+      [`reactions.${emoji}`]: hasReacted ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+    });
+  };
+
+  const handleCopy = (message: Message) => {
+    setMenuMessage(null);
+    if (message.text) Clipboard.setString(message.text);
+  };
+
+  const handleForward = async (message: Message) => {
+    setMenuMessage(null);
+    if (message.text) await Share.share({ message: message.text });
+  };
+
+  const handleQuickAudioReply = (message: Message) => {
+    setMenuMessage(null);
+    handleReply(message);
+    setTimeout(() => messageInputRef.current?.startRecordingLocked(), 150);
+  };
+
+  const openEmojiPicker = () => {
+    menuMessageRef.current = menuMessage;
+    setMenuMessage(null);
+    setCustomEmoji('');
+    setShowEmojiInput(true);
+  };
+
+  const userCustomEmojis = menuMessage
+    ? Object.entries(menuMessage.reactions ?? {})
+        .filter(([emoji, users]) => currentUser != null && users.includes(currentUser.uid) && !PRESET_REACTIONS.includes(emoji))
+        .map(([emoji]) => emoji)
+    : [];
+  const pillEmojis = [...PRESET_REACTIONS, ...userCustomEmojis];
 
   const headerHeight = useHeaderHeight();
 
@@ -303,19 +403,35 @@ export default function ChatScreen() {
                     currentUserId={currentUser?.uid}
                     onReply={handleReply}
                     onLongPress={setMenuMessage}
+                    onDoubleTap={() => handleMessageDoubleTap(item.id, item.reactions ?? {})}
                     onSwipeStart={onMessageSwipeStart}
                     onSwipeEnd={onMessageSwipeEnd}
+                    onQuickAudioReply={handleQuickAudioReply}
+                    onReplyPreviewPress={handleReplyPreviewPress}
+                    highlighted={highlightedMessageId === item.id}
                   />
                 )}
                 contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
                 onEndReached={loadMoreMessages}
                 onEndReachedThreshold={0.5}
                 scrollEnabled={!isSwipingMessage}
+                onScrollToIndexFailed={() => {}}
                 ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
                 ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
                 inverted
+                onScroll={handleListScroll}
+                scrollEventThrottle={100}
               />
+              <Animated.View
+                pointerEvents={showScrollDown ? 'auto' : 'none'}
+                style={[styles.scrollDownBtn, { opacity: scrollDownAnim, transform: [{ scale: scrollDownAnim }] }]}
+              >
+                <Pressable onPress={scrollToBottom} style={[styles.scrollDownBtnInner, { backgroundColor: colors.card }]}>
+                  <ChevronDown size={26} color={colors.text} strokeWidth={2.5} />
+                </Pressable>
+              </Animated.View>
               <MessageInput
+                ref={messageInputRef}
                 onSend={handleSendMessage}
                 onSendAudio={handleSendAudio}
                 replyTo={replyingTo}
@@ -337,59 +453,156 @@ export default function ChatScreen() {
                   currentUserId={currentUser?.uid}
                   onReply={handleReply}
                   onLongPress={setMenuMessage}
+                  onDoubleTap={() => handleMessageDoubleTap(item.id, item.reactions ?? {})}
                   onSwipeStart={onMessageSwipeStart}
                   onSwipeEnd={onMessageSwipeEnd}
+                  onQuickAudioReply={handleQuickAudioReply}
+                  onReplyPreviewPress={handleReplyPreviewPress}
+                  highlighted={highlightedMessageId === item.id}
                 />
               )}
               contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.5}
               scrollEnabled={!isSwipingMessage}
+              onScrollToIndexFailed={() => {}}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
               ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
               inverted
+              onScroll={handleListScroll}
+              scrollEventThrottle={100}
             />
-            <MessageInput onSend={handleSendMessage} onSendAudio={handleSendAudio} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
+            <Animated.View
+              pointerEvents={showScrollDown ? 'auto' : 'none'}
+              style={[styles.scrollDownBtn, { opacity: scrollDownAnim, transform: [{ scale: scrollDownAnim }] }]}
+            >
+              <Pressable onPress={scrollToBottom} style={[styles.scrollDownBtnInner, { backgroundColor: colors.card }]}>
+                <ChevronDown size={26} color={colors.text} strokeWidth={2.5} />
+              </Pressable>
+            </Animated.View>
+            <MessageInput
+              ref={messageInputRef}
+              onSend={handleSendMessage}
+              onSendAudio={handleSendAudio}
+              replyTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
+              disabled={sending}
+            />
           </View>
         )}
       </View>
 
-      <Modal visible={!!menuMessage} animationType="fade" transparent={true} onRequestClose={() => setMenuMessage(null)}>
-        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuMessage(null)}>
-          <Animated.View
-            style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}
-          >
-            {/* Message preview */}
-            <View style={styles.menuPreview}>
-              <ThemedText style={[styles.menuPreviewName, { color: colors.primary }]} numberOfLines={1}>
-                {menuMessage?.senderName}
-              </ThemedText>
-              <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
-                {menuMessage?.text}
-              </ThemedText>
+      <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuMessage(null)}>
+          <View style={styles.menuCenter} onStartShouldSetResponder={() => true}>
+            {/* Emoji reaction pill */}
+            <View style={styles.reactionStripOuter}>
+              <View style={[styles.reactionStripInner, { backgroundColor: colors.card }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reactionStripContent}>
+                {pillEmojis.map(emoji => {
+                  const reacted = !!(currentUser && (menuMessage?.reactions?.[emoji] ?? []).includes(currentUser.uid));
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[styles.emojiBtn, reacted && { backgroundColor: colors.primary + '33' }]}
+                      onPress={() => menuMessage && handleReaction(emoji)}
+                    >
+                      <ThemedText style={styles.emojiText}>{emoji}</ThemedText>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity style={[styles.emojiBtn, styles.emojiBtnPlus, { borderColor: colors.border }]} onPress={openEmojiPicker}>
+                  <Plus size={18} color={colors.textSecondary} strokeWidth={2.5} />
+                </TouchableOpacity>
+              </ScrollView>
+              </View>
             </View>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => menuMessage && handleReply(menuMessage)}
+
+            {/* Action menu */}
+            <Animated.View
+              style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}
             >
-              <View style={[styles.menuIconCircle, { backgroundColor: colors.primary + '22' }]}>
-                <Reply size={18} color={colors.primary} strokeWidth={2} />
+              <View style={[styles.menuPreview, { borderBottomColor: colors.border }]}>
+                <ThemedText style={[styles.menuPreviewName, { color: colors.primary }]} numberOfLines={1}>
+                  {menuMessage?.senderName}
+                </ThemedText>
+                <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
+                  {menuMessage?.attachments?.find(a => a.type === 'audio') ? '🎤 Mensaje de voz' : menuMessage?.text}
+                </ThemedText>
               </View>
-              <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Responder</ThemedText>
-            </TouchableOpacity>
-            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => menuMessage && handleMenuDelete(menuMessage)}
-            >
-              <View style={[styles.menuIconCircle, { backgroundColor: '#FF3B3022' }]}>
-                <Trash2 size={18} color="#FF3B30" strokeWidth={2} />
-              </View>
-              <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleReply(menuMessage)}>
+                <Reply size={20} color={colors.text} strokeWidth={2} />
+                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Responder</ThemedText>
+              </TouchableOpacity>
+              <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleForward(menuMessage)}>
+                <Forward size={20} color={colors.text} strokeWidth={2} />
+                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Reenviar</ThemedText>
+              </TouchableOpacity>
+              {!!menuMessage?.text && (
+                <>
+                  <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                  <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleCopy(menuMessage)}>
+                    <Copy size={20} color={colors.text} strokeWidth={2} />
+                    <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Copiar</ThemedText>
+                  </TouchableOpacity>
+                </>
+              )}
+              <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleMenuDelete(menuMessage)}>
+                <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
+                <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showEmojiInput}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => {
+          setShowEmojiInput(false);
+          setCustomEmoji('');
+          menuMessageRef.current = null;
+        }}
+      >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity
+            style={styles.emojiPickerOverlay}
+            activeOpacity={1}
+            onPress={() => {
+              setShowEmojiInput(false);
+              setCustomEmoji('');
+              menuMessageRef.current = null;
+            }}
+          >
+            <View style={[styles.emojiInputBox, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
+              <ThemedText style={[styles.emojiInputLabel, { color: colors.textSecondary }]}>
+                Selecciona un emoji del teclado
+              </ThemedText>
+              <TextInput
+                autoFocus
+                style={[styles.emojiInputField, { color: colors.text }]}
+                value={customEmoji}
+                onChangeText={(text) => {
+                  if (menuMessageRef.current && text.trim()) {
+                    const target = menuMessageRef.current;
+                    menuMessageRef.current = null;
+                    setShowEmojiInput(false);
+                    setCustomEmoji('');
+                    handleReaction(text.trim(), target);
+                  }
+                }}
+                maxLength={8}
+                placeholder=""
+                caretHidden={false}
+              />
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={showSettings} animationType="slide" transparent={true} onRequestClose={() => setShowSettings(false)}>
@@ -535,22 +748,23 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   sizeButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm },
   styleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 18, borderWidth: 1 },
-  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  emojiPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: spacing.xl },
+  menuCenter: { alignItems: 'center', gap: 10 },
   menuContent: {
     width: 272,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 12,
   },
-  menuPreview: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: 4 },
+  menuPreview: { paddingHorizontal: spacing.md, paddingVertical: 14, gap: 3, borderBottomWidth: StyleSheet.hairlineWidth },
   menuPreviewName: { fontSize: typography.sizes.sm, fontWeight: '700' },
   menuPreviewText: { fontSize: typography.sizes.sm },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md },
-  menuIconCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14, paddingHorizontal: 20 },
   menuItemText: { fontSize: typography.sizes.md, flex: 1 },
   menuDivider: { height: StyleSheet.hairlineWidth },
   deleteDialog: {
@@ -569,4 +783,72 @@ const styles = StyleSheet.create({
   deleteDialogDivider: { height: StyleSheet.hairlineWidth },
   deleteDialogBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, alignItems: 'center' },
   deleteDialogBtnText: { fontSize: typography.sizes.md },
+  reactionStripOuter: {
+    width: 272,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  reactionStripInner: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    paddingVertical: 8,
+  },
+  reactionStripContent: { paddingHorizontal: 10, gap: 2 },
+  emojiBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emojiBtnPlus: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  emojiText: { fontSize: 26, lineHeight: 36, includeFontPadding: false },
+  emojiInputBox: {
+    width: 272,
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    gap: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  emojiInputLabel: { fontSize: typography.sizes.sm, fontWeight: '500' },
+  emojiInputField: {
+    fontSize: 44,
+    textAlign: 'center',
+    width: '100%',
+    height: 64,
+    includeFontPadding: false,
+  },
+  scrollDownBtn: {
+    position: 'absolute',
+    bottom: 90,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    pointerEvents: 'box-none',
+  },
+  scrollDownBtnInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
+  },
 });
