@@ -31,6 +31,8 @@ export interface ReplyPreview {
   id: string;
   text: string;
   senderName: string;
+  isAudio?: boolean;
+  audioDuration?: number;
 }
 
 export interface Message {
