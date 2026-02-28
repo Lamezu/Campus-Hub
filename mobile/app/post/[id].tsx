@@ -4,14 +4,18 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Image,
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Keyboard,
 } from 'react-native';
+import { FloatingHeart } from '@/components/FloatingHeart';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { Audio, Video, ResizeMode } from 'expo-av';
 import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2 } from 'lucide-react-native';
@@ -81,6 +85,18 @@ export default function PostDetailScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const likeScale = useSharedValue(1);
+  const likeAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
+
+  const postLastTapRef = useRef(0);
+  const [hearts, setHearts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const addHeart = (x: number, y: number) => {
+    const id = Date.now();
+    setHearts((prev) => [...prev, { id, x, y }]);
+  };
+  const removeHeart = (id: number) => setHearts((prev) => prev.filter((h) => h.id !== id));
+
+  const commentLastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   useEffect(() => {
     if (!id) return;
@@ -172,6 +188,7 @@ export default function PostDetailScreen() {
   const toggleLike = async () => {
     if (!currentUser || !post || likingPost) return;
     setLikingPost(true);
+    likeScale.value = withSpring(1.2, {}, () => { likeScale.value = withSpring(1); });
     const postRef = doc(db, 'posts', post.id);
     try {
       if (isLiked) {
@@ -184,6 +201,48 @@ export default function PostDetailScreen() {
     } finally {
       setLikingPost(false);
     }
+  };
+
+  const getLikeText = () => {
+    const count = post?.likesCount ?? 0;
+    if (isLiked) {
+      if (count <= 1) return 'Te gusta esto';
+      return `Tú y ${count - 1} persona${count - 1 === 1 ? '' : 's'} más`;
+    }
+    if (count === 0) return '';
+    return `${count} persona${count === 1 ? '' : 's'} les gusta`;
+  };
+
+  const handlePostContentDoubleTap = (x: number, y: number) => {
+    Keyboard.dismiss();
+    const now = Date.now();
+    if (now - postLastTapRef.current < 280) {
+      addHeart(x, y);
+      if (!isLiked) toggleLike();
+    }
+    postLastTapRef.current = now;
+  };
+
+  const handleCommentDoubleTap = (commentId: string, likes: string[]) => {
+    Keyboard.dismiss();
+    const now = Date.now();
+    const alreadyLiked = currentUser && likes.includes(currentUser.uid);
+    if (commentLastTapRef.current.id === commentId && now - commentLastTapRef.current.time < 280) {
+      if (!alreadyLiked) toggleCommentLike(commentId, likes);
+      commentLastTapRef.current = { id: '', time: 0 };
+    } else {
+      commentLastTapRef.current = { id: commentId, time: now };
+    }
+  };
+
+  const toggleCommentLike = async (commentId: string, likes: string[]) => {
+    if (!currentUser) return;
+    const commentRef = doc(db, 'posts', id, 'comments', commentId);
+    const isLikedComment = likes.includes(currentUser.uid);
+    await updateDoc(commentRef, {
+      likes: isLikedComment ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+      likesCount: increment(isLikedComment ? -1 : 1),
+    });
   };
 
   const addComment = async () => {
@@ -260,9 +319,10 @@ export default function PostDetailScreen() {
         )}
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
+          <Pressable onPress={(e) => handlePostContentDoubleTap(e.nativeEvent.locationX, e.nativeEvent.locationY)}>
           <View style={styles.authorRow}>
             <Avatar uri={post.authorPhoto} name={post.authorName} size={50} />
             <View style={{ marginLeft: spacing.sm }}>
@@ -321,12 +381,14 @@ export default function PostDetailScreen() {
               disabled={likingPost}
               activeOpacity={0.7}
             >
-              <Heart
-                size={18}
-                color={isLiked ? '#FF3B30' : colors.textSecondary}
-                fill={isLiked ? '#FF3B30' : 'transparent'}
-                strokeWidth={1.8}
-              />
+              <Animated.View style={likeAnimatedStyle}>
+                <Heart
+                  size={18}
+                  color={isLiked ? '#FF3B30' : colors.textSecondary}
+                  fill={isLiked ? '#FF3B30' : 'transparent'}
+                  strokeWidth={1.8}
+                />
+              </Animated.View>
               <ThemedText style={[styles.statCount, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
                 {post.likesCount}
               </ThemedText>
@@ -341,6 +403,18 @@ export default function PostDetailScreen() {
             </View>
           </View>
 
+          {getLikeText() !== '' && (
+            <ThemedText style={[styles.likeText, { color: colors.textSecondary }]}>
+              {getLikeText()}
+            </ThemedText>
+          )}
+
+          {hearts.map((heart) => (
+            <FloatingHeart key={heart.id} x={heart.x} y={heart.y} onDone={() => removeHeart(heart.id)} />
+          ))}
+
+          </Pressable>
+
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <ThemedText style={[styles.commentsHeader, { color: colors.text }]}>
             Comentarios ({comments.length})
@@ -352,14 +426,39 @@ export default function PostDetailScreen() {
             </ThemedText>
           ) : (
             comments.map((comment) => (
-              <View key={comment.id} style={styles.commentRow}>
+              <Pressable
+                key={comment.id}
+                style={styles.commentRow}
+                onPress={() => handleCommentDoubleTap(comment.id, comment.likes ?? [])}
+              >
                 <Avatar uri={comment.authorPhoto} name={comment.authorName} size={32} />
                 <View style={[styles.commentBubble, { backgroundColor: colors.backgroundSecondary }]}>
                   <ThemedText style={[styles.commentAuthor, { color: colors.text }]}>{comment.authorName}</ThemedText>
                   <ThemedText style={[styles.commentContent, { color: colors.text }]}>{comment.content}</ThemedText>
-                  <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(comment.createdAt)}</ThemedText>
+                  <View style={styles.commentFooter}>
+                    <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(comment.createdAt)}</ThemedText>
+                    <TouchableOpacity
+                      onPress={() => toggleCommentLike(comment.id, comment.likes ?? [])}
+                      style={styles.commentLikeBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Heart
+                        size={14}
+                        color={currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : colors.textSecondary}
+                        fill={currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : 'transparent'}
+                        strokeWidth={1.8}
+                      />
+                      {(comment.likesCount ?? 0) > 0 && (
+                        <ThemedText style={[styles.commentLikeCount, {
+                          color: currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : colors.textSecondary,
+                        }]}>
+                          {comment.likesCount}
+                        </ThemedText>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
           <View style={{ height: spacing.xl }} />
@@ -567,4 +666,8 @@ const styles = StyleSheet.create({
   deleteDialogDivider: { height: StyleSheet.hairlineWidth },
   deleteDialogBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, alignItems: 'center' },
   deleteDialogBtnText: { fontSize: typography.sizes.md },
+  likeText: { fontSize: typography.sizes.sm, marginTop: -8, marginBottom: spacing.md },
+  commentFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  commentLikeBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 4 },
+  commentLikeCount: { fontSize: typography.sizes.xs, fontWeight: '600' },
 });

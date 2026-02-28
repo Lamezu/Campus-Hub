@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Pressable, StyleSheet, Image } from 'react-native';
 import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
+import { FloatingHeart } from './FloatingHeart';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Post } from '@/types';
@@ -9,6 +10,8 @@ import type { Post } from '@/types';
 interface PostCardProps {
   post: Post;
   onPress: () => void;
+  onDoubleTap?: () => void;
+  currentUserId?: string;
 }
 
 function getTimeAgo(dateString: string): string {
@@ -25,17 +28,46 @@ function getTimeAgo(dateString: string): string {
   return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-export function PostCard({ post, onPress }: PostCardProps) {
+export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCardProps) {
   const { colors } = useTheme();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
   const hasSong = !!post.song;
+  const isLiked = !!(currentUserId && post.likes?.includes(currentUserId));
+
+  const lastTapRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hearts, setHearts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+
+  const addHeart = (x: number, y: number) => {
+    const id = Date.now();
+    setHearts((prev) => [...prev, { id, x, y }]);
+  };
+  const removeHeart = (id: number) => setHearts((prev) => prev.filter((h) => h.id !== id));
+
+  const handlePress = (x: number, y: number) => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 280) {
+      // Double tap — cancel pending navigation
+      if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current);
+        tapTimerRef.current = null;
+      }
+      addHeart(x, y);
+      if (!isLiked) onDoubleTap?.();
+    } else {
+      // Single tap — wait to see if a second tap comes
+      tapTimerRef.current = setTimeout(() => {
+        onPress();
+      }, 280);
+    }
+    lastTapRef.current = now;
+  };
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.container, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.7}
+      onPress={(e) => handlePress(e.nativeEvent.locationX, e.nativeEvent.locationY)}
     >
       <View style={styles.row}>
         <View style={styles.main}>
@@ -65,8 +97,15 @@ export function PostCard({ post, onPress }: PostCardProps) {
 
           <View style={styles.footer}>
             <View style={styles.stat}>
-              <Heart size={14} color={colors.textSecondary} strokeWidth={1.8} />
-              <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.likesCount}</ThemedText>
+              <Heart
+                size={14}
+                color={isLiked ? '#FF3B30' : colors.textSecondary}
+                fill={isLiked ? '#FF3B30' : 'transparent'}
+                strokeWidth={1.8}
+              />
+              <ThemedText style={[styles.statText, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
+                {post.likesCount}
+              </ThemedText>
             </View>
             <View style={styles.stat}>
               <MessageCircle size={14} color={colors.textSecondary} strokeWidth={1.8} />
@@ -93,7 +132,11 @@ export function PostCard({ post, onPress }: PostCardProps) {
           </View>
         )}
       </View>
-    </TouchableOpacity>
+
+      {hearts.map((heart) => (
+        <FloatingHeart key={heart.id} x={heart.x} y={heart.y} onDone={() => removeHeart(heart.id)} />
+      ))}
+    </Pressable>
   );
 }
 
@@ -102,76 +145,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    overflow: 'visible',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  main: {
-    flex: 1,
-  },
+  main: { flex: 1 },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  avatarFallback: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitial: {
-    color: '#FFFFFF',
-    fontSize: typography.sizes.sm,
-    fontWeight: 'bold',
-  },
-  authorMeta: {
-    marginLeft: spacing.sm,
-  },
-  authorName: {
-    fontSize: typography.sizes.sm,
-    fontWeight: '600',
-  },
-  timeAgo: {
-    fontSize: typography.sizes.xs,
-    marginTop: 1,
-  },
-  title: {
-    fontSize: typography.sizes.md,
-    fontWeight: 'bold',
-    marginBottom: spacing.xs,
-  },
-  content: {
-    fontSize: typography.sizes.sm,
-    lineHeight: 20,
-    marginBottom: spacing.sm,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: typography.sizes.sm,
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    flexShrink: 0,
-  },
-  videoThumb: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  avatar: { width: 36, height: 36, borderRadius: 18 },
+  avatarFallback: { justifyContent: 'center', alignItems: 'center' },
+  avatarInitial: { color: '#FFFFFF', fontSize: typography.sizes.sm, fontWeight: 'bold' },
+  authorMeta: { marginLeft: spacing.sm },
+  authorName: { fontSize: typography.sizes.sm, fontWeight: '600' },
+  timeAgo: { fontSize: typography.sizes.xs, marginTop: 1 },
+  title: { fontSize: typography.sizes.md, fontWeight: 'bold', marginBottom: spacing.xs },
+  content: { fontSize: typography.sizes.sm, lineHeight: 20, marginBottom: spacing.sm },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statText: { fontSize: typography.sizes.sm },
+  thumbnail: { width: 80, height: 80, borderRadius: 10, flexShrink: 0 },
+  videoThumb: { justifyContent: 'center', alignItems: 'center' },
 });
