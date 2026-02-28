@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   TextInput,
@@ -18,6 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
 import type { ReplyPreview } from '@/types';
 import { uploadAudio } from '@/config/cloudinary';
+
+export interface MessageInputHandle {
+  startRecording: () => Promise<void>;
+  startRecordingLocked: () => Promise<void>;
+}
 
 interface MessageInputProps {
   onSend: (text: string) => void;
@@ -98,13 +103,13 @@ const waveDotStyles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3 },
 });
 
-export function MessageInput({
+export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({
   onSend,
   onSendAudio,
   replyTo,
   onCancelReply,
   disabled = false,
-}: MessageInputProps) {
+}, ref) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
@@ -375,6 +380,23 @@ export function MessageInput({
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    startRecording: async () => {
+      if (!isRecording && !isStopped) {
+        await startRecording();
+      }
+    },
+    startRecordingLocked: async () => {
+      if (!isRecording && !isStopped) {
+        const success = await startRecording();
+        if (success) {
+          isLockedRef.current = true;
+          setIsLocked(true);
+        }
+      }
+    },
+  }));
+
   const hasText = !!text.trim();
 
   return (
@@ -430,12 +452,24 @@ export function MessageInput({
               <ThemedText style={[styles.replyBarName, { color: colors.primary }]} numberOfLines={1}>
                 {replyTo.senderName}
               </ThemedText>
-              <ThemedText
-                style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
-                numberOfLines={1}
-              >
-                {replyTo.text}
-              </ThemedText>
+              {replyTo.isAudio ? (
+                <View style={styles.replyBarAudioRow}>
+                  <Mic size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+                  <ThemedText
+                    style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                    numberOfLines={1}
+                  >
+                    {'Mensaje de voz' + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
+                  </ThemedText>
+                </View>
+              ) : (
+                <ThemedText
+                  style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                  numberOfLines={1}
+                >
+                  {replyTo.text}
+                </ThemedText>
+              )}
             </View>
             <TouchableOpacity onPress={onCancelReply} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <X size={20} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
@@ -611,7 +645,7 @@ export function MessageInput({
       </View>
     </View>
   );
-}
+});
 
 const BADGE_SIZE = 58;
 
@@ -746,6 +780,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   replyBarContent: { flex: 1 },
+  replyBarAudioRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   replyBarName: { fontSize: typography.sizes.xs, fontWeight: '600', marginBottom: 2 },
   replyBarText: { fontSize: typography.sizes.xs },
   previewPlayer: {
