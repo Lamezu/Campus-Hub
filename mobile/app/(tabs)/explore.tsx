@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { db } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedText } from '@/components/themed-text';
 import { PostCard } from '@/components/PostCard';
@@ -13,6 +13,15 @@ import type { Post } from '@/types';
 export default function ExploreScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const currentUser = auth.currentUser;
+
+  const handleDoubleTap = async (postId: string) => {
+    if (!currentUser) return;
+    await updateDoc(doc(db, 'posts', postId), {
+      likes: arrayUnion(currentUser.uid),
+      likesCount: increment(1),
+    });
+  };
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,6 +82,8 @@ export default function ExploreScreen() {
             <PostCard
               post={item}
               onPress={() => router.push(`/post/${item.id}` as any)}
+              onDoubleTap={() => handleDoubleTap(item.id)}
+              currentUserId={currentUser?.uid}
             />
           )}
           ListEmptyComponent={renderEmpty}

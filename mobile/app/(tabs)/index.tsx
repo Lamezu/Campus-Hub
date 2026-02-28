@@ -1,4 +1,5 @@
 import { StyleSheet, FlatList, TouchableOpacity, View } from 'react-native';
+import { registerForPushNotifications } from '@/utils/notifications';
 import { Settings } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -47,6 +48,12 @@ export default function HomeScreen() {
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
   }, []);
+
+  useEffect(() => {
+    if (user?.uid) {
+      registerForPushNotifications(user.uid);
+    }
+  }, [user?.uid]);
 
   const handleChannelPress = (channel: Channel) => {
     router.push({ pathname: '/chat/[id]', params: { id: channel.id } });
