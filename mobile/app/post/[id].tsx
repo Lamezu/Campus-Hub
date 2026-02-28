@@ -8,16 +8,18 @@ import {
   Image,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { Audio, Video, ResizeMode } from 'expo-av';
-import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil } from 'lucide-react-native';
+import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2 } from 'lucide-react-native';
 import {
   doc,
   getDoc,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   arrayRemove,
   collection,
@@ -74,6 +76,8 @@ export default function PostDetailScreen() {
   const [sendingComment, setSendingComment] = useState(false);
   const [likingPost, setLikingPost] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -142,6 +146,19 @@ export default function PostDetailScreen() {
       soundRef.current = null;
     };
   }, [post?.song?.id]);
+
+  const handleDeletePost = async () => {
+    if (!post || deletingPost) return;
+    setDeletingPost(true);
+    try {
+      await deleteDoc(doc(db, 'posts', post.id));
+      router.back();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setDeletingPost(false);
+    }
+  };
 
   const toggleMute = useCallback(async () => {
     if (soundRef.current) {
@@ -226,12 +243,20 @@ export default function PostDetailScreen() {
           <ThemedText style={[styles.backText, { color: colors.primary }]}>Volver</ThemedText>
         </TouchableOpacity>
         {post && currentUser?.uid === post.authorId && (
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/edit-post', params: { id: post.id } } as any)}
-            style={styles.editBtn}
-          >
-            <Pencil size={20} color={colors.primary} strokeWidth={1.8} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/edit-post', params: { id: post.id } } as any)}
+              style={styles.editBtn}
+            >
+              <Pencil size={20} color={colors.primary} strokeWidth={1.8} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowDeleteConfirm(true)}
+              style={styles.editBtn}
+            >
+              <Trash2 size={20} color="#FF3B30" strokeWidth={1.8} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -363,6 +388,50 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showDeleteConfirm}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <TouchableOpacity
+          style={styles.deleteOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDeleteConfirm(false)}
+        >
+          <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
+            <View style={styles.deleteDialogHeader}>
+              <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
+                Eliminar post
+              </ThemedText>
+              <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
+                Esta acción no se puede deshacer.
+              </ThemedText>
+            </View>
+            <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.deleteDialogBtn}
+              onPress={() => { setShowDeleteConfirm(false); handleDeletePost(); }}
+              disabled={deletingPost}
+            >
+              {deletingPost
+                ? <ActivityIndicator color="#FF3B30" size="small" />
+                : <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
+              }
+            </TouchableOpacity>
+            <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+            <TouchableOpacity
+              style={styles.deleteDialogBtn}
+              onPress={() => setShowDeleteConfirm(false)}
+            >
+              <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
+                Cancelar
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -379,6 +448,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   editBtn: { padding: spacing.xs },
   backText: { fontSize: typography.sizes.md },
   scrollContent: { padding: spacing.md },
@@ -480,4 +550,21 @@ const styles = StyleSheet.create({
   sendButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, minWidth: 64, alignItems: 'center' },
   sendButtonDisabled: { opacity: 0.5 },
   sendButtonText: { color: '#FFF', fontWeight: '600', fontSize: typography.sizes.sm },
+  deleteOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  deleteDialog: {
+    width: 280,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  deleteDialogHeader: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  deleteDialogTitle: { fontSize: typography.sizes.md, fontWeight: '700', marginBottom: 4 },
+  deleteDialogSubtitle: { fontSize: typography.sizes.sm },
+  deleteDialogDivider: { height: StyleSheet.hairlineWidth },
+  deleteDialogBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, alignItems: 'center' },
+  deleteDialogBtnText: { fontSize: typography.sizes.md },
 });
