@@ -46,7 +46,7 @@ Campus-Hub/
 - ✅ Sprint 0: Initial setup (Jan 12-26)
 - ✅ Sprint 1: Authentication (Jan 27 - Feb 9)
 - ✅ Sprint 2: Messaging (Feb 10-23)
-- ⏳ Sprint 3: Notifications + Forum (Feb 24 - Mar 9)
+- ✅ Sprint 3: Notifications + Forum (Feb 24 - Mar 9)
 - ⏳ Sprint 4: Events + Reports (Mar 10-23)
 - ⏳ Sprint 5: Admin Panel (Mar 24 - Apr 6)
 - ⏳ Sprint 6: Testing + Deployment (Apr 7-16)
