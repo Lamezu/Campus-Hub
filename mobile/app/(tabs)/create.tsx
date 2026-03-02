@@ -42,6 +42,7 @@ export default function CreateScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [media, setMedia] = useState<MediaAsset | null>(null);
+  const [muteOriginalAudio, setMuteOriginalAudio] = useState(false);
   const [song, setSong] = useState<JamendoTrack | null>(null);
   const [showSongPicker, setShowSongPicker] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -72,12 +73,26 @@ export default function CreateScreen() {
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    setMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
-    if (asset.type !== 'video') setSong(null);
+    if (asset.type === 'video') {
+      setMedia({ uri: asset.uri, type: 'video' });
+      Alert.alert(
+        'Audio del vídeo',
+        '¿Quieres conservar el audio original del vídeo?',
+        [
+          { text: 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+        ]
+      );
+    } else {
+      setMedia({ uri: asset.uri, type: 'image' });
+      setMuteOriginalAudio(false);
+      setSong(null);
+    }
   };
 
   const removeMedia = () => {
     setMedia(null);
+    setMuteOriginalAudio(false);
     setSong(null);
   };
 
@@ -107,12 +122,14 @@ export default function CreateScreen() {
         commentsCount: 0,
         mediaUrl: mediaUrl ?? null,
         mediaType: media?.type ?? null,
+        muteOriginalAudio: media?.type === 'video' ? muteOriginalAudio : false,
         song: song ?? null,
       });
 
       setTitle('');
       setContent('');
       setMedia(null);
+      setMuteOriginalAudio(false);
       setSong(null);
       router.push('/(tabs)/explore');
     } catch {
@@ -174,6 +191,13 @@ export default function CreateScreen() {
                   <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                     <Ionicons name="videocam" size={32} color={colors.textSecondary} />
                     <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>Vídeo seleccionado</ThemedText>
+                    <TouchableOpacity
+                      style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
+                      onPress={() => setMuteOriginalAudio(prev => !prev)}
+                    >
+                      <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
+                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? 'Sin audio' : 'Con audio'}</ThemedText>
+                    </TouchableOpacity>
                   </View>
                 )}
                 <TouchableOpacity style={styles.removeMedia} onPress={removeMedia}>
@@ -370,6 +394,20 @@ const styles = StyleSheet.create({
   publishButtonText: {
     color: '#FFFFFF',
     fontSize: typography.sizes.md,
+    fontWeight: '600',
+  },
+  audioToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: spacing.xs,
+  },
+  audioToggleText: {
+    color: '#FFF',
+    fontSize: typography.sizes.xs,
     fontWeight: '600',
   },
 });
