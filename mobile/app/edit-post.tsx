@@ -43,6 +43,7 @@ export default function EditPostScreen() {
   const [existingMediaType, setExistingMediaType] = useState<'image' | 'video' | null>(null);
   const [newMedia, setNewMedia] = useState<NewMedia | null>(null);
   const [mediaRemoved, setMediaRemoved] = useState(false);
+  const [muteOriginalAudio, setMuteOriginalAudio] = useState(false);
   const [song, setSong] = useState<JamendoTrack | null>(null);
   const [showSongPicker, setShowSongPicker] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,7 @@ export default function EditPostScreen() {
       setContent(d.content ?? '');
       setExistingMediaUrl(d.mediaUrl ?? null);
       setExistingMediaType(d.mediaType ?? null);
+      setMuteOriginalAudio(d.muteOriginalAudio ?? false);
       setSong(d.song ?? null);
       setLoading(false);
     });
@@ -85,9 +87,23 @@ export default function EditPostScreen() {
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    setNewMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
-    setMediaRemoved(false);
-    if (asset.type !== 'video') setSong(null);
+    if (asset.type === 'video') {
+      setNewMedia({ uri: asset.uri, type: 'video' });
+      setMediaRemoved(false);
+      Alert.alert(
+        'Audio del vídeo',
+        '¿Quieres conservar el audio original del vídeo?',
+        [
+          { text: 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+        ]
+      );
+    } else {
+      setNewMedia({ uri: asset.uri, type: 'image' });
+      setMediaRemoved(false);
+      setMuteOriginalAudio(false);
+      setSong(null);
+    }
   };
 
   const removeMedia = () => {
@@ -95,6 +111,7 @@ export default function EditPostScreen() {
     setExistingMediaUrl(null);
     setExistingMediaType(null);
     setMediaRemoved(true);
+    setMuteOriginalAudio(false);
     setSong(null);
   };
 
@@ -118,6 +135,7 @@ export default function EditPostScreen() {
         content: content.trim(),
         mediaUrl: finalMediaUrl,
         mediaType: finalMediaType,
+        muteOriginalAudio: finalMediaType === 'video' ? muteOriginalAudio : false,
         song: song ?? null,
         updatedAt: serverTimestamp(),
       });
@@ -214,6 +232,13 @@ export default function EditPostScreen() {
                     <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>
                       {newMedia ? 'Vídeo seleccionado' : 'Vídeo actual'}
                     </ThemedText>
+                    <TouchableOpacity
+                      style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
+                      onPress={() => setMuteOriginalAudio(prev => !prev)}
+                    >
+                      <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
+                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? 'Sin audio' : 'Con audio'}</ThemedText>
+                    </TouchableOpacity>
                   </View>
                 )}
                 <View style={styles.mediaActions}>
@@ -385,4 +410,18 @@ const styles = StyleSheet.create({
   songCover: { width: 40, height: 40, borderRadius: 6 },
   songName: { fontSize: typography.sizes.sm, fontWeight: '600' },
   songArtist: { fontSize: typography.sizes.xs, marginTop: 2 },
+  audioToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: spacing.xs,
+  },
+  audioToggleText: {
+    color: '#FFF',
+    fontSize: typography.sizes.xs,
+    fontWeight: '600',
+  },
 });
