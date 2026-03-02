@@ -81,6 +81,7 @@ export interface Post {
   tags?: string[];
   mediaUrl?: string | null;
   mediaType?: 'image' | 'video' | null;
+  muteOriginalAudio?: boolean;
   song?: JamendoTrack | null;
   viewsCount?: number;
   views?: string[];
