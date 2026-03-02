@@ -5,16 +5,18 @@ import { Platform } from 'react-native';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+if (!isExpoGo || Platform.OS !== 'android') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
   if (isExpoGo && Platform.OS === 'android') return null;
