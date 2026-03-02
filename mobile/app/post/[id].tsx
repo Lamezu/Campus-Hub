@@ -16,12 +16,11 @@ import {
 import { FloatingHeart } from '@/components/FloatingHeart';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { Audio, Video, ResizeMode } from 'expo-av';
+import { useLocalSearchParams, Stack, router, useFocusEffect } from 'expo-router';
+import { Audio, Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
 import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2 } from 'lucide-react-native';
 import {
   doc,
-  getDoc,
   updateDoc,
   deleteDoc,
   arrayUnion,
@@ -85,10 +84,19 @@ export default function PostDetailScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const videoRef = useRef<Video>(null);
+  const videoPlayingRef = useRef(false);
+  const videoMutedRef = useRef(false);
+  const viewCountedRef = useRef(false);
   const likeScale = useSharedValue(1);
   const likeAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
 
   const postLastTapRef = useRef(0);
+  const tapReadyRef = useRef(false);
+  useEffect(() => {
+    const t = setTimeout(() => { tapReadyRef.current = true; }, 500);
+    return () => clearTimeout(t);
+  }, []);
   const [hearts, setHearts] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const addHeart = (x: number, y: number) => {
     const id = Date.now();
@@ -100,7 +108,7 @@ export default function PostDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
-    getDoc(doc(db, 'posts', id)).then((snap) => {
+    const unsub = onSnapshot(doc(db, 'posts', id), (snap) => {
       if (snap.exists()) {
         const d = snap.data();
         setPost({
@@ -110,14 +118,18 @@ export default function PostDetailScreen() {
           updatedAt: d.updatedAt?.toDate?.()?.toISOString() ?? null,
         } as Post);
 
-        const isOwnPost = d.authorId === currentUser?.uid;
-        const alreadyViewed = currentUser && (d.views ?? []).includes(currentUser.uid);
-        if (!isOwnPost && !alreadyViewed && currentUser) {
-          updateDoc(snap.ref, { views: arrayUnion(currentUser.uid), viewsCount: increment(1) });
+        if (!viewCountedRef.current) {
+          viewCountedRef.current = true;
+          const isOwnPost = d.authorId === currentUser?.uid;
+          const alreadyViewed = currentUser && (d.views ?? []).includes(currentUser.uid);
+          if (!isOwnPost && !alreadyViewed && currentUser) {
+            updateDoc(snap.ref, { views: arrayUnion(currentUser.uid), viewsCount: increment(1) });
+          }
         }
       }
       setLoadingPost(false);
     });
+    return unsub;
   }, [id]);
 
   useEffect(() => {
@@ -146,13 +158,16 @@ export default function PostDetailScreen() {
       if (!mounted) return;
       const { sound } = await Audio.Sound.createAsync(
         { uri: post.song!.audioUrl },
-        { shouldPlay: true, isLooping: true },
+        { shouldPlay: false, isLooping: true },
       );
       if (!mounted) {
         sound.unloadAsync();
         return;
       }
       soundRef.current = sound;
+      if (videoPlayingRef.current) {
+        sound.playAsync();
+      }
     };
 
     startAudio();
@@ -162,6 +177,37 @@ export default function PostDetailScreen() {
       soundRef.current = null;
     };
   }, [post?.song?.id]);
+
+  const handleVideoStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) return;
+
+    if (status.isMuted !== videoMutedRef.current) {
+      videoRef.current?.setStatusAsync({ isMuted: videoMutedRef.current });
+    }
+
+    if (soundRef.current) {
+      if (status.isPlaying && !videoPlayingRef.current) {
+        videoPlayingRef.current = true;
+        soundRef.current.playAsync();
+      } else if (!status.isPlaying && !status.isBuffering && videoPlayingRef.current) {
+        videoPlayingRef.current = false;
+        soundRef.current.pauseAsync();
+      }
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    // Al recuperar el foco, reanudar vídeo y canción si estaban reproduciéndose
+    if (videoPlayingRef.current) {
+      videoRef.current?.playAsync();
+      soundRef.current?.playAsync();
+    }
+    return () => {
+      // Al perder el foco (otra pantalla), pausar todo
+      videoRef.current?.pauseAsync();
+      soundRef.current?.pauseAsync();
+    };
+  }, []));
 
   const handleDeletePost = async () => {
     if (!post || deletingPost) return;
@@ -176,12 +222,9 @@ export default function PostDetailScreen() {
     }
   };
 
-  const toggleMute = useCallback(async () => {
-    if (soundRef.current) {
-      isMuted ? await soundRef.current.playAsync() : await soundRef.current.pauseAsync();
-    }
+  const toggleMute = useCallback(() => {
     setIsMuted((prev) => !prev);
-  }, [isMuted]);
+  }, []);
 
   const isLiked = !!(currentUser && post?.likes.includes(currentUser.uid));
 
@@ -214,6 +257,7 @@ export default function PostDetailScreen() {
   };
 
   const handlePostContentDoubleTap = (x: number, y: number) => {
+    if (!tapReadyRef.current) return;
     Keyboard.dismiss();
     const now = Date.now();
     if (now - postLastTapRef.current < 280) {
@@ -291,6 +335,7 @@ export default function PostDetailScreen() {
 
   const hasSong = !!post.song;
   const hasMedia = !!post.mediaUrl;
+  videoMutedRef.current = isMuted || !!post.muteOriginalAudio;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -322,7 +367,7 @@ export default function PostDetailScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
-          <Pressable onPress={(e) => handlePostContentDoubleTap(e.nativeEvent.locationX, e.nativeEvent.locationY)}>
+          <Pressable onPress={(e) => handlePostContentDoubleTap(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
           <View style={styles.authorRow}>
             <Avatar uri={post.authorPhoto} name={post.authorName} size={50} />
             <View style={{ marginLeft: spacing.sm }}>
@@ -335,43 +380,47 @@ export default function PostDetailScreen() {
           <ThemedText style={[styles.postContent, { color: colors.text }]}>{post.content}</ThemedText>
 
           {hasMedia && (
-            <View style={styles.mediaContainer}>
-              {post.mediaType === 'video' ? (
-                <Video
-                  source={{ uri: post.mediaUrl! }}
-                  style={styles.media}
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay
-                  isLooping
-                  isMuted={hasSong || isMuted}
-                  useNativeControls={!hasSong}
-                />
-              ) : (
-                <Image source={{ uri: post.mediaUrl! }} style={styles.media} resizeMode="cover" />
-              )}
+            <>
+              <View style={[styles.mediaContainer, { marginBottom: hasSong ? spacing.xs : spacing.md }]}>
+                {post.mediaType === 'video' ? (
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: post.mediaUrl! }}
+                    style={styles.media}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay
+                    isLooping
+                    isMuted={isMuted || !!post.muteOriginalAudio}
+                    useNativeControls
+                    onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                  />
+                ) : (
+                  <Image source={{ uri: post.mediaUrl! }} style={styles.media} resizeMode="cover" />
+                )}
 
-              {(hasSong || post.mediaType === 'video') && (
-                <TouchableOpacity style={styles.muteButton} onPress={toggleMute} activeOpacity={0.8}>
-                  {isMuted
-                    ? <VolumeX size={18} color="#FFFFFF" strokeWidth={2} />
-                    : <Volume2 size={18} color="#FFFFFF" strokeWidth={2} />
-                  }
-                </TouchableOpacity>
-              )}
+                {(post.mediaType === 'video' && !post.muteOriginalAudio) && (
+                  <TouchableOpacity style={styles.muteButton} onPress={toggleMute} activeOpacity={0.8}>
+                    {isMuted
+                      ? <VolumeX size={18} color="#FFFFFF" strokeWidth={2} />
+                      : <Volume2 size={18} color="#FFFFFF" strokeWidth={2} />
+                    }
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {hasSong && (
-                <View style={styles.songBar}>
+                <View style={[styles.songBar, { backgroundColor: colors.backgroundSecondary, marginBottom: spacing.md }]}>
                   {post.song!.coverUrl ? (
                     <Image source={{ uri: post.song!.coverUrl }} style={styles.songBarCover} />
                   ) : (
-                    <Music2 size={14} color="#FFFFFF" strokeWidth={1.8} />
+                    <Music2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
                   )}
-                  <ThemedText style={styles.songBarText} numberOfLines={1}>
+                  <ThemedText style={[styles.songBarText, { color: colors.text }]} numberOfLines={1}>
                     {post.song!.name} · {post.song!.artistName}
                   </ThemedText>
                 </View>
               )}
-            </View>
+            </>
           )}
 
           <View style={styles.statsRow}>
@@ -408,10 +457,6 @@ export default function PostDetailScreen() {
               {getLikeText()}
             </ThemedText>
           )}
-
-          {hearts.map((heart) => (
-            <FloatingHeart key={heart.id} x={heart.x} y={heart.y} onDone={() => removeHeart(heart.id)} />
-          ))}
 
           </Pressable>
 
@@ -487,6 +532,12 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        {hearts.map((heart) => (
+          <FloatingHeart key={heart.id} x={heart.x} y={heart.y} onDone={() => removeHeart(heart.id)} />
+        ))}
+      </View>
 
       <Modal
         visible={showDeleteConfirm}
@@ -565,24 +616,20 @@ const styles = StyleSheet.create({
   },
   media: {
     width: '100%',
-    height: 280,
+    height: 320,
   },
   muteButton: {
     position: 'absolute',
-    bottom: spacing.sm + 36,
+    bottom: spacing.sm,
     right: spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 20,
     padding: 8,
   },
   songBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs + 2,
     gap: spacing.xs,
