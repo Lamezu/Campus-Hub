@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { House, Compass, PlusCircle, MessagesSquare, UserRound } from 'lucide-react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -8,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -27,6 +29,8 @@ export default function TabLayout() {
           default: {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom,
           },
         }),
       }}
