@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
   },
   scrollDownBtn: {
     position: 'absolute',
-    bottom: 90,
+    bottom: Platform.OS === 'android' ? 140 : 90,
     left: 0,
     right: 0,
     alignItems: 'center',
