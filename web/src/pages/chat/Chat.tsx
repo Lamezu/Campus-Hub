@@ -214,10 +214,9 @@ export default function Chat() {
     }
   };
 
-  // Determinar estilos de fondo según el dispositivo
   const backgroundStyles = isDesktop
     ? {
-        backgroundColor: chatTheme.background, // Color sólido en escritorio
+        backgroundColor: chatTheme.background, 
         backgroundImage: 'none',
       }
     : {
