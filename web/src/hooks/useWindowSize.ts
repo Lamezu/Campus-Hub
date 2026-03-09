@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export function useWindowSize() {
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 768);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >  1400);
 
   useEffect(() => {
     const handleResize = () => {

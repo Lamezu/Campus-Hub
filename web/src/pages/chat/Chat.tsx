@@ -4,34 +4,11 @@ import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit,
 import { auth, db } from '../../config/firebase';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import type { Message } from '../../types';
+import MessageBubble from '../../components/chat/MessageBubble';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
 
 const MESSAGES_PER_PAGE = 50;
-
-function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessage: boolean }) {
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  return (
-    <div className={`chat-message-wrapper ${isOwnMessage ? 'chat-message-own' : 'chat-message-other'}`}>
-      {!isOwnMessage && (
-        <div className="chat-sender-name">
-          {message.senderName}
-        </div>
-      )}
-      
-      <div className={`chat-bubble ${isOwnMessage ? 'chat-bubble-own' : 'chat-bubble-other'}`}>
-        <div className={`chat-bubble-text ${isOwnMessage ? 'chat-bubble-text-own' : 'chat-bubble-text-other'}`}>
-          {message.text}
-        </div>
-        <div className={`chat-bubble-time ${isOwnMessage ? 'chat-bubble-time-own' : 'chat-bubble-time-other'}`}>
-          {formatTime(message.createdAt)}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function MessageInput({ onSend, disabled = false }: { onSend: (text: string) => void; disabled?: boolean }) {
   const [text, setText] = useState('');
@@ -84,6 +61,10 @@ export default function Chat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastDocRef = useRef<any>(null);
   const navigate = useNavigate();
+
+  const { colors } = useTheme();
+  const chatTheme = colors.chat;
+  const isDesktop = useWindowSize();
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
   const channelName = channel?.name || `Channel ${id}`;
@@ -233,10 +214,36 @@ export default function Chat() {
     }
   };
 
+  // Determinar estilos de fondo según el dispositivo
+  const backgroundStyles = isDesktop
+    ? {
+        backgroundColor: chatTheme.background, // Color sólido en escritorio
+        backgroundImage: 'none',
+      }
+    : {
+        backgroundImage: chatTheme.backgroundImage ? `url(${chatTheme.backgroundImage})` : 'none',
+        backgroundColor: chatTheme.background,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      };
+
   if (loading) {
     return (
-      <div className="chat-loading-container">
-        <div className="chat-loading-header">
+      <div 
+        className="chat-loading-container"
+        style={{
+          ...backgroundStyles,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column' as const,
+        }}
+      >
+        <div className="chat-loading-header" style={{ 
+          backgroundColor: 'var(--background)',
+          borderBottom: '1px solid var(--border)',
+        }}>
           <button
             className="chat-back-button"
             onClick={() => navigate('/home')}
@@ -244,6 +251,14 @@ export default function Chat() {
             ←
           </button>
           <h1 className="chat-header-title">{channelName}</h1>
+          <button
+            className="chat-back-button"
+            onClick={() => navigate('/settings/theme')}
+            style={{ fontSize: '20px' }}
+            title="Personalizar tema"
+          >
+            🎨
+          </button>
         </div>
         <div className="chat-loading-content">
           <div className="loading-spinner"></div>
@@ -254,8 +269,19 @@ export default function Chat() {
   }
 
   return (
-    <div className="chat-loading-container">
-      <div className="chat-header">
+    <div 
+      className="chat-loading-container"
+      style={{
+        ...backgroundStyles,
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column' as const,
+      }}
+    >
+      <div className="chat-header" style={{ 
+        backgroundColor: 'var(--background)',
+        borderBottom: '1px solid var(--border)',
+      }}>
         <button
           className="chat-back-button"
           onClick={() => navigate('/home')}
@@ -263,13 +289,25 @@ export default function Chat() {
           ←
         </button>
         <h1 className="chat-header-title">{channelName}</h1>
+        <button
+          className="chat-back-button"
+          onClick={() => navigate('/settings/theme')}
+          style={{ fontSize: '20px' }}
+          title="Personalizar tema"
+        >
+          🎨
+        </button>
       </div>
       
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="chat-messages-container"
-        style={{ flex: 1, overflowY: 'auto' }}
+        style={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          backgroundColor: 'transparent',
+        }}
       >
         {loadingMore && (
           <div className="chat-loading-more">
@@ -279,7 +317,7 @@ export default function Chat() {
 
         {messages.length === 0 ? (
           <div className="chat-empty-state">
-            <p className="chat-empty-text">
+            <p className="chat-empty-text" style={{ backgroundColor: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
               No hay mensajes aún. ¡Comienza la conversación! 💬
             </p>
           </div>

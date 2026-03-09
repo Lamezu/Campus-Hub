@@ -8,6 +8,7 @@ import Profile from './pages/main/Profile';
 import Chat from './pages/chat/Chat';
 import Register from './pages/auth/Register';
 import Settings from './pages/settings/Settings';
+import ThemeSettings from './pages/settings/ThemeSettings';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/chat/:id" element={<Chat />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/theme" element={<ThemeSettings />} />
       </Routes>
     </BrowserRouter>
   );
