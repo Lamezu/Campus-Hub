@@ -95,18 +95,24 @@ export default function Profile() {
             {email}
           </p>
 
-          <button 
-            className="btn"
-            style={{ 
-              width: 'auto', 
-              padding: '8px 24px',
-              backgroundColor: 'var(--primary)',
-              color: 'white'
-            }}
-            onClick={() => {/* Aquí irá editar perfil */}}
-          >
-            Editar Perfil
-          </button>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <button 
+              className="btn"
+              style={{ 
+                padding: '8px 24px',
+                backgroundColor: 'var(--primary)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}
+              onClick={() => navigate('/edit-profile')}
+            >
+              Editar Perfil
+            </button>
+          </div>
         </div>
 
         <div style={{

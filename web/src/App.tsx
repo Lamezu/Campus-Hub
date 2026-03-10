@@ -7,8 +7,9 @@ import Messages from './pages/main/Messages';
 import Profile from './pages/main/Profile';
 import Chat from './pages/chat/Chat';
 import Register from './pages/auth/Register';
-import Settings from './pages/settings/Settings';
 import ThemeSettings from './pages/settings/ThemeSettings';
+import EditProfile from './pages/settings/EditProfile';
+import AccountDetails from './pages/settings/AccountDetails';
 
 function App() {
   return (
@@ -23,8 +24,9 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/chat/:id" element={<Chat />} />
-        <Route path="/settings" element={<Settings />} />
         <Route path="/settings/theme" element={<ThemeSettings />} />
+        <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/account-details" element={<AccountDetails />} />
       </Routes>
     </BrowserRouter>
   );
