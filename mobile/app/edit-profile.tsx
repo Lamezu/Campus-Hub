@@ -71,7 +71,7 @@ export default function EditProfileScreen() {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.7,
@@ -139,173 +139,113 @@ export default function EditProfileScreen() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent={true} />
+        <ThemedView style={{ flex: 1 }}>
+            <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-                            <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>Editar Perfil</ThemedText>
-                        </View>
-                    ),
+                    headerShown: true,
+                    headerTitle: 'Editar Perfil',
                     headerLeft: () => (
-                        <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-                            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
-                                <Ionicons name="chevron-back" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
+                            <Ionicons name="chevron-back" size={24} color={colors.text} />
+                        </TouchableOpacity>
                     ),
                     headerRight: () => (
-                        <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-                            <TouchableOpacity onPress={handleSave} disabled={saving} style={{ marginRight: spacing.sm, padding: 4 }}>
-                                {saving ? (
-                                    <ActivityIndicator size="small" color={colors.primary} />
-                                ) : (
-                                    <ThemedText style={[styles.saveButtonText, { color: colors.primary }]}>Guardar</ThemedText>
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={handleSave} disabled={saving} style={{ marginRight: spacing.sm, padding: 4 }}>
+                            {saving ? (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            ) : (
+                                <ThemedText style={[styles.saveButtonText, { color: colors.primary }]}>Guardar</ThemedText>
+                            )}
+                        </TouchableOpacity>
                     ),
                 }}
             />
 
-            {Platform.OS === 'ios' ? (
-                <KeyboardAvoidingView
-                    behavior="padding"
-                    style={{ flex: 1 }}
-                    keyboardVerticalOffset={headerHeight}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={headerHeight}
+            >
+                <ScrollView
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xl + insets.bottom }]}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                        <View style={styles.avatarSection}>
-                            <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-                                {photoURL ? (
-                                    <Image source={{ uri: photoURL }} style={styles.avatar} />
-                                ) : (
-                                    <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                                        <Ionicons name="camera" size={32} color={colors.primary} />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                            <ThemedText style={styles.changePhotoText}>Cambiar foto</ThemedText>
+                    <View style={styles.avatarSection}>
+                        <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
+                            {photoURL ? (
+                                <Image source={{ uri: photoURL }} style={styles.avatar} />
+                            ) : (
+                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+                                    <Ionicons name="camera" size={32} color={colors.primary} />
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                        <ThemedText style={styles.changePhotoText}>Cambiar foto</ThemedText>
+                    </View>
+
+                    <View style={styles.formSection}>
+                        <View style={styles.inputGroup}>
+                            <ThemedText style={styles.label}>Nombre de usuario</ThemedText>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                                value={displayName}
+                                onChangeText={setDisplayName}
+                                placeholder="Tu nombre"
+                                placeholderTextColor={colors.textSecondary}
+                            />
                         </View>
 
-                        <View style={styles.formSection}>
-                            <View style={styles.inputGroup}>
-                                <ThemedText style={styles.label}>Nombre de usuario</ThemedText>
-                                <TextInput
-                                    style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
-                                    value={displayName}
-                                    onChangeText={setDisplayName}
-                                    placeholder="Tu nombre"
-                                    placeholderTextColor={colors.textSecondary}
-                                />
-                            </View>
-
-
-                            <View style={styles.inputGroup}>
-                                <ThemedText style={styles.label}>Biografía</ThemedText>
-                                <TextInput
-                                    style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
-                                    value={bio}
-                                    onChangeText={setBio}
-                                    placeholder="Cuéntanos sobre ti..."
-                                    placeholderTextColor={colors.textSecondary}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                />
-                            </View>
+                        <View style={styles.inputGroup}>
+                            <ThemedText style={styles.label}>Biografía</ThemedText>
+                            <TextInput
+                                style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                                value={bio}
+                                onChangeText={setBio}
+                                placeholder="Cuéntanos sobre ti..."
+                                placeholderTextColor={colors.textSecondary}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
+                            />
                         </View>
+                    </View>
 
-                        <View style={styles.dangerZone}>
-                            <ThemedText style={styles.sectionTitle}>Cuenta y Privacidad</ThemedText>
-                            <ThemedText style={styles.sectionDescription}>Gestiona tu correo electrónico y seguridad desde una sección protegida.</ThemedText>
+                    <TouchableOpacity
+                        style={[styles.primarySaveButton, { backgroundColor: colors.primary }]}
+                        onPress={handleSave}
+                        disabled={saving}
+                    >
+                        {saving ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <ThemedText style={styles.primarySaveButtonText}>Guardar Cambios</ThemedText>
+                        )}
+                    </TouchableOpacity>
 
-                            <TouchableOpacity
-                                style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
-                                onPress={() => router.push('/account-details' as any)}
-                            >
-                                <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-                                <ThemedText style={styles.manageAccountText}>Datos de la cuenta</ThemedText>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
+                    <View style={styles.dangerZone}>
+                        <ThemedText style={styles.sectionTitle}>Cuenta y Privacidad</ThemedText>
+                        <ThemedText style={styles.sectionDescription}>Gestiona tu correo electrónico y seguridad desde una sección protegida.</ThemedText>
 
                         <TouchableOpacity
-                            style={[styles.cancelButton, { borderColor: colors.danger, marginBottom: spacing.xl + insets.bottom }]}
-                            onPress={() => router.back()}
+                            style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                            onPress={() => router.push('/account-details' as any)}
                         >
-                            <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>Descartar Cambios</ThemedText>
+                            <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+                            <ThemedText style={styles.manageAccountText}>Datos de la cuenta</ThemedText>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            ) : (
-                <View style={{ flex: 1 }}>
-                    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                        <View style={styles.avatarSection}>
-                            <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-                                {photoURL ? (
-                                    <Image source={{ uri: photoURL }} style={styles.avatar} />
-                                ) : (
-                                    <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                                        <Ionicons name="camera" size={32} color={colors.primary} />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                            <ThemedText style={styles.changePhotoText}>Cambiar foto</ThemedText>
-                        </View>
+                    </View>
 
-                        <View style={styles.formSection}>
-                            <View style={styles.inputGroup}>
-                                <ThemedText style={styles.label}>Nombre de usuario</ThemedText>
-                                <TextInput
-                                    style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
-                                    value={displayName}
-                                    onChangeText={setDisplayName}
-                                    placeholder="Tu nombre"
-                                    placeholderTextColor={colors.textSecondary}
-                                />
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <ThemedText style={styles.label}>Biografía</ThemedText>
-                                <TextInput
-                                    style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
-                                    value={bio}
-                                    onChangeText={setBio}
-                                    placeholder="Cuéntanos sobre ti..."
-                                    placeholderTextColor={colors.textSecondary}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.dangerZone}>
-                            <ThemedText style={styles.sectionTitle}>Cuenta y Privacidad</ThemedText>
-                            <ThemedText style={styles.sectionDescription}>Gestiona tu correo electrónico y seguridad desde una sección protegida.</ThemedText>
-
-                            <TouchableOpacity
-                                style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
-                                onPress={() => router.push('/account-details' as any)}
-                            >
-                                <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-                                <ThemedText style={styles.manageAccountText}>Datos de la cuenta</ThemedText>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.cancelButton, { borderColor: colors.danger, marginBottom: spacing.xl + insets.bottom }]}
-                            onPress={() => router.back()}
-                        >
-                            <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>Descartar Cambios</ThemedText>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </View>
-            )}
-        </View>
+                    <TouchableOpacity
+                        style={[styles.cancelButton, { borderColor: colors.danger }]}
+                        onPress={() => router.back()}
+                    >
+                        <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>Descartar Cambios</ThemedText>
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </ThemedView>
     );
 }
 
@@ -352,7 +292,7 @@ const styles = StyleSheet.create({
     },
     formSection: {
         gap: spacing.lg,
-        marginBottom: spacing.xl * 1.5,
+        marginBottom: spacing.xl,
     },
     inputGroup: {
         gap: spacing.xs,
@@ -376,6 +316,23 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontSize: typography.sizes.md,
         fontWeight: 'bold',
+    },
+    primarySaveButton: {
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: spacing.xl,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    primarySaveButtonText: {
+        color: '#fff',
+        fontSize: typography.sizes.md,
+        fontWeight: '700',
     },
     dangerZone: {
         marginTop: spacing.sm,

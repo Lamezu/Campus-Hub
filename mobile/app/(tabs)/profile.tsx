@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TouchableOpacity, Image, StyleSheet, Platform, Text } from 'react-native';
-import { UserStar, SaveAll, Users } from 'lucide-react-native';
+import { UserStar, SaveAll, Users, ShieldCheck } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { auth, db } from '@/config/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useCurrentUser } from '@/contexts/UserContext';
+import { NotificationBell } from '@/components/NotificationBell';
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return num.toString();
+}
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
+  const { isAdmin } = useCurrentUser();
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
@@ -30,11 +39,64 @@ export default function ProfileScreen() {
       }
       setLoading(false);
     }, (error) => {
-      console.error('Error listening to user profile:', error);
+      if (error.code !== 'permission-denied') {
+        console.error('Profile Snapshot error:', error);
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
+  }, [currentUser]);
+
+  const [channelsCount, setChannelsCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let cCount = 0;
+    let sgCount = 0;
+
+    const unsubChannels = onSnapshot(
+      query(collection(db, 'channels'), where('memberIds', 'array-contains', currentUser.uid)),
+      (snap) => {
+        cCount = snap.size;
+        setChannelsCount(cCount + sgCount);
+      }, (error) => {
+        if (error.code !== 'permission-denied') {
+          console.error('ProfileChannels Snapshot error:', error);
+        }
+      }
+    );
+
+    const unsubStudyGroups = onSnapshot(
+      query(collection(db, 'studyGroups'), where('memberIds', 'array-contains', currentUser.uid)),
+      (sgSnap) => {
+        sgCount = sgSnap.size;
+        setChannelsCount(cCount + sgCount);
+      }, (error) => {
+        if (error.code !== 'permission-denied') {
+          console.error('ProfileGroups Snapshot error:', error);
+        }
+      }
+    );
+
+    const unsubFriends = onSnapshot(
+      query(collection(db, 'friendships'), where('userId', '==', currentUser.uid)),
+      (snap) => {
+        setFriendsCount(snap.size);
+      }, (error) => {
+        if (error.code !== 'permission-denied') {
+          console.error('ProfileFriends Snapshot error:', error);
+        }
+      }
+    );
+
+    return () => {
+      unsubChannels();
+      unsubStudyGroups();
+      unsubFriends();
+    };
   }, [currentUser]);
 
   if (loading) {
@@ -62,6 +124,9 @@ export default function ProfileScreen() {
           paddingTop: Platform.OS === 'ios' ? insets.top + spacing.xl : spacing.xl
         }
       ]}>
+        <View style={styles.bellWrapper}>
+          <NotificationBell category="friend" />
+        </View>
         <View style={[styles.avatarContainer, { backgroundColor: colors.backgroundSecondary }]}>
           {userData?.photoURL ? (
             <Image source={{ uri: userData.photoURL }} style={styles.avatar} />
@@ -88,17 +153,17 @@ export default function ProfileScreen() {
 
       <View style={[styles.statsContainer, { backgroundColor: colors.backgroundSecondary }]}>
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>12</ThemedText>
+          <ThemedText style={styles.statValue}>{formatNumber(channelsCount)}</ThemedText>
           <ThemedText style={styles.statLabel}>Canales</ThemedText>
         </View>
 
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>48</ThemedText>
+          <ThemedText style={styles.statValue}>{formatNumber(userData?.messageCount || 0)}</ThemedText>
           <ThemedText style={styles.statLabel}>Mensajes</ThemedText>
         </View>
 
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>5</ThemedText>
+          <ThemedText style={styles.statValue}>{formatNumber(friendsCount)}</ThemedText>
           <ThemedText style={styles.statLabel}>Amigos</ThemedText>
         </View>
       </View>
@@ -106,7 +171,10 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <ThemedText style={styles.sectionTitle}>Acciones Rápidas</ThemedText>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          onPress={() => router.push('/saved-items' as any)}
+        >
           <SaveAll size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>Mensajes Guardados</ThemedText>
@@ -114,7 +182,10 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          onPress={() => router.push('/friends' as any)}
+        >
           <Users size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>Amigos</ThemedText>
@@ -122,7 +193,10 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          onPress={() => router.push({ pathname: '/friends', params: { tab: 'best' } } as any)}
+        >
           <UserStar size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>Mejores Amigos</ThemedText>
@@ -130,6 +204,22 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </View>
+
+      {isAdmin && (
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Administración</ThemedText>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={() => router.push('/admin/users' as any)}
+          >
+            <ShieldCheck size={20} color={colors.primary} strokeWidth={1.8} />
+            <View style={styles.actionText}>
+              <ThemedText style={styles.actionTitle}>Gestión de usuarios</ThemedText>
+              <ThemedText style={styles.actionSubtitle}>Asignar roles y subroles</ThemedText>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -138,6 +228,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderBottomWidth: 1 },
+  bellWrapper: { position: 'absolute', top: spacing.xl + 8, right: spacing.md, zIndex: 1 },
   avatarContainer: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg, marginTop: spacing.md },
   avatar: { width: 96, height: 96, borderRadius: 48 },
   avatarText: { fontSize: 32, fontWeight: typography.weights.bold, textAlign: 'center', lineHeight: 32, paddingTop: 6, includeFontPadding: false },
