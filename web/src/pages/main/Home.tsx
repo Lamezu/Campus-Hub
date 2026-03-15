@@ -5,7 +5,10 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import Layout from '../../components/Layout';
+import { ChannelCard } from '../../components/ChannelCard';
 import type { Channel } from '../../types';
+import { Settings } from 'lucide-react';
+import NotificationBell from '../../components/NotificationBell';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -62,13 +65,16 @@ export default function Home() {
     <Layout 
       title={`Bienvenido, ${displayName}!`}
       rightAction={
-        <button 
-          className="settings-button"
-          onClick={handleSettingsClick}
-          style={{ fontSize: '24px' }}
-        >
-          ⚙️
-        </button>
+        <>
+          <NotificationBell />
+          <button
+            className="settings-button"
+            onClick={handleSettingsClick}
+            style={{ fontSize: '24px' }}
+          >
+            <Settings />
+          </button>
+        </>
       }
     >
       <div style={{ padding: '0 16px' }}>
@@ -76,26 +82,15 @@ export default function Home() {
           Selecciona un canal para comenzar a chatear.
         </p>
 
-        <ul className="channels-list">
+        <div>
           {MOCK_CHANNELS.map((channel) => (
-            <li
+            <ChannelCard
               key={channel.id}
-              className="channel-item"
-              onClick={() => handleChannelPress(channel)}
-            >
-              <div className="channel-icon">
-                {channel.icon}
-              </div>
-              
-              <div className="channel-info">
-                <h3 className="channel-name">{channel.name}</h3>
-                <p className="channel-description">{channel.description}</p>
-              </div>
-              
-              <span className="channel-chevron">›</span>
-            </li>
+              channel={channel}
+              onPress={() => handleChannelPress(channel)}
+            />
           ))}
-        </ul>
+        </div>
       </div>
     </Layout>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useWindowSize } from '../hooks/useWindowSize';
+import { Home, Compass, GraduationCap, MessagesSquare, User } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -38,40 +39,58 @@ export default function Layout({
           position: 'sticky', 
           top: 0, 
           zIndex: 10,
-          backgroundColor: 'var(--background)'
+          backgroundColor: 'var(--background)',
+          borderBottom: '1px solid var(--border)'
         }}>
           <div className="header-content" style={{ 
             maxWidth: isDesktop ? 'none' : '600px', 
             margin: '0 auto',
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            gap: showBackButton ? '4px' : '0'
+            padding: '0 16px',
+            height: '56px'
           }}>
-            {showBackButton && (
-              <button 
-                className="settings-button"
-                onClick={onBack || (() => navigate(-1))}
-                style={{ 
-                  fontSize: '24px',
-                  paddingLeft: '0',
-                  marginLeft: '-8px'
-                }}
-              >
-                ←
-              </button>
-            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              {showBackButton && (
+                <button 
+                  className="settings-button"
+                  onClick={onBack || (() => navigate(-1))}
+                  style={{ 
+                    fontSize: '24px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    marginLeft: '-8px'
+                  }}
+                >
+                  ←
+                </button>
+              )}
+            </div>
+            
             <h1 
               className="text-title" 
               style={{ 
-                flex: 1,
-                textAlign: titleAlignLeft ? 'left' : 'center'
+                margin: 0,
+                fontSize: '17px',
+                fontWeight: '600',
+                textAlign: 'center',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '200px'
               }}
             >
               {title}
             </h1>
-            {rightAction && (
-              <div>{rightAction}</div>
-            )}
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {rightAction && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{rightAction}</div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -90,36 +109,36 @@ export default function Layout({
                 className={`nav-item ${location.pathname === '/home' ? 'active' : ''}`}
                 onClick={() => navigate('/home')}
               >
-                <span className="nav-icon">🏠</span>
-                <span>Home</span>
+                <span className="nav-icon"><Home /></span>
+                <span>Inicio</span>
+              </li>
+              <li 
+                className={`nav-item ${location.pathname === '/create' ? 'active' : ''}`}
+                onClick={() => navigate('/campus')}
+              >
+                <span className="nav-icon"><GraduationCap /></span>
+                <span>Campus</span>
               </li>
               <li 
                 className={`nav-item ${location.pathname === '/explore' ? 'active' : ''}`}
                 onClick={() => navigate('/explore')}
               >
-                <span className="nav-icon">🔍</span>
-                <span>Explore</span>
-              </li>
-              <li 
-                className={`nav-item ${location.pathname === '/create' ? 'active' : ''}`}
-                onClick={() => navigate('/create')}
-              >
-                <span className="nav-icon">➕</span>
-                <span>Create</span>
+                <span className="nav-icon"><Compass /></span>
+                <span>Explorar</span>
               </li>
               <li 
                 className={`nav-item ${location.pathname === '/messages' ? 'active' : ''}`}
                 onClick={() => navigate('/messages')}
               >
-                <span className="nav-icon">💬</span>
-                <span>Messages</span>
+                <span className="nav-icon"><MessagesSquare /></span>
+                <span>Mensajes</span>
               </li>
               <li 
                 className={`nav-item ${location.pathname === '/profile' ? 'active' : ''}`}
                 onClick={() => navigate('/profile')}
               >
-                <span className="nav-icon">👤</span>
-                <span>Profile</span>
+                <span className="nav-icon"><User /></span>
+                <span>Perfil</span>
               </li>
             </ul>
           </footer>

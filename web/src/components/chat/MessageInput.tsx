@@ -3,7 +3,6 @@ import { X, Mic, Send } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { ReplyPreview } from '../../types/index.ts';
 
-// Inline spacing and typography values since web doesn't have the styles file
 const spacing = {
   xs: 4,
   sm: 8,
@@ -29,7 +28,6 @@ const typography = {
 };
 
 export interface MessageInputHandle {
-  // Simplified for web - audio recording not implemented
   startRecording?: () => Promise<void>;
   startRecordingLocked?: () => Promise<void>;
 }
@@ -105,7 +103,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   };
 
   useImperativeHandle(ref, () => ({
-    // Audio recording not implemented for web in this simplified version
     startRecording: async () => {
       console.warn('Audio recording not implemented for web');
       return Promise.resolve();

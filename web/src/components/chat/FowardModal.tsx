@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 
-// Mapeo de strings a componentes de iconos
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
   'messages-square': MessagesSquare,
   'code-xml': CodeXml,
@@ -72,7 +71,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           setChannels(channelsData);
           setUsingMockData(false);
         } else {
-          console.log('No hay canales en Firestore, usando MOCK_CHANNELS');
           const mockChannels: Channel[] = MOCK_CHANNELS.map(ch => ({
             id: ch.id,
             name: ch.name,
@@ -86,7 +84,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           setUsingMockData(true);
         }
       } catch (error) {
-        console.error('Error loading channels:', error);
         const mockChannels: Channel[] = MOCK_CHANNELS.map(ch => ({
           id: ch.id,
           name: ch.name,
@@ -111,18 +108,13 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
   }, [isOpen]);
 
   const getChannelIcon = (channel: Channel) => {
-    // Si hay un icono específico en el mapeo, usarlo
     if (channel.icon && CHANNEL_ICONS[channel.icon]) {
       const IconComponent = CHANNEL_ICONS[channel.icon];
       return <IconComponent size={20} color={colors.text} />;
     }
-    
-    // Si es un canal privado, usar Lock
     if (channel.type === 'private') {
       return <Lock size={20} color={colors.text} />;
     }
-    
-    // Por defecto, usar Hash
     return <Search size={20} color={colors.text} />;
   };
 
@@ -179,7 +171,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
         flexDirection: 'column',
         boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
       }}>
-        {/* Header */}
         <div style={{
           padding: '16px',
           borderBottom: `1px solid ${colors.border}`,
@@ -207,7 +198,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           </button>
         </div>
 
-        {/* Vista previa del mensaje */}
         {message && (
           <div style={{
             padding: '12px 16px',
@@ -237,7 +227,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           </div>
         )}
 
-        {/* Indicador de modo desarrollo */}
         {usingMockData && (
           <div style={{
             padding: '8px 16px',
@@ -251,7 +240,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           </div>
         )}
 
-        {/* Search */}
         <div style={{ padding: '12px 16px', position: 'relative' }}>
           <Search size={18} style={{
             position: 'absolute',
@@ -277,7 +265,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           />
         </div>
 
-        {/* Select All */}
         {filteredChannels.length > 0 && (
           <div style={{
             padding: '8px 16px',
@@ -322,7 +309,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           </div>
         )}
 
-        {/* Channels List */}
         <div style={{
           flex: 1,
           overflowY: 'auto',
@@ -424,7 +410,6 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           )}
         </div>
 
-        {/* Footer */}
         <div style={{
           padding: '16px',
           borderTop: `1px solid ${colors.border}`,

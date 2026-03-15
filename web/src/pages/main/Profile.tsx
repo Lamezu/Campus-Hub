@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
+import NotificationBell from '../../components/NotificationBell';
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -51,7 +52,7 @@ export default function Profile() {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <Layout title="Perfil">
+    <Layout title="Perfil" rightAction={<NotificationBell />}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
         <div style={{ 
           display: 'flex', 
@@ -96,9 +97,9 @@ export default function Profile() {
           </p>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-            <button 
+            <button
               className="btn"
-              style={{ 
+              style={{
                 padding: '8px 24px',
                 backgroundColor: 'var(--primary)',
                 color: 'white',
@@ -158,14 +159,16 @@ export default function Profile() {
             </div>
           </div>
 
-          <div style={{ 
-            backgroundColor: 'var(--background)',
-            border: '1px solid var(--border)',
-            padding: '16px',
-            borderRadius: '12px',
-            marginBottom: '8px',
-            cursor: 'pointer'
-          }}>
+          <div
+            onClick={() => navigate('/friends')}
+            style={{
+              backgroundColor: 'var(--background)',
+              border: '1px solid var(--border)',
+              padding: '16px',
+              borderRadius: '12px',
+              marginBottom: '8px',
+              cursor: 'pointer'
+            }}>
             <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text)' }}>
               👥 Amigos
             </div>
