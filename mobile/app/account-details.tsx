@@ -103,17 +103,12 @@ export default function AccountDetails() {
             <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent={true} />
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-                            <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>Datos de la Cuenta</ThemedText>
-                        </View>
-                    ),
+                    headerShown: true,
+                    headerTitle: 'Datos de la Cuenta',
                     headerLeft: () => (
-                        <View style={{ paddingTop: Platform.OS === 'android' ? 30 : 0 }}>
-                            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
-                                <Ionicons name="chevron-back" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
+                            <Ionicons name="chevron-back" size={24} color={colors.text} />
+                        </TouchableOpacity>
                     ),
                 }}
             />
