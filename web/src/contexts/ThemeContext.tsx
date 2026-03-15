@@ -152,7 +152,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#FFB6C1',
     textOwn: '#FFFFFF',
     textOther: '#4A4A4A',
-    nameColor: '#FFFFFF',
+    nameColor: '#C2185B',
   },
   gamer: {
     id: 'gamer',
@@ -163,7 +163,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#7000FF',
     textOwn: '#000000',
     textOther: '#FFFFFF',
-    nameColor: '#FFFFFF',
+    nameColor: '#00F2FF',
   },
   ocean: {
     id: 'ocean',
@@ -174,18 +174,18 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#B2EBF2',
     textOwn: '#FFFFFF',
     textOther: '#006064',
-    nameColor: '#FFFFFF',
+    nameColor: '#00696F',
   },
   space: {
     id: 'space',
     name: 'Space',
-    background: '#fefeffff',
+    background: '#fefeff',
     backgroundImage: 'https://i.pinimg.com/736x/9b/74/42/9b7442dfcf02f20e3d46f29ba5e1dd02.jpg',
-    bubbleOwn: '#504a58ff',
-    bubbleOther: '#8f909bff',
+    bubbleOwn: '#504a58',
+    bubbleOther: '#8f909b',
     textOwn: '#FFFFFF',
-    textOther: '#E8EAF6',
-    nameColor: '#FFFFFF',
+    textOther: '#FFFFFF',
+    nameColor: '#3D3749',
   },
   sunset: {
     id: 'sunset',
@@ -196,7 +196,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#FFCCBC',
     textOwn: '#FFFFFF',
     textOther: '#BF360C',
-    nameColor: '#FFFFFF',
+    nameColor: '#BF360C',
   },
   forest: {
     id: 'forest',
@@ -207,29 +207,29 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#C8E6C9',
     textOwn: '#FFFFFF',
     textOther: '#1B5E20',
-    nameColor: '#FFFFFF',
+    nameColor: '#1B5E20',
   },
   zen: {
     id: 'zen',
     name: 'Zen',
     background: '#F5F5F5',
     backgroundImage: 'https://png.pngtree.com/thumb_back/fh260/background/20241029/pngtree-man-meditating-at-sunset-image_16371611.jpg',
-    bubbleOwn: '#ffaf53ff',
-    bubbleOther: '#e7cbb3ff',
+    bubbleOwn: '#E65100',
+    bubbleOther: '#e7cbb3',
     textOwn: '#FFFFFF',
-    textOther: '#212121',
-    nameColor: '#FFFFFF',
+    textOther: '#3E2700',
+    nameColor: '#E65100',
   },
   cyberpunk: {
     id: 'cyberpunk',
     name: 'Cyberpunk',
-    background: '#ffffffff',
+    background: '#FFFFFF',
     backgroundImage: 'https://preview.redd.it/i-made-some-phone-wallpapers-if-anyone-is-interested-v0-2rf4fw385bqe1.jpg?width=640&crop=smart&auto=webp&s=79c55a2bbb5fe4e1292ff700753ae8390007e7bf',
-    bubbleOwn: '#47363cff',
-    bubbleOther: '#6a7973ff',
-    textOwn: '#ffffffff',
-    textOther: '#ffffffff',
-    nameColor: '#FFFFFF',
+    bubbleOwn: '#47363C',
+    bubbleOther: '#6A7973',
+    textOwn: '#FFFFFF',
+    textOther: '#FFFFFF',
+    nameColor: '#3E2A30',
   },
   sky: {
     id: 'sky',
@@ -240,7 +240,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#BBDEFB',
     textOwn: '#FFFFFF',
     textOther: '#0D47A1',
-    nameColor: '#FFFFFF',
+    nameColor: '#0D47A1',
   },
   coffee: {
     id: 'coffee',
@@ -251,7 +251,7 @@ export const chatThemes: Record<string, ChatTheme> = {
     bubbleOther: '#D7CCC8',
     textOwn: '#FFFFFF',
     textOther: '#3E2723',
-    nameColor: '#FFFFFF',
+    nameColor: '#3E2723',
   },
 };
 
@@ -263,28 +263,28 @@ export const getColors = (
   let baseColors: Omit<ThemeColors, 'chat' | 'chatSettings'>;
 
   if (theme === 'monochromatic' && customPrimary) {
-    const { h, s, l } = hexToHsl(customPrimary);
+    const { h, s } = hexToHsl(customPrimary);
     const isYellowRange = h >= 35 && h <= 85;
-    const primary = isYellowRange && l > 45 ? hslToHex(h, s, 38) : customPrimary;
-    const bg = hslToHex(h, Math.max(s * 0.45, 18), 84);
-    const bgSec = hslToHex(h, Math.max(s * 0.55, 25), 77);
-    const border = hslToHex(h, Math.max(s * 0.62, 32), 65);
+    const primary = isYellowRange ? hslToHex(h, Math.min(s, 90), 36) : customPrimary;
+    const bg = hslToHex(h, Math.max(s * 0.06, 4), 97);
+    const bgSec = hslToHex(h, Math.max(s * 0.10, 6), 93);
+    const border = hslToHex(h, Math.max(s * 0.18, 10), 82);
     const secondary = hslToHex(h, s, 58);
-    const textSec = hslToHex(h, Math.min(s, 65), 35);
-    const text = hslToHex(h, Math.min(s, 70), 10);
-    const card = hslToHex(h, Math.max(s * 0.28, 12), 90);
+    const textSec = hslToHex(h, Math.min(s, 45), 42);
+    const text = hslToHex(h, Math.min(s, 55), 12);
+    const card = hslToHex(h, Math.max(s * 0.04, 3), 98);
     baseColors = {
-      primary: primary,
-      secondary: secondary,
+      primary,
+      secondary,
       success: '#34C759',
       danger: '#FF3B30',
       warning: '#FF9500',
       background: bg,
       backgroundSecondary: bgSec,
-      text: text,
+      text,
       textSecondary: textSec,
-      border: border,
-      card: card,
+      border,
+      card,
     };
   } else {
     baseColors = themes[theme as keyof typeof themes] || themes.light;
@@ -346,8 +346,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (savedChatSettings) {
       try {
         setChatSettingsState(JSON.parse(savedChatSettings));
-      } catch (e) {
-        console.error('Error parsing chat settings', e);
+      } catch {
       }
     }
   }, []);
@@ -372,6 +371,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const colors = getColors(theme, customPrimary || undefined, chatSettings);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--primary', colors.primary);
+    root.style.setProperty('--secondary', colors.secondary);
+    root.style.setProperty('--success', colors.success);
+    root.style.setProperty('--danger', colors.danger);
+    root.style.setProperty('--warning', colors.warning);
+    root.style.setProperty('--background', colors.background);
+    root.style.setProperty('--background-secondary', colors.backgroundSecondary);
+    root.style.setProperty('--text', colors.text);
+    root.style.setProperty('--text-secondary', colors.textSecondary);
+    root.style.setProperty('--border', colors.border);
+    root.style.setProperty('--card', colors.card);
+    document.body.style.backgroundColor = colors.background;
+    document.body.style.color = colors.text;
+  }, [colors]);
 
   return (
     <ThemeContext.Provider value={{

@@ -6,12 +6,7 @@ export default function ThemeSettings() {
   const navigate = useNavigate();
   const { theme, colors, setTheme, chatThemes, chatSettings, setChatSettings } = useTheme();
 
-  const appThemes = [
-    { id: 'light', name: 'Light', color: '#FFFFFF' },
-    { id: 'dark', name: 'Dark', color: '#1C1C1E' },
-    { id: 'pastel', name: 'Pastel', color: '#EEE8FA' },
-    { id: 'high-contrast', name: 'High Contrast', color: '#000000' },
-  ];
+  
 
   return (
     <div className="chat-loading-container">
@@ -26,30 +21,7 @@ export default function ThemeSettings() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        <div className="settings-section">
-          <h2 className="settings-section-title">App Theme</h2>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            {appThemes.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id as any)}
-                style={{
-                  padding: '12px 20px',
-                  borderRadius: '24px',
-                  border: theme === t.id ? `2px solid ${colors.primary}` : '1px solid var(--border)',
-                  backgroundColor: t.color,
-                  color: t.id === 'dark' || t.id === 'high-contrast' ? '#FFFFFF' : '#000000',
-                  cursor: 'pointer',
-                  flex: 1,
-                  minWidth: '100px',
-                  fontWeight: theme === t.id ? 'bold' : 'normal'
-                }}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        
 
         <div className="settings-section">
           <h2 className="settings-section-title">Chat Themes</h2>
@@ -134,7 +106,7 @@ export default function ThemeSettings() {
               <input
                 type="range"
                 min="12"
-                max="24"
+                max="20"
                 value={chatSettings.fontSize}
                 onChange={(e) => setChatSettings({ fontSize: parseInt(e.target.value) })}
                 style={{ width: '100%', marginTop: '8px' }}
@@ -142,7 +114,7 @@ export default function ThemeSettings() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-subtitle">12px</span>
                 <span className="text-subtitle">{chatSettings.fontSize}px</span>
-                <span className="text-subtitle">24px</span>
+                <span className="text-subtitle">20px</span>
               </div>
             </div>
             
