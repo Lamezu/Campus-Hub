@@ -1,7 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+﻿import React, { useRef, useState, useEffect } from 'react';
 import { View, StyleSheet, Animated, PanResponder, TouchableOpacity, Image } from 'react-native';
+import { router } from 'expo-router';
 import { Audio } from 'expo-av';
-import { Reply, Play, Pause, Mic } from 'lucide-react-native';
+import { Reply, Play, Pause, Mic, FileText, Download, CheckCircle2, Image as ReplyImageIcon, BarChart3, ChevronRight } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -24,6 +25,8 @@ interface MessageBubbleProps {
   onQuickAudioReply?: (msg: Message) => void;
   onReplyPreviewPress?: (messageId: string) => void;
   highlighted?: boolean;
+  onVotePoll?: (optionId: string) => void;
+  onFilePress?: (url: string, name: string) => void;
 }
 
 function formatAudioTime(seconds: number): string {
@@ -62,7 +65,7 @@ function AudioBubble({
   const [progress, setProgress] = useState(0);
   const [currentSeconds, setCurrentSeconds] = useState(duration);
   const [speedIndex, setSpeedIndex] = useState(0);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<any>(null);
   const hasFinishedRef = useRef(false);
   const totalMs = duration * 1000;
 
@@ -78,7 +81,7 @@ function AudioBubble({
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
       { shouldPlay: true, rate: SPEEDS[speedIndex], shouldCorrectPitch: true },
-      (status) => {
+      (status: any) => {
         if (!status.isLoaded) return;
         const pos = status.positionMillis ?? 0;
         const total = status.durationMillis ?? totalMs;
@@ -111,7 +114,7 @@ function AudioBubble({
         await soundRef.current.playAsync();
         setIsPlaying(true);
       }
-    } catch {}
+    } catch { }
   };
 
   const handleBubblePress = async () => {
@@ -127,14 +130,14 @@ function AudioBubble({
         await soundRef.current.playAsync();
         setIsPlaying(true);
       }
-    } catch {}
+    } catch { }
   };
 
   const cycleSpeed = async () => {
     const nextIndex = (speedIndex + 1) % SPEEDS.length;
     setSpeedIndex(nextIndex);
     if (soundRef.current) {
-      try { await soundRef.current.setRateAsync(SPEEDS[nextIndex], true); } catch {}
+      try { await soundRef.current.setRateAsync(SPEEDS[nextIndex], true); } catch { }
     }
   };
 
@@ -175,7 +178,7 @@ function AudioBubble({
         {isPlaying ? (
           <TouchableOpacity onPress={cycleSpeed} style={[styles.speedPill, { backgroundColor: speedBg }]} activeOpacity={0.7}>
             <ThemedText style={[styles.speedText, { color: textColor }]}>
-              {SPEEDS[speedIndex] === 1 ? '1×' : SPEEDS[speedIndex] === 1.5 ? '1.5×' : '2×'}
+              {SPEEDS[speedIndex] === 1 ? 'x1' : SPEEDS[speedIndex] === 1.5 ? 'x1.5' : 'x2'}
             </ThemedText>
           </TouchableOpacity>
         ) : (
@@ -183,8 +186,8 @@ function AudioBubble({
             {senderPhoto
               ? <Image source={{ uri: senderPhoto }} style={styles.audioAvatarImg} />
               : <ThemedText style={[styles.audioAvatarInitial, { color: textColor }]}>
-                  {senderName?.[0]?.toUpperCase() ?? '?'}
-                </ThemedText>
+                {senderName?.[0]?.toUpperCase() ?? '?'}
+              </ThemedText>
             }
           </View>
         )}
@@ -194,6 +197,69 @@ function AudioBubble({
         {formatAudioTime(currentSeconds)}
       </ThemedText>
     </TouchableOpacity>
+  );
+}
+
+function PollBubble({
+  poll,
+  isOwnMessage,
+  onVote,
+  currentUserId,
+  textColor,
+  bubbleBg,
+}: {
+  poll: any;
+  isOwnMessage: boolean;
+  onVote?: (id: string) => void;
+  currentUserId?: string;
+  textColor: string;
+  bubbleBg: string;
+}) {
+  const { colors } = useTheme();
+  const hasVoted = poll.options.some((opt: any) => opt.votes?.includes(currentUserId));
+  const totalVotes = poll.totalVotes || 0;
+
+  return (
+    <View style={styles.pollContainer}>
+      <ThemedText style={[styles.pollQuestion, { color: textColor }]}>{poll.question}</ThemedText>
+      <View style={styles.pollOptions}>
+        {poll.options.map((option: any, index: number) => {
+          const optionId = option.id || index.toString();
+          const votes = option.votes?.length || 0;
+          const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
+          const isSelected = option.votes?.includes(currentUserId);
+
+          return (
+            <TouchableOpacity
+              key={optionId}
+              style={[
+                styles.pollOption,
+                { backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
+                isSelected && { borderColor: colors.primary, borderWidth: 1 }
+              ]}
+              onPress={() => onVote?.(optionId)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.pollProgress, { width: `${percentage}%`, backgroundColor: isSelected ? colors.primary + '44' : (isOwnMessage ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)') }]} />
+              <View style={styles.pollOptionContent}>
+                <ThemedText style={[styles.pollOptionText, { color: textColor }]}>{option.text}</ThemedText>
+                {hasVoted && (
+                  <ThemedText style={[styles.pollVotes, { color: textColor, opacity: 0.7 }]}>{votes}</ThemedText>
+                )}
+              </View>
+              {isSelected && (
+                <View style={styles.pollCheck}>
+                  <CheckCircle2 size={14} color={colors.primary} />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <ThemedText style={[styles.pollFooter, { color: textColor, opacity: 0.6 }]}>
+        {totalVotes} {totalVotes === 1 ? 'voto' : 'votos'} • {poll.multipleAnswers ? 'Selección múltiple' : 'Selección única'}
+      </ThemedText>
+    </View>
   );
 }
 
@@ -209,6 +275,8 @@ export function MessageBubble({
   onQuickAudioReply,
   onReplyPreviewPress,
   highlighted,
+  onVotePoll,
+  onFilePress,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
   const chatTheme = colors.chat;
@@ -307,11 +375,32 @@ export function MessageBubble({
           <ThemedText style={[styles.replyPreviewName, { color: colors.primary }]}>
             {message.replyTo.senderName}
           </ThemedText>
-          {message.replyTo.isAudio ? (
+          {message.replyTo.type === 'audio' || message.replyTo.isAudio ? (
             <View style={styles.replyPreviewAudioRow}>
               <Mic size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
                 {'Mensaje de voz' + (message.replyTo.audioDuration ? ` (${formatAudioTime(message.replyTo.audioDuration)})` : '')}
+              </ThemedText>
+            </View>
+          ) : message.replyTo.type === 'image' ? (
+            <View style={styles.replyPreviewAudioRow}>
+              <ReplyImageIcon size={11} color={textColor} strokeWidth={2} />
+              <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
+                Imagen
+              </ThemedText>
+            </View>
+          ) : message.replyTo.type === 'poll' ? (
+            <View style={styles.replyPreviewAudioRow}>
+              <BarChart3 size={11} color={textColor} strokeWidth={2} />
+              <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
+                Encuesta: {message.replyTo.text}
+              </ThemedText>
+            </View>
+          ) : message.replyTo.type === 'file' ? (
+            <View style={styles.replyPreviewAudioRow}>
+              <FileText size={11} color={textColor} strokeWidth={2} />
+              <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
+                Archivo: {message.replyTo.attachmentName || message.replyTo.text}
               </ThemedText>
             </View>
           ) : (
@@ -332,6 +421,69 @@ export function MessageBubble({
           senderName={message.senderName}
           onLongPress={() => onLongPress(message)}
         />
+      ) : message.poll ? (
+        <PollBubble
+          poll={message.poll}
+          isOwnMessage={isOwnMessage}
+          onVote={onVotePoll}
+          currentUserId={currentUserId}
+          textColor={textColor}
+          bubbleBg={bubbleBg}
+        />
+      ) : message.attachments?.some(a => a.type === 'image') ? (
+        <View style={styles.mediaContainer}>
+          {message.attachments.filter(a => a.type === 'image').map((att, idx) => (
+            <TouchableOpacity key={idx} activeOpacity={0.9} onLongPress={() => onLongPress(message)}>
+              <Image
+                source={{ uri: att.url }}
+                style={[
+                  styles.imageAttachment,
+                  att.imageWidth && att.imageHeight ? { aspectRatio: att.imageWidth / att.imageHeight } : { height: 200, width: '100%' }
+                ]}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+          {message.text ? (
+            <ThemedText style={[styles.messageText, { color: textColor, marginTop: spacing.xs, fontSize: settings.fontSize }]}>
+              {message.text}
+            </ThemedText>
+          ) : null}
+        </View>
+      ) : message.attachments?.some(a => a.type === 'contact') ? (
+        <View style={styles.contactContainer}>
+          {message.attachments.filter(a => (a as any).type === 'contact').map((att: any, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.contactCard, { backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
+              onPress={() => router.push(`/dm/${att.userId}/profile` as any)}
+            >
+              {att.url ? (
+                <Image source={{ uri: att.url }} style={styles.contactAvatar} />
+              ) : (
+                <View style={[styles.contactAvatar, { backgroundColor: colors.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                  <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{att.name[0]}</ThemedText>
+                </View>
+              )}
+              <View style={styles.contactInfo}>
+                <ThemedText style={[styles.contactName, { color: textColor }]} numberOfLines={1}>{att.name}</ThemedText>
+                {att.bio ? (
+                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.7 }]} numberOfLines={2}>
+                    {att.bio}
+                  </ThemedText>
+                ) : (
+                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.5 }]}>Estudiante</ThemedText>
+                )}
+              </View>
+              <ChevronRight size={18} color={textColor} opacity={0.5} />
+            </TouchableOpacity>
+          ))}
+          {message.text && !message.text.startsWith('👤') ? (
+            <ThemedText style={[styles.messageText, { color: textColor, marginTop: spacing.xs, fontSize: settings.fontSize }]}>
+              {message.text}
+            </ThemedText>
+          ) : null}
+        </View>
       ) : (
         <ThemedText
           style={[
@@ -347,7 +499,8 @@ export function MessageBubble({
         >
           {message.text}
         </ThemedText>
-      )}
+      )
+      }
 
       <ThemedText
         style={[styles.time, { color: timeColor, fontSize: Math.max(10, settings.fontSize - 4) }]}
@@ -368,7 +521,7 @@ export function MessageBubble({
           },
         ]}
       />
-    </TouchableOpacity>
+    </TouchableOpacity >
   );
 
   return (
@@ -474,6 +627,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
   },
+  fileContainer: { gap: 4 },
+  fileAttachment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: spacing.sm,
+    borderRadius: 12,
+  },
+  fileInfo: { flex: 1, gap: 2 },
+  fileName: { fontSize: typography.sizes.sm, fontWeight: '600' },
+  fileSize: { fontSize: typography.sizes.xs },
+  contactContainer: { width: 220, gap: 4 },
+  contactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 8,
+    borderRadius: 12,
+  },
+  contactAvatar: { width: 44, height: 44, borderRadius: 22 },
+  contactInfo: { flex: 1, gap: 2 },
+  contactName: { fontSize: 15, fontWeight: '700' },
+  contactBio: { fontSize: 12, lineHeight: 16 },
   waveform: {
     flex: 1,
     flexDirection: 'row',
@@ -564,4 +740,65 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   reactionText: { fontSize: 12, lineHeight: 16 },
+  mediaContainer: {
+    width: 240,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  imageAttachment: {
+    width: '100%',
+    borderRadius: 8,
+  },
+  pollContainer: {
+    width: 240,
+    paddingVertical: 5,
+  },
+  pollQuestion: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  pollOptions: {
+    gap: 8,
+  },
+  pollOption: {
+    height: 40,
+    borderRadius: 10,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pollProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  pollOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    zIndex: 1,
+  },
+  pollOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  pollVotes: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  pollCheck: {
+    position: 'absolute',
+    right: 8,
+    top: 4,
+    zIndex: 2,
+  },
+  pollFooter: {
+    fontSize: 11,
+    marginTop: 10,
+    textAlign: 'right',
+  },
 });

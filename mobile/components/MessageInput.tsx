@@ -8,16 +8,21 @@ import {
   Animated,
   PanResponder,
   ActivityIndicator,
+  Modal,
+  Image,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { X, Mic, Lock, LockOpen, Trash2, ChevronLeft, ChevronUp, Play, Pause, Square } from 'lucide-react-native';
+import { X, Mic, Lock, LockOpen, Trash2, ChevronLeft, ChevronUp, Play, Pause, Square, Plus, Image as ImageIcon, Camera, FileText, BarChart3 } from 'lucide-react-native';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
 import type { ReplyPreview } from '@/types';
-import { uploadAudio } from '@/config/cloudinary';
+import { uploadAudio, uploadChatImage, uploadChatFile, uploadChatVideo } from '@/config/cloudinary';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { PollModal } from './PollModal';
 
 export interface MessageInputHandle {
   startRecording: () => Promise<void>;
@@ -27,6 +32,9 @@ export interface MessageInputHandle {
 interface MessageInputProps {
   onSend: (text: string) => void;
   onSendAudio?: (url: string, duration: number) => void;
+  onSendImage?: (url: string, width: number, height: number) => void;
+  onSendFile?: (name: string, url: string, size: number) => void;
+  onSendPoll?: (poll: { question: string; options: string[]; multipleAnswers: boolean }) => void;
   replyTo?: ReplyPreview | null;
   onCancelReply?: () => void;
   disabled?: boolean;
@@ -106,6 +114,9 @@ const waveDotStyles = StyleSheet.create({
 export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({
   onSend,
   onSendAudio,
+  onSendImage,
+  onSendFile,
+  onSendPoll,
   replyTo,
   onCancelReply,
   disabled = false,
@@ -130,6 +141,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const isLockedRef = useRef(false);
   const previewSoundRef = useRef<Audio.Sound | null>(null);
   const previewHasFinishedRef = useRef(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ uri: string, width: number, height: number } | null>(null);
+  const sheetAnim = useRef(new Animated.Value(300)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const plusRotateAnim = useRef(new Animated.Value(0)).current;
 
   const lockProgressAnim = useRef(new Animated.Value(0)).current;
   const cancelProgressAnim = useRef(new Animated.Value(0)).current;
@@ -139,6 +156,30 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
   const chatTheme = colors.chat;
   const isDefault = chatTheme.id === 'default';
+
+  const openSheet = () => {
+    setShowAttachmentMenu(true);
+    sheetAnim.setValue(300);
+    backdropAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 320, mass: 0.7 }),
+      Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(plusRotateAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const dismissSheet = () => {
+    Animated.parallel([
+      Animated.timing(sheetAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(plusRotateAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => setShowAttachmentMenu(false));
+  };
+
+  const closeSheetImmediate = () => {
+    setShowAttachmentMenu(false);
+    Animated.timing(plusRotateAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+  };
 
   const inputBgColor = isDefault
     ? colors.backgroundSecondary
@@ -216,7 +257,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
   const stopPreview = async () => {
     if (previewSoundRef.current) {
-      try { await previewSoundRef.current.unloadAsync(); } catch {}
+      try { await previewSoundRef.current.unloadAsync(); } catch { }
       previewSoundRef.current = null;
     }
     previewHasFinishedRef.current = false;
@@ -239,7 +280,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
   const cancelRecording = async () => {
     if (recordingRef.current) {
-      try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+      try { await recordingRef.current.stopAndUnloadAsync(); } catch { }
       recordingRef.current = null;
     }
     stopDurationTimer();
@@ -301,7 +342,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         await previewSoundRef.current.playAsync();
         setIsPreviewPlaying(true);
       }
-    } catch {}
+    } catch { }
   };
 
   const sendAudio = async () => {
@@ -371,6 +412,109 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       },
     })
   ).current;
+
+  const handlePickImage = async () => {
+    closeSheetImmediate();
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      if (asset.type === 'video') {
+        setIsUploading(true);
+        try {
+          const url = await uploadChatVideo(asset.uri);
+          const name = asset.fileName || `video_${Date.now()}.mp4`;
+          onSendFile?.(name, url, asset.fileSize ?? 0);
+        } catch {
+          alert('Error al enviar el video.');
+        } finally {
+          setIsUploading(false);
+        }
+      } else {
+        const { uri, width, height } = asset;
+        setPreviewImage({ uri, width: width ?? 0, height: height ?? 0 });
+      }
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    closeSheetImmediate();
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Se necesitan permisos de cámara');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      const { uri, width, height } = result.assets[0];
+      setPreviewImage({ uri, width, height });
+    }
+  };
+
+  const handleSendImageConfirm = async () => {
+    if (!previewImage) return;
+    setIsUploading(true);
+    const { uri, width, height } = previewImage;
+    setPreviewImage(null);
+    try {
+      const url = await uploadChatImage(uri);
+      onSendImage?.(url, width, height);
+    } catch (error) {
+      console.error('Error sending image:', error);
+      alert('Error al enviar la imagen');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePickFile = async () => {
+    closeSheetImmediate();
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'text/plain',
+          'text/csv',
+          'application/zip',
+          'application/x-zip-compressed',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setIsUploading(true);
+        try {
+          const url = await uploadChatFile(asset.uri, asset.name, asset.mimeType || undefined);
+          onSendFile?.(asset.name, url, asset.size || 0);
+        } catch {
+          alert('Error al subir el archivo');
+        } finally {
+          setIsUploading(false);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleOpenPoll = () => {
+    dismissSheet();
+    setTimeout(() => setShowPollModal(true), 250);
+  };
 
   const handleSend = () => {
     if (text.trim() && !disabled) {
@@ -452,24 +596,56 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               <ThemedText style={[styles.replyBarName, { color: colors.primary }]} numberOfLines={1}>
                 {replyTo.senderName}
               </ThemedText>
-              {replyTo.isAudio ? (
-                <View style={styles.replyBarAudioRow}>
-                  <Mic size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+              <View style={styles.replyBarAudioRow}>
+                {replyTo.type === 'audio' || replyTo.isAudio ? (
+                  <>
+                    <Mic size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+                    <ThemedText
+                      style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                      numberOfLines={1}
+                    >
+                      {'Mensaje de voz' + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
+                    </ThemedText>
+                  </>
+                ) : replyTo.type === 'image' ? (
+                  <>
+                    <ImageIcon size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+                    <ThemedText
+                      style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                      numberOfLines={1}
+                    >
+                      Imagen
+                    </ThemedText>
+                  </>
+                ) : replyTo.type === 'poll' ? (
+                  <>
+                    <BarChart3 size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+                    <ThemedText
+                      style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                      numberOfLines={1}
+                    >
+                      Encuesta: {replyTo.text}
+                    </ThemedText>
+                  </>
+                ) : replyTo.type === 'file' ? (
+                  <>
+                    <FileText size={11} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
+                    <ThemedText
+                      style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
+                      numberOfLines={1}
+                    >
+                      Archivo: {replyTo.attachmentName || replyTo.text}
+                    </ThemedText>
+                  </>
+                ) : (
                   <ThemedText
                     style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                     numberOfLines={1}
                   >
-                    {'Mensaje de voz' + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
+                    {replyTo.text}
                   </ThemedText>
-                </View>
-              ) : (
-                <ThemedText
-                  style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
-                  numberOfLines={1}
-                >
-                  {replyTo.text}
-                </ThemedText>
-              )}
+                )}
+              </View>
             </View>
             <TouchableOpacity onPress={onCancelReply} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <X size={20} color={isDefault ? colors.textSecondary : inputTextColor} strokeWidth={2} />
@@ -481,7 +657,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           <View style={styles.inputRow}>
             <ActivityIndicator color={colors.primary} size="small" />
             <ThemedText style={[styles.uploadingText, { color: colors.textSecondary }]}>
-              Enviando audio...
+              Enviando...
             </ThemedText>
           </View>
 
@@ -609,6 +785,16 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
         ) : (
           <View style={styles.inputRow}>
+            <TouchableOpacity
+              style={[styles.plusButton, { backgroundColor: inputBgColor }]}
+              onPress={() => showAttachmentMenu ? dismissSheet() : openSheet()}
+              activeOpacity={0.7}
+            >
+              <Animated.View style={{ transform: [{ rotate: plusRotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+                <Plus size={24} color={inputTextColor} strokeWidth={2.5} />
+              </Animated.View>
+            </TouchableOpacity>
+
             <TextInput
               style={[styles.input, { backgroundColor: inputBgColor, color: inputTextColor }]}
               placeholder="Escribe un mensaje..."
@@ -643,6 +829,96 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           </View>
         )}
       </View>
+
+      <Modal
+        transparent
+        visible={showAttachmentMenu}
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={dismissSheet}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                backgroundColor: '#000',
+                opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }),
+              },
+            ]}
+            pointerEvents="none"
+          />
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismissSheet} />
+          <Animated.View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: containerBgColor,
+                transform: [{ translateY: sheetAnim }],
+                paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+              },
+            ]}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetGrid}>
+              <TouchableOpacity style={styles.sheetItem} onPress={handlePickImage} activeOpacity={0.75}>
+                <View style={[styles.sheetIconBox, { backgroundColor: '#5856D6' }]}>
+                  <ImageIcon size={28} color="#FFF" strokeWidth={1.8} />
+                </View>
+                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Fotos</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetItem} onPress={handleTakePhoto} activeOpacity={0.75}>
+                <View style={[styles.sheetIconBox, { backgroundColor: '#FF9500' }]}>
+                  <Camera size={28} color="#FFF" strokeWidth={1.8} />
+                </View>
+                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Cámara</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetItem} onPress={handlePickFile} activeOpacity={0.75}>
+                <View style={[styles.sheetIconBox, { backgroundColor: '#007AFF' }]}>
+                  <FileText size={28} color="#FFF" strokeWidth={1.8} />
+                </View>
+                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Documento</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetItem} onPress={handleOpenPoll} activeOpacity={0.75}>
+                <View style={[styles.sheetIconBox, { backgroundColor: '#FF2D55' }]}>
+                  <BarChart3 size={28} color="#FFF" strokeWidth={1.8} />
+                </View>
+                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Encuesta</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      <PollModal
+        visible={showPollModal}
+        onClose={() => setShowPollModal(false)}
+        onSend={(poll) => {
+          onSendPoll?.(poll);
+          setShowPollModal(false);
+        }}
+      />
+
+      <Modal animationType="fade" transparent visible={!!previewImage} onRequestClose={() => setPreviewImage(null)}>
+        <View style={styles.previewModalOverlay}>
+          <View style={styles.previewModalHeader}>
+            <TouchableOpacity onPress={() => setPreviewImage(null)} style={styles.previewModalClose}>
+              <X size={28} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          {previewImage && (
+            <Image source={{ uri: previewImage.uri }} style={styles.previewModalImage} resizeMode="contain" />
+          )}
+          <View style={styles.previewModalFooter}>
+            <TouchableOpacity
+              onPress={handleSendImageConfirm}
+              style={[styles.confirmSendBtn, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="send" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 });
@@ -678,8 +954,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingBottom: spacing.sm,
-    gap: spacing.sm,
+    gap: spacing.xs + 4,
     minHeight: 52,
+  },
+  plusButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
@@ -822,5 +1105,92 @@ const styles = StyleSheet.create({
   previewBar: {
     flex: 1,
     borderRadius: 2,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(120,120,128,0.3)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingBottom: 8,
+  },
+  sheetItem: {
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  sheetIconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  sheetItemLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  previewModalOverlay: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  previewModalHeader: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+  },
+  previewModalClose: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewModalImage: {
+    flex: 1,
+    width: '100%',
+  },
+  previewModalFooter: {
+    height: 100,
+    paddingBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmSendBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });

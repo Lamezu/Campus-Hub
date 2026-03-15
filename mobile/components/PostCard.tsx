@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Pressable, StyleSheet, Image } from 'react-native';
-import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn } from 'lucide-react-native';
+import { View, Pressable, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { FloatingHeart } from './FloatingHeart';
 import { spacing, typography } from '@/constants/styles';
@@ -12,6 +12,7 @@ interface PostCardProps {
   onPress: () => void;
   onDoubleTap?: () => void;
   currentUserId?: string;
+  onSave?: () => void;
 }
 
 function getTimeAgo(dateString: string): string {
@@ -28,12 +29,24 @@ function getTimeAgo(dateString: string): string {
   return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCardProps) {
+function getVideoThumbnail(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const thumb = url
+      .replace('/video/upload/', '/video/upload/so_0/')
+      .replace(/\.(mp4|mov|webm|avi)(\?.*)?$/i, '.jpg');
+    return thumb !== url ? thumb : null;
+  } catch { return null; }
+}
+
+export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: PostCardProps) {
   const { colors } = useTheme();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
+  const videoThumbnail = hasVideo ? getVideoThumbnail(post.mediaUrl) : null;
   const hasSong = !!post.song;
   const isLiked = !!(currentUserId && post.likes?.includes(currentUserId));
+  const isSaved = !!(currentUserId && post.savedBy?.includes(currentUserId));
 
   const lastTapRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -48,7 +61,6 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
   const handlePress = (x: number, y: number) => {
     const now = Date.now();
     if (now - lastTapRef.current < 280) {
-      // Double tap — cancel pending navigation
       if (tapTimerRef.current) {
         clearTimeout(tapTimerRef.current);
         tapTimerRef.current = null;
@@ -56,7 +68,6 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
       addHeart(x, y);
       if (!isLiked) onDoubleTap?.();
     } else {
-      // Single tap — wait to see if a second tap comes
       tapTimerRef.current = setTimeout(() => {
         onPress();
       }, 280);
@@ -120,6 +131,16 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
                 <Music2 size={14} color={colors.primary} strokeWidth={1.8} />
               </View>
             )}
+            {onSave && (
+              <TouchableOpacity onPress={onSave} style={styles.saveBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Bookmark
+                  size={14}
+                  color={isSaved ? colors.primary : colors.textSecondary}
+                  fill={isSaved ? colors.primary : 'transparent'}
+                  strokeWidth={1.8}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -128,7 +149,12 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
         )}
         {hasVideo && (
           <View style={[styles.thumbnail, styles.videoThumb, { backgroundColor: colors.backgroundSecondary }]}>
-            <Video size={22} color={colors.textSecondary} strokeWidth={1.8} />
+            {videoThumbnail ? (
+              <Image source={{ uri: videoThumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : null}
+            <View style={styles.videoOverlay}>
+              <Video size={18} color="#fff" strokeWidth={2} />
+            </View>
           </View>
         )}
       </View>
@@ -167,8 +193,10 @@ const styles = StyleSheet.create({
   title: { fontSize: typography.sizes.md, fontWeight: 'bold', marginBottom: spacing.xs },
   content: { fontSize: typography.sizes.sm, lineHeight: 20, marginBottom: spacing.sm },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  saveBtn: { marginLeft: 'auto' },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontSize: typography.sizes.sm },
   thumbnail: { width: 80, height: 80, borderRadius: 10, flexShrink: 0 },
-  videoThumb: { justifyContent: 'center', alignItems: 'center' },
+  videoThumb: { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  videoOverlay: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
 });
