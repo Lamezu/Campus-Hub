@@ -7,13 +7,19 @@ import {
   Platform,
   Alert,
   ScrollView,
+  View,
+  ActivityIndicator,
+  Text,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { router } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -67,131 +73,126 @@ export default function RegisterScreen() {
       } else {
         Alert.alert('Error', 'No se pudo crear la cuenta');
       }
-      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ThemedView style={styles.content}>
-          <ThemedText type="title" style={styles.title}>
-            Crear Cuenta
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Únete a CampusHub
-          </ThemedText>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Nombre completo"
-            placeholderTextColor="#999"
-            value={name}
-            onChangeText={setName}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Confirmar contraseña"
-            placeholderTextColor="#999"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.wrapper}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
           >
-            <ThemedText style={styles.buttonText}>
-              {loading ? 'Creando cuenta...' : 'Registrarse'}
-            </ThemedText>
-          </TouchableOpacity>
+            <View style={styles.header}>
+              <Text style={styles.title}>Crear Cuenta</Text>
+              <ThemedText style={styles.sub}>Únete a CampusHub</ThemedText>
+            </View>
 
-          <TouchableOpacity onPress={() => router.back()}>
-            <ThemedText style={styles.link}>
-              ¿Ya tienes cuenta? Inicia sesión
-            </ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <View style={styles.form}>
+              <View style={styles.inputBox}>
+                <Ionicons name="person-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Nombre completo"
+                  placeholderTextColor="#666"
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
+
+              <View style={styles.inputBox}>
+                <Ionicons name="mail-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Correo electrónico"
+                  placeholderTextColor="#666"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <View style={styles.inputBox}>
+                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Contraseña"
+                  placeholderTextColor="#666"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={styles.inputBox}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Confirmar contraseña"
+                  placeholderTextColor="#666"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.btn, loading && styles.btnDim]}
+                onPress={handleRegister}
+                disabled={loading}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.btnText}>Registrarse</ThemedText>}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.footer}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <ThemedText style={styles.footTxt}>
+                  ¿Ya tienes cuenta? <ThemedText style={styles.footLink}>Inicia sesión</ThemedText>
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  wrapper: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 30, paddingBottom: 40, paddingTop: 80 },
+  header: { alignItems: 'center', marginBottom: 50, overflow: 'visible' },
   title: {
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: 30,
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    fontSize: 16,
-    color: '#000',
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  link: {
-    textAlign: 'center',
-    marginTop: 20,
+    fontSize: 44,
+    fontWeight: '900',
     color: '#007AFF',
+    letterSpacing: -1,
+    lineHeight: 50,
+    paddingVertical: 5,
+    textAlign: 'center',
+    overflow: 'visible',
   },
+  sub: { fontSize: 16, color: '#888', marginTop: 5, fontWeight: '600' },
+  form: { gap: 15 },
+  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C1E', borderRadius: 20, borderWidth: 1, borderColor: '#2C2C2E', paddingHorizontal: 15 },
+  icon: { marginRight: 10 },
+  textInput: { flex: 1, paddingVertical: 20, fontSize: 16, color: '#fff' },
+  btn: { backgroundColor: '#007AFF', padding: 20, borderRadius: 20, alignItems: 'center', marginTop: 10 },
+  btnText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  btnDim: { opacity: 0.5 },
+  footer: { marginTop: 40, alignItems: 'center', paddingBottom: 20 },
+  footTxt: { color: '#777', fontSize: 15 },
+  footLink: { color: '#007AFF', fontWeight: '800' }
 });

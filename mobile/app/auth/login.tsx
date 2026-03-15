@@ -8,7 +8,11 @@ import {
   Alert,
   View,
   ActivityIndicator,
+  ScrollView,
+  Text,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { router } from 'expo-router';
@@ -18,115 +22,69 @@ import {
   signInWithCredential,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const EXPO_PROXY_URI = 'https://auth.expo.io/@alemr2006/CampusHub';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
-
-  const redirectUri = 'https://auth.expo.io/@anonymous/campushub';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    scopes: ['profile', 'email'],
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    responseType: 'id_token',
+    scopes: ['openid', 'profile', 'email'],
+    redirectUri: EXPO_PROXY_URI,
   });
 
   useEffect(() => {
-    setDebugInfo(`Plataforma: ${Platform.OS} | URI: ${redirectUri}`);
-  }, []);
-
-  useEffect(() => {
-    if (response?.type !== 'success') {
-      if (response?.type === 'error') {
-        Alert.alert('Error de Google', response.error?.message || 'Error desconocido');
-      }
-      return;
-    }
-
-    const successResponse = response as AuthSession.AuthSessionResult & {
-      params?: Record<string, string>;
-      authentication?: { idToken?: string; accessToken?: string };
-      url?: string;
-    };
-
-    let idToken: string | null = null;
-    let accessToken: string | null = null;
-
-    if (successResponse.params?.id_token) {
-      idToken = successResponse.params.id_token;
-      accessToken = successResponse.params.access_token ?? null;
-    } else if (successResponse.authentication?.idToken) {
-      idToken = successResponse.authentication.idToken;
-      accessToken = successResponse.authentication.accessToken ?? null;
-    }
-
-    if (idToken) {
-      const credential = GoogleAuthProvider.credential(idToken);
+    if (response?.type === 'success' && response.params.id_token) {
+      const credential = GoogleAuthProvider.credential(response.params.id_token);
       handleSocialLogin(credential);
-      return;
     }
-
-    if (accessToken) {
-      const credential = GoogleAuthProvider.credential(null, accessToken);
-      handleSocialLogin(credential);
-      return;
-    }
-
-    if (successResponse.url) {
-      try {
-        const urlObj = new URL(successResponse.url);
-        const hash = urlObj.hash.replace(/^#/, '');
-        const params = new URLSearchParams(hash);
-        const extracted = params.get('id_token');
-        if (extracted) {
-          const credential = GoogleAuthProvider.credential(extracted);
-          handleSocialLogin(credential);
-          return;
-        }
-      } catch { }
-    }
-
-    Alert.alert('Error', 'No se ha recibido el token de autenticación de Google');
   }, [response]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.replace('/(tabs)');
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      Alert.alert('Error', 'Por favor introduce un email válido');
+  const handleGoogleLogin = async () => {
+    if (!request) {
+      Alert.alert('Error', 'Servicio no disponible');
       return;
     }
 
     setLoading(true);
     try {
+      const result = await promptAsync({ useProxy: true } as any);
+      if (result.type === 'error') {
+        Alert.alert('Error', 'Error de conexión');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Error inesperado');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) router.replace('/(tabs)');
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleLogin = async () => {
+    if (!email || !password) return Alert.alert('Error', 'Faltan datos');
+    setLoading(true);
+    try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      let message = 'Credenciales inválidas';
-      if (error.code === 'auth/user-not-found') message = 'Usuario no encontrado';
-      if (error.code === 'auth/wrong-password') message = 'Contraseña incorrecta';
-      if (error.code === 'auth/too-many-requests') message = 'Demasiados intentos, prueba más tarde';
-      Alert.alert('Error', message);
+    } catch (error) {
+      Alert.alert('Error', 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }
@@ -137,186 +95,137 @@ export default function LoginScreen() {
     try {
       const userCredential = await signInWithCredential(auth, credential);
       const user = userCredential.user;
-
-      const userRef = doc(db, 'users', user.uid);
-      const userData = {
+      await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || 'Usuario',
-        photoURL: user.photoURL || null,
-        role: 'alumno',
         provider: 'Google',
-        emailVerified: user.emailVerified,
         createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(userRef, userData, { merge: true });
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      let message = 'No se ha podido iniciar sesión con Google';
-      switch (error.code) {
-        case 'auth/account-exists-with-different-credential':
-          message = 'Este email ya está registrado con otro método de inicio de sesión';
-          break;
-        case 'auth/popup-blocked':
-        case 'auth/popup-closed-by-user':
-          message = 'El inicio de sesión de Google fue cancelado o bloqueado';
-          break;
-        case 'auth/unauthorized-domain':
-          message = 'Dominio no autorizado configurado en Firebase';
-          break;
-        case 'auth/invalid-credential':
-          message = 'Credencial inválida o caducada';
-          break;
-      }
-      Alert.alert('Error', message);
+        lastActive: serverTimestamp(),
+      }, { merge: true });
+    } catch (error) {
+      Alert.alert('Error', 'Error de sincronización');
     } finally {
       setLoading(false);
     }
   };
 
-  const validateEmail = (value: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(value);
-  };
-
-  const testFirestore = async () => {
-    try {
-      const testRef = doc(db, 'test', `test-${Date.now()}`);
-      await setDoc(testRef, { test: true, timestamp: new Date().toISOString(), platform: Platform.OS });
-      Alert.alert('Test de Firestore', 'Conexión exitosa');
-    } catch (error: any) {
-      Alert.alert('Error de Firestore', error.message);
-    }
-  };
-
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedText type="title" style={styles.title}>CampusHub</ThemedText>
-        <ThemedText style={styles.debugInfo}>{debugInfo}</ThemedText>
-        <ThemedText style={styles.subtitle}>Bienvenido de nuevo</ThemedText>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          editable={!loading}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor="#999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          editable={!loading}
-        />
-
-        <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleLogin} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.buttonText}>Iniciar Sesión</ThemedText>}
-        </TouchableOpacity>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <ThemedText style={styles.dividerText}>O continuar con</ThemedText>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.socialButton, (loading || !request) && styles.buttonDisabled]}
-          onPress={() => promptAsync()}
-          disabled={!request || loading}
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.wrapper}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex}
         >
-          {loading ? <ActivityIndicator color="#666" /> : <ThemedText style={styles.socialButtonText}>Continuar con Google</ThemedText>}
-        </TouchableOpacity>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={styles.header}>
+              <Text style={styles.title}>CampusHub</Text>
+              <ThemedText style={styles.sub}>Para Estudiantes y Docentes</ThemedText>
+            </View>
 
-        {__DEV__ && (
-          <View style={styles.debugButtons}>
-            <TouchableOpacity onPress={testFirestore} style={styles.debugButton}>
-              <ThemedText style={styles.debugButtonText}>Test Firestore</ThemedText>
-            </TouchableOpacity>
+            <View style={styles.form}>
+              <View style={styles.inputBox}>
+                <Ionicons name="mail-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Correo electrónico"
+                  placeholderTextColor="#666"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              <View style={styles.inputBox}>
+                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.icon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Contraseña"
+                  placeholderTextColor="#666"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.btn, loading && styles.btnDim]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.btnText}>Iniciar Sesión</ThemedText>}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sep}>
+              <View style={styles.line} />
+              <ThemedText style={styles.sepText}>O continuar con</ThemedText>
+              <View style={styles.line} />
+            </View>
+
             <TouchableOpacity
-              onPress={() => {
-                console.log('Request:', request);
-                console.log('Response:', response);
-                console.log('Auth State:', auth.currentUser);
-              }}
-              style={styles.debugButton}
+              style={[styles.gBtn, loading && styles.btnDim]}
+              onPress={handleGoogleLogin}
+              disabled={loading}
             >
-              <ThemedText style={styles.debugButtonText}>Log de Depuración</ThemedText>
+              <View style={styles.gContent}>
+                <FontAwesome name="google" size={20} color="#003cffff" style={styles.gIcon} />
+                <ThemedText style={styles.gText}>Iniciar sesión con Google</ThemedText>
+              </View>
             </TouchableOpacity>
-          </View>
-        )}
 
-        <TouchableOpacity onPress={() => router.push('/auth/register')} disabled={loading} style={styles.registerLink}>
-          <ThemedText style={styles.link}>¿No tienes cuenta? Regístrate</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-    </KeyboardAvoidingView>
+            <View style={styles.footer}>
+              <TouchableOpacity onPress={() => router.push('/auth/register')}>
+                <ThemedText style={styles.footTxt}>
+                  ¿No tienes cuenta? <ThemedText style={styles.footLink}>Regístrate</ThemedText>
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { textAlign: 'center', marginBottom: 10, fontSize: 32, fontWeight: 'bold' },
-  subtitle: { textAlign: 'center', marginBottom: 40, fontSize: 16, opacity: 0.7 },
-  input: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    fontSize: 16,
-    color: '#000',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  container: { flex: 1, backgroundColor: '#000' },
+  wrapper: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 30, paddingBottom: 40, paddingTop: 80 },
+  header: { alignItems: 'center', marginBottom: 50, overflow: 'visible' },
+  title: {
+    fontSize: 50,
+    fontWeight: '900',
+    color: '#007AFF',
+    letterSpacing: -1,
+    lineHeight: 50,
+    paddingVertical: 5,
+    textAlign: 'center',
+    overflow: 'visible',
   },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 25 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#ddd' },
-  dividerText: { marginHorizontal: 10, fontSize: 14, opacity: 0.5 },
-  socialButton: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  socialButtonText: { fontSize: 16, fontWeight: '600', color: '#333' },
-  link: { textAlign: 'center', color: '#007AFF', fontSize: 15 },
-  registerLink: { marginTop: 25 },
-  debugInfo: { textAlign: 'center', fontSize: 11, color: '#666', marginBottom: 10, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  debugButtons: { flexDirection: 'row', justifyContent: 'center', marginTop: 15, gap: 10 },
-  debugButton: { backgroundColor: '#666', padding: 8, borderRadius: 6 },
-  debugButtonText: { color: '#fff', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  sub: { fontSize: 16, color: '#888', marginTop: 5, fontWeight: '600' },
+  form: { gap: 15 },
+  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1C1E', borderRadius: 20, borderWidth: 1, borderColor: '#2C2C2E', paddingHorizontal: 15 },
+  icon: { marginRight: 10 },
+  textInput: { flex: 1, paddingVertical: 20, fontSize: 16, color: '#fff' },
+  btn: { backgroundColor: '#007AFF', padding: 20, borderRadius: 20, alignItems: 'center', marginTop: 10 },
+  btnText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  btnDim: { opacity: 0.5 },
+  sep: { flexDirection: 'row', alignItems: 'center', marginVertical: 45, width: '100%', justifyContent: 'center' },
+  line: { flex: 1, height: 1, backgroundColor: '#2C2C2E' },
+  sepText: { color: '#555', fontSize: 13, fontWeight: '800', textTransform: 'uppercase', textAlign: 'center', paddingHorizontal: 15 },
+  gBtn: { backgroundColor: '#fff', padding: 20, borderRadius: 20, alignItems: 'center' },
+  gContent: { flexDirection: 'row', alignItems: 'center' },
+  gIcon: { marginRight: 15 },
+  gText: { color: '#000', fontSize: 17, fontWeight: '800' },
+  footer: { marginTop: 50, alignItems: 'center', paddingBottom: 20 },
+  footTxt: { color: '#777', fontSize: 15 },
+  footLink: { color: '#007AFF', fontWeight: '800' }
 });
