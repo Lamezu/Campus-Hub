@@ -2,10 +2,11 @@
   "expo": {
     "name": "CampusHub",
     "slug": "CampusHub",
+    "scheme": "campushub",
+    "owner": "alemr2006",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "campushub",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "notification": {
@@ -14,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.campushub.app"
+      "bundleIdentifier": "com.campushub.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,9 +29,15 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "adjustResize",
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.campushub.app",
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": [
+        "android.permission.NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -36,6 +46,15 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CampusHub necesita acceso a tus fotos para enviarlas en el chat.",
+          "cameraPermission": "CampusHub necesita acceso a la cámara para sacar fotos.",
+          "microphonePermission": "CampusHub necesita el micrófono para grabar audios."
+        }
+      ],
+      "expo-document-picker",
       [
         "expo-splash-screen",
         {
@@ -50,13 +69,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "043c6efd-a4e6-4fb3-88f3-a4f63d818895"
-      }
+      "typedRoutes": true
     }
   }
 }

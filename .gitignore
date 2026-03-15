@@ -16,6 +16,9 @@ firebase-adminsdk-*.json
 **/firebase-config.json
 mobile/scripts/serviceAccountKey.json
 
+# Scripts folder (service accounts, automation scripts)
+scripts/
+
 # Firebase configuration (real keys)
 shared/firebase/config.js
 mobile/config/firebase.js
