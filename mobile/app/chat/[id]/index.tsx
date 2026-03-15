@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Share, Clipboard } from 'react-native';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Share, Clipboard, Alert } from 'react-native';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -13,12 +13,16 @@ import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import type { Message, ReplyPreview } from '@/types';
 import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown } from 'lucide-react-native';
+import { notificationService } from '@/services/notificationService';
+import { markChannelRead } from '@/services/channelReadService';
+import { useCurrentUser } from '@/contexts/UserContext';
 
 const MESSAGES_PER_PAGE = 50;
 const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function ChatScreen() {
   const { colors, theme, chatSettings, setChatSettings } = useTheme();
+  const { isAdmin } = useCurrentUser();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +42,39 @@ export default function ChatScreen() {
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
-  const channelName = channel?.name || `Canal ${id}`;
+  const [channelDetails, setChannelDetails] = useState<any>(channel || null);
+  const channelName = channelDetails?.name || channel?.name || (id?.startsWith('sg_') ? 'Grupo' : 'Canal');
   const currentUser = auth.currentUser;
+  const isSG = id?.startsWith('sg_') ?? false;
+  const realId = isSG ? (id?.replace('sg_', '') ?? '') : (id ?? '');
+
+  useEffect(() => {
+    if (!id) return;
+    const colName = isSG ? 'studyGroups' : 'channels';
+
+    const unsub = onSnapshot(doc(db, colName, realId), snap => {
+      if (snap.exists()) {
+        setChannelDetails({ id: snap.id, ...snap.data() });
+      }
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error('ChatDetails Snapshot error:', error);
+      }
+    });
+    return () => unsub();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !currentUser) return;
+    notificationService.markChatRead('channel', id);
+    notificationService.setCurrentView({ type: 'channel', id });
+    return () => { notificationService.setCurrentView(null); };
+  }, [id, currentUser]);
+
+  useEffect(() => {
+    if (!realId || !currentUser?.uid) return;
+    markChannelRead(realId, currentUser.uid).catch(console.error);
+  }, [realId, currentUser?.uid, messages.length]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -62,7 +97,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!id) return;
-    const messagesRef = collection(db, 'channels', id, 'messages');
+    const messagesRef = collection(db, 'channels', realId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData: Message[] = snapshot.docs
@@ -80,6 +115,7 @@ export default function ChatScreen() {
             attachments: data.attachments || null,
             reactions: data.reactions || {},
             replyTo: data.replyTo || null,
+            poll: data.poll || null,
             deletedForUsers: data.deletedForUsers || [],
           };
         })
@@ -91,7 +127,9 @@ export default function ChatScreen() {
         lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
       }
     }, (error) => {
-      console.error(error);
+      if (error.code !== 'permission-denied') {
+        console.error('ChatMessages Snapshot error:', error);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -101,7 +139,7 @@ export default function ChatScreen() {
     if (!id || !hasMore || loadingMore || !lastDocRef.current) return;
     setLoadingMore(true);
     try {
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, 'channels', realId, 'messages');
       const q = query(messagesRef, orderBy('createdAt', 'desc'), startAfter(lastDocRef.current), limit(MESSAGES_PER_PAGE));
       const snapshot = await getDocs(q);
       const olderMessages: Message[] = snapshot.docs
@@ -119,6 +157,7 @@ export default function ChatScreen() {
             attachments: data.attachments || null,
             reactions: data.reactions || {},
             replyTo: data.replyTo || null,
+            poll: data.poll || null,
             deletedForUsers: data.deletedForUsers || [],
           };
         })
@@ -152,7 +191,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, 'channels', realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text,
@@ -172,7 +211,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, 'channels', realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text: '',
@@ -185,10 +224,116 @@ export default function ChatScreen() {
     }
   };
 
+  const handleSendImage = async (url: string, width: number, height: number) => {
+    if (!currentUser || !id) return;
+    const replyData = replyingTo;
+    setReplyingTo(null);
+    try {
+      const messagesRef = collection(db, 'channels', realId, 'messages');
+      await addDoc(messagesRef, {
+        ...buildMessageBase(),
+        text: '',
+        attachments: [{ url, type: 'image', name: 'imagen.jpg', size: 0, imageWidth: width, imageHeight: height }],
+        replyTo: replyData ?? null,
+      });
+    } catch (error) {
+      console.error(error);
+      alert('Error al guardar la imagen.');
+    }
+  };
+
+  const handleSendFile = async (name: string, url: string, size: number) => {
+    if (!currentUser || !id) return;
+    const replyData = replyingTo;
+    setReplyingTo(null);
+    try {
+      const messagesRef = collection(db, 'channels', realId, 'messages');
+      await addDoc(messagesRef, {
+        ...buildMessageBase(),
+        text: '',
+        attachments: [{ url, type: 'file', name, size }],
+        replyTo: replyData ?? null,
+      });
+    } catch (error) {
+      console.error(error);
+      alert('Error al guardar el archivo.');
+    }
+  };
+
+  const handleSendPoll = async (poll: { question: string; options: string[]; multipleAnswers: boolean }) => {
+    if (!currentUser || !id) return;
+    try {
+      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const pollData = {
+        question: poll.question,
+        options: poll.options.map((opt, i) => ({ id: i.toString(), text: opt, votes: [] })),
+        multipleAnswers: poll.multipleAnswers,
+        closed: false,
+        totalVotes: 0,
+      };
+      await addDoc(messagesRef, {
+        ...buildMessageBase(),
+        text: '',
+        poll: pollData,
+        attachments: null,
+      });
+    } catch (error) {
+      console.error('Error sending group poll:', error);
+    }
+  };
+
+  const handleVotePoll = async (messageId: string, optionId: string) => {
+    if (!currentUser || !id) return;
+    try {
+      const messageRef = doc(db, 'channels', realId, 'messages', messageId);
+      const snap = await getDoc(messageRef);
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      if (!data.poll) return;
+
+      const poll = data.poll;
+      const newOptions = poll.options.map((opt: any, idx: number) => {
+        const isThisOption = opt.id === optionId || idx.toString() === optionId;
+        let votes = opt.votes || [];
+
+        if (poll.multipleAnswers) {
+          if (isThisOption) {
+            if (votes.includes(currentUser.uid)) {
+              votes = votes.filter((v: string) => v !== currentUser.uid);
+            } else {
+              votes = [...votes, currentUser.uid];
+            }
+          }
+        } else {
+          if (isThisOption) {
+            if (votes.includes(currentUser.uid)) {
+              votes = votes.filter((v: string) => v !== currentUser.uid);
+            } else {
+              votes = [...votes, currentUser.uid];
+            }
+          } else {
+            votes = votes.filter((v: string) => v !== currentUser.uid);
+          }
+        }
+        return { ...opt, votes };
+      });
+
+      const totalVotes = newOptions.reduce((sum: number, o: any) => sum + (o.votes?.length ?? 0), 0);
+
+      await updateDoc(messageRef, {
+        'poll.options': newOptions,
+        'poll.totalVotes': totalVotes,
+      });
+    } catch (error) {
+      console.error('Error voting in group poll:', error);
+    }
+  };
+
   const deleteForMe = async (messageId: string) => {
     if (!currentUser || !id) return;
     try {
-      await updateDoc(doc(db, 'channels', id, 'messages', messageId), {
+      await updateDoc(doc(db, 'channels', realId, 'messages', messageId), {
         deletedForUsers: arrayUnion(currentUser.uid),
       });
     } catch (error) {
@@ -199,19 +344,70 @@ export default function ChatScreen() {
   const deleteForAll = async (messageId: string) => {
     if (!id) return;
     try {
-      await deleteDoc(doc(db, 'channels', id, 'messages', messageId));
+      await deleteDoc(doc(db, 'channels', realId, 'messages', messageId));
     } catch (error) {
       console.error(error);
     }
   };
 
+  const handleClearChannel = () => {
+    const buttons: any[] = [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar para mí',
+        onPress: async () => {
+          if (!currentUser) return;
+          try {
+            const snap = await getDocs(collection(db, 'channels', realId, 'messages'));
+            if (!snap.empty) {
+              const batch = writeBatch(db);
+              snap.docs.forEach(d => batch.update(d.ref, { deletedForUsers: arrayUnion(currentUser.uid) }));
+              await batch.commit();
+            }
+            Alert.alert('Chat vaciado', 'Los mensajes ya no son visibles para ti');
+          } catch (e) {
+            console.error(e);
+            Alert.alert('Error', 'No se pudo vaciar el chat');
+          }
+        },
+      },
+    ];
+    if (isAdmin || userProfile?.role === 'admin') {
+      buttons.push({
+        text: 'Eliminar para todos',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const snap = await getDocs(collection(db, 'channels', realId, 'messages'));
+            if (!snap.empty) {
+              const batch = writeBatch(db);
+              snap.docs.forEach(d => batch.delete(d.ref));
+              await batch.commit();
+            }
+            Alert.alert('Chat eliminado', 'Se eliminaron todos los mensajes');
+          } catch (e) {
+            console.error(e);
+            Alert.alert('Error', 'No se pudo eliminar el chat');
+          }
+        },
+      });
+    }
+    Alert.alert('Vaciar chat', '¿Cómo quieres vaciar el chat?', buttons);
+  };
+
   const handleReply = (message: Message) => {
-    const audioAttachment = message.attachments?.find(a => a.type === 'audio');
+    const audio = message.attachments?.find(a => a.type === 'audio');
+    const image = message.attachments?.find(a => a.type === 'image');
+    const file = message.attachments?.find(a => a.type === 'file');
+
     setReplyingTo({
       id: message.id,
       text: message.text,
       senderName: message.senderName,
-      ...(audioAttachment ? { isAudio: true, audioDuration: audioAttachment.duration } : {}),
+      ...(audio ? { isAudio: true, audioDuration: audio.duration, type: 'audio' } : {}),
+      ...(image ? { type: 'image' } : {}),
+      ...(file ? { type: 'file', attachmentName: file.name } : {}),
+      ...(message.poll ? { type: 'poll', text: message.poll.question } : {}),
     });
     setMenuMessage(null);
   };
@@ -221,7 +417,7 @@ export default function ChatScreen() {
     if (index === -1) return;
     try {
       flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-    } catch {}
+    } catch { }
     if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
     setHighlightedMessageId(messageId);
     highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 2000);
@@ -274,7 +470,7 @@ export default function ChatScreen() {
     if (!currentUser || !id) return;
     const heartLikes = reactions['❤️'] ?? [];
     if (!heartLikes.includes(currentUser.uid)) {
-      await updateDoc(doc(db, 'channels', id, 'messages', messageId), {
+      await updateDoc(doc(db, 'channels', realId, 'messages', messageId), {
         'reactions.❤️': arrayUnion(currentUser.uid),
       });
     }
@@ -291,7 +487,7 @@ export default function ChatScreen() {
     setMenuMessage(null);
     const existing = msg.reactions?.[emoji] ?? [];
     const hasReacted = existing.includes(currentUser.uid);
-    await updateDoc(doc(db, 'channels', id, 'messages', msg.id), {
+    await updateDoc(doc(db, 'channels', realId, 'messages', msg.id), {
       [`reactions.${emoji}`]: hasReacted ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     });
   };
@@ -321,8 +517,8 @@ export default function ChatScreen() {
 
   const userCustomEmojis = menuMessage
     ? Object.entries(menuMessage.reactions ?? {})
-        .filter(([emoji, users]) => currentUser != null && users.includes(currentUser.uid) && !PRESET_REACTIONS.includes(emoji))
-        .map(([emoji]) => emoji)
+      .filter(([emoji, users]) => currentUser != null && users.includes(currentUser.uid) && !PRESET_REACTIONS.includes(emoji))
+      .map(([emoji]) => emoji)
     : [];
   const pillEmojis = [...PRESET_REACTIONS, ...userCustomEmojis];
 
@@ -357,7 +553,9 @@ export default function ChatScreen() {
         headerTitleAlign: 'center',
         headerBackVisible: false,
         headerTitle: () => (
-          <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>{channelName}</ThemedText>
+          <TouchableOpacity onPress={() => router.push(`/chat/${id}/info` as any)}>
+            <ThemedText style={{ fontSize: typography.sizes.md, fontWeight: 'bold' }}>{channelName}</ThemedText>
+          </TouchableOpacity>
         ),
         headerLeft: () => (
           <TouchableOpacity
@@ -409,13 +607,17 @@ export default function ChatScreen() {
                     onQuickAudioReply={handleQuickAudioReply}
                     onReplyPreviewPress={handleReplyPreviewPress}
                     highlighted={highlightedMessageId === item.id}
+                    onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
+                    onFilePress={(url, name) => {
+                      Share.share({ url, message: `Archivo de ${channelName}: ${name}` });
+                    }}
                   />
                 )}
                 contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
                 onEndReached={loadMoreMessages}
                 onEndReachedThreshold={0.5}
                 scrollEnabled={!isSwipingMessage}
-                onScrollToIndexFailed={() => {}}
+                onScrollToIndexFailed={() => { }}
                 ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
                 ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
                 inverted
@@ -434,6 +636,9 @@ export default function ChatScreen() {
                 ref={messageInputRef}
                 onSend={handleSendMessage}
                 onSendAudio={handleSendAudio}
+                onSendImage={handleSendImage}
+                onSendFile={handleSendFile}
+                onSendPoll={handleSendPoll}
                 replyTo={replyingTo}
                 onCancelReply={() => setReplyingTo(null)}
                 disabled={sending}
@@ -459,13 +664,17 @@ export default function ChatScreen() {
                   onQuickAudioReply={handleQuickAudioReply}
                   onReplyPreviewPress={handleReplyPreviewPress}
                   highlighted={highlightedMessageId === item.id}
+                  onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
+                  onFilePress={(url, name) => {
+                    Share.share({ url, message: `Archivo de ${channelName}: ${name}` });
+                  }}
                 />
               )}
               contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.5}
               scrollEnabled={!isSwipingMessage}
-              onScrollToIndexFailed={() => {}}
+              onScrollToIndexFailed={() => { }}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
               ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
               inverted
@@ -484,6 +693,9 @@ export default function ChatScreen() {
               ref={messageInputRef}
               onSend={handleSendMessage}
               onSendAudio={handleSendAudio}
+              onSendImage={handleSendImage}
+              onSendFile={handleSendFile}
+              onSendPoll={handleSendPoll}
               replyTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
               disabled={sending}
@@ -495,30 +707,28 @@ export default function ChatScreen() {
       <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
         <Pressable style={styles.menuOverlay} onPress={() => setMenuMessage(null)}>
           <View style={styles.menuCenter} onStartShouldSetResponder={() => true}>
-            {/* Emoji reaction pill */}
             <View style={styles.reactionStripOuter}>
               <View style={[styles.reactionStripInner, { backgroundColor: colors.card }]}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reactionStripContent}>
-                {pillEmojis.map(emoji => {
-                  const reacted = !!(currentUser && (menuMessage?.reactions?.[emoji] ?? []).includes(currentUser.uid));
-                  return (
-                    <TouchableOpacity
-                      key={emoji}
-                      style={[styles.emojiBtn, reacted && { backgroundColor: colors.primary + '33' }]}
-                      onPress={() => menuMessage && handleReaction(emoji)}
-                    >
-                      <ThemedText style={styles.emojiText}>{emoji}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity style={[styles.emojiBtn, styles.emojiBtnPlus, { borderColor: colors.border }]} onPress={openEmojiPicker}>
-                  <Plus size={18} color={colors.textSecondary} strokeWidth={2.5} />
-                </TouchableOpacity>
-              </ScrollView>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reactionStripContent}>
+                  {pillEmojis.map(emoji => {
+                    const reacted = !!(currentUser && (menuMessage?.reactions?.[emoji] ?? []).includes(currentUser.uid));
+                    return (
+                      <TouchableOpacity
+                        key={emoji}
+                        style={[styles.emojiBtn, reacted && { backgroundColor: colors.primary + '33' }]}
+                        onPress={() => menuMessage && handleReaction(emoji)}
+                      >
+                        <ThemedText style={styles.emojiText}>{emoji}</ThemedText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity style={[styles.emojiBtn, styles.emojiBtnPlus, { borderColor: colors.border }]} onPress={openEmojiPicker}>
+                    <Plus size={18} color={colors.textSecondary} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </ScrollView>
               </View>
             </View>
 
-            {/* Action menu */}
             <Animated.View
               style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}
             >
@@ -527,7 +737,7 @@ export default function ChatScreen() {
                   {menuMessage?.senderName}
                 </ThemedText>
                 <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {menuMessage?.attachments?.find(a => a.type === 'audio') ? '🎤 Mensaje de voz' : menuMessage?.text}
+                  {menuMessage?.attachments?.find(a => a.type === 'audio') ? '­ƒÄñ Mensaje de voz' : menuMessage?.text}
                 </ThemedText>
               </View>
               <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleReply(menuMessage)}>
@@ -651,12 +861,20 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+              <View style={[styles.settingsSection, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.lg }]}>
+                <ThemedText style={styles.settingsLabel}>Chat</ThemedText>
+                <TouchableOpacity
+                  style={[styles.clearChatBtn, { borderColor: '#FF3B30' }]}
+                  onPress={() => { setShowSettings(false); setTimeout(handleClearChannel, 300); }}
+                >
+                  <ThemedText style={styles.clearChatBtnText}>Vaciar chat</ThemedText>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Themed delete confirmation dialog */}
       <Modal
         visible={!!deleteConfirmMsg}
         animationType="fade"
@@ -748,6 +966,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   sizeButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm },
   styleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 18, borderWidth: 1 },
+  clearChatBtn: { borderWidth: 1, borderRadius: 12, paddingVertical: spacing.md, alignItems: 'center' },
+  clearChatBtnText: { color: '#FF3B30', fontSize: 15, fontWeight: '600' },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   emojiPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: spacing.xl },
   menuCenter: { alignItems: 'center', gap: 10 },
