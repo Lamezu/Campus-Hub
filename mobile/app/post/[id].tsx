@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useLocalSearchParams, Stack, router, useFocusEffect } from 'expo-router';
 import { Audio, Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
-import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2, Bookmark, CornerDownRight, X, Pin, Megaphone } from 'lucide-react-native';
 import {
   doc,
   updateDoc,
@@ -38,6 +38,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import type { Post, Comment } from '@/types';
+import { notificationService } from '@/services/notificationService';
+import { sendPushNotification } from '@/utils/notifications';
+import { getDoc } from 'firebase/firestore';
 
 function getTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -81,6 +84,7 @@ export default function PostDetailScreen() {
   const [isMuted, setIsMuted] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
+  const [replyingToComment, setReplyingToComment] = useState<{ id: string; authorName: string } | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -128,6 +132,11 @@ export default function PostDetailScreen() {
         }
       }
       setLoadingPost(false);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error('PostDetail Snapshot error:', error);
+      }
+      setLoadingPost(false);
     });
     return unsub;
   }, [id]);
@@ -146,6 +155,10 @@ export default function PostDetailScreen() {
           } as Comment;
         }),
       );
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error('Comments Snapshot error:', error);
+      }
     });
   }, [id]);
 
@@ -165,7 +178,9 @@ export default function PostDetailScreen() {
         return;
       }
       soundRef.current = sound;
-      if (videoPlayingRef.current) {
+      if (post?.mediaType !== 'video') {
+        sound.playAsync();
+      } else if (videoPlayingRef.current) {
         sound.playAsync();
       }
     };
@@ -197,13 +212,11 @@ export default function PostDetailScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    // Al recuperar el foco, reanudar vídeo y canción si estaban reproduciéndose
     if (videoPlayingRef.current) {
       videoRef.current?.playAsync();
       soundRef.current?.playAsync();
     }
     return () => {
-      // Al perder el foco (otra pantalla), pausar todo
       videoRef.current?.pauseAsync();
       soundRef.current?.pauseAsync();
     };
@@ -233,14 +246,38 @@ export default function PostDetailScreen() {
     setLikingPost(true);
     likeScale.value = withSpring(1.2, {}, () => { likeScale.value = withSpring(1); });
     const postRef = doc(db, 'posts', post.id);
+
     try {
       if (isLiked) {
-        await updateDoc(postRef, { likes: arrayRemove(currentUser.uid), likesCount: increment(-1) });
-        setPost((p) => p ? { ...p, likes: p.likes.filter((uid) => uid !== currentUser.uid), likesCount: p.likesCount - 1 } : p);
+        await updateDoc(postRef, {
+          likes: arrayRemove(currentUser.uid),
+          likesCount: increment(-1),
+        });
       } else {
-        await updateDoc(postRef, { likes: arrayUnion(currentUser.uid), likesCount: increment(1) });
-        setPost((p) => p ? { ...p, likes: [...p.likes, currentUser.uid], likesCount: p.likesCount + 1 } : p);
+        await updateDoc(postRef, {
+          likes: arrayUnion(currentUser.uid),
+          likesCount: increment(1),
+        });
       }
+
+      if (!isLiked && post.authorId !== currentUser.uid) {
+        const myName = currentUser.displayName || 'Alguien';
+        notificationService.addNotification(post.authorId, {
+          category: 'social',
+          title: 'Nuevo "me gusta"',
+          body: `A ${myName} le gustó tu publicación`,
+          meta: { postId: post.id, userId: currentUser.uid }
+        });
+
+        getDoc(doc(db, 'users', post.authorId)).then(uSnap => {
+          const token = uSnap.data()?.fcmToken;
+          if (token) {
+            sendPushNotification(token, 'CampusHub', `❤️ A ${myName} le gustó tu publicación: ${post.title}`, { postId: post.id });
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Like transaction failed:', error);
     } finally {
       setLikingPost(false);
     }
@@ -287,24 +324,74 @@ export default function PostDetailScreen() {
       likes: isLikedComment ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
       likesCount: increment(isLikedComment ? -1 : 1),
     });
+
+    if (!isLikedComment) {
+      const commentSnap = await getDoc(commentRef);
+      const commentData = commentSnap.data();
+      if (commentData && commentData.authorId !== currentUser.uid) {
+        const myName = currentUser.displayName || 'Alguien';
+        notificationService.addNotification(commentData.authorId, {
+          category: 'social',
+          title: 'Me gusta en tu comentario',
+          body: `${myName} reaccionó a tu comentario`,
+          meta: { postId: id, commentId }
+        });
+      }
+    }
+  };
+
+  const isSaved = !!(currentUser && post?.savedBy?.includes(currentUser.uid));
+
+  const toggleSave = async () => {
+    if (!currentUser || !post) return;
+    const postRef = doc(db, 'posts', post.id);
+    if (isSaved) {
+      await updateDoc(postRef, { savedBy: arrayRemove(currentUser.uid) });
+      setPost(p => p ? { ...p, savedBy: (p.savedBy ?? []).filter(uid => uid !== currentUser.uid) } : p);
+    } else {
+      await updateDoc(postRef, { savedBy: arrayUnion(currentUser.uid) });
+      setPost(p => p ? { ...p, savedBy: [...(p.savedBy ?? []), currentUser.uid] } : p);
+    }
   };
 
   const addComment = async () => {
     if (!currentUser || !post || !commentText.trim() || sendingComment) return;
     setSendingComment(true);
+    const text = commentText.trim();
     try {
-      await addDoc(collection(db, 'posts', post.id, 'comments'), {
+      const commentData = {
         postId: post.id,
-        content: commentText.trim(),
+        content: text,
         authorId: currentUser.uid,
         authorName: currentUser.displayName ?? '',
         authorPhoto: currentUser.photoURL ?? null,
         createdAt: serverTimestamp(),
         likes: [],
         likesCount: 0,
-      });
+        parentCommentId: replyingToComment?.id ?? null,
+      };
+      await addDoc(collection(db, 'posts', post.id, 'comments'), commentData);
       await updateDoc(doc(db, 'posts', post.id), { commentsCount: increment(1) });
+
+      if (post.authorId !== currentUser.uid) {
+        const myName = currentUser.displayName || 'Alguien';
+        notificationService.addNotification(post.authorId, {
+          category: 'social',
+          title: 'Nuevo comentario',
+          body: `${myName} comentó en tu publicación: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`,
+          meta: { postId: post.id }
+        });
+
+        getDoc(doc(db, 'users', post.authorId)).then(uSnap => {
+          const token = uSnap.data()?.fcmToken;
+          if (token) {
+            sendPushNotification(token, 'Nuevo comentario', `${myName} comentó: ${text.substring(0, 60)}`, { postId: post.id });
+          }
+        });
+      }
+
       setCommentText('');
+      setReplyingToComment(null);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
     } finally {
       setSendingComment(false);
@@ -346,117 +433,139 @@ export default function PostDetailScreen() {
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
           <ThemedText style={[styles.backText, { color: colors.primary }]}>Volver</ThemedText>
         </TouchableOpacity>
-        {post && currentUser?.uid === post.authorId && (
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              onPress={() => router.push({ pathname: '/edit-post', params: { id: post.id } } as any)}
-              style={styles.editBtn}
-            >
-              <Pencil size={20} color={colors.primary} strokeWidth={1.8} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowDeleteConfirm(true)}
-              style={styles.editBtn}
-            >
-              <Trash2 size={20} color="#FF3B30" strokeWidth={1.8} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-
-          <Pressable onPress={(e) => handlePostContentDoubleTap(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
-          <View style={styles.authorRow}>
-            <Avatar uri={post.authorPhoto} name={post.authorName} size={50} />
-            <View style={{ marginLeft: spacing.sm }}>
-              <ThemedText style={[styles.authorName, { color: colors.text }]}>{post.authorName}</ThemedText>
-              <ThemedText style={[styles.timeAgo, { color: colors.textSecondary }]}>{getTimeAgo(post.createdAt)}</ThemedText>
-            </View>
-          </View>
-
-          <ThemedText style={[styles.postTitle, { color: colors.text }]}>{post.title}</ThemedText>
-          <ThemedText style={[styles.postContent, { color: colors.text }]}>{post.content}</ThemedText>
-
-          {hasMedia && (
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={toggleSave} style={styles.editBtn}>
+            <Bookmark
+              size={20}
+              color={isSaved ? colors.primary : colors.textSecondary}
+              fill={isSaved ? colors.primary : 'transparent'}
+              strokeWidth={1.8}
+            />
+          </TouchableOpacity>
+          {post && currentUser?.uid === post.authorId && (
             <>
-              <View style={[styles.mediaContainer, { marginBottom: hasSong ? spacing.xs : spacing.md }]}>
-                {post.mediaType === 'video' ? (
-                  <Video
-                    ref={videoRef}
-                    source={{ uri: post.mediaUrl! }}
-                    style={styles.media}
-                    resizeMode={ResizeMode.CONTAIN}
-                    shouldPlay
-                    isLooping
-                    isMuted={isMuted || !!post.muteOriginalAudio}
-                    useNativeControls
-                    onPlaybackStatusUpdate={handleVideoStatusUpdate}
-                  />
-                ) : (
-                  <Image source={{ uri: post.mediaUrl! }} style={styles.media} resizeMode="cover" />
-                )}
-
-                {(post.mediaType === 'video' && !post.muteOriginalAudio) && (
-                  <TouchableOpacity style={styles.muteButton} onPress={toggleMute} activeOpacity={0.8}>
-                    {isMuted
-                      ? <VolumeX size={18} color="#FFFFFF" strokeWidth={2} />
-                      : <Volume2 size={18} color="#FFFFFF" strokeWidth={2} />
-                    }
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {hasSong && (
-                <View style={[styles.songBar, { backgroundColor: colors.backgroundSecondary, marginBottom: spacing.md }]}>
-                  {post.song!.coverUrl ? (
-                    <Image source={{ uri: post.song!.coverUrl }} style={styles.songBarCover} />
-                  ) : (
-                    <Music2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
-                  )}
-                  <ThemedText style={[styles.songBarText, { color: colors.text }]} numberOfLines={1}>
-                    {post.song!.name} · {post.song!.artistName}
-                  </ThemedText>
-                </View>
-              )}
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/edit-post', params: { id: post.id } } as any)}
+                style={styles.editBtn}
+              >
+                <Pencil size={20} color={colors.primary} strokeWidth={1.8} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={styles.editBtn}>
+                <Trash2 size={20} color="#FF3B30" strokeWidth={1.8} />
+              </TouchableOpacity>
             </>
           )}
+        </View>
+      </View>
 
-          <View style={styles.statsRow}>
-            <TouchableOpacity
-              style={[styles.likeButton, { borderColor: colors.border }]}
-              onPress={toggleLike}
-              disabled={likingPost}
-              activeOpacity={0.7}
-            >
-              <Animated.View style={likeAnimatedStyle}>
-                <Heart
-                  size={18}
-                  color={isLiked ? '#FF3B30' : colors.textSecondary}
-                  fill={isLiked ? '#FF3B30' : 'transparent'}
-                  strokeWidth={1.8}
-                />
-              </Animated.View>
-              <ThemedText style={[styles.statCount, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
-                {post.likesCount}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+
+          <Pressable onPress={(e) => handlePostContentDoubleTap(e.nativeEvent.pageX, e.nativeEvent.pageY)}>
+            <View style={styles.authorRow}>
+              <Avatar uri={post.authorPhoto} name={post.authorName} size={50} />
+              <View style={{ marginLeft: spacing.sm }}>
+                <ThemedText style={[styles.authorName, { color: colors.text }]}>{post.authorName}</ThemedText>
+                <ThemedText style={[styles.timeAgo, { color: colors.textSecondary }]}>{getTimeAgo(post.createdAt)}</ThemedText>
+              </View>
+              {post.postType === 'announcement' && (
+                <View style={[styles.announcementBadge, { backgroundColor: colors.primary + '15' }]}>
+                  <Pin size={12} color={colors.primary} />
+                  <ThemedText style={[styles.announcementBadgeText, { color: colors.primary }]}>Anuncio</ThemedText>
+                </View>
+              )}
+              {post.tags?.includes('anuncio') && (
+                <TouchableOpacity
+                  style={[styles.announcementBadge, { backgroundColor: '#FF950015', marginLeft: spacing.xs }]}
+                  onPress={() => router.push({ pathname: '/explore', params: { revealHighlight: post.id } } as any)}
+                >
+                  <Megaphone size={12} color="#FF9500" />
+                  <ThemedText style={[styles.announcementBadgeText, { color: '#FF9500' }]}>Ver en Tablón</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <ThemedText style={[styles.postTitle, { color: colors.text }]}>{post.title}</ThemedText>
+            <ThemedText style={[styles.postContent, { color: colors.text }]}>{post.content}</ThemedText>
+
+            {hasMedia && (
+              <>
+                <View style={[styles.mediaContainer, { marginBottom: hasSong ? spacing.xs : spacing.md }]}>
+                  {post.mediaType === 'video' ? (
+                    <Video
+                      ref={videoRef}
+                      source={{ uri: post.mediaUrl! }}
+                      style={styles.media}
+                      resizeMode={ResizeMode.CONTAIN}
+                      shouldPlay
+                      isLooping
+                      isMuted={isMuted || !!post.muteOriginalAudio}
+                      useNativeControls
+                      onPlaybackStatusUpdate={handleVideoStatusUpdate}
+                    />
+                  ) : (
+                    <Image source={{ uri: post.mediaUrl! }} style={styles.media} resizeMode="cover" />
+                  )}
+
+                  {(post.mediaType === 'video' && !post.muteOriginalAudio) && (
+                    <TouchableOpacity style={styles.muteButton} onPress={toggleMute} activeOpacity={0.8}>
+                      {isMuted
+                        ? <VolumeX size={18} color="#FFFFFF" strokeWidth={2} />
+                        : <Volume2 size={18} color="#FFFFFF" strokeWidth={2} />
+                      }
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {hasSong && (
+                  <View style={[styles.songBar, { backgroundColor: colors.backgroundSecondary, marginBottom: spacing.md }]}>
+                    {post.song!.coverUrl ? (
+                      <Image source={{ uri: post.song!.coverUrl }} style={styles.songBarCover} />
+                    ) : (
+                      <Music2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
+                    )}
+                    <ThemedText style={[styles.songBarText, { color: colors.text }]} numberOfLines={1}>
+                      {post.song!.name} · {post.song!.artistName}
+                    </ThemedText>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={styles.statsRow}>
+              <TouchableOpacity
+                style={[styles.likeButton, { borderColor: colors.border }]}
+                onPress={toggleLike}
+                disabled={likingPost}
+                activeOpacity={0.7}
+              >
+                <Animated.View style={likeAnimatedStyle}>
+                  <Heart
+                    size={18}
+                    color={isLiked ? '#FF3B30' : colors.textSecondary}
+                    fill={isLiked ? '#FF3B30' : 'transparent'}
+                    strokeWidth={1.8}
+                  />
+                </Animated.View>
+                <ThemedText style={[styles.statCount, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
+                  {post.likesCount}
+                </ThemedText>
+              </TouchableOpacity>
+              <View style={[styles.statChip, { borderColor: colors.border }]}>
+                <MessageCircle size={18} color={colors.textSecondary} strokeWidth={1.8} />
+                <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.commentsCount}</ThemedText>
+              </View>
+              <View style={[styles.statChip, { borderColor: colors.border }]}>
+                <ChartNoAxesColumn size={18} color={colors.textSecondary} strokeWidth={1.8} />
+                <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.viewsCount ?? 0}</ThemedText>
+              </View>
+            </View>
+
+            {getLikeText() !== '' && (
+              <ThemedText style={[styles.likeText, { color: colors.textSecondary }]}>
+                {getLikeText()}
               </ThemedText>
-            </TouchableOpacity>
-            <View style={[styles.statChip, { borderColor: colors.border }]}>
-              <MessageCircle size={18} color={colors.textSecondary} strokeWidth={1.8} />
-              <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.commentsCount}</ThemedText>
-            </View>
-            <View style={[styles.statChip, { borderColor: colors.border }]}>
-              <ChartNoAxesColumn size={18} color={colors.textSecondary} strokeWidth={1.8} />
-              <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.viewsCount ?? 0}</ThemedText>
-            </View>
-          </View>
-
-          {getLikeText() !== '' && (
-            <ThemedText style={[styles.likeText, { color: colors.textSecondary }]}>
-              {getLikeText()}
-            </ThemedText>
-          )}
+            )}
 
           </Pressable>
 
@@ -470,45 +579,84 @@ export default function PostDetailScreen() {
               No hay comentarios aún. ¡Sé el primero!
             </ThemedText>
           ) : (
-            comments.map((comment) => (
-              <Pressable
-                key={comment.id}
-                style={styles.commentRow}
-                onPress={() => handleCommentDoubleTap(comment.id, comment.likes ?? [])}
-              >
-                <Avatar uri={comment.authorPhoto} name={comment.authorName} size={32} />
-                <View style={[styles.commentBubble, { backgroundColor: colors.backgroundSecondary }]}>
-                  <ThemedText style={[styles.commentAuthor, { color: colors.text }]}>{comment.authorName}</ThemedText>
-                  <ThemedText style={[styles.commentContent, { color: colors.text }]}>{comment.content}</ThemedText>
-                  <View style={styles.commentFooter}>
-                    <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(comment.createdAt)}</ThemedText>
-                    <TouchableOpacity
-                      onPress={() => toggleCommentLike(comment.id, comment.likes ?? [])}
-                      style={styles.commentLikeBtn}
-                      activeOpacity={0.7}
+            comments
+              .filter(c => !c.parentCommentId && !!c.content?.trim())
+              .map((comment) => {
+                const replies = comments.filter(c => c.parentCommentId === comment.id && !!c.content?.trim());
+                const isCommentLiked = !!(currentUser && (comment.likes ?? []).includes(currentUser.uid));
+                return (
+                  <View key={comment.id}>
+                    <Pressable
+                      style={styles.commentRow}
+                      onPress={() => handleCommentDoubleTap(comment.id, comment.likes ?? [])}
                     >
-                      <Heart
-                        size={14}
-                        color={currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : colors.textSecondary}
-                        fill={currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : 'transparent'}
-                        strokeWidth={1.8}
-                      />
-                      {(comment.likesCount ?? 0) > 0 && (
-                        <ThemedText style={[styles.commentLikeCount, {
-                          color: currentUser && (comment.likes ?? []).includes(currentUser.uid) ? '#FF3B30' : colors.textSecondary,
-                        }]}>
-                          {comment.likesCount}
-                        </ThemedText>
-                      )}
-                    </TouchableOpacity>
+                      <Avatar uri={comment.authorPhoto} name={comment.authorName} size={32} />
+                      <View style={[styles.commentBubble, { backgroundColor: colors.backgroundSecondary }]}>
+                        <ThemedText style={[styles.commentAuthor, { color: colors.text }]}>{comment.authorName}</ThemedText>
+                        <ThemedText style={[styles.commentContent, { color: colors.text }]}>{comment.content}</ThemedText>
+                        <View style={styles.commentFooter}>
+                          <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(comment.createdAt)}</ThemedText>
+                          <TouchableOpacity onPress={() => setReplyingToComment({ id: comment.id, authorName: comment.authorName })} style={styles.commentReplyBtn}>
+                            <CornerDownRight size={12} color={colors.textSecondary} strokeWidth={2} />
+                            <ThemedText style={[styles.commentReplyText, { color: colors.textSecondary }]}>Responder</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => toggleCommentLike(comment.id, comment.likes ?? [])} style={styles.commentLikeBtn} activeOpacity={0.7}>
+                            <Heart size={14} color={isCommentLiked ? '#FF3B30' : colors.textSecondary} fill={isCommentLiked ? '#FF3B30' : 'transparent'} strokeWidth={1.8} />
+                            {(comment.likesCount ?? 0) > 0 && (
+                              <ThemedText style={[styles.commentLikeCount, { color: isCommentLiked ? '#FF3B30' : colors.textSecondary }]}>{comment.likesCount}</ThemedText>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </Pressable>
+
+                    {replies.map(reply => {
+                      const isReplyLiked = !!(currentUser && (reply.likes ?? []).includes(currentUser.uid));
+                      return (
+                        <View key={reply.id} style={styles.replyRow}>
+                          <View style={[styles.replyLine, { backgroundColor: colors.border }]} />
+                          <Pressable style={[styles.commentRow, { flex: 1 }]} onPress={() => handleCommentDoubleTap(reply.id, reply.likes ?? [])}>
+                            <Avatar uri={reply.authorPhoto} name={reply.authorName} size={26} />
+                            <View style={[styles.commentBubble, { backgroundColor: colors.backgroundSecondary }]}>
+                              <ThemedText style={[styles.commentAuthor, { color: colors.text }]}>{reply.authorName}</ThemedText>
+                              <ThemedText style={[styles.commentContent, { color: colors.text }]}>{reply.content}</ThemedText>
+                              <View style={styles.commentFooter}>
+                                <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(reply.createdAt)}</ThemedText>
+                                <TouchableOpacity onPress={() => toggleCommentLike(reply.id, reply.likes ?? [])} style={styles.commentLikeBtn} activeOpacity={0.7}>
+                                  <Heart size={13} color={isReplyLiked ? '#FF3B30' : colors.textSecondary} fill={isReplyLiked ? '#FF3B30' : 'transparent'} strokeWidth={1.8} />
+                                  {(reply.likesCount ?? 0) > 0 && (
+                                    <ThemedText style={[styles.commentLikeCount, { color: isReplyLiked ? '#FF3B30' : colors.textSecondary }]}>{reply.likesCount}</ThemedText>
+                                  )}
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          </Pressable>
+                        </View>
+                      );
+                    })}
                   </View>
-                </View>
-              </Pressable>
-            ))
+                );
+              })
           )}
           <View style={{ height: spacing.xl }} />
         </ScrollView>
 
+        {replyingToComment && (
+          <View style={[styles.replyBanner, { backgroundColor: colors.backgroundSecondary, borderTopColor: colors.border }]}>
+            <CornerDownRight size={14} color={colors.primary} strokeWidth={2} />
+            <View style={styles.replyBannerTextRow}>
+              <ThemedText style={[styles.replyBannerLabel, { color: colors.textSecondary }]}>
+                Respondiendo a{' '}
+              </ThemedText>
+              <ThemedText style={[styles.replyBannerName, { color: colors.text }]} numberOfLines={1}>
+                {replyingToComment.authorName}
+              </ThemedText>
+            </View>
+            <TouchableOpacity onPress={() => setReplyingToComment(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={15} color={colors.textSecondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={[styles.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <TextInput
             style={[styles.commentInput, { backgroundColor: colors.backgroundSecondary, color: colors.text }]}
@@ -673,8 +821,8 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginBottom: spacing.md },
   commentsHeader: { fontSize: typography.sizes.md, fontWeight: '600', marginBottom: spacing.md },
   noComments: { fontSize: typography.sizes.sm, textAlign: 'center', paddingVertical: spacing.lg },
-  commentRow: { flexDirection: 'row', marginBottom: spacing.md, alignItems: 'flex-start' },
-  commentBubble: { flex: 1, marginLeft: spacing.sm, borderRadius: 12, padding: spacing.sm },
+  commentRow: { flexDirection: 'row', marginBottom: spacing.md, alignItems: 'flex-start', paddingRight: spacing.sm },
+  commentBubble: { flex: 1, marginLeft: spacing.sm, borderRadius: 12, padding: spacing.sm, minHeight: 40 },
   commentAuthor: { fontSize: typography.sizes.sm, fontWeight: '600', marginBottom: 2 },
   commentContent: { fontSize: typography.sizes.sm, lineHeight: 20 },
   commentTime: { fontSize: typography.sizes.xs, marginTop: 4 },
@@ -717,4 +865,26 @@ const styles = StyleSheet.create({
   commentFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   commentLikeBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 4 },
   commentLikeCount: { fontSize: typography.sizes.xs, fontWeight: '600' },
+  commentReplyBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, padding: 4 },
+  commentReplyText: { fontSize: typography.sizes.xs },
+  replyRow: { flexDirection: 'row', paddingLeft: spacing.lg + spacing.sm },
+  replyLine: { width: 2, borderRadius: 1, marginRight: spacing.sm, marginLeft: 4 },
+  replyBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, minHeight: 40 },
+  replyBannerTextRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  replyBannerLabel: { fontSize: typography.sizes.xs },
+  replyBannerName: { fontSize: typography.sizes.xs, fontWeight: '600', flex: 1 },
+  announcementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 'auto',
+  },
+  announcementBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
 });
