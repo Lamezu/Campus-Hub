@@ -217,23 +217,8 @@ export async function sendMessage(
 }
 
 export async function markAsRead(conversationId: string, userId: string): Promise<void> {
-  const batch = writeBatch(db);
-
-  const q = query(
-    collection(db, 'conversations', conversationId, 'messages'),
-    where('read', '==', false),
-    where('senderId', '!=', userId)
-  );
-
-  const snapshot = await getDocs(q);
-  snapshot.docs.forEach(d => {
-    batch.update(d.ref, { read: true, readAt: serverTimestamp() });
-  });
-
   const convRef = doc(db, 'conversations', conversationId);
-  batch.update(convRef, { [`unreadCount.${userId}`]: 0 });
-
-  await batch.commit();
+  await updateDoc(convRef, { [`unreadCount.${userId}`]: 0 });
 }
 
 export async function deleteMessage(conversationId: string, messageId: string): Promise<void> {

@@ -229,15 +229,15 @@ export default function DirectChat() {
   useEffect(() => {
     if (!conversationId || !currentUser) return;
 
+    const uid = currentUser.uid;
     const unsubscribe = subscribeToMessages(conversationId, (msgs, lastDoc) => {
       setMessages(msgs);
       setLoading(false);
       setHasMore(msgs.length === MESSAGES_PER_PAGE);
       lastDocRef.current = lastDoc;
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
+      markAsRead(conversationId, uid).catch(() => {});
     });
-
-    markAsRead(conversationId, currentUser.uid).catch(() => {});
 
     return () => unsubscribe();
   }, [conversationId, currentUser]);

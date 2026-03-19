@@ -11,6 +11,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { Settings, CornerDownRight, X, Mic, ChevronsDown } from 'lucide-react';
 import { uploadAudio } from '../../config/cloudinary';
+import { updateLastRead } from '../../services/firebase/messageService';
 
 const MESSAGES_PER_PAGE = 50;
 
@@ -202,9 +203,11 @@ export default function Chat() {
     const messagesRef = collection(db, 'channels', id, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
 
+    const uid = currentUser?.uid;
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        if (uid) updateLastRead(id, uid).catch(() => {});
         const messagesData: Message[] = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
