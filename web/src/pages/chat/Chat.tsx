@@ -160,6 +160,7 @@ export default function Chat() {
   const [messageToForward, setMessageToForward] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [groupName, setGroupName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastDocRef = useRef<any>(null);
@@ -170,8 +171,16 @@ export default function Chat() {
   const isDesktop = useWindowSize();
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
-  const channelName = channel?.name || `Channel ${id}`;
+  const channelName = groupName ?? channel?.name ?? id ?? '';
   const currentUser = auth.currentUser;
+
+  useEffect(() => {
+    if (!id?.startsWith('sg_')) return;
+    const groupId = id.slice(3);
+    getDoc(doc(db, 'studyGroups', groupId)).then(snap => {
+      if (snap.exists()) setGroupName(snap.data().name ?? null);
+    }).catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     const loadUserData = async () => {
