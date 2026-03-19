@@ -13,6 +13,7 @@ import Settings from './pages/settings/Settings';
 import PostDetail from './pages/posts/PostDetail';
 import EditPost from './pages/posts/EditPost';
 import Campus from './pages/main/Campus';
+import AnnouncementDetail from './pages/campus/AnnouncementDetail';
 import DirectChat from './pages/chat/DirectChat';
 import { CallProvider, useCall } from './contexts/CallContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -75,6 +76,7 @@ function App() {
             <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/post/:id/edit" element={<EditPost />} />
             <Route path="/friends" element={<Friends />} />
+            <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
           </Routes>
         </BrowserRouter>
       </CallProvider>
