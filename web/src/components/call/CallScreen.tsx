@@ -29,6 +29,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const [camOn, setCamOn] = useState(callType === 'video');
   const [duration, setDuration] = useState(0);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -99,8 +100,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         } catch {
-          onClose();
-          return;
+          stream = new MediaStream();
+          setMediaError('No se detectó micrófono ni cámara. Comprueba los permisos del navegador y en Windows: Configuración → Privacidad → Micrófono/Cámara.');
         }
       }
 
@@ -200,14 +201,24 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
         unsubsRef.current = [unsubCallStatus, unsubCandidates];
 
-        const waitForOffer = () => new Promise<RTCSessionDescriptionInit>((resolve) => {
+        const waitForOffer = () => new Promise<RTCSessionDescriptionInit>((resolve, reject) => {
+          const timer = setTimeout(() => { unsub(); reject(new Error('timeout')); }, 20000);
           const unsub = subscribeToCall(callId, (call) => {
-            if (call?.offer) { unsub(); resolve(call.offer); }
+            if (!call || call.status === 'ended' || call.status === 'missed' || call.status === 'rejected') {
+              clearTimeout(timer); unsub(); reject(new Error('cancelled'));
+            } else if (call.offer) {
+              clearTimeout(timer); unsub(); resolve(call.offer);
+            }
           });
           unsubsRef.current.push(unsub);
         });
 
-        const offer = await waitForOffer();
+        let offer: RTCSessionDescriptionInit;
+        try {
+          offer = await waitForOffer();
+        } catch {
+          cleanup(); onClose(); return;
+        }
         if (cancelled) return;
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -330,8 +341,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         <p style={{ color: '#fff', fontSize: '24px', fontWeight: '700', margin: '0 0 8px' }}>
           {otherUserName}
         </p>
-        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '15px', margin: 0 }}>
-          {statusLabel}
+        <p style={{ color: mediaError ? '#FF3B30' : 'rgba(255,255,255,0.6)', fontSize: '15px', margin: 0 }}>
+          {mediaError ?? statusLabel}
         </p>
       </div>
 

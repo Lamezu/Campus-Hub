@@ -4,21 +4,39 @@ import { auth } from '../config/firebase';
 import {
   subscribeToIncomingCalls,
   missCall,
-  type Call
+  endCall,
+  type Call,
+  type CallType
 } from '../services/firebase/callService';
+
+export interface ActiveCall {
+  callId: string;
+  isCaller: boolean;
+  type: CallType;
+  otherUserName: string;
+  otherUserPhoto: string | null;
+}
 
 interface CallContextValue {
   incomingCall: Call | null;
+  activeCall: ActiveCall | null;
+  setActiveCall: (call: ActiveCall | null) => void;
   activeCallId: string | null;
   setActiveCallId: (id: string | null) => void;
   dismissIncoming: () => void;
+  acceptIncoming: () => void;
+  rejectIncoming: () => void;
 }
 
 const CallContext = createContext<CallContextValue>({
   incomingCall: null,
+  activeCall: null,
+  setActiveCall: () => {},
   activeCallId: null,
   setActiveCallId: () => {},
-  dismissIncoming: () => {}
+  dismissIncoming: () => {},
+  acceptIncoming: () => {},
+  rejectIncoming: () => {}
 });
 
 export function useCall() {
@@ -28,6 +46,7 @@ export function useCall() {
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [incomingCall, setIncomingCall] = useState<Call | null>(null);
+  const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const ringingRef = useRef<HTMLAudioElement | null>(null);
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,13 +62,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const unsub = subscribeToIncomingCalls(userId, (call) => {
       if (call && !activeCallId) {
         setIncomingCall(call);
-
         if (!ringingRef.current) {
           ringingRef.current = new Audio('/sounds/ringtone.mp3');
           ringingRef.current.loop = true;
         }
         ringingRef.current.play().catch(() => {});
-
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
         missTimerRef.current = setTimeout(() => {
           missCall(call.id).catch(() => {});
@@ -79,8 +96,35 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (missTimerRef.current) clearTimeout(missTimerRef.current);
   }
 
+  function acceptIncoming() {
+    if (!incomingCall) return;
+    setActiveCall({
+      callId: incomingCall.id,
+      isCaller: false,
+      type: incomingCall.type,
+      otherUserName: incomingCall.callerName,
+      otherUserPhoto: incomingCall.callerPhoto ?? null
+    });
+    setActiveCallId(incomingCall.id);
+    dismissIncoming();
+  }
+
+  function rejectIncoming() {
+    if (incomingCall) endCall(incomingCall.id).catch(() => {});
+    dismissIncoming();
+  }
+
   return (
-    <CallContext.Provider value={{ incomingCall, activeCallId, setActiveCallId, dismissIncoming }}>
+    <CallContext.Provider value={{
+      incomingCall,
+      activeCall,
+      setActiveCall,
+      activeCallId,
+      setActiveCallId,
+      dismissIncoming,
+      acceptIncoming,
+      rejectIncoming
+    }}>
       {children}
     </CallContext.Provider>
   );

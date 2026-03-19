@@ -8,11 +8,9 @@ import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { uploadAudio } from '../../config/cloudinary';
 import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Phone, Video } from 'lucide-react';
-import CallScreen, { IncomingCallModal } from '../../components/call/CallScreen';
 import { useCall } from '../../contexts/CallContext';
 import {
   createCall,
-  rejectCall,
   type CallType
 } from '../../services/firebase/callService';
 import {
@@ -172,9 +170,7 @@ export default function DirectChat() {
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
-  const [activeCall, setActiveCall] = useState<{ callId: string; isCaller: boolean; type: CallType } | null>(null);
-  const { incomingCall, setActiveCallId, dismissIncoming } = useCall();
-  const incomingFromThisUser = incomingCall?.callerId === otherUser?.uid ? incomingCall : null;
+  const { setActiveCall, setActiveCallId } = useCall();
 
   const handleStartCall = async (type: CallType) => {
     if (!currentUser || !otherUser) return;
@@ -188,24 +184,17 @@ export default function DirectChat() {
         otherUser.photoURL || null,
         type
       );
-      setActiveCall({ callId, isCaller: true, type });
+      setActiveCall({
+        callId,
+        isCaller: true,
+        type,
+        otherUserName: otherUser.displayName || 'Usuario',
+        otherUserPhoto: otherUser.photoURL || null
+      });
       setActiveCallId(callId);
     } catch {
-      alert('No se pudo iniciar la llamada. Verifica permisos de micrófono/cámara.');
+      alert('No se pudo iniciar la llamada.');
     }
-  };
-
-  const handleAcceptIncoming = () => {
-    if (!incomingFromThisUser) return;
-    dismissIncoming();
-    setActiveCall({ callId: incomingFromThisUser.id, isCaller: false, type: incomingFromThisUser.type });
-    setActiveCallId(incomingFromThisUser.id);
-  };
-
-  const handleRejectIncoming = async () => {
-    if (!incomingFromThisUser) return;
-    await rejectCall(incomingFromThisUser.id).catch(() => {});
-    dismissIncoming();
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -540,27 +529,6 @@ export default function DirectChat() {
         setShowRecorder={setShowRecorder}
       />
 
-      {activeCall && (
-        <CallScreen
-          callId={activeCall.callId}
-          isCaller={activeCall.isCaller}
-          callType={activeCall.type}
-          otherUserName={otherUser?.displayName || 'Usuario'}
-          otherUserPhoto={otherUser?.photoURL || null}
-          onClose={() => {
-            setActiveCall(null);
-            setActiveCallId(null);
-          }}
-        />
-      )}
-
-      {incomingFromThisUser && !activeCall && (
-        <IncomingCallModal
-          call={incomingFromThisUser}
-          onAccept={handleAcceptIncoming}
-          onReject={handleRejectIncoming}
-        />
-      )}
     </div>
   );
 }
