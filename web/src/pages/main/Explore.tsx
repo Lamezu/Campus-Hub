@@ -47,15 +47,17 @@ export default function ExploreScreen() {
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Post[] = snapshot.docs.map((d) => {
-        const post = d.data();
-        return {
-          id: d.id,
-          ...post,
-          createdAt: post.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-          updatedAt: post.updatedAt?.toDate?.()?.toISOString() ?? null,
-        } as Post;
-      });
+      const data: Post[] = snapshot.docs
+        .map((d) => {
+          const post = d.data();
+          return {
+            id: d.id,
+            ...post,
+            createdAt: post.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+            updatedAt: post.updatedAt?.toDate?.()?.toISOString() ?? null,
+          } as Post;
+        })
+        .filter((p) => p.postType !== 'announcement');
       setPosts(data);
       setLoading(false);
     }, () => {
