@@ -102,6 +102,14 @@ export interface Post {
   song?: JamendoTrack | null;
   viewsCount?: number;
   views?: string[];
+  postType?: 'post' | 'announcement';
+  pinned?: boolean;
+  pinnedUntil?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
+  imageOffsetY?: number | null;
+  linkedEventId?: string | null;
+  socialId?: string | null;
 }
 
 export interface Comment {
@@ -114,4 +122,42 @@ export interface Comment {
   createdAt: string;
   likes: string[];
   likesCount: number;
+}
+
+export type UserRole = 'student' | 'teacher' | 'admin';
+export type UserSubrole = 'delegate' | 'coordinator' | null;
+
+export type CalendarEventType = 'exam' | 'deadline' | 'holiday' | 'event' | 'class';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  endDate?: string | null;
+  allDay: boolean;
+  time?: string | null;
+  type: CalendarEventType;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  linkedAnnouncementId?: string | null;
+  departmentId?: string | null;
+}
+
+export interface StudyGroup {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  createdBy: string;
+  createdByName: string;
+  memberIds: string[];
+  memberCount: number;
+  createdAt: string;
+  color: string;
+  isPrivate?: boolean;
+  photoURL?: string | null;
+  allowedRoles?: string[];
+  invitedUserIds?: string[];
 }
