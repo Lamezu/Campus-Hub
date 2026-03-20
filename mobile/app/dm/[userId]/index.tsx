@@ -300,7 +300,6 @@ export default function DMChatScreen() {
                 headerTintColor: colors.text,
                 headerTitleAlign: 'left',
                 headerBackVisible: false,
-                headerTitleContainerStyle: { right: 130 },
                 headerTitle: () => (
                     <TouchableOpacity
                         onPress={() => router.push(`/dm/${userId}/profile` as any)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, TouchableOpacity, Modal, ScrollView, TextInput, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users } from 'lucide-react-native';
@@ -18,11 +18,11 @@ const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Jul
 const DAY_NAMES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 const EVENT_TYPE_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam:     { label: 'Examen',   color: '#FF3B30' },
-  deadline: { label: 'Entrega',  color: '#FF9500' },
-  holiday:  { label: 'Festivo',  color: '#34C759' },
-  event:    { label: 'Evento',   color: '#007AFF' },
-  class:    { label: 'Clase',    color: '#AF52DE' },
+  exam: { label: 'Examen', color: '#FF3B30' },
+  deadline: { label: 'Entrega', color: '#FF9500' },
+  holiday: { label: 'Festivo', color: '#34C759' },
+  event: { label: 'Evento', color: '#007AFF' },
+  class: { label: 'Clase', color: '#AF52DE' },
 };
 
 function getDaysInMonth(year: number, month: number) {
@@ -51,17 +51,19 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
   const insets = useSafeAreaInsets();
   const currentUser = auth.currentUser;
   const { userData, subrole } = useCurrentUser();
-  const today = new Date();
+  const [today, setToday] = useState(new Date());
 
   const { allEvents, saveEvent, deleteEvent } = useCalendarEvents();
 
   const userDepartment = userData?.department ?? null;
 
-  const visibleEvents = allEvents.filter(ev => {
-    if (!ev.departmentId) return true;
-    if (!userDepartment) return true;
-    return ev.departmentId === userDepartment;
-  });
+  const visibleEvents = useMemo(() => {
+    return allEvents.filter(ev => {
+      if (!ev.departmentId) return true;
+      if (!userDepartment) return true;
+      return ev.departmentId === userDepartment;
+    });
+  }, [allEvents, userDepartment]);
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -96,21 +98,28 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
     ]).start(() => setGhostDay(null));
   }, [highlightDay]);
 
-  const monthEvents = visibleEvents.filter(e => {
-    const d = new Date(e.date);
-    return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
-  });
-  const eventDays = new Set(monthEvents.map(e => new Date(e.date).getDate()));
+  const monthEvents = useMemo(() => {
+    return visibleEvents.filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+    });
+  }, [visibleEvents, viewYear, viewMonth]);
 
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const eventDays = useMemo(() => {
+    return new Set(monthEvents.map(e => new Date(e.date).getDate()));
+  }, [monthEvents]);
 
-  const selectedEvents = selectedDate
-    ? monthEvents.filter(e => new Date(e.date).getDate() === parseInt(selectedDate))
-    : visibleEvents.filter(e => {
-        const d = new Date(e.date);
-        const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        return eventDay >= todayStart;
-      }).slice(0, 8);
+  const selectedEvents = useMemo(() => {
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (selectedDate) {
+      return monthEvents.filter(e => new Date(e.date).getDate() === parseInt(selectedDate));
+    }
+    return visibleEvents.filter(e => {
+      const d = new Date(e.date);
+      const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return eventDay >= todayStart;
+    }).slice(0, 10);
+  }, [selectedDate, monthEvents, visibleEvents, today.toDateString()]);
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
   const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
@@ -238,7 +247,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
         {selectedEvents.length === 0 ? (
           <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>Sin eventos</ThemedText>
         ) : (
-          selectedEvents.map(ev => {
+          selectedEvents.map((ev: CalendarEvent) => {
             const cfg = EVENT_TYPE_CONFIG[ev.type];
             const isAuthor = currentUser?.uid === ev.authorId;
             return (
