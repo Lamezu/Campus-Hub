@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   serverTimestamp,
   onSnapshot,
   writeBatch,
@@ -256,6 +257,56 @@ export const subscribeToReceivedRequests = (
   return onSnapshot(q, (snapshot) => {
     callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FriendRequest)));
   });
+};
+
+export type UserSearchResult = {
+  user: { id: string; displayName: string; photoURL: string | null; role: string };
+  status: 'friend' | 'sent' | 'received' | 'none';
+  requestId?: string;
+};
+
+export const searchUsers = async (
+  searchQuery: string,
+  currentUserId: string
+): Promise<UserSearchResult[]> => {
+  if (!searchQuery.trim()) return [];
+
+  const q = query(
+    collection(db, 'users'),
+    where('displayName', '>=', searchQuery),
+    where('displayName', '<=', searchQuery + '\uf8ff'),
+    limit(15)
+  );
+
+  const snapshot = await getDocs(q);
+  const users = snapshot.docs
+    .map(d => ({
+      id: d.id,
+      displayName: d.data().displayName || '',
+      photoURL: d.data().photoURL || null,
+      role: d.data().role || ''
+    }))
+    .filter(u => u.id !== currentUserId);
+
+  const results = await Promise.all(
+    users.map(async (u) => {
+      const isFriend = await areFriends(currentUserId, u.id);
+      if (isFriend) return { user: u, status: 'friend' as const };
+
+      const req = await getFriendRequest(currentUserId, u.id);
+      if (req) {
+        return {
+          user: u,
+          status: (req.fromUserId === currentUserId ? 'sent' : 'received') as 'sent' | 'received',
+          requestId: req.id
+        };
+      }
+
+      return { user: u, status: 'none' as const };
+    })
+  );
+
+  return results;
 };
 
 export const subscribeToFriends = (
