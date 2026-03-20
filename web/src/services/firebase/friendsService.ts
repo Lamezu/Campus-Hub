@@ -267,16 +267,21 @@ export type UserSearchResult = {
 
 export const searchUsers = async (
   searchQuery: string,
-  currentUserId: string
+  currentUserId: string,
+  roleFilter?: string
 ): Promise<UserSearchResult[]> => {
-  if (!searchQuery.trim()) return [];
+  if (!searchQuery.trim() && !roleFilter) return [];
 
-  const q = query(
-    collection(db, 'users'),
-    where('displayName', '>=', searchQuery),
-    where('displayName', '<=', searchQuery + '\uf8ff'),
-    limit(15)
-  );
+  const constraints: any[] = [limit(30)];
+
+  if (searchQuery.trim()) {
+    constraints.push(where('displayName', '>=', searchQuery));
+    constraints.push(where('displayName', '<=', searchQuery + '\uf8ff'));
+  }
+
+  if (roleFilter) constraints.push(where('role', '==', roleFilter));
+
+  const q = query(collection(db, 'users'), ...constraints);
 
   const snapshot = await getDocs(q);
   const users = snapshot.docs

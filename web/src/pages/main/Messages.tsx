@@ -25,6 +25,7 @@ export default function Messages() {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [requestStates, setRequestStates] = useState<Record<string, 'sending' | 'sent' | 'cancelling'>>({});
   const [starting, setStarting] = useState(false);
   const navigate = useNavigate();
@@ -95,14 +96,14 @@ export default function Messages() {
   useEffect(() => {
     if (modalTab !== 'search' || !currentUserId) return;
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!search.trim()) {
+    if (!search.trim() && !roleFilter) {
       setSearchResults([]);
       return;
     }
     setSearchLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const results = await searchUsers(search.trim(), currentUserId);
+        const results = await searchUsers(search.trim(), currentUserId, roleFilter);
         setSearchResults(results);
       } catch {
         setSearchResults([]);
@@ -113,7 +114,7 @@ export default function Messages() {
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [search, modalTab, currentUserId]);
+  }, [search, modalTab, currentUserId, roleFilter]);
 
   const handleOpenConversation = async (friendId: string) => {
     if (!currentUserId || starting) return;
@@ -359,7 +360,7 @@ export default function Messages() {
           alignItems: 'center',
           justifyContent: 'center'
         }}
-          onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); }}
+          onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter(undefined); }}
         >
           <div
             style={{
@@ -385,7 +386,7 @@ export default function Messages() {
                 {modalTab === 'friends' ? 'Nueva conversación' : 'Buscar personas'}
               </span>
               <button
-                onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); }}
+                onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter(undefined); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}
               >
                 <X size={22} />
@@ -396,7 +397,7 @@ export default function Messages() {
               {(['friends', 'search'] as const).map(tab => (
                 <button
                   key={tab}
-                  onClick={() => { setModalTab(tab); setSearch(''); setSearchResults([]); }}
+                  onClick={() => { setModalTab(tab); setSearch(''); setSearchResults([]); setRoleFilter(undefined); }}
                   style={{
                     flex: 1,
                     background: 'none',
@@ -441,6 +442,34 @@ export default function Messages() {
                   autoFocus
                 />
               </div>
+              {modalTab === 'search' && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  {([
+                    { label: 'Todos', value: undefined },
+                    { label: 'Alumnos', value: 'student' },
+                    { label: 'Profesores', value: 'teacher' },
+                    { label: 'Administradores', value: 'admin' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.label}
+                      onClick={() => setRoleFilter(opt.value)}
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        border: `1.5px solid ${roleFilter === opt.value ? colors.primary : 'var(--border)'}`,
+                        background: roleFilter === opt.value ? colors.primary : 'transparent',
+                        color: roleFilter === opt.value ? '#fff' : 'var(--text-secondary)',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -490,9 +519,9 @@ export default function Messages() {
                   ))
                 )
               ) : (
-                !search.trim() ? (
+                (!search.trim() && !roleFilter) ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
-                    Escribe un nombre para buscar
+                    Escribe un nombre o selecciona un filtro
                   </p>
                 ) : searchLoading ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
