@@ -201,6 +201,7 @@ export const subscribeToUserChannels = (
         return {
           id: channelDoc.id,
           ...channelDoc.data() as Omit<Channel, 'id'>,
+          memberCount: (channelDoc.data().memberIds as string[])?.length ?? channelDoc.data().memberCount ?? 0,
           memberInfo: memberSnap.data() as ChannelMember
         };
       }

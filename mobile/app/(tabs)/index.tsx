@@ -83,7 +83,7 @@ export default function HomeScreen() {
           createdBy: data.createdBy ?? '',
           createdByName: data.createdByName ?? '',
           memberIds: data.memberIds ?? [],
-          memberCount: data.memberCount ?? 0,
+          memberCount: data.memberIds?.length ?? data.memberCount ?? 0,
           createdAt: data.createdAt instanceof Timestamp
             ? data.createdAt.toDate().toISOString()
             : new Date().toISOString(),
@@ -116,6 +116,7 @@ export default function HomeScreen() {
           return {
             ...staticCh,
             ...dynamic,
+            memberCount: dynamic.memberIds?.length ?? dynamic.memberCount ?? staticCh.memberCount ?? 0,
             icon: dynamic.icon || staticCh.icon
           };
         }
