@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useTranslation } from '@/hooks/useTranslation';
 import { router } from 'expo-router';
 import {
   signInWithEmailAndPassword,
@@ -34,6 +35,7 @@ WebBrowser.maybeCompleteAuthSession();
 const EXPO_PROXY_URI = 'https://auth.expo.io/@alemr2006/CampusHub';
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,7 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     if (!request) {
-      Alert.alert('Error', 'Servicio no disponible');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.service_unavailable') || 'Servicio no disponible');
       return;
     }
 
@@ -62,10 +64,10 @@ export default function LoginScreen() {
     try {
       const result = await promptAsync({ useProxy: true } as any);
       if (result.type === 'error') {
-        Alert.alert('Error', 'Error de conexión');
+        Alert.alert(t('common.error') || 'Error', t('roles.errors.connection_error') || 'Error de conexión');
       }
     } catch (error) {
-      Alert.alert('Error', 'Error inesperado');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.unexpected') || 'Error inesperado');
     } finally {
       setLoading(false);
     }
@@ -79,12 +81,12 @@ export default function LoginScreen() {
   }, []);
 
   const handleLogin = async () => {
-    if (!email || !password) return Alert.alert('Error', 'Faltan datos');
+    if (!email || !password) return Alert.alert(t('common.error') || 'Error', t('roles.errors.missing_data') || 'Faltan datos');
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      Alert.alert('Error', 'Credenciales incorrectas');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.invalid_credentials') || 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }
@@ -98,13 +100,13 @@ export default function LoginScreen() {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName || 'Usuario',
+        displayName: user.displayName || (t('chat.unknown_user') || 'Usuario'),
         provider: 'Google',
         createdAt: serverTimestamp(),
         lastActive: serverTimestamp(),
       }, { merge: true });
     } catch (error) {
-      Alert.alert('Error', 'Error de sincronización');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.sync_error') || 'Error de sincronización');
     } finally {
       setLoading(false);
     }
@@ -115,7 +117,7 @@ export default function LoginScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.wrapper}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
           <ScrollView
@@ -125,7 +127,7 @@ export default function LoginScreen() {
           >
             <View style={styles.header}>
               <Text style={styles.title}>CampusHub</Text>
-              <ThemedText style={styles.sub}>Para Estudiantes y Docentes</ThemedText>
+              <ThemedText style={styles.sub}>{t('auth.login_sub') || 'Para Estudiantes y Docentes'}</ThemedText>
             </View>
 
             <View style={styles.form}>
@@ -133,7 +135,7 @@ export default function LoginScreen() {
                 <Ionicons name="mail-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Correo electrónico"
+                  placeholder={t('auth.email') || "Correo electrónico"}
                   placeholderTextColor="#666"
                   value={email}
                   onChangeText={setEmail}
@@ -146,7 +148,7 @@ export default function LoginScreen() {
                 <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Contraseña"
+                  placeholder={t('auth.password') || "Contraseña"}
                   placeholderTextColor="#666"
                   value={password}
                   onChangeText={setPassword}
@@ -159,13 +161,13 @@ export default function LoginScreen() {
                 onPress={handleLogin}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.btnText}>Iniciar Sesión</ThemedText>}
+                {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.btnText}>{t('common.login') || 'Iniciar Sesión'}</ThemedText>}
               </TouchableOpacity>
             </View>
 
             <View style={styles.sep}>
               <View style={styles.line} />
-              <ThemedText style={styles.sepText}>O continuar con</ThemedText>
+              <ThemedText style={styles.sepText}>{t('auth.or_continue_with') || 'O continuar con'}</ThemedText>
               <View style={styles.line} />
             </View>
 
@@ -176,14 +178,14 @@ export default function LoginScreen() {
             >
               <View style={styles.gContent}>
                 <FontAwesome name="google" size={20} color="#003cffff" style={styles.gIcon} />
-                <ThemedText style={styles.gText}>Iniciar sesión con Google</ThemedText>
+                <ThemedText style={styles.gText}>{t('auth.login_with_google') || 'Iniciar sesión con Google'}</ThemedText>
               </View>
             </TouchableOpacity>
 
             <View style={styles.footer}>
               <TouchableOpacity onPress={() => router.push('/auth/register')}>
                 <ThemedText style={styles.footTxt}>
-                  ¿No tienes cuenta? <ThemedText style={styles.footLink}>Regístrate</ThemedText>
+                  {t('auth.no_account') || '¿No tienes cuenta?'} <ThemedText style={styles.footLink}>{t('common.signup') || 'Regístrate'}</ThemedText>
                 </ThemedText>
               </TouchableOpacity>
             </View>

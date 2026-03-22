@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useTranslation } from '@/hooks/useTranslation';
 import { router } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -22,6 +23,7 @@ import { auth, db } from '@/config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,17 +32,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword || !name) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.all_fields') || 'Por favor completa todos los campos');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.passwords_dont_match') || 'Las contraseñas no coinciden');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      Alert.alert(t('common.error') || 'Error', t('roles.errors.password_too_short') || 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
@@ -65,13 +67,13 @@ export default function RegisterScreen() {
         fcmToken: null,
       });
 
-      Alert.alert('¡Éxito!', 'Cuenta creada correctamente');
+      Alert.alert(t('common.success') || '¡Éxito!', t('roles.success.account_created') || 'Cuenta creada correctamente');
       router.replace('/(tabs)');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Error', 'Este email ya está registrado');
+        Alert.alert(t('common.error') || 'Error', t('roles.errors.email_exists') || 'Este email ya está registrado');
       } else {
-        Alert.alert('Error', 'No se pudo crear la cuenta');
+        Alert.alert(t('common.error') || 'Error', t('roles.errors.create_failed') || 'No se pudo crear la cuenta');
       }
     } finally {
       setLoading(false);
@@ -83,7 +85,7 @@ export default function RegisterScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.wrapper}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
           <ScrollView
@@ -92,8 +94,8 @@ export default function RegisterScreen() {
             bounces={false}
           >
             <View style={styles.header}>
-              <Text style={styles.title}>Crear Cuenta</Text>
-              <ThemedText style={styles.sub}>Únete a CampusHub</ThemedText>
+              <Text style={styles.title}>{t('common.signup') || 'Crear Cuenta'}</Text>
+              <ThemedText style={styles.sub}>{t('auth.signup_sub') || 'Únete a CampusHub'}</ThemedText>
             </View>
 
             <View style={styles.form}>
@@ -101,7 +103,7 @@ export default function RegisterScreen() {
                 <Ionicons name="person-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Nombre completo"
+                  placeholder={t('common.name') || "Nombre completo"}
                   placeholderTextColor="#666"
                   value={name}
                   onChangeText={setName}
@@ -112,7 +114,7 @@ export default function RegisterScreen() {
                 <Ionicons name="mail-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Correo electrónico"
+                  placeholder={t('auth.email') || "Correo electrónico"}
                   placeholderTextColor="#666"
                   value={email}
                   onChangeText={setEmail}
@@ -125,7 +127,7 @@ export default function RegisterScreen() {
                 <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Contraseña"
+                  placeholder={t('auth.password') || "Contraseña"}
                   placeholderTextColor="#666"
                   value={password}
                   onChangeText={setPassword}
@@ -137,7 +139,7 @@ export default function RegisterScreen() {
                 <Ionicons name="shield-checkmark-outline" size={20} color="#666" style={styles.icon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Confirmar contraseña"
+                  placeholder={t('auth.confirm_password') || "Confirmar contraseña"}
                   placeholderTextColor="#666"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -157,7 +159,7 @@ export default function RegisterScreen() {
             <View style={styles.footer}>
               <TouchableOpacity onPress={() => router.back()}>
                 <ThemedText style={styles.footTxt}>
-                  ¿Ya tienes cuenta? <ThemedText style={styles.footLink}>Inicia sesión</ThemedText>
+                  {t('auth.already_have_account') || '¿Ya tienes cuenta?'} <ThemedText style={styles.footLink}>{t('common.login') || 'Inicia sesión'}</ThemedText>
                 </ThemedText>
               </TouchableOpacity>
             </View>
