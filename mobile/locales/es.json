@@ -1,0 +1,913 @@
+{
+    "common": {
+        "welcome": "¡Bienvenido a CampusHub!",
+        "login": "Iniciar Sesión",
+        "signup": "Registrarse",
+        "logout": "Cerrar Sesión",
+        "logout_confirm": "¿Estás seguro de que quieres cerrar sesión?",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "back": "Volver",
+        "settings": "Ajustes",
+        "profile": "Perfil",
+        "language": "Idioma",
+        "theme": "Tema",
+        "theme_light": "Claro",
+        "theme_dark": "Oscuro",
+        "theme_high_contrast": "Alto Contraste",
+        "theme_pastel": "Pastel",
+        "spanish": "Español",
+        "english": "Inglés",
+        "create": "Crear",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "done": "Listo",
+        "locale_code": "es-ES",
+        "permission_denied": "Permiso denegado",
+        "send": "Enviar",
+        "now": "Ahora",
+        "name": "Nombre",
+        "channels": "Canales",
+        "my_groups": "Mis grupos",
+        "campus": "Campus",
+        "bulletin_board": "Tablón",
+        "calendar": "Calendario",
+        "groups": "Grupos",
+        "options": "Opciones",
+        "confirm": "Confirmar",
+        "change": "Cambiar",
+        "pin": "Fijar",
+        "unpin": "Desfijar",
+        "from": "De",
+        "image_file": "Imagen / Archivo",
+        "added": "añadido",
+        "accept": "Aceptar",
+        "reject": "Rechazar",
+        "success": "¡Éxito!",
+        "error": "Error",
+        "loading": "Cargando...",
+        "coming_soon": "Próximamente",
+        "password": "Contraseña",
+        "update": "Actualizar",
+        "date": "Fecha",
+        "time": "Hora",
+        "you": "Tú",
+        "user": "Usuario",
+        "next": "Siguiente",
+        "ok": "OK"
+    },
+    "roles": {
+        "student": "Alumno/a",
+        "teacher": "Profesor/a",
+        "admin": "Administración",
+        "delegate": "Delegado/a",
+        "coordinator": "Coordinador/a",
+        "none": "Ninguno",
+        "labels": {
+            "student": "Alumno/a",
+            "teacher": "Profesor/a",
+            "admin": "Administración",
+            "delegate": "Delegado/a",
+            "coordinator": "Coordinador/a"
+        },
+        "errors": {
+            "all_fields": "Por favor completa todos los campos",
+            "passwords_dont_match": "Las contraseñas no coinciden",
+            "password_too_short": "La contraseña debe tener al menos 6 caracteres",
+            "email_exists": "Este email ya está registrado",
+            "create_failed": "No se pudo crear la cuenta",
+            "service_unavailable": "Servicio no disponible",
+            "connection_error": "Error de conexión",
+            "unexpected": "Error inesperado",
+            "missing_data": "Faltan datos",
+            "invalid_credentials": "Credenciales incorrectas",
+            "sync_error": "Error de sincronización"
+        },
+        "success": {
+            "account_created": "Cuenta creada correctamente"
+        }
+    },
+    "tabs": {
+        "home": "Inicio",
+        "campus": "Campus",
+        "explore": "Explorar",
+        "messages": "Mensajes",
+        "profile": "Perfil"
+    },
+    "auth": {
+        "email": "Correo electrónico",
+        "password": "Contraseña",
+        "forgot_password": "¿Olvidaste tu contraseña?",
+        "dont_have_account": "¿No tienes una cuenta? Regístrate",
+        "login_sub": "Para Estudiantes y Docentes",
+        "or_continue_with": "O continuar con",
+        "login_with_google": "Iniciar sesión con Google",
+        "no_account": "¿No tienes cuenta?",
+        "signup_sub": "Únete a CampusHub",
+        "confirm_password": "Confirmar contraseña",
+        "already_have_account": "¿Ya tienes cuenta?"
+    },
+    "settings": {
+        "title": "Ajustes",
+        "change_language": "Cambiar Idioma",
+        "appearance": "Apariencia",
+        "custom_color": "Color Personalizado",
+        "custom_color_desc": "Selecciona un color para personalizar la interfaz instantáneamente.",
+        "notifications": "Notificaciones",
+        "mute_description": "Silenciar todas las notificaciones de la aplicación.",
+        "global_alert_tone": "Tono de alerta global.",
+        "account": "Cuenta",
+        "logout_error": "No se pudo cerrar sesión",
+        "mute_options": {
+            "8h": "8 horas",
+            "1w": "1 semana",
+            "always": "Siempre",
+            "off": "No silenciar"
+        },
+        "alert_tones": {
+            "default": "Predeterminado",
+            "classic": "Clásico",
+            "soft": "Suave",
+            "melody": "Melodía",
+            "bell": "Campana",
+            "pulse": "Pulso",
+            "none": "Sin tono"
+        }
+    },
+    "home": {
+        "no_channels": "No hay canales disponibles."
+    },
+    "groups": {
+        "group_label": "Grupo de Estudio"
+    },
+    "explore": {
+        "discover": "Descubrir",
+        "publish_tab": "Publicar",
+        "pinned": "FIJADO",
+        "no_posts": "No hay publicaciones aún.",
+        "add_media": "Añadir foto o vídeo",
+        "video_selected": "Vídeo seleccionado",
+        "remove_audio": "Quitar audio",
+        "keep_audio": "Mantener audio",
+        "mute": "Sin audio",
+        "unmute": "Con audio",
+        "add_song": "Añadir canción",
+        "publish_btn": "Publicar",
+        "publish_error": "No se pudo publicar el post. Inténtalo de nuevo.",
+        "gallery_permission_msg": "Necesitamos acceso a tu galería para subir archivos.",
+        "title": "Explorar",
+        "video_audio_title": "Audio del vídeo",
+        "video_audio_msg": "¿Quieres conservar el audio original del vídeo?",
+        "social_placeholders": {
+            "post_title": "Título del post",
+            "post_content": "Escribe tu post aquí..."
+        },
+        "new_announcement": "Nuevo anuncio",
+        "no_announcements": "No hay anuncios aún.",
+        "create_first": "Crea el primer anuncio.",
+        "edit_announcement": "Editar anuncio",
+        "add_cover": "Añadir imagen de portada (opcional)",
+        "category": "Categoría",
+        "title_placeholder": "Título del anuncio",
+        "content_placeholder": "Escribe el contenido del anuncio...",
+        "pin_announcement": "Fijar anuncio",
+        "pin_durations": {
+            "1d": "1 día",
+            "3d": "3 días",
+            "1w": "1 semana",
+            "1m": "1 mes",
+            "permanent": "Siempre"
+        },
+        "publish": "Publicar",
+        "save": "Guardar",
+        "delete_confirm": "¿Eliminar anuncio?",
+        "pin_confirm": "¿Fijar/Desfijar anuncio?",
+        "social_confirm": "¿Publicar como post social?",
+        "pin_expiry": {
+            "expired": "Fijado (expirado)",
+            "today": "Fijado · expira hoy",
+            "days": "Fijado · expira en {{days}}d",
+            "weeks": "Fijado · expira en {{weeks}}sem"
+        },
+        "announcement_not_found": "Anuncio no encontrado.",
+        "bulletin_board": "Tablón",
+        "administration": "Administración",
+        "link_event": "Vincular evento al calendario",
+        "documentation": {
+            "title": "Documentación",
+            "empty": {
+                "title": "Sin documentación",
+                "body_admin": "Añade información adicional, instrucciones, recursos o cualquier detalle relevante para este anuncio.",
+                "body_user": "El autor todavía no ha añadido documentación a este anuncio."
+            },
+            "add_btn": "Añadir documentación",
+            "search_placeholder": "Buscar en el documento...",
+            "no_results": "Sin resultados",
+            "announcement_origin": "Anuncio",
+            "menu": {
+                "edit": "Editar",
+                "search": "Buscar",
+                "clear": "Borrar contenido"
+            },
+            "editor_placeholder": "Escribe aquí la documentación del anuncio...",
+            "header": {
+                "announcement": "Anuncio",
+                "cancel": "Cancelar",
+                "save": "Guardar"
+            },
+            "alerts": {
+                "clear_title": "Borrar contenido",
+                "clear_msg": "¿Eliminar toda la documentación de este anuncio?"
+            }
+        },
+        "with_docs": "Con documentación adjunta",
+        "no_docs": "Sin contenido aún",
+        "already_published": "Ya publicado como post",
+        "link_event_title": "Vincular evento",
+        "event_name": "Nombre del evento",
+        "event_types": {
+            "exam": "Examen",
+            "deadline": "Entrega",
+            "holiday": "Festivo",
+            "event": "Evento",
+            "class": "Clase"
+        },
+        "publish_social": "Publicar como post",
+        "announcements": {
+            "alerts": {
+                "delete_title": "Eliminar anuncio",
+                "delete_subtitle": "¿Seguro que quieres eliminar este anuncio?",
+                "published_title": "Publicado",
+                "published_subtitle": "El anuncio ya está en el feed social.",
+                "error_title": "Error",
+                "error_subtitle": "No se pudo publicar."
+            }
+        },
+        "categories": {
+            "general": "General",
+            "erasmus": "Erasmus+",
+            "matricula": "Matrícula",
+            "eventos": "Eventos",
+            "fct": "Prácticas FCT",
+            "becas": "Becas",
+            "evaluacion": "Evaluación"
+        },
+        "groups": {
+            "search_placeholder": "Buscar grupos...",
+            "create_btn": "Crear grupo de estudio",
+            "no_results": "No se encontraron grupos.",
+            "no_groups": "No hay grupos aún.",
+            "edit_title": "Editar grupo",
+            "alerts": {
+                "leave_title": "Salir del grupo",
+                "leave_subtitle": "¿Seguro que quieres salir?",
+                "delete_title": "Eliminar grupo",
+                "delete_subtitle": "¿Seguro que quieres borrar este grupo?"
+            },
+            "notifications": {
+                "new_member_title": "Nuevo miembro en tu grupo",
+                "new_member_body": "{{name}} se unió a \"{{groupName}}\"",
+                "added_title": "Te añadieron a un grupo de estudio",
+                "added_body": "{{name}} te añadió a \"{{groupName}}\""
+            },
+            "tabs": {
+                "info": "Información",
+                "members": "Miembros"
+            },
+            "steps": {
+                "name": "Nombre",
+                "subject": "Asignatura",
+                "color": "Color",
+                "access": "Acceso",
+                "invite": "Invitar"
+            },
+            "placeholders": {
+                "name": "Nombre del grupo (ej: Repaso de Álgebra)",
+                "name_hint": "Escribe un nombre claro para que otros alumnos lo identifiquen.",
+                "desc": "Descripción (opcional)",
+                "search_users": "Buscar por nombre o email..."
+            },
+            "subject_category": "Asignatura / Categoría",
+            "group_color": "Color identificativo",
+            "who_can_join": "¿Quién puede unirse?",
+            "member_count": "Miembros",
+            "categories": {
+                "subjects": "Asignaturas",
+                "departments": "Departamentos",
+                "cycles": "Ciclos"
+            },
+            "roles": {
+                "everyone": "Todos",
+                "everyone_desc": "Cualquier usuario puede unirse",
+                "teachers_only": "Solo profesores",
+                "teachers_only_desc": "Profesores y coordinadores",
+                "students_only": "Solo alumnos",
+                "students_only_desc": "Estudiantes y delegados",
+                "admins_only": "Solo administradores",
+                "admins_only_desc": "Equipo directivo"
+            },
+            "actions": {
+                "add": "Añadir",
+                "remove": "Eliminar",
+                "creator": "Creador",
+                "edit": "Editar",
+                "delete": "Eliminar",
+                "cancel": "Cancelar",
+                "go_to_channel": "Ir al canal",
+                "leave_group": "Salir del grupo",
+                "only": "Solo",
+                "join": "Unirse"
+            },
+            "subjects_list": {
+                "math": "Matemáticas",
+                "physics": "Física",
+                "chemistry": "Química",
+                "history": "Historia",
+                "english": "Inglés",
+                "french": "Francés",
+                "philosophy": "Filosofía",
+                "economy": "Economía",
+                "technology": "Tecnología",
+                "programming": "Programación",
+                "hospitality": "Hostelería y Turismo",
+                "health": "Sanidad",
+                "it_comms": "Informática y Comunicaciones",
+                "sports": "Actividades Físicas y Deportivas",
+                "admin_mgmt": "Administración y Gestión",
+                "social_services": "Servicios Socioculturales",
+                "energy_water": "Energía y Agua",
+                "wood_furniture": "Madera, Mueble y Corcho",
+                "security_env": "Seguridad y Medio Ambiente",
+                "languages": "Idiomas",
+                "fol": "FOL",
+                "counseling": "Orientación",
+                "innovation": "Innovación y Calidad",
+                "asir": "ASIR",
+                "dam": "DAM",
+                "daw": "DAW",
+                "smr": "SMR",
+                "tseas": "TSEAS",
+                "tcae": "TCAE",
+                "emergencies": "Emergencias Sanitarias",
+                "hygiene": "Higiene Bucodental",
+                "childhood_ed": "Educación Infantil",
+                "social_care": "TAPSD",
+                "admin_mgmt_cycle": "Gestión Administrativa",
+                "finance_insurance": "Finanzas y Seguros",
+                "tourist_guide": "Guía, Información y Asistencia",
+                "other": "Otro",
+                "Matemáticas": "Matemáticas",
+                "Física": "Física",
+                "Química": "Química",
+                "Historia": "Historia",
+                "Inglés": "Inglés",
+                "Francés": "Francés",
+                "Filosofía": "Filosofía",
+                "Economía": "Economía",
+                "Tecnología": "Tecnología",
+                "Programación": "Programación",
+                "Hostelería y Turismo": "Hostelería y Turismo",
+                "Sanidad": "Sanidad",
+                "Informática y Comunicaciones": "Informática y Comunicaciones",
+                "Actividades Físicas y Deportivas": "Actividades Físicas y Deportivas",
+                "Administración y Gestión": "Administración y Gestión",
+                "Servicios Socioculturales": "Servicios Socioculturales",
+                "Energía y Agua": "Energía y Agua",
+                "Madera, Mueble y Corcho": "Madera, Mueble y Corcho",
+                "Seguridad y Medio Ambiente": "Seguridad y Medio Ambiente",
+                "Idiomas": "Idiomas",
+                "FOL": "FOL",
+                "Orientación": "Orientación",
+                "Innovación y Calidad": "Innovación y Calidad",
+                "ASIR": "ASIR",
+                "DAM": "DAM",
+                "DAW": "DAW",
+                "SMR": "SMR",
+                "TSEAS": "TSEAS",
+                "TCAE": "TCAE",
+                "Emergencias Sanitarias": "Emergencias Sanitarias",
+                "Higiene Bucodental": "Higiene Bucodental",
+                "Educación Infantil": "Educación Infantil",
+                "TAPSD": "TAPSD",
+                "Gestión Administrativa": "Gestión Administrativa",
+                "Finanzas y Seguros": "Finanzas y Seguros",
+                "Guía, Información y Asistencias Turísticas": "Guía, Información y Asistencias Turísticas"
+            },
+            "access_public": "Público",
+            "access_private": "Privado",
+            "access_public_desc": "Cualquier usuario que cumpla los requisitos de rol podrá verlo y unirse.",
+            "access_private_desc": "Solo los usuarios invitados podrán ver y acceder a este grupo.",
+            "group_label": "Grupo de Estudio"
+        },
+        "calendar": {
+            "months": [
+                "Enero",
+                "Febrero",
+                "Marzo",
+                "Abril",
+                "Mayo",
+                "Junio",
+                "Julio",
+                "Agosto",
+                "Septiembre",
+                "Octubre",
+                "Noviembre",
+                "Diciembre"
+            ],
+            "days_short": [
+                "L",
+                "M",
+                "X",
+                "J",
+                "V",
+                "S",
+                "D"
+            ],
+            "event_types": {
+                "exam": "Examen",
+                "deadline": "Entrega",
+                "holiday": "Festivo",
+                "event": "Evento",
+                "class": "Clase"
+            },
+            "add_event": "Añadir evento",
+            "event_for": "Evento para",
+            "no_events": "Sin eventos",
+            "edit_event": "Editar evento",
+            "new_event": "Nuevo evento",
+            "upcoming_events": "Próximos eventos",
+            "day_events": "Eventos del día",
+            "date_time": "Fecha y hora",
+            "date": "Fecha",
+            "time": "Hora",
+            "visible_for": "Visible para",
+            "placeholders": {
+                "title": "Título del evento",
+                "desc": "Notas adicionales (opcional)"
+            },
+            "related_announcement": "Ver anuncio relacionado",
+            "options": {
+                "edit": "Editar anuncio",
+                "delete": "Eliminar anuncio",
+                "pin": "Fijar anuncio",
+                "unpin": "Desfijar anuncio"
+            },
+            "notify_template": "📅 NUEVO EVENTO: {{title}}\n\n{{description}}\n\nFecha: {{date}}\nHora: {{time}}",
+            "no_desc": "Sin descripción",
+            "all_day": "Todo el día",
+            "delete_title": "Eliminar evento",
+            "delete_subtitle": "¿Seguro que quieres borrar este evento?",
+            "publish_title": "Publicar en Canal",
+            "publish_subtitle": "¿Quieres anunciar este evento en el canal institucional?",
+            "publish_button": "Publicar",
+            "notified": "AVISADO"
+        }
+    },
+    "friends": {
+        "title": "Amigos",
+        "tabs": {
+            "all": "Todos",
+            "best": "Mejores"
+        },
+        "search_placeholder": "Buscar amigos...",
+        "empty": {
+            "no_friends": "No tienes amigos todavía",
+            "no_best": "No tienes mejores amigos",
+            "start_connecting": "¡Empieza a conectar con otros estudiantes!",
+            "add_best_desc": "Añade a tus conexiones más cercanas como mejores amigos"
+        }
+    },
+    "saved": {
+        "title": "Guardados",
+        "tabs": {
+            "messages": "Mensajes",
+            "posts": "Posts"
+        },
+        "saved_at": "Guardado el {{date}}",
+        "no_items": "No hay elementos guardados",
+        "no_items_desc": "Los elementos que guardes aparecerán aquí"
+    },
+    "admin": {
+        "user_mgmt_title": "Gestión de usuarios",
+        "search_placeholder": "Buscar por nombre o email...",
+        "filters": {
+            "all": "Todos",
+            "students": "Alumnos",
+            "teachers": "Profesores",
+            "admins": "Admins"
+        },
+        "change_role": {
+            "title": "Cambiar Rol",
+            "role_label": "Rol",
+            "subrole_label": "Subrol"
+        },
+        "update_success": "Rol actualizado correctamente",
+        "update_error": "No se pudo actualizar el rol",
+        "no_users": "No se encontraron usuarios."
+    },
+    "dm": {
+        "title": "Mensajes Directos",
+        "new_message_title": "Nuevo mensaje",
+        "new_message": "Nuevo mensaje",
+        "search_by_name": "Buscar por nombre...",
+        "type_message": "Escribe un mensaje...",
+        "sent_read_receipt": "Leído",
+        "no_messages": "No hay mensajes aún.",
+        "no_messages_yet": "No hay mensajes aún. ¡Di hola!",
+        "loading_chat": "Cargando chat...",
+        "loading_directory": "Cargando directorio...",
+        "no_users_found": "No se encontraron usuarios",
+        "page_num": "Página {{num}}",
+        "filter": {
+            "all": "Todos",
+            "teacher": "Profesores",
+            "student": "Alumnos",
+            "admin": "Admin"
+        },
+        "search_placeholder": "Buscar chats...",
+        "start_conversation": "Comenzar conversación",
+        "search_conversations": "Buscar conversación...",
+        "db_index_error": "Falta un índice en la base de datos para cargar las conversaciones.",
+        "db_index_help": "Por favor, revisa la consola de Firebase para crear el índice necesario.",
+        "no_results": "Sin resultados",
+        "no_messages_title": "Sin mensajes",
+        "no_results_with": "No hay conversaciones con \"{{query}}\"",
+        "start_dm_help": "Empieza una conversación con alguien",
+        "photos": "Fotos",
+        "camera": "Cámara",
+        "document": "Documento",
+        "poll": "Encuesta",
+        "cancel": "Cancelar",
+        "sending": "Enviando...",
+        "mic_perm_error": "Se necesitan permisos de micrófono para enviar audios.",
+        "camera_perm_error": "Se necesitan permisos de cámara",
+        "audio_error": "Error al enviar el audio.",
+        "image_error": "Error al enviar la imagen",
+        "file_error": "Error al subir el archivo",
+        "write_placeholder": "Escribe un mensaje...",
+        "voice_message": "Mensaje de voz",
+        "image_msg": "Imagen",
+        "poll_msg": "Encuesta: {{text}}",
+        "file_msg": "Archivo: {{name}}",
+        "poll_create": "Crear Encuesta",
+        "poll_question_label": "PREGUNTA",
+        "poll_question_placeholder": "Escribe tu pregunta...",
+        "poll_options_label": "OPCIONES",
+        "poll_option_placeholder": "Opción {{index}}",
+        "poll_add_option": "Añadir opción",
+        "poll_multiple": "Permitir varias respuestas",
+        "poll_single_selection": "Selección única",
+        "poll_multiple_selection": "Selección múltiple",
+        "votes": {
+            "one": "voto",
+            "other": "votos"
+        },
+        "reply_types": {
+            "audio": "Mensaje de voz",
+            "image": "Imagen",
+            "poll": "Encuesta",
+            "file": "Archivo"
+        },
+        "send_error": "Error al enviar el mensaje",
+        "conversations": {
+            "actions": {
+                "mute": "Silenciar",
+                "archive": "Archivar"
+            }
+        },
+        "save_to_photos_sheet": {
+            "title": "Guardar en Fotos",
+            "options": {
+                "default": {
+                    "label": "Por defecto (Sí)",
+                    "desc": "Guardar automáticamente según configuración global"
+                },
+                "always": {
+                    "label": "Siempre",
+                    "desc": "Guardar siempre en la galería"
+                },
+                "never": {
+                    "label": "Nunca",
+                    "desc": "No guardar nunca en la galería"
+                }
+            }
+        },
+        "block_sheet": {
+            "title": "¿Bloquear a {{name}}?",
+            "desc": "Los contactos bloqueados no podrán llamarte ni enviarte mensajes.",
+            "block_only": "Bloquear",
+            "block_and_report": "Bloquear y reportar"
+        },
+        "report_sheet": {
+            "title": "¿Reportar a {{name}}?",
+            "desc": "Se enviará una copia de los últimos mensajes a Campus Hub. El contacto no será notificado.",
+            "report_only": "Reportar",
+            "report_and_block": "Reportar y bloquear"
+        },
+        "settings": {
+            "title": "Personalizar Chat",
+            "themes": "Temas del Chat",
+            "add_custom": "Añadir fondo",
+            "custom_bg_name": "Fondo mío",
+            "edit_bg": "Ajustar Fondo",
+            "edit_bg_desc": "Arrastra para mover • Botones para Zoom",
+            "font_size": "Tamaño de Letra",
+            "font_style": "Estilo de Letra",
+            "bold": "Negrita",
+            "italic": "Cursiva"
+        },
+        "profile": {
+            "title": "Info. del contacto",
+            "message": "Mensaje",
+            "call": "Llamar",
+            "video": "Video",
+            "media_links": "Archivos, enlaces y docs",
+            "starred": "Destacados",
+            "notifications": "Notificaciones",
+            "save_to_photos": "Guardar en Fotos",
+            "mutual_groups": {
+                "title": "Grupos en común",
+                "none": "No hay grupos en común",
+                "other": {
+                    "one": "1 grupo en común",
+                    "other": "{{count}} grupos en común"
+                },
+                "and_more": " y {{count}} más",
+                "you_and_contact": "Tú y este contacto"
+            },
+            "create_group_with": "Crear grupo con {{name}}",
+            "view_all": "Ver todos ({{count}})",
+            "share_user": "Compartir usuario",
+            "best_friend_add": "Añadir a mejores amigos",
+            "best_friend_remove": "Quitar de mejores amigos",
+            "friend_request_accept": "Aceptar solicitud de amistad",
+            "friend_request_sent": "Solicitud enviada",
+            "friend_request_send": "Enviar solicitud de amistad",
+            "friend_request_success": "Solicitud enviada a {{name}}",
+            "clear_chat": "Vaciar chat",
+            "block_user": "Bloquear a {{name}}",
+            "report_user": "Reportar a {{name}}",
+            "user_blocked": "Usuario bloqueado",
+            "user_blocked_msg": "Has bloqueado a {{name}}",
+            "report_sent": "Reporte enviado",
+            "report_sent_msg": "Tu reporte ha sido enviado al equipo de Campus Hub",
+            "blocked_and_reported": "Bloqueado y reportado",
+            "blocked_and_reported_msg": "Has bloqueado y reportado a {{name}}",
+            "mute_options": {
+                "off": "Activas",
+                "8h": "Silenciadas 8h",
+                "1w": "Silenciadas 1 sem.",
+                "always": "Silenciadas"
+            },
+            "save_options": {
+                "default": "Por defecto",
+                "always": "Siempre",
+                "never": "Nunca"
+            },
+            "media_tabs": {
+                "image": "Imágenes",
+                "video": "Vídeos",
+                "file": "Archivos",
+                "audio": "Audio",
+                "link": "Enlaces"
+            },
+            "empty_media": "No hay {{type}}",
+            "notifications_settings": {
+                "title": "Notificaciones",
+                "mute_title": "SILENCIAR NOTIFICACIONES",
+                "tone_title": "TONO DE ALERTA",
+                "tone_preview_note": "Toca un tono para escuchar una previsualización.",
+                "mute_options": {
+                    "8h": {
+                        "label": "8 horas",
+                        "desc": "Silenciar durante 8 horas"
+                    },
+                    "1w": {
+                        "label": "1 semana",
+                        "desc": "Silenciar durante 7 días"
+                    },
+                    "always": {
+                        "label": "Siempre",
+                        "desc": "Silenciar indefinidamente"
+                    },
+                    "off": {
+                        "label": "No silenciar",
+                        "desc": "Recibir todas las notificaciones"
+                    }
+                },
+                "tones": {
+                    "Default": "Predeterminado",
+                    "Classic": "Clásico",
+                    "Soft": "Suave",
+                    "Melody": "Melodía",
+                    "Bell": "Campana",
+                    "Pulse": "Pulso",
+                    "None": "Sin tono"
+                }
+            }
+        },
+        "call": {
+            "connection_failed": "No se pudo iniciar la conexión de llamada.",
+            "waiting_video": "Esperando video remoto...",
+            "incoming": "Llamada entrante...",
+            "calling": "Llamando...",
+            "screen_share": "Pantalla",
+            "screen_share_soon": "Compartir pantalla estará disponible próximamente.",
+            "hang_up": "Colgar",
+            "no_calls": "Llamadas no disponibles",
+            "build_required": "Esta función requiere un Development Build. No es compatible con Expo Go.",
+            "not_available_title": "Funcionalidad no disponible",
+            "not_available_desc": "Las llamadas no están incluidas en la versión móvil por ahora. Por favor, usa la versión Web o Desktop.",
+            "mute": "Silenciar",
+            "unmute": "Activar mic",
+            "listen": "Escuchar",
+            "deafen": "Ensordecer",
+            "video_on": "Activar cám.",
+            "video_off": "Cámara"
+        }
+    },
+    "profile": {
+        "edit_profile": "Editar Perfil",
+        "messages_sent": "Mensajes enviados",
+        "friends": "Amigos",
+        "groups": "Grupos",
+        "activity": "Actividad",
+        "no_activity": "Sin actividad reciente",
+        "save_changes": "Guardar cambios",
+        "change_photo": "Cambiar foto",
+        "name_label": "Nombre",
+        "bio_label": "Biografía",
+        "department_label": "Departamento",
+        "role_label": "Rol",
+        "save_success": "Perfil actualizado correctamente",
+        "loading": "Cargando perfil...",
+        "messages": "Mensajes",
+        "quick_actions": "Acciones Rápidas",
+        "saved_messages": "Mensajes Guardados",
+        "view_saved": "Ver contenido guardado",
+        "manage_friends": "Gestionar lista de amigos",
+        "best_friends": "Mejores Amigos",
+        "close_connections": "Tus conexiones más cercanas",
+        "administration": "Administración",
+        "user_management": "Gestión de usuarios",
+        "assign_roles": "Asignar roles y subroles",
+        "username_label": "Nombre de usuario",
+        "bio_placeholder": "Tu nombre",
+        "describe_yourself": "Cuéntanos sobre ti...",
+        "account_privacy": "Cuenta y Privacidad",
+        "manage_account_desc": "Gestiona tu correo electrónico y seguridad desde una sección protegida.",
+        "account_data": "Datos de la cuenta",
+        "discard_changes": "Descartar Cambios"
+    },
+    "account_details": {
+        "header_title": "Datos de la Cuenta",
+        "email_simulation": "Simulación de Correo",
+        "code_sent": "Código de verificación enviado: ",
+        "verified_title": "Verificado",
+        "verified_msg": "Por seguridad, las contraseñas están encriptadas y no se pueden mostrar en texto plano. Ahora tienes acceso para cambiarla si lo deseas.",
+        "invalid_code": "Código de verificación incorrecto",
+        "password_updated": "Contraseña actualizada correctamente",
+        "wrong_password": "Contraseña antigua incorrecta o nueva muy débil",
+        "security": "Seguridad",
+        "new_password": "Nueva Contraseña",
+        "otp_tip": "Introduce el código de 5 caracteres enviado a tu correo para acceder a estos datos."
+    },
+    "chat": {
+        "channel_label": "Canal del Campus",
+        "settings": {
+            "title": "Personalizar Chat",
+            "themes": "Temas del Chat",
+            "add_custom": "Añadir fondo",
+            "edit_bg": "Ajustar Fondo",
+            "edit_bg_desc": "Arrastra para mover • Botones para Zoom",
+            "font_size": "Tamaño de Letra",
+            "font_style": "Estilo de Letra",
+            "bold": "Negrita",
+            "italic": "Cursiva",
+            "category_name": "Chat",
+            "clear_chat": "Vaciar chat",
+            "clear_chat_title": "Vaciar chat",
+            "clear_chat_message": "¿Estás seguro de que quieres vaciar el chat? Esta acción no se puede deshacer.",
+            "clear_chat_confirm": "Vaciar",
+            "clear_chat_cancel": "Cancelar",
+            "custom_bg_name": "Mi fondo"
+        },
+        "voice_msg_preview": "Mensaje de voz",
+        "reply": "Responder",
+        "forward": "Reenviar",
+        "copy": "Copiar",
+        "delete": "Eliminar",
+        "delete_message": "Eliminar mensaje",
+        "delete_confirm_msg": "¿Cómo quieres eliminarlo?",
+        "delete_for_me_only": "Solo se eliminará para ti.",
+        "clear_chat": "Vaciar chat",
+        "clear_chat_msg": "¿Cómo quieres vaciar el chat?",
+        "delete_for_me": "Eliminar para mí",
+        "delete_for_all": "Eliminar para todos",
+        "chat_cleared": "Chat vaciado",
+        "chat_cleared_msg": "Los mensajes ya no son visibles para ti",
+        "chat_deleted": "Chat eliminado",
+        "chat_deleted_msg": "Se eliminaron todos los mensajes",
+        "clear_error": "No se pudo vaciar el chat",
+        "delete_error": "No se pudo eliminar el chat",
+        "loading": "Cargando mensajes...",
+        "no_messages": "No hay mensajes aún.",
+        "unknown_user": "Usuario desconocido",
+        "emoji_picker_title": "Selecciona un emoji del teclado",
+        "file_share_msg": "Archivo de {{channel}}: {{name}}",
+        "info": {
+            "title": "Información del Canal",
+            "members_title": "Miembros",
+            "add_members": "Añadir miembros",
+            "search_placeholder": "Buscar por nombre...",
+            "no_results": "No se encontraron resultados",
+            "search_hint": "Busca personas para añadir",
+            "mute_notifications": "Silenciar notificaciones",
+            "unmute_notifications": "Desactivar silencio",
+            "mute_options": {
+                "8h": "8 horas",
+                "1w": "1 semana",
+                "always": "Siempre"
+            },
+            "muted_until": "Silenciado hasta {{date}}",
+            "muted_indefinite": "Silenciado indefinidamente",
+            "creator": "Creador",
+            "admin": "Admin.",
+            "what_to_do": "¿Qué quieres hacer?",
+            "remove_member": "Eliminar del grupo",
+            "leave_group": "Salir del grupo",
+            "leave_confirm": "¿Seguro que quieres abandonar este grupo?",
+            "leave_btn": "Salir",
+            "study_group": "Grupo de Estudio",
+            "campus_channel": "Canal del Campus",
+            "member_count_one": "1 miembro",
+            "member_count_other": "{{count}} miembros",
+            "member_label": "miembro",
+            "members_label": "miembros",
+            "created_by": "Creado por {{name}}",
+            "created_by_you": "ti",
+            "created_at": "Creado el {{date}}",
+            "miembro": "MIEMBRO",
+            "miembros": "MIEMBROS",
+            "muted": "Silenciado",
+            "you": "Tú",
+            "image_error": "No se pudo subir la imagen"
+        }
+    },
+    "post": {
+        "someone": "Alguien",
+        "new_like": "Nuevo \"me gusta\"",
+        "liked_your_post": "A {{name}} le gustó tu publicación",
+        "like_on_comment": "Me gusta en tu comentario",
+        "reacted_to_comment": "{{name}} reaccionó a tu comentario",
+        "new_comment": "Nuevo comentario",
+        "commented_on_post": "{{name}} comentó en tu publicación: \"{{text}}\"",
+        "commented": "{{name}} comentó: {{text}}",
+        "not_found": "Post no encontrado.",
+        "announcement": "Anuncio",
+        "view_on_board": "Ver en Tablón",
+        "edit_title": "Editar Post",
+        "no_permission": "No tienes permiso para editar este post.",
+        "comments_count": "Comentarios ({{count}})",
+        "no_comments": "No hay comentarios aún. ¡Sé el primero!",
+        "song_picker": {
+            "title": "Elegir canción",
+            "close": "Cerrar",
+            "placeholder": "Buscar canción o artista...",
+            "no_results": "No se encontraron canciones",
+            "empty": "Busca una canción para añadir a tu post"
+        },
+        "reply": "Responder",
+        "replying_to": "Respondiendo a ",
+        "add_comment": "Añadir un comentario...",
+        "delete_title": "Eliminar post",
+        "delete_subtitle": "Esta acción no se puede deshacer.",
+        "likes": {
+            "you_like": "Te gusta esto",
+            "you_and_others": "Tú y {{count}} personas más",
+            "you_and_one": "Tú y 1 persona más",
+            "others_like": "A {{count}} personas les gusta",
+            "one_likes": "A 1 persona le gusta"
+        }
+    },
+    "time_ago": {
+        "now": "Ahora",
+        "minutes": "{{count}}m",
+        "hours": "{{count}}h",
+        "days": "{{count}}d"
+    },
+    "notifications": {
+        "title": "Notificaciones",
+        "social": "Notificaciones sociales",
+        "dm": "Mensajes",
+        "campus": "Campus",
+        "friend": "Amigos",
+        "mark_all_read": "Leer todo",
+        "no_notifications": "No hay notificaciones",
+        "new_notifications": "{{count}} notificaciones nuevas",
+        "friend_request": {
+            "title": "Solicitud de amistad",
+            "body": "{{name}} quiere ser tu amigo/a."
+        }
+    }
+}
