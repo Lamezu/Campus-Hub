@@ -4,7 +4,7 @@ import {
   serverTimestamp, arrayUnion, arrayRemove, writeBatch, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import type { ContactSettings, MutualGroup, SaveToPhotosPreference, MuteDuration } from '@/types';
+import type { ContactSettings, MutualGroup, SaveToPhotosPreference, MuteDuration, SharedMedia } from '@/types';
 import { sendFriendRequest as fsSendRequest, acceptFriendRequest as fsAcceptRequest, areFriends, getFriendRequest } from './friendsService';
 
 const defaultSettings = (): ContactSettings & { isBestFriend: boolean } => ({
@@ -121,16 +121,55 @@ export const acceptFriendRequest = async (meId: string, senderId: string): Promi
   if (req) await fsAcceptRequest(req.id);
 };
 
-export const getSharedMedia = async (conversationId: string, maxItems = 50): Promise<any[]> => {
+export const getSharedMedia = async (conversationId: string, maxItems = 100): Promise<SharedMedia[]> => {
   if (!conversationId) return [];
   const q = query(
     collection(db, 'conversations', conversationId, 'messages'),
-    where('type', 'in', ['image', 'video']),
     orderBy('createdAt', 'desc'),
     limit(maxItems)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const media: SharedMedia[] = [];
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  snap.docs.forEach(d => {
+    const data = d.data();
+    const createdAt = data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString();
+
+    // Attachments
+    if (Array.isArray(data.attachments)) {
+      data.attachments.forEach((a: any) => {
+        media.push({
+          id: d.id,
+          type: a.type === 'image' ? 'image' : a.type === 'video' ? 'video' : a.type === 'audio' ? 'audio' : 'file',
+          url: a.url,
+          name: a.name || 'Archivo',
+          size: a.size || 0,
+          thumbnail: a.url,
+          createdAt
+        });
+      });
+    }
+
+    // Links in text
+    if (data.text) {
+      const matches = data.text.match(urlRegex);
+      if (matches) {
+        matches.forEach((url: string) => {
+          media.push({
+            id: d.id,
+            type: 'link',
+            url: url,
+            name: url,
+            createdAt
+          });
+        });
+      }
+    }
+  });
+
+  return media;
 };
 
 export const getMutualGroups = async (meId: string, otherId: string): Promise<MutualGroup[]> => {
@@ -147,18 +186,13 @@ export const getMutualGroups = async (meId: string, otherId: string): Promise<Mu
       const memberIds = data.memberIds as string[];
       const otherMemberIds = memberIds.filter(id => id !== meId && id !== otherId).slice(0, 2);
 
-      let preview = '';
+      let memberPreview = '';
       if (otherMemberIds.length > 0) {
         const profiles = await Promise.all(otherMemberIds.map(id => getDoc(doc(db, 'users', id))));
-        preview = profiles
+        const names = profiles
           .filter(p => p.exists())
-          .map(p => p.data()?.displayName?.split(' ')[0] || 'Usuario')
-          .join(', ');
-        if (memberIds.length > otherMemberIds.length + 2) {
-          preview += ' y más';
-        }
-      } else {
-        preview = 'Tú y este contacto';
+          .map(p => p.data()?.displayName?.split(' ')[0] || 'Usuario');
+        memberPreview = names.join(', ');
       }
 
       mutual.push({
@@ -166,7 +200,8 @@ export const getMutualGroups = async (meId: string, otherId: string): Promise<Mu
         name: data.name ?? 'Grupo',
         photo: data.photoURL ?? null,
         memberCount: memberIds.length,
-        memberPreview: preview,
+        memberPreview,
+        type: d.ref.parent.id === 'studyGroups' ? 'studyGroup' : 'channel',
       });
     }
   }
