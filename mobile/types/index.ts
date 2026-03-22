@@ -12,6 +12,7 @@ export interface User {
   photoURL: string | null;
   role: UserRole;
   subrole?: UserSubrole;
+  language?: string;
   department: string | null;
   createdAt: string;
   lastActive: string;
@@ -90,6 +91,8 @@ export interface Message {
   contactCard?: ContactCard;
   forwarded?: boolean;
   status?: 'sent' | 'delivered' | 'read';
+  type?: string;
+  metadata?: any;
 }
 
 export interface Attachment {
@@ -171,6 +174,7 @@ export interface CalendarEvent {
   createdAt: string;
   linkedAnnouncementId?: string | null;
   departmentId?: string | null;
+  publishedInChannel?: boolean;
 }
 
 export interface StudyGroup {
@@ -234,7 +238,7 @@ export interface DirectMessage extends Message { }
 
 export type CallType = 'audio' | 'video';
 
-export type CallStatus = 'ringing' | 'active' | 'ended' | 'missed' | 'rejected';
+export type CallStatus = 'ringing' | 'active' | 'ended' | 'missed' | 'rejected' | 'error';
 
 export interface ActiveCall {
   id: string;
@@ -257,7 +261,9 @@ export interface MutualGroup {
   name: string;
   photo: string | null;
   memberCount: number;
-  memberPreview: string;
+  otherMemberNames?: string[];
+  memberPreview?: string;
+  type: 'channel' | 'studyGroup';
 }
 
 export interface SharedMedia {

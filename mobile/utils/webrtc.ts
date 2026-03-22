@@ -1,7 +1,14 @@
-export const webRTCAvailable = false;
-export const RTCPeerConnection = null;
-export const RTCSessionDescription = null;
-export const RTCIceCandidate = null;
-export const mediaDevices = null;
-export const RTCView = null;
-export const MediaStream = null;
+export const webRTCAvailable = true;
+export const RTCPeerConnection: any = class { };
+export const RTCSessionDescription: any = class { };
+export const RTCIceCandidate: any = class { };
+export const mediaDevices: any = {
+    getUserMedia: async () => ({
+        getTracks: () => [],
+        getAudioTracks: () => [],
+        getVideoTracks: () => [],
+    }),
+};
+export const RTCView: any = () => null;
+export const MediaStream: any = class { };
+

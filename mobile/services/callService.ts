@@ -1,11 +1,6 @@
-import {
-    collection, doc, getDoc, setDoc, updateDoc,
-    serverTimestamp, onSnapshot, addDoc, query,
-    orderBy, Timestamp, where, limit
-} from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import type { ActiveCall, CallType } from '@/types';
+import { getCallService as sharedGetCallService } from './shared';
 import { sendMessage } from './dmService';
+import { ActiveCall, CallType } from '@/types';
 
 export const iniciarLlamada = async (
     conversationId: string,
@@ -16,59 +11,17 @@ export const iniciarLlamada = async (
     type: CallType,
     offer: any
 ): Promise<string> => {
-    try {
-        const callRef = doc(collection(db, 'calls'));
-        const callId = callRef.id;
-
-        const newCall: Partial<ActiveCall> = {
-            id: callId,
-            conversationId,
-            callerId,
-            callerName,
-            callerPhoto,
-            receiverId,
-            type,
-            status: 'ringing',
-            startedAt: null,
-            endedAt: null,
-            duration: 0,
-            offer
-        };
-
-        await setDoc(callRef, {
-            ...newCall,
-            createdAt: serverTimestamp()
-        });
-
-        return callId;
-    } catch (error) {
-        throw error;
-    }
+    const callId = await (sharedGetCallService() as any).initiateCall(callerId, receiverId, type, callerName, callerPhoto);
+    await (sharedGetCallService() as any).setCallOffer(callId, offer);
+    return callId;
 };
 
 export const aceptarLlamada = async (callId: string, answer: any) => {
-    try {
-        const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, {
-            status: 'active',
-            startedAt: serverTimestamp(),
-            answer
-        });
-    } catch (error) {
-        throw error;
-    }
+    await (sharedGetCallService() as any).answerCall(callId, answer);
 };
 
 export const rechazarLlamada = async (callId: string) => {
-    try {
-        const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, {
-            status: 'rejected',
-            endedAt: serverTimestamp()
-        });
-    } catch (error) {
-        throw error;
-    }
+    await (sharedGetCallService() as any).rejectCall(callId);
 };
 
 export const terminarLlamada = async (
@@ -79,27 +32,18 @@ export const terminarLlamada = async (
     callerName?: string,
     callerPhoto?: string | null
 ) => {
-    try {
-        const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, {
-            status: 'ended',
-            endedAt: serverTimestamp(),
-            duration
-        });
-
-        if (conversationId && callerId) {
-            const min = Math.floor(duration / 60);
-            const sec = duration % 60;
-            const durationStr = `${min}:${sec.toString().padStart(2, '0')}`;
-            await sendMessage(
-                conversationId,
-                callerId,
-                callerName || 'Sistema',
-                callerPhoto || null,
-                `📞 Llamada finalizada (${durationStr})`
-            );
-        }
-    } catch (error) {
+    await (sharedGetCallService() as any).endCall(callId);
+    if (conversationId && callerId) {
+        const min = Math.floor(duration / 60);
+        const sec = duration % 60;
+        const durationStr = `${min}:${sec.toString().padStart(2, '0')}`;
+        await sendMessage(
+            conversationId,
+            callerId,
+            callerName || 'Sistema',
+            callerPhoto || null,
+            `📞 Llamada finalizada (${durationStr})`
+        );
     }
 };
 
@@ -110,76 +54,55 @@ export const registrarLlamadaPerdida = async (
     callerName: string,
     callerPhoto: string | null
 ) => {
-    try {
-        const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, {
-            status: 'missed',
-            endedAt: serverTimestamp()
-        });
-
-        await sendMessage(
-            conversationId,
-            callerId,
-            callerName,
-            callerPhoto,
-            '🚫 Llamada perdida'
-        );
-    } catch (error) {
-    }
+    await (sharedGetCallService() as any).rejectCall(callId);
+    await sendMessage(
+        conversationId,
+        callerId,
+        callerName,
+        callerPhoto,
+        '🚫 Llamada perdida'
+    );
 };
 
 export const agregarCandidatoICE = async (callId: string, candidate: any, senderId: string) => {
-    try {
-        const candidatesRef = collection(db, 'calls', callId, 'candidates');
-        await addDoc(candidatesRef, {
-            ...candidate,
-            senderId,
-            createdAt: serverTimestamp()
-        });
-    } catch (error) {
+    const call = await sharedGetCallService().getCall(callId) as any;
+    if (call && call.callerId === senderId) {
+        await sharedGetCallService().addCallerCandidate(callId, candidate);
+    } else if (call) {
+        await sharedGetCallService().addReceiverCandidate(callId, candidate);
     }
 };
 
 export const suscribirEstadoLlamada = (callId: string, callback: (call: ActiveCall) => void) => {
-    return onSnapshot(doc(db, 'calls', callId), (snapshot) => {
-        if (snapshot.exists()) {
-            callback({ id: snapshot.id, ...snapshot.data() } as ActiveCall);
-        }
-    }, (error) => {
-        if (error.code !== 'permission-denied') {
-            console.error('CallState Snapshot error:', error);
-        }
+    return (sharedGetCallService() as any).onCallSnapshot(callId, (data: any) => {
+        if (data) callback({ id: data.id, ...data } as ActiveCall);
     });
 };
 
 export const suscribirCandidatosICE = (callId: string, callback: (candidates: any[]) => void) => {
-    const q = query(collection(db, 'calls', callId, 'candidates'), orderBy('createdAt', 'asc'));
-    return onSnapshot(q, (snapshot) => {
-        const candidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        callback(candidates);
-    }, (error) => {
-        if (error.code !== 'permission-denied') {
-            console.error('IceCandidates Snapshot error:', error);
-        }
+    let callerCands: any[] = [];
+    let receiverCands: any[] = [];
+
+    const unsub1 = (sharedGetCallService() as any).onCallerCandidates(callId, (cand: any) => {
+        callerCands.push(cand);
+        callback([...callerCands, ...receiverCands]);
     });
+
+    const unsub2 = (sharedGetCallService() as any).onReceiverCandidates(callId, (cand: any) => {
+        receiverCands.push(cand);
+        callback([...callerCands, ...receiverCands]);
+    });
+
+    return () => {
+        unsub1();
+        unsub2();
+    };
 };
 
 export const escucharLlamadasEntrantes = (userId: string, callback: (call: ActiveCall) => void) => {
-    const q = query(
-        collection(db, 'calls'),
-        where('receiverId', '==', userId),
-        where('status', '==', 'ringing'),
-        limit(1)
-    );
-
-    return onSnapshot(q, (snapshot) => {
-        if (!snapshot.empty) {
-            const doc = snapshot.docs[0];
-            callback({ id: doc.id, ...doc.data() } as ActiveCall);
-        }
-    }, (error) => {
-        if (error.code !== 'permission-denied') {
-            console.error('IncomingCalls Snapshot error:', error);
+    return (sharedGetCallService() as any).subscribeToIncomingCalls(userId, (calls: any[]) => {
+        if (calls.length > 0) {
+            callback({ id: calls[0].id, ...calls[0] } as ActiveCall);
         }
     });
 };
