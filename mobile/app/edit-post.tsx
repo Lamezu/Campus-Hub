@@ -11,7 +11,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -20,6 +20,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { auth, db } from '@/config/firebase';
 import { uploadPostMedia } from '@/config/cloudinary';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { SongPicker } from '@/components/SongPicker';
@@ -35,6 +36,8 @@ interface NewMedia {
 
 export default function EditPostScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [title, setTitle] = useState('');
@@ -53,13 +56,13 @@ export default function EditPostScreen() {
     if (!id) return;
     getDoc(doc(db, 'posts', id)).then((snap) => {
       if (!snap.exists()) {
-        Alert.alert('Error', 'Post no encontrado.');
+        Alert.alert(t('common.error') || 'Error', t('post.not_found') || 'Post no encontrado.');
         router.back();
         return;
       }
       const d = snap.data();
       if (d.authorId !== auth.currentUser?.uid) {
-        Alert.alert('Error', 'No tienes permiso para editar este post.');
+        Alert.alert(t('common.error') || 'Error', t('post.no_permission') || 'No tienes permiso para editar este post.');
         router.back();
         return;
       }
@@ -76,7 +79,7 @@ export default function EditPostScreen() {
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galería para subir archivos.');
+      Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para subir archivos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -91,11 +94,11 @@ export default function EditPostScreen() {
       setNewMedia({ uri: asset.uri, type: 'video' });
       setMediaRemoved(false);
       Alert.alert(
-        'Audio del vídeo',
-        '¿Quieres conservar el audio original del vídeo?',
+        t('explore.video_audio_title') || 'Audio del vídeo',
+        t('explore.video_audio_msg') || '¿Quieres conservar el audio original del vídeo?',
         [
-          { text: 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
-          { text: 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+          { text: t('explore.remove_audio') || 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: t('explore.keep_audio') || 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
         ]
       );
     } else {
@@ -142,7 +145,7 @@ export default function EditPostScreen() {
 
       router.back();
     } catch {
-      Alert.alert('Error', 'No se pudo guardar el post. Inténtalo de nuevo.');
+      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'No se pudo guardar el post. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -165,14 +168,14 @@ export default function EditPostScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Editar Post</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('post.edit_title') || 'Editar Post'}</ThemedText>
         <TouchableOpacity
           style={[styles.saveBtn, { backgroundColor: colors.primary }, !canSave && styles.saveBtnDisabled]}
           onPress={handleSave}
@@ -181,7 +184,7 @@ export default function EditPostScreen() {
           {saving ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
-            <ThemedText style={styles.saveBtnText}>Guardar</ThemedText>
+            <ThemedText style={styles.saveBtnText}>{t('common.save') || 'Guardar'}</ThemedText>
           )}
         </TouchableOpacity>
       </View>
@@ -192,7 +195,7 @@ export default function EditPostScreen() {
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
             <TextInput
               style={[styles.titleInput, { color: colors.text }]}
-              placeholder="Título del post"
+              placeholder={t('explore.social_placeholders.post_title') || 'Título del post'}
               placeholderTextColor={colors.textSecondary}
               value={title}
               onChangeText={(t) => setTitle(t.slice(0, TITLE_MAX))}
@@ -207,7 +210,7 @@ export default function EditPostScreen() {
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: spacing.md }]}>
             <TextInput
               style={[styles.contentInput, { color: colors.text }]}
-              placeholder="Escribe tu post aquí..."
+              placeholder={t('explore.social_placeholders.post_content') || 'Escribe tu post aquí...'}
               placeholderTextColor={colors.textSecondary}
               value={content}
               onChangeText={(t) => setContent(t.slice(0, CONTENT_MAX))}
@@ -230,23 +233,23 @@ export default function EditPostScreen() {
                   <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                     <Ionicons name="videocam" size={32} color={colors.textSecondary} />
                     <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>
-                      {newMedia ? 'Vídeo seleccionado' : 'Vídeo actual'}
+                      {newMedia ? (t('explore.video_selected') || 'Vídeo seleccionado') : (t('explore.video_current') || 'Vídeo actual')}
                     </ThemedText>
                     <TouchableOpacity
                       style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
                       onPress={() => setMuteOriginalAudio(prev => !prev)}
                     >
                       <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
-                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? 'Sin audio' : 'Con audio'}</ThemedText>
+                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Sin audio') : (t('explore.unmute') || 'Con audio')}</ThemedText>
                     </TouchableOpacity>
                   </View>
                 )}
                 <View style={styles.mediaActions}>
                   <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: colors.primary }]} onPress={pickMedia}>
-                    <ThemedText style={styles.mediaActionText}>Cambiar</ThemedText>
+                    <ThemedText style={styles.mediaActionText}>{t('common.change') || 'Cambiar'}</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: '#FF3B30' }]} onPress={removeMedia}>
-                    <ThemedText style={styles.mediaActionText}>Eliminar</ThemedText>
+                    <ThemedText style={styles.mediaActionText}>{t('common.delete') || 'Eliminar'}</ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -254,7 +257,7 @@ export default function EditPostScreen() {
               <View style={styles.mediaEmpty}>
                 <Ionicons name="images-outline" size={28} color={colors.textSecondary} />
                 <ThemedText style={[styles.mediaEmptyText, { color: colors.textSecondary }]}>
-                  Añadir foto o vídeo
+                  {t('explore.add_media') || 'Añadir foto o vídeo'}
                 </ThemedText>
               </View>
             )}
@@ -286,7 +289,7 @@ export default function EditPostScreen() {
               ) : (
                 <View style={styles.songEmpty}>
                   <Ionicons name="musical-notes-outline" size={22} color={colors.textSecondary} />
-                  <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>Añadir canción</ThemedText>
+                  <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Añadir canción'}</ThemedText>
                 </View>
               )}
             </TouchableOpacity>
@@ -313,7 +316,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: { padding: spacing.xs },

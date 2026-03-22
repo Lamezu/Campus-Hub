@@ -8,7 +8,13 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { UserProvider, useCurrentUser } from '@/contexts/UserContext';
 import { CallProvider } from '@/contexts/CallContext';
 import { notificationService } from '@/services/notificationService';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 import Constants from 'expo-constants';
+import * as Font from 'expo-font';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   initialRouteName: 'index',
@@ -32,18 +38,22 @@ function RootLayoutNav() {
   }, [firebaseUser?.uid]);
 
   useEffect(() => {
+    const { prewarmTones, previewTone } = require('@/utils/toneGenerator');
+    prewarmTones();
+
     notificationService.onNewNotification((n) => {
       const settings = userData?.settings;
       if (settings?.globalMute !== 'always') {
         const tone = settings?.globalTone || 'Predeterminado';
-        import('@/utils/toneGenerator').then(({ previewTone }) => previewTone(tone));
+        const toneKey = tone === 'Predeterminado' ? 'default' : tone.toLowerCase();
+        previewTone(toneKey);
       }
     });
 
     if (!IS_EXPO_GO) {
       const N = require('expo-notifications');
 
-      notificationListener.current = N.addNotificationReceivedListener((_notification: any) => {});
+      notificationListener.current = N.addNotificationReceivedListener((_notification: any) => { });
 
       responseListener.current = N.addNotificationResponseReceivedListener((response: any) => {
         const { data } = response.notification.request.content;
@@ -79,11 +89,32 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [loaded, error] = Font.useFonts({
+    ...FontAwesome.font,
+    ...Ionicons.font,
+  });
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <UserProvider>
-          <RootLayoutNav />
+          <LanguageProvider>
+            <RootLayoutNav />
+          </LanguageProvider>
         </UserProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
