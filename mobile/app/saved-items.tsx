@@ -3,6 +3,7 @@ import { View, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicat
 import { Stack, router } from 'expo-router';
 import { ChevronLeft, MessageSquare, Image as ImageIcon, FileText, Trash2, Bookmark, PlayCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,6 +17,7 @@ type TabType = 'messages' | 'posts';
 
 export default function SavedItemsScreen() {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabType>('messages');
     const [savedMessages, setSavedMessages] = useState<SavedMessage[]>([]);
@@ -89,12 +91,12 @@ export default function SavedItemsScreen() {
                     {isAudio ? (
                         <View style={styles.mediaPreview}>
                             <PlayCircle size={20} color={colors.primary} />
-                            <ThemedText style={styles.mediaLabel}>Mensaje de voz</ThemedText>
+                            <ThemedText style={styles.mediaLabel}>{t('dm.voice_message') || 'Mensaje de voz'}</ThemedText>
                         </View>
                     ) : hasMedia ? (
                         <View style={styles.mediaPreview}>
                             <ImageIcon size={20} color={colors.primary} />
-                            <ThemedText style={styles.mediaLabel}>Imagen / Archivo</ThemedText>
+                            <ThemedText style={styles.mediaLabel}>{t('explore.media_file') || 'Imagen / Archivo'}</ThemedText>
                         </View>
                     ) : null}
 
@@ -106,7 +108,7 @@ export default function SavedItemsScreen() {
                 </View>
 
                 <ThemedText style={styles.itemDate}>
-                    Guardado el {new Date(item.savedAt).toLocaleDateString()}
+                    {t('saved.saved_at', { date: new Date(item.savedAt).toLocaleDateString() }) || `Guardado el ${new Date(item.savedAt).toLocaleDateString()}`}
                 </ThemedText>
             </TouchableOpacity>
         );
@@ -135,7 +137,7 @@ export default function SavedItemsScreen() {
                 </View>
 
                 <View style={styles.itemFooter}>
-                    <ThemedText style={styles.senderName}>De {item.authorName}</ThemedText>
+                    <ThemedText style={styles.senderName}>{(t('common.from') || 'De') + ' ' + item.authorName}</ThemedText>
                     <ThemedText style={styles.itemDate}>
                         {new Date(item.createdAt).toLocaleDateString()}
                     </ThemedText>
@@ -152,7 +154,7 @@ export default function SavedItemsScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
                 </TouchableOpacity>
-                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Guardados</ThemedText>
+                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('saved.title') || 'Guardados'}</ThemedText>
                 <View style={{ width: 32 }} />
             </View>
 
@@ -164,7 +166,7 @@ export default function SavedItemsScreen() {
                     >
                         <MessageSquare size={18} color={activeTab === 'messages' ? colors.primary : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'messages' ? colors.text : colors.textSecondary }]}>
-                            Mensajes
+                            {t('saved.tabs.messages') || 'Mensajes'}
                         </ThemedText>
                     </TouchableOpacity>
 
@@ -174,7 +176,7 @@ export default function SavedItemsScreen() {
                     >
                         <Bookmark size={18} color={activeTab === 'posts' ? colors.primary : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'posts' ? colors.text : colors.textSecondary }]}>
-                            Posts
+                            {t('saved.tabs.posts') || 'Posts'}
                         </ThemedText>
                     </TouchableOpacity>
                 </View>
@@ -193,9 +195,9 @@ export default function SavedItemsScreen() {
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Bookmark size={64} color={colors.border} strokeWidth={1} />
-                            <ThemedText style={styles.emptyTitle}>No hay nada guardado</ThemedText>
+                            <ThemedText style={styles.emptyTitle}>{t('saved.no_items') || 'No hay nada guardado'}</ThemedText>
                             <ThemedText style={styles.emptySubtitle}>
-                                Los elementos que guardes aparecerán aquí
+                                {t('saved.no_items_desc') || 'Los elementos que guardes aparecerán aquí'}
                             </ThemedText>
                         </View>
                     }

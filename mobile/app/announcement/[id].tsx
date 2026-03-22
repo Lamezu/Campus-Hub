@@ -4,7 +4,8 @@ import {
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Modal, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import {
   doc, updateDoc, deleteDoc, addDoc, collection,
@@ -28,29 +29,31 @@ import { uploadAnnouncementImage } from '@/config/cloudinary';
 
 type PinDuration = 'permanent' | '1d' | '3d' | '1w' | '1m';
 
-const EVENT_TYPE_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam:     { label: 'Examen',   color: '#FF3B30' },
-  deadline: { label: 'Entrega',  color: '#FF9500' },
-  holiday:  { label: 'Festivo',  color: '#34C759' },
-  event:    { label: 'Evento',   color: '#007AFF' },
-  class:    { label: 'Clase',    color: '#AF52DE' },
+const EVENT_TYPE_CONFIG: Record<CalendarEventType, { labelKey: string; color: string }> = {
+  exam: { labelKey: 'explore.event_types.exam', color: '#FF3B30' },
+  deadline: { labelKey: 'explore.event_types.deadline', color: '#FF9500' },
+  holiday: { labelKey: 'explore.event_types.holiday', color: '#34C759' },
+  event: { labelKey: 'explore.event_types.event', color: '#007AFF' },
+  class: { labelKey: 'explore.event_types.class', color: '#AF52DE' },
 };
 
 const EVENT_TYPES: CalendarEventType[] = ['event', 'exam', 'deadline', 'class', 'holiday'];
 
-function getPinExpiryText(pinnedUntil: string | null | undefined): string | null {
+function getPinExpiryText(pinnedUntil: string | null | undefined, t: (k: string, o?: any) => string): string | null {
   if (!pinnedUntil) return null;
   const remaining = new Date(pinnedUntil).getTime() - Date.now();
-  if (remaining <= 0) return 'Fijado (expirado)';
+  if (remaining <= 0) return t('explore.pin_expiry.expired') || 'Fijado (expirado)';
   const days = Math.ceil(remaining / 86400000);
-  if (days < 2) return 'Fijado · expira hoy';
-  if (days < 8) return `Fijado · expira en ${days}d`;
-  return `Fijado · expira en ${Math.ceil(days / 7)}sem`;
+  if (days < 2) return t('explore.pin_expiry.today') || 'Fijado · expira hoy';
+  if (days < 8) return t('explore.pin_expiry.days', { days }) || `Fijado · expira en ${days}d`;
+  return t('explore.pin_expiry.weeks', { weeks: Math.ceil(days / 7) }) || `Fijado · expira en ${Math.ceil(days / 7)}sem`;
 }
 
 export default function AnnouncementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { userData, can } = useCurrentUser();
   const currentUser = auth.currentUser;
   const { createLinkedEvent } = useCalendarEvents();
@@ -107,6 +110,17 @@ export default function AnnouncementDetailScreen() {
   }, [id]);
 
   useEffect(() => {
+    if (!announcement?.socialId) return;
+    const checkSocial = async () => {
+      const snap = await getDoc(doc(db, 'posts', announcement.socialId!));
+      if (!snap.exists()) {
+        await updateDoc(doc(db, 'posts', id!), { socialId: null });
+      }
+    };
+    checkSocial();
+  }, [announcement?.socialId]);
+
+  useEffect(() => {
     if (!announcement?.linkedEventId) { setLinkedEvent(null); return; }
     getDoc(doc(db, 'events', announcement.linkedEventId)).then(snap => {
       if (snap.exists()) {
@@ -132,13 +146,14 @@ export default function AnnouncementDetailScreen() {
   }, [announcement?.linkedEventId]);
 
   const isAuthor = !!(currentUser && announcement?.authorId === currentUser.uid);
-  const canLinkEvent = isAuthor && (can('createAcademicEvent') || can('createGeneralEvent'));
+  const canManage = isAuthor || can('createAnnouncement');
+  const canLinkEvent = canManage && (can('createAcademicEvent') || can('createGeneralEvent'));
 
   const handleDelete = () => {
-    Alert.alert('Eliminar anuncio', '¿Seguro que quieres eliminar este anuncio?', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('explore.delete_confirm') || 'Eliminar anuncio', t('explore.delete_confirm_msg') || '¿Seguro que quieres eliminar este anuncio?', [
+      { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
       {
-        text: 'Eliminar', style: 'destructive', onPress: async () => {
+        text: t('common.delete') || 'Eliminar', style: 'destructive', onPress: async () => {
           await deleteDoc(doc(db, 'posts', id!));
           router.back();
         }
@@ -175,10 +190,10 @@ export default function AnnouncementDetailScreen() {
 
   const handlePublishSocial = async () => {
     if (!currentUser || !announcement) return;
-    Alert.alert('Publicar como post', 'Se publicará este anuncio como post en el feed social.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('explore.publish_social') || 'Publicar como post', t('explore.social_confirm') || 'Se publicará este anuncio como post en el feed social.', [
+      { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
       {
-        text: 'Publicar', onPress: async () => {
+        text: t('explore.publish') || 'Publicar', onPress: async () => {
           const docRef = await addDoc(collection(db, 'posts'), {
             title: announcement.title, content: announcement.content,
             authorId: announcement.authorId, authorName: announcement.authorName,
@@ -186,6 +201,10 @@ export default function AnnouncementDetailScreen() {
             postType: 'post', likes: [], likesCount: 0, commentsCount: 0,
             viewsCount: 0, views: [], createdAt: serverTimestamp(), updatedAt: null,
             tags: ['anuncio'],
+            mediaUrl: announcement.imageUrl ?? null,
+            mediaType: announcement.imageUrl ? 'image' : null,
+            imageOffsetY: announcement.imageUrl ? announcement.imageOffsetY : null,
+            originalAnnouncementId: announcement.id,
           });
           await updateDoc(doc(db, 'posts', id!), { socialId: docRef.id });
         }
@@ -232,13 +251,13 @@ export default function AnnouncementDetailScreen() {
     return (
       <ThemedView style={styles.centered}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ThemedText style={{ color: colors.textSecondary }}>Anuncio no encontrado.</ThemedText>
+        <ThemedText style={{ color: colors.textSecondary }}>{t('explore.announcement_not_found') || 'Anuncio no encontrado.'}</ThemedText>
       </ThemedView>
     );
   }
 
   const category = getCategoryConfig(announcement.category);
-  const pinExpiry = getPinExpiryText(announcement.pinnedUntil);
+  const pinExpiry = getPinExpiryText(announcement.pinnedUntil, t);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -247,9 +266,9 @@ export default function AnnouncementDetailScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
-          <ThemedText style={[styles.backText, { color: colors.primary }]}>Tablón</ThemedText>
+          <ThemedText style={[styles.backText, { color: colors.primary }]}>{t('explore.bulletin_board') || 'Tablón'}</ThemedText>
         </TouchableOpacity>
-        {isAuthor && (
+        {canManage && (
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={() => setShowEdit(true)} style={styles.iconBtn}>
               <Pencil size={19} color={colors.primary} strokeWidth={1.8} />
@@ -263,11 +282,10 @@ export default function AnnouncementDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
 
-        {/* Author strip — above the image, compact and subtle */}
         <View style={[styles.metaStrip, { borderBottomColor: colors.border }]}>
           <ThemedText style={[styles.metaStripText, { color: colors.textSecondary }]}>
-            {'Administración · '}
-            {new Date(announcement.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {(t('explore.administration') || 'Administración') + ' · '}
+            {new Date(announcement.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
           </ThemedText>
         </View>
 
@@ -290,7 +308,7 @@ export default function AnnouncementDetailScreen() {
               <View style={[styles.badge, { backgroundColor: colors.primary + '12' }]}>
                 <Pin size={10} color={colors.primary} strokeWidth={2} />
                 <ThemedText style={[styles.badgeText, { color: colors.primary }]}>
-                  {pinExpiry ?? 'FIJADO'}
+                  {pinExpiry ?? (t('explore.pinned') || 'FIJADO')}
                 </ThemedText>
               </View>
             )}
@@ -311,13 +329,13 @@ export default function AnnouncementDetailScreen() {
               <View style={[styles.eventTypeBadge, { backgroundColor: EVENT_TYPE_CONFIG[linkedEvent.type].color + '20' }]}>
                 <CalendarDays size={13} color={EVENT_TYPE_CONFIG[linkedEvent.type].color} strokeWidth={2} />
                 <ThemedText style={[styles.eventTypeBadgeText, { color: EVENT_TYPE_CONFIG[linkedEvent.type].color }]}>
-                  {EVENT_TYPE_CONFIG[linkedEvent.type].label.toUpperCase()}
+                  {(t(EVENT_TYPE_CONFIG[linkedEvent.type].labelKey) || linkedEvent.type).toUpperCase()}
                 </ThemedText>
               </View>
               <View style={styles.eventCardBody}>
                 <ThemedText style={[styles.eventTitle, { color: colors.text }]}>{linkedEvent.title}</ThemedText>
                 <ThemedText style={[styles.eventDate, { color: colors.textSecondary }]}>
-                  {new Date(linkedEvent.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {new Date(linkedEvent.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
                   {linkedEvent.time ? ` · ${linkedEvent.time}` : ''}
                 </ThemedText>
               </View>
@@ -330,7 +348,7 @@ export default function AnnouncementDetailScreen() {
               activeOpacity={0.8}
             >
               <CalendarDays size={16} color={colors.primary} strokeWidth={2} />
-              <ThemedText style={[styles.linkEventBtnText, { color: colors.primary }]}>Vincular evento al calendario</ThemedText>
+              <ThemedText style={[styles.linkEventBtnText, { color: colors.primary }]}>{t('explore.link_event') || 'Vincular evento al calendario'}</ThemedText>
             </TouchableOpacity>
           ) : null}
 
@@ -343,24 +361,24 @@ export default function AnnouncementDetailScreen() {
               <FileText size={18} color={colors.primary} strokeWidth={1.8} />
             </View>
             <View style={{ flex: 1 }}>
-              <ThemedText style={[styles.docsLabel, { color: colors.text }]}>Documentación</ThemedText>
+              <ThemedText style={[styles.docsLabel, { color: colors.text }]}>{t('explore.documentation.title') || 'Documentación'}</ThemedText>
               <ThemedText style={[styles.docsSub, { color: colors.textSecondary }]}>
-                {announcement.docsContent ? 'Con documentación adjunta' : 'Sin contenido aún'}
+                {announcement.docsContent ? (t('explore.with_docs') || 'Con documentación adjunta') : (t('explore.no_docs') || 'Sin contenido aún')}
               </ThemedText>
             </View>
             <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
 
-          {isAuthor && (
+          {canManage && (
             announcement.socialId ? (
               <View style={[styles.sharedBadge, { backgroundColor: '#FF950012', borderColor: '#FF950040' }]}>
                 <Megaphone size={13} color="#FF9500" strokeWidth={2} />
-                <ThemedText style={[styles.sharedBadgeText, { color: '#FF9500' }]}>Ya publicado como post</ThemedText>
+                <ThemedText style={[styles.sharedBadgeText, { color: '#FF9500' }]}>{t('explore.already_published') || 'Ya publicado como post'}</ThemedText>
               </View>
             ) : (
               <TouchableOpacity style={[styles.shareBtn, { backgroundColor: colors.primary }]} onPress={handlePublishSocial} activeOpacity={0.85}>
                 <Megaphone size={16} color="#fff" strokeWidth={2} />
-                <ThemedText style={styles.shareBtnText}>Publicar como post</ThemedText>
+                <ThemedText style={styles.shareBtnText}>{t('explore.publish_social') || 'Publicar como post'}</ThemedText>
               </TouchableOpacity>
             )
           )}
@@ -369,18 +387,17 @@ export default function AnnouncementDetailScreen() {
         <View style={{ height: spacing.xl * 2 }} />
       </ScrollView>
 
-      <Modal visible={showEdit} animationType="slide" statusBarTranslucent onRequestClose={() => setShowEdit(false)}>
-        <SafeAreaProvider>
-        <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <Modal visible={showEdit} animationType="slide" onRequestClose={() => setShowEdit(false)} statusBarTranslucent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? insets.top : 0 }}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <TouchableOpacity onPress={() => setShowEdit(false)}><X size={22} color={colors.text} strokeWidth={2} /></TouchableOpacity>
-              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>Editar anuncio</ThemedText>
+              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.edit_announcement') || 'Editar anuncio'}</ThemedText>
               <TouchableOpacity onPress={handleSaveEdit} disabled={!editForm.title.trim() || !editForm.content.trim() || uploadingEditImage}>
                 {uploadingEditImage
                   ? <ActivityIndicator size="small" color={colors.primary} />
                   : <ThemedText style={[styles.modalAction, { color: editForm.title.trim() && editForm.content.trim() ? colors.primary : colors.textSecondary }]}>
-                    Guardar
+                    {t('common.save') || 'Guardar'}
                   </ThemedText>
                 }
               </TouchableOpacity>
@@ -412,7 +429,7 @@ export default function AnnouncementDetailScreen() {
                 >
                   <ImagePlus size={22} color={colors.textSecondary} strokeWidth={1.5} />
                   <ThemedText style={[styles.imagePickerLabel, { color: colors.textSecondary }]}>
-                    Imagen de portada (opcional)
+                    {t('explore.image_picker_label') || 'Imagen de portada (opcional)'}
                   </ThemedText>
                 </TouchableOpacity>
               )}
@@ -435,19 +452,19 @@ export default function AnnouncementDetailScreen() {
               </ScrollView>
               <TextInput
                 style={[styles.modalTitleInput, { color: colors.text, borderBottomColor: colors.border }]}
-                placeholder="Título" placeholderTextColor={colors.textSecondary}
+                placeholder={t('explore.title_placeholder') || 'Título'} placeholderTextColor={colors.textSecondary}
                 value={editForm.title} onChangeText={t => setEditForm(f => ({ ...f, title: t }))}
               />
               <TextInput
                 style={[styles.modalContentInput, { color: colors.text }]}
-                placeholder="Contenido..." placeholderTextColor={colors.textSecondary}
+                placeholder={t('explore.content_placeholder') || 'Contenido...'} placeholderTextColor={colors.textSecondary}
                 value={editForm.content} onChangeText={t => setEditForm(f => ({ ...f, content: t }))}
                 multiline textAlignVertical="top"
               />
               <View style={[styles.formRow, { borderTopColor: colors.border }]}>
                 <View style={styles.formRowLeft}>
                   <Pin size={16} color={colors.text} strokeWidth={2} />
-                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>Fijar anuncio</ThemedText>
+                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Fijar anuncio'}</ThemedText>
                 </View>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: editForm.pinned ? colors.primary : colors.border }]}
@@ -468,34 +485,33 @@ export default function AnnouncementDetailScreen() {
                       onPress={() => setEditForm(f => ({ ...f, pinnedUntil: opt }))}
                     >
                       <ThemedText style={[styles.durationChipText, { color: editForm.pinnedUntil === opt ? colors.primary : colors.textSecondary }]}>
-                        {opt === '1d' ? '1 día' : opt === '3d' ? '3 días' : opt === '1w' ? '1 sem' : opt === '1m' ? '1 mes' : 'Siempre'}
+                        {t(`explore.pin_durations.${opt}`) || (opt === '1d' ? '1 día' : opt === '3d' ? '3 días' : opt === '1w' ? '1 sem' : opt === '1m' ? '1 mes' : 'Siempre')}
                       </ThemedText>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
             </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-        </SafeAreaProvider>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={showCreateEvent} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreateEvent(false)}>
         <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]} edges={['top']}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowCreateEvent(false)}><X size={22} color={colors.text} strokeWidth={2} /></TouchableOpacity>
-            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>Vincular evento</ThemedText>
+            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.link_event_title') || 'Vincular evento'}</ThemedText>
             <TouchableOpacity onPress={handleCreateEvent} disabled={!eventForm.title.trim() || savingEvent}>
               {savingEvent
                 ? <ActivityIndicator size="small" color={colors.primary} />
-                : <ThemedText style={[styles.modalAction, { color: eventForm.title.trim() ? colors.primary : colors.textSecondary }]}>Crear</ThemedText>
+                : <ThemedText style={[styles.modalAction, { color: eventForm.title.trim() ? colors.primary : colors.textSecondary }]}>{t('common.create') || 'Crear'}</ThemedText>
               }
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
             <TextInput
               style={[styles.modalTitleInput, { color: colors.text, borderBottomColor: colors.border }]}
-              placeholder="Nombre del evento"
+              placeholder={t('explore.event_name') || 'Nombre del evento'}
               placeholderTextColor={colors.textSecondary}
               value={eventForm.title}
               onChangeText={t => setEventForm(f => ({ ...f, title: t }))}
@@ -503,23 +519,23 @@ export default function AnnouncementDetailScreen() {
 
             <View style={styles.dateTimeRow}>
               <View style={{ flex: 1 }}>
-                <MiniDatePicker value={eventDate} onChange={setEventDate} label="Fecha" />
+                <MiniDatePicker value={eventDate} onChange={setEventDate} label={t('common.date') || 'Fecha'} />
               </View>
-              <TimePicker value={eventTime} onChange={setEventTime} label="Hora" />
+              <TimePicker value={eventTime} onChange={setEventTime} label={t('common.time') || 'Hora'} />
             </View>
 
             <ThemedText style={[styles.formLabel, { color: colors.textSecondary }]}>Tipo</ThemedText>
             <View style={styles.typeGrid}>
-              {EVENT_TYPES.map(t => {
-                const cfg = EVENT_TYPE_CONFIG[t];
-                const active = eventForm.type === t;
+              {EVENT_TYPES.map(type => {
+                const cfg = EVENT_TYPE_CONFIG[type];
+                const active = eventForm.type === type;
                 return (
                   <TouchableOpacity
-                    key={t}
+                    key={type}
                     style={[styles.typeChip, { backgroundColor: active ? cfg.color : colors.backgroundSecondary, borderColor: active ? cfg.color : colors.border }]}
-                    onPress={() => setEventForm(f => ({ ...f, type: t }))}
+                    onPress={() => setEventForm(f => ({ ...f, type }))}
                   >
-                    <ThemedText style={[styles.typeChipText, { color: active ? '#fff' : colors.text }]}>{cfg.label}</ThemedText>
+                    <ThemedText style={[styles.typeChipText, { color: active ? '#fff' : colors.text }]}>{(t(cfg.labelKey) || type).toUpperCase()}</ThemedText>
                   </TouchableOpacity>
                 );
               })}
@@ -568,7 +584,15 @@ const styles = StyleSheet.create({
   sharedBadge: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 10, borderWidth: 1 },
   sharedBadgeText: { fontSize: typography.sizes.xs, fontWeight: '600' },
   modalSafe: { flex: 1 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth
+  },
   modalTitle: { fontSize: typography.sizes.md, fontWeight: '700' },
   modalAction: { fontSize: typography.sizes.md, fontWeight: '600' },
   modalBody: { padding: spacing.md, gap: spacing.md },

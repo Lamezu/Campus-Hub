@@ -4,6 +4,7 @@ import {
   Modal, Alert, ActivityIndicator, Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Stack, router } from 'expo-router';
 import { collection, onSnapshot, doc, updateDoc, setDoc, getDoc, orderBy, query } from 'firebase/firestore';
 import { Check, ChevronLeft, Search, X } from 'lucide-react-native';
@@ -17,11 +18,11 @@ import type { User, UserRole, UserSubrole } from '@/types';
 
 type RoleFilter = 'all' | UserRole;
 
-const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'student', label: 'Alumnos' },
-  { value: 'teacher', label: 'Profesores' },
-  { value: 'admin', label: 'Admins' },
+const ROLE_FILTERS: { value: RoleFilter; key: string }[] = [
+  { value: 'all', key: 'admin.filters.all' },
+  { value: 'student', key: 'admin.filters.students' },
+  { value: 'teacher', key: 'admin.filters.teachers' },
+  { value: 'admin', key: 'admin.filters.admins' },
 ];
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -48,19 +49,21 @@ function UserAvatar({ name, size = 40 }: { name: string; size?: number }) {
 }
 
 function RoleBadge({ role }: { role: UserRole }) {
+  const { t } = useTranslation();
   const color = ROLE_COLORS[role];
   return (
     <View style={[styles.badge, { backgroundColor: color + '20', borderColor: color + '50' }]}>
-      <Text style={[styles.badgeText, { color }]}>{ROLE_LABELS[role]}</Text>
+      <Text style={[styles.badgeText, { color }]}>{t(`roles.${role}`)}</Text>
     </View>
   );
 }
 
 function SubroleBadge({ subrole }: { subrole: NonNullable<UserSubrole> }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   return (
     <View style={[styles.badge, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-      <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{SUBROLE_LABELS[subrole]}</Text>
+      <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{t(`roles.${subrole}`)}</Text>
     </View>
   );
 }
@@ -73,6 +76,7 @@ interface EditModalProps {
 
 function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [selectedSubrole, setSelectedSubrole] = useState<UserSubrole>(null);
   const [saving, setSaving] = useState(false);
@@ -95,7 +99,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
       await onSave(user.uid, selectedRole, selectedSubrole);
       onClose();
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar el rol');
+      Alert.alert(t('common.error') || 'Error', t('admin.update_error') || 'No se pudo actualizar el rol');
     } finally {
       setSaving(false);
     }
@@ -108,7 +112,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
           <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
           <View style={styles.sheetHeader}>
-            <ThemedText style={styles.sheetTitle}>Cambiar rol</ThemedText>
+            <ThemedText style={styles.sheetTitle}>{t('admin.change_role.title')}</ThemedText>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -116,7 +120,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
 
           <ThemedText style={[styles.sheetUser, { color: colors.textSecondary }]}>{user.displayName}</ThemedText>
 
-          <ThemedText style={[styles.sheetSection, { color: colors.text }]}>Rol</ThemedText>
+          <ThemedText style={[styles.sheetSection, { color: colors.text }]}>{t('admin.change_role.role_label')}</ThemedText>
           {(['student', 'teacher', 'admin'] as UserRole[]).map(role => (
             <TouchableOpacity
               key={role}
@@ -128,7 +132,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
                   <View style={[styles.roleCircleDot, { backgroundColor: ROLE_COLORS[role] }]} />
                 </View>
                 <ThemedText style={[styles.optionLabel, selectedRole === role && { color: colors.primary }]}>
-                  {ROLE_LABELS[role]}
+                  {t(`roles.${role}`)}
                 </ThemedText>
               </View>
               {selectedRole === role && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
@@ -137,7 +141,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
 
           {hasSubroles && (
             <>
-              <ThemedText style={[styles.sheetSection, { color: colors.text, marginTop: spacing.md }]}>Subrol</ThemedText>
+              <ThemedText style={[styles.sheetSection, { color: colors.text, marginTop: spacing.md }]}>{t('admin.change_role.subrole_label')}</ThemedText>
               {availableSubroles.map(subrole => (
                 <TouchableOpacity
                   key={subrole ?? 'none'}
@@ -145,7 +149,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
                   onPress={() => setSelectedSubrole(subrole)}
                 >
                   <ThemedText style={[styles.optionLabel, selectedSubrole === subrole && { color: colors.primary }]}>
-                    {subrole ? SUBROLE_LABELS[subrole] : 'Ninguno'}
+                    {subrole ? t(`roles.${subrole}`) : t('roles.none')}
                   </ThemedText>
                   {selectedSubrole === subrole && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
                 </TouchableOpacity>
@@ -158,7 +162,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
               style={[styles.btn, { backgroundColor: colors.backgroundSecondary }]}
               onPress={onClose}
             >
-              <ThemedText style={styles.btnText}>Cancelar</ThemedText>
+              <ThemedText style={styles.btnText}>{t('common.cancel')}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.btn, { backgroundColor: colors.primary }]}
@@ -167,7 +171,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
             >
               {saving
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={[styles.btnText, { color: '#fff' }]}>Guardar</Text>
+                : <Text style={[styles.btnText, { color: '#fff' }]}>{t('common.save')}</Text>
               }
             </TouchableOpacity>
           </View>
@@ -203,6 +207,7 @@ async function seedSubrolesIfNeeded() {
 
 export default function AdminUsersScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { isAdmin } = useCurrentUser();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -275,7 +280,7 @@ export default function AdminUsersScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ChevronLeft size={26} color={colors.text} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Gestión de usuarios</ThemedText>
+        <ThemedText style={styles.headerTitle}>{t('admin.user_mgmt_title')}</ThemedText>
         <View style={{ width: 26 }} />
       </View>
 
@@ -283,7 +288,7 @@ export default function AdminUsersScreen() {
         <Search size={16} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Buscar por nombre o email…"
+          placeholder={t('admin.search_placeholder')}
           placeholderTextColor={colors.textSecondary}
           value={search}
           onChangeText={setSearch}
@@ -305,7 +310,7 @@ export default function AdminUsersScreen() {
             onPress={() => setRoleFilter(f.value)}
           >
             <Text style={[styles.filterText, { color: roleFilter === f.value ? colors.primary : colors.textSecondary }]}>
-              {f.label}
+              {t(f.key)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -320,7 +325,7 @@ export default function AdminUsersScreen() {
             renderItem={renderUser}
             ListEmptyComponent={
               <ThemedText style={[styles.empty, { color: colors.textSecondary }]}>
-                {search ? 'Sin resultados.' : 'No hay usuarios.'}
+                {search ? t('dm.no_results') : t('admin.no_users')}
               </ThemedText>
             }
             contentContainerStyle={{ paddingBottom: 40 }}

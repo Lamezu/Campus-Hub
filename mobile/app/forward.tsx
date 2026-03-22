@@ -5,11 +5,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Check, Send, Mic, Search, X, Hash, MessageCircle } from 'lucide-react-native';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
-import { auth, db } from '@/config/firebase';
+import { auth } from '@/config/firebase';
 import { CHANNELS } from '@/constants/channelData';
 import {
   subscribeToConversations,
@@ -17,6 +16,7 @@ import {
   sendMessage as dmSendMessage,
   sendAudioMessage as dmSendAudioMessage,
 } from '@/services/dmService';
+import { messageService } from '@/services/shared';
 import type { DMConversation, Channel } from '@/types';
 
 type ForwardTab = 'channels' | 'dms';
@@ -111,11 +111,19 @@ export default function ForwardScreen() {
   const { colors, theme } = useTheme();
   const {
     messageText, audioUrl, audioDuration,
+    imageUrl, imageWidth, imageHeight,
+    fileUrl, fileName, fileSize,
     contactUserId, contactName, contactRole, contactBio, contactPhoto,
   } = useLocalSearchParams<{
     messageText?: string;
     audioUrl?: string;
     audioDuration?: string;
+    imageUrl?: string;
+    imageWidth?: string;
+    imageHeight?: string;
+    fileUrl?: string;
+    fileName?: string;
+    fileSize?: string;
     contactUserId?: string;
     contactName?: string;
     contactRole?: string;
@@ -198,29 +206,29 @@ export default function ForwardScreen() {
         ? `👤 ${contactName ?? 'Usuario'}${contactBio ? ` — ${contactBio}` : ''}`
         : messageText ?? '';
       selectedChannels.forEach(channelId => {
-        const p = addDoc(collection(db, 'channels', channelId, 'messages'), {
+        const attachments = isContact ? [{
+          type: 'contact',
+          url: contactPhoto ?? '',
+          name: contactName ?? 'Usuario',
+          size: 0,
+          bio: contactBio ?? '',
+          userId: contactUserId
+        } as any] : null;
+
+        const p = messageService.sendMessage(
+          channelId,
           text,
-          senderId: meId,
+          meId,
           senderName,
           senderPhoto,
-          createdAt: serverTimestamp(),
-          edited: false,
-          editedAt: null,
-          attachments: isContact ? [{
-            type: 'contact',
-            url: contactPhoto ?? '',
-            name: contactName ?? 'Usuario',
-            size: 0,
-            bio: contactBio ?? '',
-            userId: contactUserId
-          } as any] : null,
-          reactions: {},
-          replyTo: null,
-          forwarded: true,
-        });
+          attachments,
+          null,
+          true
+        );
+
         if (isSingleChannel) {
           singleChannelId = channelId;
-          tasks.push(p.then(ref => { singleChannelMsgId = ref.id; }));
+          tasks.push(p.then((id: string) => { singleChannelMsgId = id; }));
         } else {
           tasks.push(p);
         }
@@ -260,6 +268,22 @@ export default function ForwardScreen() {
         selectedConvs.forEach(c => {
           if (isSingleDM) singleDMParticipantId = c.participantId;
           tasks.push(dmSendAudioMessage(getConversationId(meId, c.participantId), meId, senderName, senderPhoto, audioUrl, duration, true));
+        });
+      } else if (imageUrl) {
+        const width = parseFloat(imageWidth ?? '0');
+        const height = parseFloat(imageHeight ?? '0');
+        selectedConvs.forEach(c => {
+          if (isSingleDM) singleDMParticipantId = c.participantId;
+          // dmSendImageMessage no está exportado, usamos dmSendMessage con attachments
+          const attachment = { type: 'image', url: imageUrl, name: 'imagen.jpg', size: 0, imageWidth: width, imageHeight: height };
+          tasks.push(dmSendMessage(getConversationId(meId, c.participantId), meId, senderName, senderPhoto, '', null, true, [attachment]));
+        });
+      } else if (fileUrl) {
+        const size = parseFloat(fileSize ?? '0');
+        selectedConvs.forEach(c => {
+          if (isSingleDM) singleDMParticipantId = c.participantId;
+          const attachment = { type: 'file', url: fileUrl, name: fileName ?? 'archivo', size };
+          tasks.push(dmSendMessage(getConversationId(meId, c.participantId), meId, senderName, senderPhoto, '', null, true, [attachment]));
         });
       } else {
         const text = messageText ?? '';

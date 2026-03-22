@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/contexts/UserContext';
 import { spacing, typography } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ChevronLeft, X, Pencil, MoreHorizontal, Search, Trash2 } from 'lucide-react-native';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextViewer } from '@/components/RichTextViewer';
@@ -20,6 +21,7 @@ import type { Post } from '@/types';
 export default function AnnouncementDocsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { role, subrole } = useCurrentUser();
 
   const [announcement, setAnnouncement] = useState<Post | null>(null);
@@ -92,12 +94,12 @@ export default function AnnouncementDocsScreen() {
 
   const clearContent = () => {
     Alert.alert(
-      'Borrar contenido',
-      '¿Eliminar toda la documentación de este anuncio?',
+      t('explore.documentation.alerts.clear_title') || 'Borrar contenido',
+      t('explore.documentation.alerts.clear_msg') || '¿Eliminar toda la documentación de este anuncio?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('explore.documentation.header.cancel') || 'Cancelar', style: 'cancel' },
         {
-          text: 'Borrar', style: 'destructive', onPress: async () => {
+          text: t('common.delete') || 'Borrar', style: 'destructive', onPress: async () => {
             if (!id) return;
             await updateDoc(doc(db, 'posts', id), { docsContent: null, updatedAt: serverTimestamp() });
           },
@@ -119,7 +121,7 @@ export default function AnnouncementDocsScreen() {
     return (
       <ThemedView style={styles.centered}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ThemedText style={{ color: colors.textSecondary }}>No encontrado.</ThemedText>
+        <ThemedText style={{ color: colors.textSecondary }}>{t('explore.announcement_not_found') || 'No encontrado.'}</ThemedText>
       </ThemedView>
     );
   }
@@ -141,25 +143,19 @@ export default function AnnouncementDocsScreen() {
           style={styles.backBtn}
         >
           {editing ? (
-            <>
-              <X size={20} color={colors.primary} strokeWidth={2} />
-              <ThemedText style={[styles.headerSideText, { color: colors.primary }]}>Cancelar</ThemedText>
-            </>
+            <X size={24} color={colors.primary} strokeWidth={2} />
           ) : (
-            <>
-              <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
-              <ThemedText style={[styles.headerSideText, { color: colors.primary }]}>Anuncio</ThemedText>
-            </>
+            <ChevronLeft size={28} color={colors.primary} strokeWidth={2} />
           )}
         </TouchableOpacity>
 
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Documentación</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.documentation.title') || 'Documentación'}</ThemedText>
 
         {editing ? (
           <TouchableOpacity onPress={saveEdit} disabled={saving} style={styles.actionBtn}>
             {saving
               ? <ActivityIndicator size="small" color={colors.primary} />
-              : <ThemedText style={[styles.saveText, { color: colors.primary }]}>Guardar</ThemedText>
+              : <ThemedText style={[styles.saveText, { color: colors.primary }]}>{t('explore.documentation.header.save') || 'Guardar'}</ThemedText>
             }
           </TouchableOpacity>
         ) : showMenuBtn ? (
@@ -186,7 +182,7 @@ export default function AnnouncementDocsScreen() {
           {canEdit && (
             <TouchableOpacity style={styles.menuRow} onPress={() => { setShowMenu(false); startEdit(); }}>
               <Pencil size={15} color={colors.text} strokeWidth={1.8} />
-              <ThemedText style={[styles.menuRowText, { color: colors.text }]}>Editar</ThemedText>
+              <ThemedText style={[styles.menuRowText, { color: colors.text }]}>{t('explore.documentation.menu.edit') || 'Editar'}</ThemedText>
             </TouchableOpacity>
           )}
           {hasContent && canEdit && (
@@ -195,7 +191,7 @@ export default function AnnouncementDocsScreen() {
           {hasContent && (
             <TouchableOpacity style={styles.menuRow} onPress={() => { setShowMenu(false); setSearching(true); }}>
               <Search size={15} color={colors.text} strokeWidth={1.8} />
-              <ThemedText style={[styles.menuRowText, { color: colors.text }]}>Buscar</ThemedText>
+              <ThemedText style={[styles.menuRowText, { color: colors.text }]}>{t('explore.documentation.menu.search') || 'Buscar'}</ThemedText>
             </TouchableOpacity>
           )}
           {canEdit && hasContent && (
@@ -203,7 +199,7 @@ export default function AnnouncementDocsScreen() {
               <View style={[styles.menuSep, { backgroundColor: colors.border }]} />
               <TouchableOpacity style={styles.menuRow} onPress={() => { setShowMenu(false); clearContent(); }}>
                 <Trash2 size={15} color="#FF3B30" strokeWidth={1.8} />
-                <ThemedText style={[styles.menuRowText, { color: '#FF3B30' }]}>Borrar contenido</ThemedText>
+                <ThemedText style={[styles.menuRowText, { color: '#FF3B30' }]}>{t('explore.documentation.menu.clear') || 'Borrar contenido'}</ThemedText>
               </TouchableOpacity>
             </>
           )}
@@ -216,7 +212,7 @@ export default function AnnouncementDocsScreen() {
           <Search size={15} color={colors.textSecondary} strokeWidth={2} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar en el documento..."
+            placeholder={t('explore.documentation.search_placeholder') || 'Buscar en el documento...'}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -225,7 +221,7 @@ export default function AnnouncementDocsScreen() {
           />
           {searchCount !== null && (
             <ThemedText style={[styles.searchCount, { color: colors.textSecondary }]}>
-              {searchCount === 0 ? 'Sin resultados' : `${searchCount}`}
+              {searchCount === 0 ? (t('explore.documentation.no_results') || 'Sin resultados') : `${searchCount}`}
             </ThemedText>
           )}
           <TouchableOpacity onPress={stopSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -243,7 +239,7 @@ export default function AnnouncementDocsScreen() {
           <RichTextEditor
             value={draft}
             onChange={setDraft}
-            placeholder="Escribe aquí la documentación del anuncio..."
+            placeholder={t('explore.documentation.editor_placeholder') || 'Escribe aquí la documentación del anuncio...'}
           />
         ) : hasContent ? (
           <ScrollView
@@ -264,12 +260,12 @@ export default function AnnouncementDocsScreen() {
         ) : (
           <ScrollView contentContainerStyle={styles.emptyState}>
             <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-              Sin documentación
+              {t('explore.documentation.empty.title') || 'Sin documentación'}
             </ThemedText>
             <ThemedText style={[styles.emptyBody, { color: colors.textSecondary }]}>
               {canEdit
-                ? 'Añade información adicional, instrucciones, recursos o cualquier detalle relevante para este anuncio.'
-                : 'El autor todavía no ha añadido documentación a este anuncio.'}
+                ? (t('explore.documentation.empty.body_admin') || 'Añade información adicional, instrucciones, recursos o cualquier detalle relevante para este anuncio.')
+                : (t('explore.documentation.empty.body_user') || 'El autor todavía no ha añadido documentación a este anuncio.')}
             </ThemedText>
             {canEdit && (
               <TouchableOpacity
@@ -278,7 +274,7 @@ export default function AnnouncementDocsScreen() {
                 activeOpacity={0.85}
               >
                 <Pencil size={15} color="#fff" strokeWidth={2} />
-                <ThemedText style={styles.addBtnText}>Añadir documentación</ThemedText>
+                <ThemedText style={styles.addBtnText}>{t('explore.documentation.add_btn') || 'Añadir documentación'}</ThemedText>
               </TouchableOpacity>
             )}
           </ScrollView>
