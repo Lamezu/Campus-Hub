@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, StatusBar, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -9,14 +9,15 @@ import { spacing, typography } from '@/constants/styles';
 import { notificationService } from '@/services/notificationService';
 import { acceptFriendRequest } from '@/services/contactSettingsService';
 import { auth } from '@/config/firebase';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { NotificationItem, NotificationCategory } from '@/types';
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: any): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'ahora';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return `${Math.floor(diff / 86400)}d`;
+  if (diff < 60) return t('time_ago.now') || 'ahora';
+  if (diff < 3600) return t('time_ago.minutes', { count: Math.floor(diff / 60) }) || `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return t('time_ago.hours', { count: Math.floor(diff / 3600) }) || `${Math.floor(diff / 3600)}h`;
+  return t('time_ago.days', { count: Math.floor(diff / 86400) }) || `${Math.floor(diff / 86400)}d`;
 }
 
 function CategoryIcon({ category, color }: { category: NotificationCategory; color: string }) {
@@ -32,6 +33,7 @@ function CategoryIcon({ category, color }: { category: NotificationCategory; col
 export default function NotificationsScreen() {
   const { category } = useLocalSearchParams<{ category?: string }>();
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
@@ -54,13 +56,42 @@ export default function NotificationsScreen() {
   }, [category]);
 
   const categoryTitles: Record<string, string> = {
-    social: 'Notificaciones sociales',
-    dm: 'Mensajes',
-    campus: 'Campus',
-    friend: 'Amigos',
+    social: t('notifications.social') || 'Notificaciones sociales',
+    dm: t('notifications.dm') || 'Mensajes',
+    campus: t('notifications.campus') || 'Campus',
+    friend: t('notifications.friend') || 'Amigos',
   };
 
-  const title = category ? (categoryTitles[category] ?? 'Notificaciones') : 'Notificaciones';
+  const title = category ? (categoryTitles[category] ?? (t('notifications.title') || 'Notificaciones')) : (t('notifications.title') || 'Notificaciones');
+
+  const groupedNotifications = useMemo(() => {
+    const groups: Record<string, NotificationItem[]> = {};
+
+    notifications.forEach(n => {
+      let groupKey = n.id;
+      if (n.category === 'dm' && n.meta?.conversationId) {
+        groupKey = `dm_${n.meta.conversationId}`;
+      } else if (n.category === 'social' && n.meta?.postId) {
+        groupKey = `social_${n.meta.postId}`;
+      }
+
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(n);
+    });
+
+    return Object.values(groups).map(items => {
+      const latest = items[0];
+      const unreadItems = items.filter(i => !i.read);
+      return {
+        ...latest,
+        read: unreadItems.length === 0,
+        count: items.length,
+        body: items.length > 1
+          ? (t('notifications.new_notifications', { count: items.length }) || `${items.length} notificaciones nuevas`)
+          : latest.body
+      };
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [notifications]);
 
   const handleMarkAllRead = useCallback(async () => {
     await notificationService.markAllRead(category as NotificationCategory | undefined);
@@ -110,7 +141,7 @@ export default function NotificationsScreen() {
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{title}</ThemedText>
         {unreadCount > 0 ? (
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
-            <ThemedText style={[styles.markAllText, { color: colors.primary }]}>Leer todo</ThemedText>
+            <ThemedText style={[styles.markAllText, { color: colors.primary }]}>{t('notifications.mark_all_read') || 'Leer todo'}</ThemedText>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 64 }} />
@@ -118,7 +149,7 @@ export default function NotificationsScreen() {
       </View>
 
       <FlatList
-        data={notifications}
+        data={groupedNotifications}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -127,23 +158,30 @@ export default function NotificationsScreen() {
               { borderBottomColor: colors.border },
               !item.read && { backgroundColor: colors.primary + '0A' },
             ]}
-            onPress={() => handlePress(item)}
+            onPress={() => handlePress(item as any)}
             activeOpacity={0.7}
           >
             <View style={[styles.iconBox, { backgroundColor: colors.backgroundSecondary }]}>
               <CategoryIcon category={item.category} color={colors.primary} />
             </View>
             <View style={styles.itemContent}>
-              <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '700' }]} numberOfLines={1}>
-                {item.title}
-              </ThemedText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '700' }]} numberOfLines={1}>
+                  {item.title}
+                </ThemedText>
+                {item.count > 1 && (
+                  <View style={[styles.countBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <ThemedText style={[styles.countText, { color: colors.primary }]}>{item.count}</ThemedText>
+                  </View>
+                )}
+              </View>
               <ThemedText style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>
                 {item.body}
               </ThemedText>
             </View>
             <View style={styles.itemRight}>
               <ThemedText style={[styles.itemTime, { color: colors.textSecondary }]}>
-                {timeAgo(item.createdAt)}
+                {timeAgo(item.createdAt, t)}
               </ThemedText>
               {!item.read && (
                 <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
@@ -155,7 +193,7 @@ export default function NotificationsScreen() {
           <View style={styles.emptyContainer}>
             <Bell size={48} color={colors.textSecondary} strokeWidth={1.5} />
             <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No hay notificaciones
+              {t('notifications.no_notifications') || 'No hay notificaciones'}
             </ThemedText>
           </View>
         }
@@ -170,10 +208,10 @@ export default function NotificationsScreen() {
         <Pressable style={styles.modalBackdrop} onPress={handleRejectRequest}>
           <Pressable style={[styles.modalCard, { backgroundColor: colors.card }]} onPress={() => { }}>
             <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-              Solicitud de amistad
+              {t('notifications.friend_request.title') || 'Solicitud de amistad'}
             </ThemedText>
             <ThemedText style={[styles.modalBody, { color: colors.textSecondary }]}>
-              {friendRequestItem?.meta?.fromUserName ?? 'Alguien'} quiere ser tu amigo/a.
+              {t('notifications.friend_request.body', { name: friendRequestItem?.meta?.fromUserName ?? (t('post.someone') || 'Alguien') }) || `${friendRequestItem?.meta?.fromUserName ?? 'Alguien'} quiere ser tu amigo/a.`}
             </ThemedText>
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -181,14 +219,14 @@ export default function NotificationsScreen() {
                 onPress={handleRejectRequest}
                 activeOpacity={0.7}
               >
-                <ThemedText style={[styles.modalBtnText, { color: colors.text }]}>Rechazar</ThemedText>
+                <ThemedText style={[styles.modalBtnText, { color: colors.text }]}>{t('common.reject') || 'Rechazar'}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: colors.primary }]}
                 onPress={handleAcceptRequest}
                 activeOpacity={0.7}
               >
-                <ThemedText style={[styles.modalBtnText, { color: '#fff' }]}>Aceptar</ThemedText>
+                <ThemedText style={[styles.modalBtnText, { color: '#fff' }]}>{t('common.accept') || 'Aceptar'}</ThemedText>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -270,4 +308,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   modalBtnText: { fontSize: typography.sizes.md, fontWeight: '600', lineHeight: 20 },
+  countBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });

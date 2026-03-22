@@ -13,14 +13,14 @@ if (!IS_EXPO_GO) {
   N.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
-      shouldPlaySound: false,
+      shouldPlaySound: true,
       shouldSetBadge: true,
     }),
   });
 }
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  if (IS_EXPO_GO || !Device.isDevice) return null;
+  if (IS_EXPO_GO || !Device.isDevice || !userId) return null;
 
   const N = require('expo-notifications');
 
@@ -36,8 +36,10 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 
   let token: string | null = null;
   try {
-    const deviceToken = await N.getDevicePushTokenAsync();
-    token = deviceToken.data;
+    const expoToken = await N.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId,
+    });
+    token = expoToken.data;
   } catch (error) {
     console.error('Error getting push token:', error);
   }
