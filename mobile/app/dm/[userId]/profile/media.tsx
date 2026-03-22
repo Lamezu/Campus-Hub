@@ -9,6 +9,7 @@ import { ChevronLeft, Image as ImageIcon, Film, File, Mic, Link as LinkIcon } fr
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
+import { useTranslation } from '@/hooks/useTranslation';
 import { getSharedMedia } from '@/services/contactSettingsService';
 import { getConversationId } from '@/services/dmService';
 import { auth } from '@/config/firebase';
@@ -16,12 +17,12 @@ import type { SharedMedia } from '@/types';
 
 type Tab = 'image' | 'video' | 'file' | 'audio' | 'link';
 
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'image', label: 'Imágenes', icon: null },
-  { key: 'video', label: 'Vídeos', icon: null },
-  { key: 'file', label: 'Archivos', icon: null },
-  { key: 'audio', label: 'Audio', icon: null },
-  { key: 'link', label: 'Enlaces', icon: null },
+const getTabs = (t: any): { key: Tab; label: string; icon: React.ReactNode }[] => [
+  { key: 'image', label: t('dm.profile.media_tabs.image') || 'Imágenes', icon: null },
+  { key: 'video', label: t('dm.profile.media_tabs.video') || 'Vídeos', icon: null },
+  { key: 'file', label: t('dm.profile.media_tabs.file') || 'Archivos', icon: null },
+  { key: 'audio', label: t('dm.profile.media_tabs.audio') || 'Audio', icon: null },
+  { key: 'link', label: t('dm.profile.media_tabs.link') || 'Enlaces', icon: null },
 ];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -33,16 +34,17 @@ function formatSize(bytes?: number): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string = 'es-ES'): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function GridItem({ item, colors }: { item: SharedMedia; colors: any }) {
+function GridItem({ item, colors, userId }: { item: SharedMedia; colors: any; userId: string }) {
   return (
     <TouchableOpacity
       style={[styles.gridItem, { backgroundColor: colors.backgroundSecondary, width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
       activeOpacity={0.7}
+      onPress={() => router.push({ pathname: `/dm/${userId}`, params: { highlightId: item.id } } as any)}
     >
       <ImageIcon size={28} color={colors.textSecondary} strokeWidth={1.5} />
       <ThemedText style={[styles.gridLabel, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -52,11 +54,12 @@ function GridItem({ item, colors }: { item: SharedMedia; colors: any }) {
   );
 }
 
-function ListItem({ item, colors, icon }: { item: SharedMedia; colors: any; icon: React.ReactNode }) {
+function ListItem({ item, colors, icon, userId, language }: { item: SharedMedia; colors: any; icon: React.ReactNode; userId: string; language?: string }) {
   return (
     <TouchableOpacity
       style={[styles.listItem, { borderBottomColor: colors.border }]}
       activeOpacity={0.7}
+      onPress={() => router.push({ pathname: `/dm/${userId}`, params: { highlightId: item.id } } as any)}
     >
       <View style={[styles.listIcon, { backgroundColor: colors.backgroundSecondary }]}>
         {icon}
@@ -66,7 +69,7 @@ function ListItem({ item, colors, icon }: { item: SharedMedia; colors: any; icon
           {item.name}
         </ThemedText>
         <ThemedText style={[styles.listMeta, { color: colors.textSecondary }]}>
-          {formatSize(item.size)}{item.size ? ' • ' : ''}{formatDate(item.createdAt)}
+          {formatSize(item.size)}{item.size ? ' • ' : ''}{formatDate(item.createdAt, language)}
         </ThemedText>
       </View>
     </TouchableOpacity>
@@ -76,14 +79,17 @@ function ListItem({ item, colors, icon }: { item: SharedMedia; colors: any; icon
 export default function DMMediaScreen() {
   const { userId, tab: initialTab } = useLocalSearchParams<{ userId: string; tab?: string }>();
   const { colors, theme } = useTheme();
+  const { t, language } = useTranslation();
 
   const meId = auth.currentUser?.uid ?? '';
   const conversationId = useMemo(() => (meId && userId) ? getConversationId(meId, userId) : '', [meId, userId]);
   const [allMedia, setAllMedia] = useState<SharedMedia[]>([]);
 
+  const TABS = getTabs(t);
+
   useEffect(() => {
     if (!conversationId) return;
-    getSharedMedia(conversationId).then(setAllMedia).catch(() => {});
+    getSharedMedia(conversationId).then(setAllMedia).catch(() => { });
   }, [conversationId]);
 
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -112,7 +118,7 @@ export default function DMMediaScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Archivos</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.media_links') || 'Archivos'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -151,7 +157,7 @@ export default function DMMediaScreen() {
           {activeTab === 'audio' && <Mic size={48} color={colors.textSecondary} strokeWidth={1.5} />}
           {activeTab === 'link' && <LinkIcon size={48} color={colors.textSecondary} strokeWidth={1.5} />}
           <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No hay {TABS.find(t => t.key === activeTab)?.label.toLowerCase() ?? 'archivos'}
+            {t('dm.profile.empty_media', { type: TABS.find(t => t.key === activeTab)?.label.toLowerCase() ?? (t('dm.profile.media_tabs.file') || 'archivos').toLowerCase() }) || `No hay ${TABS.find(t => t.key === activeTab)?.label.toLowerCase() ?? 'archivos'}`}
           </ThemedText>
         </View>
       ) : isGrid ? (
@@ -162,7 +168,7 @@ export default function DMMediaScreen() {
           contentContainerStyle={styles.gridContainer}
           columnWrapperStyle={{ gap: spacing.xs }}
           ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
-          renderItem={({ item }) => <GridItem item={item} colors={colors} />}
+          renderItem={({ item }) => <GridItem item={item} colors={colors} userId={userId} />}
         />
       ) : (
         <FlatList
@@ -173,7 +179,7 @@ export default function DMMediaScreen() {
             let icon: React.ReactNode = <File size={20} color={colors.primary} strokeWidth={1.8} />;
             if (item.type === 'audio') icon = <Mic size={20} color={colors.primary} strokeWidth={1.8} />;
             if (item.type === 'link') icon = <LinkIcon size={20} color={colors.primary} strokeWidth={1.8} />;
-            return <ListItem item={item} colors={colors} icon={icon} />;
+            return <ListItem item={item} colors={colors} icon={icon} userId={userId} language={language} />;
           }}
         />
       )}

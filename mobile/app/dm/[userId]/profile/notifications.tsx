@@ -6,34 +6,38 @@ import { ChevronLeft, Check, Music } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
+import { useTranslation } from '@/hooks/useTranslation';
 import { previewTone } from '@/utils/toneGenerator';
 import { getContactSettings, updateContactSettings } from '@/services/contactSettingsService';
 import { auth } from '@/config/firebase';
 import type { MuteDuration } from '@/types';
 
-const MUTE_OPTIONS: { value: MuteDuration; label: string; description: string }[] = [
-  { value: '8h', label: '8 horas', description: 'Silenciar durante 8 horas' },
-  { value: '1w', label: '1 semana', description: 'Silenciar durante 7 días' },
-  { value: 'always', label: 'Siempre', description: 'Silenciar indefinidamente' },
-  { value: 'off', label: 'No silenciar', description: 'Recibir todas las notificaciones' },
+const getMuteOptions = (t: any): { value: MuteDuration; label: string; description: string }[] => [
+  { value: '8h', label: t('dm.profile.notifications_settings.mute_options.8h.label') || '8 horas', description: t('dm.profile.notifications_settings.mute_options.8h.desc') || 'Silenciar durante 8 horas' },
+  { value: '1w', label: t('dm.profile.notifications_settings.mute_options.1w.label') || '1 semana', description: t('dm.profile.notifications_settings.mute_options.1w.desc') || 'Silenciar durante 7 días' },
+  { value: 'always', label: t('dm.profile.notifications_settings.mute_options.always.label') || 'Siempre', description: t('dm.profile.notifications_settings.mute_options.always.desc') || 'Silenciar indefinidamente' },
+  { value: 'off', label: t('dm.profile.notifications_settings.mute_options.off.label') || 'No silenciar', description: t('dm.profile.notifications_settings.mute_options.off.desc') || 'Recibir todas las notificaciones' },
 ];
 
 const ALERT_TONES = [
-  'Predeterminado',
-  'Clásico',
-  'Suave',
-  'Melodía',
-  'Campana',
-  'Pulso',
-  'Sin tono',
+  'Default',
+  'Classic',
+  'Soft',
+  'Melody',
+  'Bell',
+  'Pulse',
+  'None',
 ];
 
 export default function DMNotificationsScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
 
   const [mute, setMute] = useState<MuteDuration>('off');
-  const [alertTone, setAlertTone] = useState('Predeterminado');
+  const [alertTone, setAlertTone] = useState('Default');
+
+  const MUTE_OPTIONS = getMuteOptions(t);
 
   const meId = auth.currentUser?.uid ?? '';
 
@@ -42,20 +46,20 @@ export default function DMNotificationsScreen() {
     getContactSettings(meId, userId).then(s => {
       setMute(s.mute);
       setAlertTone(s.alertTone);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [meId, userId]);
 
   const handleMuteSelect = (value: MuteDuration) => {
     setMute(value);
     if (meId && userId) {
-      updateContactSettings(meId, userId, { mute: value }).catch(() => {});
+      updateContactSettings(meId, userId, { mute: value }).catch(() => { });
     }
   };
 
   const handleToneSelect = (tone: string) => {
     setAlertTone(tone);
     if (meId && userId) {
-      updateContactSettings(meId, userId, { alertTone: tone }).catch(() => {});
+      updateContactSettings(meId, userId, { alertTone: tone }).catch(() => { });
     }
     previewTone(tone);
   };
@@ -72,7 +76,7 @@ export default function DMNotificationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Notificaciones</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.notifications_settings.title') || 'Notificaciones'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -82,7 +86,7 @@ export default function DMNotificationsScreen() {
       >
         <View style={styles.sectionHeaderWrapper}>
           <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            SILENCIAR NOTIFICACIONES
+            {t('dm.profile.notifications_settings.mute_title') || 'SILENCIAR NOTIFICACIONES'}
           </ThemedText>
         </View>
         <View style={[styles.sectionBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -111,7 +115,7 @@ export default function DMNotificationsScreen() {
 
         <View style={styles.sectionHeaderWrapper}>
           <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            TONO DE ALERTA
+            {t('dm.profile.notifications_settings.tone_title') || 'TONO DE ALERTA'}
           </ThemedText>
         </View>
         <View style={[styles.sectionBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -127,7 +131,7 @@ export default function DMNotificationsScreen() {
             >
               <Music size={18} color={colors.textSecondary} strokeWidth={1.8} />
               <ThemedText style={[styles.optionLabel, { color: colors.text, flex: 1, marginLeft: spacing.sm }]}>
-                {tone}
+                {t(`dm.profile.notifications_settings.tones.${tone}`) || tone}
               </ThemedText>
               {alertTone === tone && (
                 <Check size={20} color={colors.primary} strokeWidth={2.5} />
@@ -136,7 +140,7 @@ export default function DMNotificationsScreen() {
           ))}
         </View>
         <ThemedText style={[styles.toneNote, { color: colors.textSecondary }]}>
-          Toca un tono para escuchar una previsualización.
+          {t('dm.profile.notifications_settings.tone_preview_note') || 'Toca un tono para escuchar una previsualización.'}
         </ThemedText>
       </ScrollView>
     </SafeAreaView>

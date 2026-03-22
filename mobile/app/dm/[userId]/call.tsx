@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Image, Animated, Alert, StatusBar, 
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { Mic, MicOff, Volume2, VolumeX, Video, VideoOff, MonitorUp, PhoneOff, Camera } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
+import { useTranslation } from '@/hooks/useTranslation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import type { CallStatus, CallType, ActiveCall } from '@/types';
@@ -16,6 +17,12 @@ import {
   webRTCAvailable,
 } from '@/utils/webrtc';
 import * as callService from '@/services/callService';
+import { Audio } from 'expo-av';
+
+const SOUNDS = {
+  DIALING: 'https://raw.githubusercontent.com/Lamezu/Campus-Hub/main/mobile/assets/sounds/dialing.mp3',
+  RINGTONE: 'https://raw.githubusercontent.com/Lamezu/Campus-Hub/main/mobile/assets/sounds/ringtone.mp3'
+};
 
 const configuration = {
   iceServers: [
@@ -71,12 +78,40 @@ export default function CallScreen() {
 }
 
 function CallScreenInner() {
+  const { t } = useTranslation();
   const { userId, type, callId: initialCallId, isReceiver } = useLocalSearchParams<{
     userId: string;
     type: string;
     callId: string;
     isReceiver: string;
   }>();
+
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  const loadAndPlaySound = async (uri: string) => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+      }
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { isLooping: true, shouldPlay: true }
+      );
+      soundRef.current = sound;
+    } catch (e) {
+      console.warn('Failed to load call sound:', e);
+    }
+  };
+
+  const stopSound = async () => {
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      } catch (e) { }
+    }
+  };
 
   const currentUser = auth.currentUser;
   const isIncoming = isReceiver === 'true';
@@ -199,9 +234,16 @@ function CallScreenInner() {
           setCurrentCallId(newCallId);
         }
       } catch (err) {
-        console.error('Failed to initialize call:', err);
-        Alert.alert('Error', 'No se pudo iniciar la conexión de llamada.');
-        router.back();
+        console.warn('Call initialization failed (Expected on mobile):', err);
+        setCallStatus('error');
+        // Mantener el mensaje de error unos segundos antes de volver
+        setTimeout(() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)/messages');
+          }
+        }, 3500);
       }
     };
 
@@ -209,7 +251,11 @@ function CallScreenInner() {
 
     return () => {
       stopTracks();
-      if (pc.current) pc.current.close();
+      if (pc.current && typeof pc.current.close === 'function') {
+        try {
+          pc.current.close();
+        } catch (e) { }
+      }
     };
   }, []);
 
@@ -266,8 +312,17 @@ function CallScreenInner() {
   }, [callStatus]);
 
   useEffect(() => {
+    if (callStatus === 'ringing') {
+      loadAndPlaySound(isIncoming ? SOUNDS.RINGTONE : SOUNDS.DIALING);
+    } else {
+      stopSound();
+    }
+    return () => { stopSound(); };
+  }, [callStatus]);
+
+  useEffect(() => {
     if (callStatus !== 'active') return;
-    timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    timerRef.current = setInterval(() => setDuration((prev: number) => prev + 1), 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [callStatus]);
 
@@ -309,16 +364,16 @@ function CallScreenInner() {
 
       {callType === 'video' && (
         <View style={styles.videoArea}>
-          {remoteStream ? (
+          {remoteStream && (remoteStream as any).toURL ? (
             <RTCView streamURL={(remoteStream as any).toURL()} style={styles.remoteVideo} objectFit="cover" />
           ) : (
             <View style={styles.videoPlaceholder}>
               <Camera size={56} color="rgba(255,255,255,0.25)" strokeWidth={1.5} />
-              <ThemedText style={styles.videoPlaceholderText}>Esperando video remoto...</ThemedText>
+              <ThemedText style={styles.videoPlaceholderText}>{t('dm.call.waiting_video') || 'Esperando video remoto...'}</ThemedText>
             </View>
           )}
 
-          {localStream && !isVideoOff && (
+          {localStream && (localStream as any).toURL && !isVideoOff && (
             <View style={styles.localVideoContainer}>
               <RTCView streamURL={(localStream as any).toURL()} style={styles.localVideo} objectFit="cover" zOrder={1} />
             </View>
@@ -341,7 +396,8 @@ function CallScreenInner() {
 
           <ThemedText style={styles.participantName}>{participantName}</ThemedText>
           <ThemedText style={styles.statusText}>
-            {callStatus === 'ringing' ? (isIncoming ? 'Llamada entrante...' : 'Llamando...') : formatDuration(duration)}
+            {callStatus === 'error' ? (t('dm.call.not_available_desc') || 'Las llamadas no están disponibles en móvil.') :
+              callStatus === 'ringing' ? (isIncoming ? (t('dm.call.incoming') || 'Llamada entrante...') : (t('dm.call.calling') || 'Llamando...')) : formatDuration(duration)}
           </ThemedText>
         </View>
 
@@ -350,28 +406,28 @@ function CallScreenInner() {
             <View style={styles.controlsGrid}>
               <ControlBtn
                 icon={isMuted ? <MicOff size={24} color="#fff" strokeWidth={2} /> : <Mic size={24} color="#fff" strokeWidth={2} />}
-                label={isMuted ? 'Activar mic' : 'Silenciar'}
+                label={isMuted ? (t('dm.call.unmute') || 'Activar mic') : (t('dm.call.mute') || 'Silenciar')}
                 onPress={toggleMute}
                 active={isMuted}
               />
               <ControlBtn
                 icon={isDeaf ? <VolumeX size={24} color="#fff" strokeWidth={2} /> : <Volume2 size={24} color="#fff" strokeWidth={2} />}
-                label={isDeaf ? 'Escuchar' : 'Ensordecer'}
+                label={isDeaf ? (t('dm.call.listen') || 'Escuchar') : (t('dm.call.deafen') || 'Ensordecer')}
                 onPress={() => setIsDeaf(v => !v)}
                 active={isDeaf}
               />
               {callType === 'video' && (
                 <ControlBtn
                   icon={isVideoOff ? <VideoOff size={24} color="#fff" strokeWidth={2} /> : <Video size={24} color="#fff" strokeWidth={2} />}
-                  label={isVideoOff ? 'Activar cám.' : 'Cámara'}
+                  label={isVideoOff ? (t('dm.call.video_on') || 'Activar cám.') : (t('dm.call.video_off') || 'Cámara')}
                   onPress={toggleVideo}
                   active={isVideoOff}
                 />
               )}
               <ControlBtn
                 icon={<MonitorUp size={24} color="#fff" strokeWidth={2} />}
-                label="Pantalla"
-                onPress={() => Alert.alert('Próximamente', 'Compartir pantalla estará disponible próximamente.')}
+                label={t('dm.call.screen_share') || "Pantalla"}
+                onPress={() => Alert.alert(t('common.coming_soon') || 'Próximamente', t('dm.call.screen_share_soon') || 'Compartir pantalla estará disponible próximamente.')}
               />
             </View>
           )}
@@ -381,7 +437,7 @@ function CallScreenInner() {
               <PhoneOff size={28} color="#fff" strokeWidth={2} />
             </TouchableOpacity>
             <ThemedText style={styles.hangUpLabel}>
-              {callStatus === 'ringing' ? 'Cancelar' : 'Colgar'}
+              {callStatus === 'ringing' ? (t('common.cancel') || 'Cancelar') : (t('dm.call.hang_up') || 'Colgar')}
             </ThemedText>
           </View>
         </View>

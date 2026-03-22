@@ -8,6 +8,7 @@ import { ChevronLeft, Plus, ChevronRight } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
+import { useTranslation } from '@/hooks/useTranslation';
 import { getMutualGroups } from '@/services/contactSettingsService';
 import { auth, db } from '@/config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -16,21 +17,22 @@ import type { MutualGroup } from '@/types';
 export default function DMGroupsScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
 
   const [groups, setGroups] = useState<MutualGroup[]>([]);
-  const [participantFirstName, setParticipantFirstName] = useState('este usuario');
+  const [participantFirstName, setParticipantFirstName] = useState(t('post.someone') || 'este usuario');
 
   const meId = auth.currentUser?.uid ?? '';
 
   useEffect(() => {
     if (!meId || !userId) return;
-    getMutualGroups(meId, userId).then(setGroups).catch(() => {});
+    getMutualGroups(meId, userId).then(setGroups).catch(() => { });
     getDoc(doc(db, 'users', userId)).then(snap => {
       if (snap.exists()) {
         const name = (snap.data().displayName as string) ?? '';
-        setParticipantFirstName(name.split(' ')[0] || 'este usuario');
+        setParticipantFirstName(name.split(' ')[0] || (t('post.someone') || 'este usuario'));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [meId, userId]);
 
   return (
@@ -45,7 +47,7 @@ export default function DMGroupsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Grupos en común</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.mutual_groups.title') || 'Grupos en común'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -55,40 +57,54 @@ export default function DMGroupsScreen() {
         ListHeaderComponent={
           <TouchableOpacity
             style={[styles.createRow, { borderBottomColor: colors.border }]}
-            onPress={() => Alert.alert('Próximamente', 'Crear grupos estará disponible próximamente')}
+            onPress={() => Alert.alert(t('common.loading') || 'Próximamente', t('common.loading') || 'Crear grupos estará disponible próximamente')}
             activeOpacity={0.7}
           >
             <View style={[styles.groupIcon, { backgroundColor: colors.backgroundSecondary }]}>
               <Plus size={22} color={colors.primary} strokeWidth={2} />
             </View>
             <ThemedText style={[styles.createLabel, { color: colors.primary }]}>
-              Crear grupo con {participantFirstName}
+              {t('dm.profile.create_group_with', { name: participantFirstName }) || `Crear grupo con ${participantFirstName}`}
             </ThemedText>
           </TouchableOpacity>
         }
-        renderItem={({ item }: { item: MutualGroup }) => (
-          <TouchableOpacity
-            style={[styles.row, { borderBottomColor: colors.border }]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.groupIcon, { backgroundColor: colors.backgroundSecondary }]}>
-              <ThemedText style={[styles.groupIconText, { color: colors.textSecondary }]}>
-                {item.name.charAt(0).toUpperCase()}
-              </ThemedText>
-            </View>
-            <View style={styles.groupInfo}>
-              <ThemedText style={[styles.groupName, { color: colors.text }]}>{item.name}</ThemedText>
-              <ThemedText style={[styles.groupMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                {item.memberCount} miembros • {item.memberPreview}
-              </ThemedText>
-            </View>
-            <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }: { item: MutualGroup }) => {
+          let preview = '';
+          const names = item.otherMemberNames || [];
+          if (names.length > 0) {
+            preview = names.join(', ');
+            if (item.memberCount > names.length + 2) {
+              preview += t('dm.profile.mutual_groups.and_more', { count: item.memberCount - (names.length + 2) }) || ` y más`;
+            }
+          } else {
+            preview = t('dm.profile.mutual_groups.you_and_contact') || 'Tú y este contacto';
+          }
+
+          return (
+            <TouchableOpacity
+              style={[styles.row, { borderBottomColor: colors.border }]}
+              activeOpacity={0.7}
+              onPress={() => router.push(`/chat/${item.type === 'studyGroup' ? 'sg_' : ''}${item.id}` as any)}
+            >
+              <View style={[styles.groupIcon, { backgroundColor: colors.backgroundSecondary }]}>
+                <ThemedText style={[styles.groupIconText, { color: colors.textSecondary }]}>
+                  {item.name.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              <View style={styles.groupInfo}>
+                <ThemedText style={[styles.groupName, { color: colors.text }]}>{item.name}</ThemedText>
+                <ThemedText style={[styles.groupMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {t('chat.info.member_count', { count: item.memberCount }) || `${item.memberCount} miembros`} • {preview}
+                </ThemedText>
+              </View>
+              <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No hay grupos en común
+              {t('dm.profile.mutual_groups.other', { count: 0 }) || 'No hay grupos en común'}
             </ThemedText>
           </View>
         }

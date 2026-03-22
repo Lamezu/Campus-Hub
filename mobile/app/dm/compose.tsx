@@ -7,6 +7,7 @@ import { Stack, router } from 'expo-router';
 import { ChevronLeft, Search, User as UserIcon, Filter, ChevronRight, ChevronLeft as ChevronLeftIcon, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight } from 'lucide-react-native';
 import { collection, query, where, orderBy, limit, getDocs, onSnapshot, startAfter, QueryConstraint, endBefore, limitToLast } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { spacing, typography } from '@/constants/styles';
@@ -17,6 +18,7 @@ const PAGE_SIZE = 20;
 
 export default function NewDMScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
@@ -35,7 +37,7 @@ export default function NewDMScreen() {
     }, (error) => {
       if (error.code !== 'permission-denied') {
         console.error('DM Compose Snapshot error:', error);
-        setError('Error al cargar usuarios');
+        setError(t('common.error') || 'Error al cargar usuarios');
       }
       setLoading(false);
     });
@@ -74,7 +76,7 @@ export default function NewDMScreen() {
       <View style={styles.userInfo}>
         <ThemedText style={styles.userName}>{item.displayName}</ThemedText>
         <ThemedText style={[styles.userEmail, { color: colors.textSecondary }]}>
-          {(item.role || 'student') === 'teacher' ? 'Profesor/a' : (item.role || 'student') === 'admin' ? 'Admin' : 'Alumno/a'}
+          {t(`roles.${item.role || 'student'}`) || (item.role === 'teacher' ? 'Profesor/a' : item.role === 'admin' ? 'Admin' : 'Alumno/a')}
           {item.department ? ` • ${item.department}` : ''}
         </ThemedText>
       </View>
@@ -96,7 +98,7 @@ export default function NewDMScreen() {
               <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
             </TouchableOpacity>
           ),
-          headerTitle: 'Nuevo mensaje',
+          headerTitle: t('dm.new_message_title') || 'Nuevo mensaje',
         }}
       />
 
@@ -105,7 +107,7 @@ export default function NewDMScreen() {
           <Search size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar por nombre..."
+            placeholder={t('dm.search_by_name') || 'Buscar por nombre...'}
             placeholderTextColor={colors.textSecondary}
             value={searchText}
             onChangeText={setSearchText}
@@ -129,7 +131,7 @@ export default function NewDMScreen() {
                 styles.filterText,
                 { color: selectedRole === role ? '#fff' : colors.textSecondary }
               ]}>
-                {role === 'all' ? 'Todos' : role === 'teacher' ? 'Profesores' : role === 'student' ? 'Alumnos' : 'Admin'}
+                {t(`dm.filter.${role}`) || (role === 'all' ? 'Todos' : role === 'teacher' ? 'Profesores' : role === 'student' ? 'Alumnos' : 'Admin')}
               </ThemedText>
             </TouchableOpacity>
           ))}
@@ -144,7 +146,7 @@ export default function NewDMScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <ThemedText style={{ color: colors.textSecondary }}>
-              {searchText ? 'No se encontraron usuarios' : 'Cargando directorio...'}
+              {searchText ? (t('dm.no_users_found') || 'No se encontraron usuarios') : (t('dm.loading_directory') || 'Cargando directorio...')}
             </ThemedText>
           </View>
         }
@@ -169,7 +171,7 @@ export default function NewDMScreen() {
           </TouchableOpacity>
 
           <View style={[styles.pageIndicator, { backgroundColor: colors.primary + '15' }]}>
-            <ThemedText style={[styles.pageText, { color: colors.primary }]}>Página {page}</ThemedText>
+            <ThemedText style={[styles.pageText, { color: colors.primary }]}>{t('dm.page_num', { num: page }) || `Página ${page}`}</ThemedText>
           </View>
 
           <TouchableOpacity

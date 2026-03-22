@@ -13,6 +13,7 @@ import { MessageBubble } from '@/components/MessageBubble';
 import { MessageInput, type MessageInputHandle } from '@/components/MessageInput';
 import { spacing, chatThemes, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { auth, db } from '@/config/firebase';
 import type { DirectMessage, ReplyPreview, User } from '@/types';
 import {
@@ -20,16 +21,18 @@ import {
     ChevronDown, Phone, Video
 } from 'lucide-react-native';
 import * as dmService from '@/services/dmService';
-import { DMSettingsSheet } from '@/components/dm/DMSettingsSheet';
+import { ChatSettingsSheet } from '@/components/chat/ChatSettingsSheet';
 
 const MESSAGES_PER_PAGE = 50;
 const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function DMChatScreen() {
     const { colors, theme } = useTheme();
-    const { userId } = useLocalSearchParams<{ userId: string }>();
+    const { t } = useTranslation();
+    const { userId, highlightId } = useLocalSearchParams<{ userId: string; highlightId?: string }>();
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [replyingTo, setReplyingTo] = useState<ReplyPreview | null>(null);
@@ -39,6 +42,11 @@ export default function DMChatScreen() {
 
     const [participant, setParticipant] = useState<User | null>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<DirectMessage | null>(null);
+
+    const [showEmojiInput, setShowEmojiInput] = useState(false);
+    const [customEmoji, setCustomEmoji] = useState('');
+    const menuMessageRef = useRef<DirectMessage | null>(null);
 
     const flatListRef = useRef<FlatList>(null);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -82,13 +90,90 @@ export default function DMChatScreen() {
                 setMessages(newMessages as DirectMessage[]);
                 setLoading(false);
             },
-            () => setLoading(false)
+            (err) => {
+                console.error('DM subscription error:', err);
+                if (err.code === 'failed-precondition') {
+                    setError(t('dm.db_index_error') || 'Falta un índice en la base de datos para este chat.');
+                }
+                setLoading(false);
+            }
         );
 
-        dmService.markAsRead(conversationId, currentUser.uid);
+        dmService.markAsRead(conversationId, currentUser.uid).catch(err => {
+            console.error('Mark as read error:', err);
+            if (err.code === 'failed-precondition') {
+                setError(t('dm.db_index_error') || 'Falta un índice en la base de datos para marcar como leído.');
+            }
+        });
 
         return () => unsubscribe();
     }, [conversationId, currentUser]);
+
+    const handleReaction = async (emoji: string, targetMsg?: DirectMessage) => {
+        const msg = targetMsg || menuMessage;
+        if (!msg || !conversationId || !currentUser) return;
+
+        setMenuMessage(null);
+        const reactions = msg.reactions || {};
+        const userReactions = reactions[emoji] || [];
+        const hasReacted = userReactions.includes(currentUser.uid);
+
+        await updateDoc(doc(db, 'conversations', conversationId, 'messages', msg.id), {
+            [`reactions.${emoji}`]: hasReacted ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+        });
+    };
+
+    const handleReply = (message: DirectMessage) => {
+        setReplyingTo({
+            id: message.id,
+            text: message.text || (message.attachments?.find(a => a.type === 'audio') ? t('chat.voice_msg_preview') : t('common.file')),
+            senderName: message.senderId === currentUser?.uid ? t('common.you') : (participant?.displayName || t('common.user')),
+        });
+        messageInputRef.current?.focus();
+    };
+
+    const handleCopy = (message: DirectMessage) => {
+        setMenuMessage(null);
+        if (message.text) Clipboard.setString(message.text);
+    };
+
+    const handleForward = async (message: DirectMessage) => {
+        setMenuMessage(null);
+        const audio = message.attachments?.find(a => (a as any).type === 'audio');
+        const image = message.attachments?.find(a => (a as any).type === 'image');
+        const file = message.attachments?.find(a => (a as any).type === 'file');
+
+        if (audio) {
+            router.push(`/forward?audioUrl=${encodeURIComponent(audio.url)}&audioDuration=${audio.duration ?? 0}` as never);
+        } else if (image) {
+            router.push(`/forward?imageUrl=${encodeURIComponent(image.url)}&imageWidth=${image.imageWidth ?? 0}&imageHeight=${image.imageHeight ?? 0}&messageText=${encodeURIComponent(message.text || '')}` as never);
+        } else if (file) {
+            router.push(`/forward?fileUrl=${encodeURIComponent(file.url)}&fileName=${encodeURIComponent(file.name || 'archivo')}&fileSize=${file.size ?? 0}&messageText=${encodeURIComponent(message.text || '')}` as never);
+        } else {
+            router.push(`/forward?messageText=${encodeURIComponent(message.text || '')}` as never);
+        }
+    };
+
+    const openEmojiPicker = () => {
+        menuMessageRef.current = menuMessage;
+        setMenuMessage(null);
+        setCustomEmoji('');
+        setShowEmojiInput(true);
+    };
+
+    const userCustomEmojis = menuMessage
+        ? Object.entries(menuMessage.reactions ?? {})
+            .filter(([emoji, users]) => currentUser != null && users.includes(currentUser.uid) && !PRESET_REACTIONS.includes(emoji))
+            .map(([emoji]) => emoji)
+        : [];
+    const pillEmojis = [...PRESET_REACTIONS, ...userCustomEmojis];
+
+    useEffect(() => {
+        if (highlightId && messages.length > 0) {
+            const timer = setTimeout(() => handleReplyPreviewPress(highlightId), 600);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightId, messages.length]);
 
     const handleSendMessage = async (text: string) => {
         if (!currentUser || !conversationId || sending) return;
@@ -100,14 +185,14 @@ export default function DMChatScreen() {
             await dmService.sendMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'Usuario',
                 currentUser.photoURL,
                 text,
                 replyData || undefined
             );
         } catch (error) {
             console.error('Error sending DM:', error);
-            Alert.alert('Error', 'No se pudo enviar el mensaje.');
+            Alert.alert(t('common.error') || 'Error', t('dm.send_error') || 'No se pudo enviar el mensaje.');
         } finally {
             setSending(false);
         }
@@ -119,7 +204,7 @@ export default function DMChatScreen() {
             await dmService.sendImageMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'Usuario',
                 currentUser.photoURL,
                 url,
                 width,
@@ -136,7 +221,7 @@ export default function DMChatScreen() {
             await dmService.sendPollMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'Usuario',
                 currentUser.photoURL,
                 poll
             );
@@ -151,7 +236,7 @@ export default function DMChatScreen() {
             await dmService.sendFileMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'Usuario',
                 currentUser.photoURL,
                 url,
                 name,
@@ -169,32 +254,14 @@ export default function DMChatScreen() {
             await dmService.sendAudioMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'Usuario',
                 currentUser.photoURL,
                 url,
                 duration
             );
         } catch (error) {
             console.error('Error sending audio DM:', error);
-            Alert.alert('Error', 'No se pudo enviar el audio.');
-        }
-    };
-
-    const handleDeleteForMe = async (messageId: string) => {
-        if (!currentUser || !conversationId) return;
-        try {
-            await dmService.deleteMessageForMe(conversationId, messageId, currentUser.uid);
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleDeleteForAll = async (messageId: string) => {
-        if (!conversationId) return;
-        try {
-            await dmService.deleteMessageForAll(conversationId, messageId);
-        } catch (error) {
-            console.error(error);
+            Alert.alert(t('common.error') || 'Error', t('dm.audio_error') || 'No se pudo enviar el audio.');
         }
     };
 
@@ -207,22 +274,40 @@ export default function DMChatScreen() {
         }
     };
 
-    const handleReply = (message: DirectMessage) => {
-        const audio = message.attachments?.find(a => a.type === 'audio');
-        const image = message.attachments?.find(a => a.type === 'image');
-        const file = message.attachments?.find(a => a.type === 'file');
-
-        setReplyingTo({
-            id: message.id,
-            text: message.text,
-            senderName: message.senderName,
-            ...(audio ? { isAudio: true, audioDuration: audio.duration, type: 'audio' } : {}),
-            ...(image ? { type: 'image' } : {}),
-            ...(file ? { type: 'file', attachmentName: file.name } : {}),
-            ...(message.poll ? { type: 'poll', text: message.poll.question } : {}),
-        });
-        setMenuMessage(null);
+    const handleMessageDoubleTap = (messageId: string, reactions: Record<string, string[]>) => {
+        if (!currentUser) return;
+        const msg = messages.find(m => m.id === messageId);
+        if (msg) handleReaction('❤️', msg);
     };
+
+    const handleClearChat = async () => {
+        if (!conversationId) return;
+        Alert.alert(t('chat.settings.clear_chat') || 'Vaciar chat', t('chat.settings.clear_chat_msg') || '¿Seguro que quieres borrar todos tus mensajes de este chat?', [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.delete'), style: 'destructive', onPress: () => { /* No expuesto en dmService wrapper */ } }
+        ]);
+    };
+
+    const handleDeleteForMe = async (messageId: string) => {
+        if (!conversationId || !currentUser) return;
+        try {
+            await dmService.deleteMessageForMe(conversationId, messageId, currentUser.uid);
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+        } catch (error) {
+            console.error('Delete for me error:', error);
+        }
+    };
+
+    const handleDeleteForAll = async (messageId: string) => {
+        if (!conversationId || !currentUser) return;
+        try {
+            await dmService.deleteMessageForAll(conversationId, messageId);
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+        } catch (error) {
+            console.error('Delete for all error:', error);
+        }
+    };
+
 
     const handleReplyPreviewPress = (messageId: string) => {
         const index = messages.findIndex(m => m.id === messageId);
@@ -235,12 +320,6 @@ export default function DMChatScreen() {
         highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 2000);
     };
 
-    const handleReaction = async (emoji: string, target?: DirectMessage) => {
-        const msg = target || menuMessage;
-        if (!currentUser || !msg || !conversationId) return;
-        setMenuMessage(null);
-        await dmService.toggleReaction(conversationId, msg.id, emoji, currentUser.uid);
-    };
 
     const scrollToBottom = () => {
         flatListRef.current?.scrollToIndex({ index: 0, animated: true });
@@ -272,16 +351,33 @@ export default function DMChatScreen() {
         }
     }, [menuMessage]);
 
-    const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<DirectMessage | null>(null);
+    const handleMenuDelete = (message: DirectMessage) => {
+        setDeleteConfirmMsg(message);
+        setMenuMessage(null);
+    };
+
 
     const participantName = participant?.displayName || 'Usuario';
     const headerName = participantName.length > 13 ? participantName.slice(0, 13).trimEnd() + '...' : participantName;
+
+    if (error) {
+        return (
+            <ThemedView style={[styles.container, styles.centerContent]}>
+                <ThemedText style={[styles.errorText, { color: colors.danger ?? '#FF3B30' }]}>
+                    ⚠️ {error}
+                </ThemedText>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                    <ThemedText style={{ color: colors.primary }}>{t('common.back') || 'Volver atrás'}</ThemedText>
+                </TouchableOpacity>
+            </ThemedView>
+        );
+    }
 
     if (loading) {
         return (
             <ThemedView style={[styles.container, styles.centerContent]}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <ThemedText style={styles.loadingText}>Cargando chat...</ThemedText>
+                <ThemedText style={styles.loadingText}>{t('dm.loading_chat') || 'Cargando chat...'}</ThemedText>
             </ThemedView>
         );
     }
@@ -316,7 +412,7 @@ export default function DMChatScreen() {
                         )}
                         <View style={styles.headerNameWrapper}>
                             <ThemedText style={styles.headerName}>{headerName}</ThemedText>
-                            <ThemedText style={styles.headerStatus}>{participant?.role === 'teacher' ? 'Profesor' : 'Estudiante'}</ThemedText>
+                            <ThemedText style={styles.headerStatus}>{participant?.role === 'teacher' ? t('roles.teacher') : t('roles.student')}</ThemedText>
                         </View>
                     </TouchableOpacity>
                 ),
@@ -342,12 +438,25 @@ export default function DMChatScreen() {
 
             <View style={[styles.container, { backgroundColor: colors.chat.background === 'transparent' ? colors.background : colors.chat.background }]}>
                 {colors.chat.backgroundImage && (
-                    <Image source={{ uri: colors.chat.backgroundImage }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    <Image
+                        source={{ uri: colors.chat.backgroundImage }}
+                        style={[
+                            StyleSheet.absoluteFillObject,
+                            (colors.chat.offsetX !== undefined || colors.chat.offsetY !== undefined || colors.chat.scale !== undefined) ? {
+                                transform: [
+                                    { translateX: colors.chat.offsetX || 0 },
+                                    { translateY: colors.chat.offsetY || 0 },
+                                    { scale: colors.chat.scale || 1 }
+                                ]
+                            } : {}
+                        ]}
+                        resizeMode="cover"
+                    />
                 )}
                 <KeyboardAvoidingView
                     style={styles.container}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    keyboardVerticalOffset={headerHeight}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
                 >
                     <View style={[styles.container, colors.chat.backgroundImage ? { backgroundColor: 'rgba(0,0,0,0.08)' } : undefined]}>
                         <FlatList
@@ -372,7 +481,7 @@ export default function DMChatScreen() {
                                     highlighted={highlightedMessageId === item.id}
                                     onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
                                     onFilePress={(url, name) => {
-                                        Share.share({ url, message: `Archivo: ${name}` });
+                                        Share.share({ url, message: `${t('common.image_file') || 'Archivo'}: ${name}` });
                                     }}
                                 />
                             )}
@@ -382,7 +491,7 @@ export default function DMChatScreen() {
                             inverted
                             ListEmptyComponent={
                                 <View style={styles.emptyContainer}>
-                                    <ThemedText style={styles.emptyText}>No hay mensajes aún. Di hola!</ThemedText>
+                                    <ThemedText style={styles.emptyText}>{t('dm.no_messages_yet') || 'No hay mensajes aún. Di hola!'}</ThemedText>
                                 </View>
                             }
                         />
@@ -413,74 +522,185 @@ export default function DMChatScreen() {
 
             <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
                 <Pressable style={styles.menuOverlay} onPress={() => setMenuMessage(null)}>
-                    <View style={styles.menuCenter}>
-                        <View style={[styles.reactionStripInner, { backgroundColor: colors.card }]}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reactionStripContent}>
-                                {PRESET_REACTIONS.map(emoji => (
-                                    <TouchableOpacity key={emoji} style={styles.emojiBtn} onPress={() => handleReaction(emoji)}>
-                                        <ThemedText style={styles.emojiText}>{emoji}</ThemedText>
+                    <View style={styles.menuCenter} onStartShouldSetResponder={() => true}>
+                        <View style={styles.reactionStripOuter}>
+                            <View style={[styles.reactionStripInner, { backgroundColor: colors.card }]}>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reactionStripContent}>
+                                    {pillEmojis.map(emoji => {
+                                        const reacted = !!(currentUser && (menuMessage?.reactions?.[emoji] ?? []).includes(currentUser.uid));
+                                        return (
+                                            <TouchableOpacity
+                                                key={emoji}
+                                                style={[styles.emojiBtn, reacted && { backgroundColor: colors.primary + '33' }]}
+                                                onPress={() => menuMessage && handleReaction(emoji)}
+                                            >
+                                                <ThemedText style={styles.emojiText}>{emoji}</ThemedText>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                    <TouchableOpacity style={[styles.emojiBtn, styles.emojiBtnPlus, { borderColor: colors.border }]} onPress={openEmojiPicker}>
+                                        <Plus size={18} color={colors.textSecondary} strokeWidth={2.5} />
                                     </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                                </ScrollView>
+                            </View>
                         </View>
 
-                        <Animated.View style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}>
+                        <Animated.View
+                            style={[styles.menuContent, { backgroundColor: colors.card, transform: [{ scale: menuScaleAnim }] }]}
+                        >
+                            <View style={[styles.menuPreview, { borderBottomColor: colors.border }]}>
+                                <ThemedText style={[styles.menuPreviewName, { color: colors.primary }]} numberOfLines={1}>
+                                    {menuMessage?.senderId === currentUser?.uid ? t('common.you') : (participant?.displayName || t('common.user'))}
+                                </ThemedText>
+                                <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
+                                    {menuMessage?.attachments?.find(a => a.type === 'audio') ? t('chat.voice_msg_preview') : menuMessage?.text}
+                                </ThemedText>
+                            </View>
                             <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleReply(menuMessage)}>
                                 <Reply size={20} color={colors.text} strokeWidth={2} />
-                                <ThemedText style={styles.menuItemText}>Responder</ThemedText>
+                                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.reply')}</ThemedText>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.menuItem} onPress={() => {
-                                const msg = menuMessage;
-                                setMenuMessage(null);
-                                if (!msg) return;
-                                const audio = msg.attachments?.find(a => a.type === 'audio');
-                                if (audio) {
-                                    router.push(`/forward?audioUrl=${encodeURIComponent(audio.url)}&audioDuration=${audio.duration ?? 0}` as never);
-                                } else {
-                                    router.push(`/forward?messageText=${encodeURIComponent(msg.text || '')}` as never);
-                                }
-                            }}>
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleForward(menuMessage)}>
                                 <Forward size={20} color={colors.text} strokeWidth={2} />
-                                <ThemedText style={styles.menuItemText}>Reenviar</ThemedText>
+                                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.forward')}</ThemedText>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuMessage(null); Clipboard.setString(menuMessage?.text || ''); }}>
-                                <Copy size={20} color={colors.text} strokeWidth={2} />
-                                <ThemedText style={styles.menuItemText}>Copiar</ThemedText>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.menuItem} onPress={() => { setDeleteConfirmMsg(menuMessage); setMenuMessage(null); }}>
+                            {!!menuMessage?.text && (
+                                <>
+                                    <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                                    <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleCopy(menuMessage)}>
+                                        <Copy size={20} color={colors.text} strokeWidth={2} />
+                                        <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.copy')}</ThemedText>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleMenuDelete(menuMessage)}>
                                 <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
-                                <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
+                                <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>{t('chat.delete')}</ThemedText>
                             </TouchableOpacity>
                         </Animated.View>
                     </View>
                 </Pressable>
             </Modal>
 
-            <Modal visible={!!deleteConfirmMsg} transparent animationType="fade">
-                <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setDeleteConfirmMsg(null)}>
+            <Modal
+                visible={showEmojiInput}
+                animationType="slide"
+                transparent
+                statusBarTranslucent
+                onRequestClose={() => {
+                    setShowEmojiInput(false);
+                    setCustomEmoji('');
+                    menuMessageRef.current = null;
+                }}
+            >
+                <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                    <TouchableOpacity
+                        style={styles.emojiPickerOverlay}
+                        activeOpacity={1}
+                        onPress={() => {
+                            setShowEmojiInput(false);
+                            setCustomEmoji('');
+                            menuMessageRef.current = null;
+                        }}
+                    >
+                        <View style={[styles.emojiInputBox, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
+                            <ThemedText style={[styles.emojiInputLabel, { color: colors.textSecondary }]}>
+                                {t('chat.emoji_picker_title') || 'Selecciona un emoji del teclado'}
+                            </ThemedText>
+                            <TextInput
+                                autoFocus
+                                style={[styles.emojiInputField, { color: colors.text }]}
+                                value={customEmoji}
+                                onChangeText={(text) => {
+                                    if (menuMessageRef.current && text.trim()) {
+                                        const target = menuMessageRef.current;
+                                        menuMessageRef.current = null;
+                                        setShowEmojiInput(false);
+                                        setCustomEmoji('');
+                                        handleReaction(text.trim(), target);
+                                    }
+                                }}
+                                maxLength={8}
+                                placeholder=""
+                                caretHidden={false}
+                            />
+                        </View>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            <Modal
+                visible={!!deleteConfirmMsg}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setDeleteConfirmMsg(null)}
+            >
+                <TouchableOpacity
+                    style={styles.menuOverlay}
+                    activeOpacity={1}
+                    onPress={() => setDeleteConfirmMsg(null)}
+                >
                     <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
                         <View style={styles.deleteDialogHeader}>
-                            <ThemedText style={styles.deleteDialogTitle}>Eliminar mensaje</ThemedText>
-                            <ThemedText style={{ opacity: 0.6 }}>¿Quieres eliminar este mensaje?</ThemedText>
+                            <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
+                                {t('chat.delete_message') || 'Eliminar mensaje'}
+                            </ThemedText>
+                            <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
+                                {deleteConfirmMsg?.senderId === currentUser?.uid
+                                    ? (t('chat.delete_confirm_msg') || '¿Cómo quieres eliminarlo?')
+                                    : (t('chat.delete_for_me_only') || 'Solo se eliminará para ti.')}
+                            </ThemedText>
                         </View>
-                        <TouchableOpacity style={styles.deleteDialogBtn} onPress={() => { handleDeleteForMe(deleteConfirmMsg!.id); setDeleteConfirmMsg(null); }}>
-                            <ThemedText style={{ color: colors.text }}>Eliminar para mí</ThemedText>
+                        <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+                        <TouchableOpacity
+                            style={styles.deleteDialogBtn}
+                            onPress={() => {
+                                const msg = deleteConfirmMsg!;
+                                setDeleteConfirmMsg(null);
+                                handleDeleteForMe(msg.id);
+                            }}
+                        >
+                            <ThemedText style={[styles.deleteDialogBtnText, { color: colors.text }]}>
+                                {t('chat.delete_for_me') || 'Eliminar para mí'}
+                            </ThemedText>
                         </TouchableOpacity>
                         {deleteConfirmMsg?.senderId === currentUser?.uid && (
-                            <TouchableOpacity style={styles.deleteDialogBtn} onPress={() => { handleDeleteForAll(deleteConfirmMsg!.id); setDeleteConfirmMsg(null); }}>
-                                <ThemedText style={{ color: '#FF3B30' }}>Eliminar para todos</ThemedText>
-                            </TouchableOpacity>
+                            <>
+                                <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+                                <TouchableOpacity
+                                    style={styles.deleteDialogBtn}
+                                    onPress={() => {
+                                        const msg = deleteConfirmMsg!;
+                                        setDeleteConfirmMsg(null);
+                                        handleDeleteForAll(msg.id);
+                                    }}
+                                >
+                                    <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>
+                                        {t('chat.delete_for_all') || 'Eliminar para todos'}
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            </>
                         )}
-                        <TouchableOpacity style={styles.deleteDialogBtn} onPress={() => setDeleteConfirmMsg(null)}>
-                            <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>Cancelar</ThemedText>
+                        <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
+                        <TouchableOpacity
+                            style={styles.deleteDialogBtn}
+                            onPress={() => setDeleteConfirmMsg(null)}
+                        >
+                            <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
+                                {t('common.cancel') || 'Cancelar'}
+                            </ThemedText>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
             </Modal>
 
-            <DMSettingsSheet
+            <ChatSettingsSheet
                 visible={showSettings}
                 onClose={() => setShowSettings(false)}
+                onClearChat={handleClearChat}
+                showClearChat={true}
             />
         </View>
     );
@@ -505,15 +725,29 @@ const styles = StyleSheet.create({
     scrollDownBtnInner: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
     menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     menuCenter: { width: 280, alignItems: 'center', gap: 10 },
-    reactionStripInner: { borderRadius: 20, padding: 8, width: '100%' },
-    reactionStripContent: { gap: 10, paddingHorizontal: 10 },
-    emojiBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    reactionStripOuter: { width: '100%', alignItems: 'center' },
+    reactionStripInner: { borderRadius: 24, padding: 4, width: '100%' },
+    reactionStripContent: { paddingHorizontal: 8, alignItems: 'center', gap: 4 },
+    emojiBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 22 },
+    emojiBtnPlus: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, marginLeft: 8 },
     emojiText: { fontSize: 24 },
-    menuContent: { width: '100%', borderRadius: 16, overflow: 'hidden' },
-    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 15 },
-    menuItemText: { fontSize: 16 },
-    deleteDialog: { width: 280, borderRadius: 16, overflow: 'hidden' },
-    deleteDialogHeader: { padding: 20, alignItems: 'center' },
-    deleteDialogTitle: { fontSize: 18, fontWeight: '700', marginBottom: 5 },
-    deleteDialogBtn: { padding: 15, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.1)' },
+    menuContent: { width: '100%', borderRadius: 18, overflow: 'hidden', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8 },
+    menuPreview: { padding: 15, borderBottomWidth: StyleSheet.hairlineWidth },
+    menuPreviewName: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+    menuPreviewText: { fontSize: 14, lineHeight: 20 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+    menuItemText: { fontSize: 15, fontWeight: '500' },
+    menuDivider: { height: StyleSheet.hairlineWidth },
+    emojiPickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    emojiInputBox: { padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20, alignItems: 'center' },
+    emojiInputLabel: { fontSize: 13, marginBottom: 15, fontWeight: '600' },
+    emojiInputField: { fontSize: 40, width: '100%', textAlign: 'center', paddingVertical: 20 },
+    deleteDialog: { width: 280, borderRadius: 20, overflow: 'hidden', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6 },
+    deleteDialogHeader: { padding: 24, alignItems: 'center' },
+    deleteDialogTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+    deleteDialogSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+    deleteDialogDivider: { height: StyleSheet.hairlineWidth },
+    deleteDialogBtn: { padding: 16, alignItems: 'center' },
+    deleteDialogBtnText: { fontSize: 16, fontWeight: '500' },
+    errorText: { fontSize: 14, fontWeight: '700', textAlign: 'center', paddingHorizontal: 40 },
 });
