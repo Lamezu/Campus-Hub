@@ -14,39 +14,39 @@ interface ToneSegment {
 }
 
 const TONE_DEFINITIONS: Record<string, ToneSegment[]> = {
-  Predeterminado: [
+  default: [
     { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.09, amplitude: 0.52, fadeIn: 0.04, expDecay: 5 },
     { freq: 0, duration: 0.03 },
     { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.24, amplitude: 0.55, fadeIn: 0.02, expDecay: 4.5 },
   ],
-  Clásico: [
+  classic: [
     { freq: 880, harmonics: [{ freq: 1320, amp: 0.45 }, { freq: 1760, amp: 0.2 }], duration: 0.4, amplitude: 0.5, fadeIn: 0.01, expDecay: 2.5 },
     { freq: 0, duration: 0.06 },
     { freq: 659, harmonics: [{ freq: 990, amp: 0.4 }], duration: 0.4, amplitude: 0.48, fadeIn: 0.01, expDecay: 2.5 },
   ],
-  Suave: [
+  soft: [
     { freq: 523, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1047, amp: 0.2 }], duration: 0.6, amplitude: 0.4, fadeIn: 0.14, expDecay: 1.8 },
     { freq: 0, duration: 0.05 },
     { freq: 659, harmonics: [{ freq: 988, amp: 0.3 }], duration: 0.55, amplitude: 0.38, fadeIn: 0.1, expDecay: 1.8 },
   ],
-  Melodía: [
+  melody: [
     { freq: 1047, harmonics: [{ freq: 2093, amp: 0.25 }], duration: 0.1, amplitude: 0.52, fadeIn: 0.02, expDecay: 6 },
     { freq: 0, duration: 0.04 },
     { freq: 1319, harmonics: [{ freq: 2637, amp: 0.2 }], duration: 0.1, amplitude: 0.55, fadeIn: 0.02, expDecay: 6 },
     { freq: 0, duration: 0.04 },
     { freq: 1568, harmonics: [{ freq: 3136, amp: 0.2 }, { freq: 2352, amp: 0.15 }], duration: 0.28, amplitude: 0.58, fadeIn: 0.02, expDecay: 4 },
   ],
-  Campana: [
+  bell: [
     { freq: 880, harmonics: [{ freq: 1100, amp: 0.6 }, { freq: 2200, amp: 0.35 }, { freq: 3520, amp: 0.18 }], duration: 0.9, amplitude: 0.48, fadeIn: 0.005, expDecay: 2.8 },
   ],
-  Pulso: [
+  pulse: [
     { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
     { freq: 0, duration: 0.07 },
     { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
     { freq: 0, duration: 0.07 },
     { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.1, amplitude: 0.56, fadeIn: 0.01, expDecay: 8 },
   ],
-  'Sin tono': [],
+  none: [],
 };
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -136,12 +136,13 @@ function buildWavBase64(segments: ToneSegment[]): string {
 
 let activeSound: Audio.Sound | null = null;
 let isAudioModeSet = false;
+const toneCache: Record<string, string> = {};
 
-export async function previewTone(name: string): Promise<void> {
-  if (name === 'Sin tono') return;
-  const segments = TONE_DEFINITIONS[name];
-  if (!segments || segments.length === 0) return;
-
+/**
+ * Pre-genera los archivos WAV para todos los tonos y los guarda en caché.
+ * Debe llamarse al inicio de la aplicación.
+ */
+export async function prewarmTones(): Promise<void> {
   try {
     if (!isAudioModeSet) {
       await Audio.setAudioModeAsync({
@@ -154,6 +155,43 @@ export async function previewTone(name: string): Promise<void> {
       isAudioModeSet = true;
     }
 
+    const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+
+    for (const name of Object.keys(TONE_DEFINITIONS)) {
+      if (name === 'none') continue;
+
+      const segments = TONE_DEFINITIONS[name];
+      const base64 = buildWavBase64(segments);
+      const path = `${cacheDir}tone_cache_${name}.wav`;
+
+      await FileSystem.writeAsStringAsync(path, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      toneCache[name] = path;
+    }
+  } catch (e) {
+    console.warn('[toneGenerator] Error in prewarmTones:', e);
+  }
+}
+
+export async function previewTone(name: string): Promise<void> {
+  if (name === 'none' || name === 'Sin tono') return;
+  const segments = TONE_DEFINITIONS[name];
+  if (!segments || segments.length === 0) return;
+
+  try {
+    const cachedPath = toneCache[name];
+    let path = cachedPath;
+
+    if (!path) {
+      const base64 = buildWavBase64(segments);
+      const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+      path = `${cacheDir}tone_temp_${Date.now()}.wav`;
+      await FileSystem.writeAsStringAsync(path, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+
     if (activeSound) {
       try {
         await activeSound.stopAsync();
@@ -162,18 +200,9 @@ export async function previewTone(name: string): Promise<void> {
       activeSound = null;
     }
 
-    const base64 = buildWavBase64(segments);
-    const filename = `tone_${Date.now()}.wav`;
-    const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-    const path = `${cacheDir}${filename}`;
-
-    await FileSystem.writeAsStringAsync(path, base64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
     const { sound } = await Audio.Sound.createAsync(
       { uri: path },
-      { shouldPlay: true, volume: 1.0 }
+      { shouldPlay: true, volume: 1.0, isMuted: false }
     );
     activeSound = sound;
 
@@ -181,7 +210,7 @@ export async function previewTone(name: string): Promise<void> {
       if (status.isLoaded && status.didJustFinish) {
         try {
           await sound.unloadAsync();
-          await FileSystem.deleteAsync(path, { idempotent: true });
+          if (!cachedPath) await FileSystem.deleteAsync(path!, { idempotent: true });
         } catch (e) { }
         if (activeSound === sound) activeSound = null;
       }

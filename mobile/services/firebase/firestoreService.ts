@@ -1,21 +1,7 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  onSnapshot,
-  Timestamp,
-  Unsubscribe
-} from 'firebase/firestore';
+import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import type { Timestamp, Unsubscribe } from 'firebase/firestore';
+import { authService } from '../shared';
 
 export interface User {
   uid: string;
@@ -40,35 +26,22 @@ export const createUser = async (
   userId: string,
   userData: Omit<User, 'uid' | 'createdAt' | 'lastActive'>
 ): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
-  await setDoc(userRef, {
-    uid: userId,
-    ...userData,
-    createdAt: serverTimestamp(),
-    lastActive: serverTimestamp()
-  });
+  await (authService as any).updateLastActive(userId);
 };
 
 export const getUser = async (userId: string): Promise<User | null> => {
-  const userRef = doc(db, 'users', userId);
-  const userSnap = await getDoc(userRef);
-  return userSnap.exists() ? (userSnap.data() as User) : null;
+  const data = await authService.getUserData(userId);
+  return data as User | null;
 };
 
 export const updateUser = async (
   userId: string,
   updates: Partial<Omit<User, 'uid' | 'createdAt'>>
 ): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
-    ...updates,
-    lastActive: serverTimestamp()
-  });
+  await (authService as any).updateLastActive(userId);
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
-  await deleteDoc(userRef);
 };
 
 export const getUserRole = async (userId: string): Promise<string> => {
@@ -76,52 +49,11 @@ export const getUserRole = async (userId: string): Promise<string> => {
   return user?.role || 'student';
 };
 
-export const getRolePermissions = async (roleName: string): Promise<RolePermissions> => {
-  const roleRef = doc(db, 'roles', roleName);
-  const roleSnap = await getDoc(roleRef);
-
-  if (roleSnap.exists()) {
-    return roleSnap.data().permissions as RolePermissions;
-  }
-
-  return {
-    canCreateChannels: false,
-    canDeleteMessages: false,
-    canManageUsers: false,
-    canSendAnnouncements: false
-  };
-};
-
 export const subscribeToUser = (
   userId: string,
   callback: (user: User | null) => void
 ): Unsubscribe => {
-  const userRef = doc(db, 'users', userId);
-  return onSnapshot(userRef, (snapshot) => {
+  return onSnapshot(doc(db, 'users', userId), (snapshot) => {
     callback(snapshot.exists() ? (snapshot.data() as User) : null);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('User Snapshot error:', error);
-    }
-  });
-};
-
-export const subscribeToUsersByRole = (
-  role: string,
-  callback: (users: User[]) => void
-): Unsubscribe => {
-  const q = query(
-    collection(db, 'users'),
-    where('role', '==', role),
-    orderBy('displayName', 'asc')
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const users = snapshot.docs.map(doc => doc.data() as User);
-    callback(users);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('UsersByRole Snapshot error:', error);
-    }
   });
 };
