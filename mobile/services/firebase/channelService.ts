@@ -1,236 +1,45 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  onSnapshot,
-  increment,
-  writeBatch,
-  Timestamp,
-  Unsubscribe
-} from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { getChannelService as sharedGetChannelService } from '../shared';
 
-export interface Channel {
-  id: string;
-  name: string;
-  description: string;
-  type: 'public' | 'private' | 'announcement';
-  createdBy: string;
-  createdAt: Timestamp;
-  memberCount: number;
-  lastMessageAt: Timestamp | null;
-  departmentRestricted: boolean;
-  allowedDepartments: string[];
+export async function createChannel(channelData: any, creatorId: string): Promise<string> {
+  return sharedGetChannelService().createChannel(channelData, creatorId);
 }
 
-export interface ChannelMember {
-  userId: string;
-  role: 'member' | 'moderator' | 'admin';
-  joinedAt: Timestamp;
-  lastRead: Timestamp;
-  notifications: boolean;
+export async function getChannel(channelId: string): Promise<any> {
+  return sharedGetChannelService().getChannel(channelId);
 }
 
-export interface ChannelWithMemberInfo extends Channel {
-  memberInfo?: ChannelMember;
+export async function getChannels(category: string | null = null, limitCount = 20): Promise<any[]> {
+  return sharedGetChannelService().getChannels(category, limitCount);
 }
 
-export const createChannel = async (
-  channelData: Omit<Channel, 'id' | 'createdAt' | 'memberCount' | 'lastMessageAt'>,
-  creatorId: string
-): Promise<string> => {
-  const channelRef = doc(collection(db, 'channels'));
-  const channelId = channelRef.id;
+export async function updateChannel(channelId: string, updates: any): Promise<void> {
+  await sharedGetChannelService().updateChannel(channelId, updates);
+}
 
-  const batch = writeBatch(db);
+export async function deleteChannel(channelId: string): Promise<void> {
+  await sharedGetChannelService().deleteChannel(channelId);
+}
 
-  batch.set(channelRef, {
-    ...channelData,
-    createdBy: creatorId,
-    createdAt: serverTimestamp(),
-    memberCount: 1,
-    lastMessageAt: null
-  });
+export async function addChannelMember(channelId: string, userId: string, role = 'member'): Promise<void> {
+  await sharedGetChannelService().addChannelMember(channelId, userId, role);
+}
 
-  const memberRef = doc(db, 'channels', channelId, 'members', creatorId);
-  batch.set(memberRef, {
-    userId: creatorId,
-    role: 'admin',
-    joinedAt: serverTimestamp(),
-    lastRead: serverTimestamp(),
-    notifications: true
-  });
+export async function removeChannelMember(channelId: string, userId: string): Promise<void> {
+  await sharedGetChannelService().removeChannelMember(channelId, userId);
+}
 
-  await batch.commit();
-  return channelId;
-};
+export async function getChannelMembers(channelId: string): Promise<any[]> {
+  return sharedGetChannelService().getChannelMembers(channelId);
+}
 
-export const getChannel = async (channelId: string): Promise<Channel | null> => {
-  const channelRef = doc(db, 'channels', channelId);
-  const channelSnap = await getDoc(channelRef);
+export function subscribeToChannels(category: string | null, callback: (channels: any[]) => void): () => void {
+  return (sharedGetChannelService() as any).subscribeToChannels(category, callback);
+}
 
-  if (channelSnap.exists()) {
-    return {
-      id: channelSnap.id,
-      ...channelSnap.data()
-    } as Channel;
-  }
+export function subscribeToChannel(channelId: string, callback: (channel: any) => void): () => void {
+  return sharedGetChannelService().subscribeToChannel(channelId, callback);
+}
 
-  return null;
-};
-
-export const getUserChannels = async (userId: string): Promise<ChannelWithMemberInfo[]> => {
-  const channelsSnapshot = await getDocs(collection(db, 'channels'));
-  const userChannels: ChannelWithMemberInfo[] = [];
-
-  for (const channelDoc of channelsSnapshot.docs) {
-    const memberRef = doc(db, 'channels', channelDoc.id, 'members', userId);
-    const memberSnap = await getDoc(memberRef);
-
-    if (memberSnap.exists()) {
-      userChannels.push({
-        id: channelDoc.id,
-        ...channelDoc.data() as Omit<Channel, 'id'>,
-        memberInfo: memberSnap.data() as ChannelMember
-      });
-    }
-  }
-
-  return userChannels.sort((a, b) => {
-    if (!a.lastMessageAt) return 1;
-    if (!b.lastMessageAt) return -1;
-    return b.lastMessageAt.toMillis() - a.lastMessageAt.toMillis();
-  });
-};
-
-export const updateChannel = async (
-  channelId: string,
-  updates: Partial<Omit<Channel, 'id' | 'createdAt' | 'createdBy'>>
-): Promise<void> => {
-  const channelRef = doc(db, 'channels', channelId);
-  await updateDoc(channelRef, updates);
-};
-
-export const deleteChannel = async (channelId: string): Promise<void> => {
-  const channelRef = doc(db, 'channels', channelId);
-
-  await deleteDoc(channelRef);
-};
-
-export const joinChannel = async (
-  channelId: string,
-  userId: string
-): Promise<void> => {
-  const batch = writeBatch(db);
-
-  const memberRef = doc(db, 'channels', channelId, 'members', userId);
-  batch.set(memberRef, {
-    userId,
-    role: 'member',
-    joinedAt: serverTimestamp(),
-    lastRead: serverTimestamp(),
-    notifications: true
-  });
-
-  const channelRef = doc(db, 'channels', channelId);
-  batch.update(channelRef, {
-    memberCount: increment(1)
-  });
-
-  await batch.commit();
-};
-
-export const leaveChannel = async (
-  channelId: string,
-  userId: string
-): Promise<void> => {
-  const batch = writeBatch(db);
-
-  const memberRef = doc(db, 'channels', channelId, 'members', userId);
-  batch.delete(memberRef);
-
-  const channelRef = doc(db, 'channels', channelId);
-  batch.update(channelRef, {
-    memberCount: increment(-1)
-  });
-
-  await batch.commit();
-};
-
-export const getChannelMembers = async (channelId: string): Promise<ChannelMember[]> => {
-  const membersSnapshot = await getDocs(
-    collection(db, 'channels', channelId, 'members')
-  );
-
-  return membersSnapshot.docs.map(doc => doc.data() as ChannelMember);
-};
-
-export const updateMemberRole = async (
-  channelId: string,
-  userId: string,
-  newRole: 'member' | 'moderator' | 'admin'
-): Promise<void> => {
-  const memberRef = doc(db, 'channels', channelId, 'members', userId);
-  await updateDoc(memberRef, { role: newRole });
-};
-
-export const subscribeToUserChannels = (
-  userId: string,
-  callback: (channels: ChannelWithMemberInfo[]) => void
-): Unsubscribe => {
-  const q = query(
-    collection(db, 'channels'),
-    orderBy('lastMessageAt', 'desc')
-  );
-
-  return onSnapshot(q, async (snapshot) => {
-    const channels = await Promise.all(snapshot.docs.map(async (channelDoc) => {
-      const memberRef = doc(db, 'channels', channelDoc.id, 'members', userId);
-      const memberSnap = await getDoc(memberRef);
-
-      if (memberSnap.exists()) {
-        return {
-          id: channelDoc.id,
-          ...channelDoc.data() as Omit<Channel, 'id'>,
-          memberCount: (channelDoc.data().memberIds as string[])?.length ?? channelDoc.data().memberCount ?? 0,
-          memberInfo: memberSnap.data() as ChannelMember
-        };
-      }
-      return null;
-    }));
-
-    callback(channels.filter(c => c !== null) as ChannelWithMemberInfo[]);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('UserChannels Snapshot error:', error);
-    }
-  });
-};
-
-export const subscribeToChannel = (
-  channelId: string,
-  callback: (channel: Channel | null) => void
-): Unsubscribe => {
-  const channelRef = doc(db, 'channels', channelId);
-
-  return onSnapshot(channelRef, (snapshot) => {
-    if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() } as Channel);
-    } else {
-      callback(null);
-    }
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('ChannelDoc Snapshot error:', error);
-    }
-  });
-};
+export function subscribeToChannelMembers(channelId: string, callback: (members: any[]) => void): () => void {
+  return sharedGetChannelService().subscribeToChannelMembers(channelId, callback);
+}
