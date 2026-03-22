@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { View, Pressable, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
 import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { FloatingHeart } from './FloatingHeart';
 import { spacing, typography } from '@/constants/styles';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useTheme } from '@/contexts/ThemeContext';
+import { LazyImage } from './LazyImage';
 import type { Post } from '@/types';
 
 interface PostCardProps {
@@ -15,18 +17,18 @@ interface PostCardProps {
   onSave?: () => void;
 }
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string, t: (key: string) => string): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Ahora';
+  if (isNaN(date.getTime())) return t('common.now') || 'Ahora';
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return 'Ahora';
+  if (minutes < 1) return t('common.now') || 'Ahora';
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   if (days < 30) return `${days}d`;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function getVideoThumbnail(url: string | null | undefined): string | null {
@@ -39,11 +41,15 @@ function getVideoThumbnail(url: string | null | undefined): string | null {
   } catch { return null; }
 }
 
-export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: PostCardProps) {
+export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId, onSave }: PostCardProps) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
-  const videoThumbnail = hasVideo ? getVideoThumbnail(post.mediaUrl) : null;
+
+  const videoThumbnail = React.useMemo(() => hasVideo ? getVideoThumbnail(post.mediaUrl) : null, [hasVideo, post.mediaUrl]);
+  const timeAgo = React.useMemo(() => getTimeAgo(post.createdAt, t), [post.createdAt, t]);
+
   const hasSong = !!post.song;
   const isLiked = !!(currentUserId && post.likes?.includes(currentUserId));
   const isSaved = !!(currentUserId && post.savedBy?.includes(currentUserId));
@@ -52,13 +58,16 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: 
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hearts, setHearts] = useState<Array<{ id: number; x: number; y: number }>>([]);
 
-  const addHeart = (x: number, y: number) => {
+  const addHeart = React.useCallback((x: number, y: number) => {
     const id = Date.now();
     setHearts((prev) => [...prev, { id, x, y }]);
-  };
-  const removeHeart = (id: number) => setHearts((prev) => prev.filter((h) => h.id !== id));
+  }, []);
 
-  const handlePress = (x: number, y: number) => {
+  const removeHeart = React.useCallback((id: number) => {
+    setHearts((prev) => prev.filter((h) => h.id !== id));
+  }, []);
+
+  const handlePress = React.useCallback((x: number, y: number) => {
     const now = Date.now();
     if (now - lastTapRef.current < 280) {
       if (tapTimerRef.current) {
@@ -73,7 +82,7 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: 
       }, 280);
     }
     lastTapRef.current = now;
-  };
+  }, [isLiked, onDoubleTap, onPress, addHeart]);
 
   return (
     <Pressable
@@ -82,29 +91,28 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: 
     >
       <View style={styles.row}>
         <View style={styles.main}>
-          <View style={styles.authorRow}>
-            {post.authorPhoto ? (
-              <Image source={{ uri: post.authorPhoto }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
-                <ThemedText style={styles.avatarInitial}>
-                  {post.authorName.charAt(0).toUpperCase()}
-                </ThemedText>
-              </View>
-            )}
+          <View style={styles.authorRow} pointerEvents="none">
+            <LazyImage
+              source={post.authorPhoto ? { uri: post.authorPhoto } : undefined}
+              style={styles.avatar}
+              placeholderColor={colors.primary}
+              showLoader={false}
+            />
             <View style={styles.authorMeta}>
               <ThemedText style={[styles.authorName, { color: colors.text }]}>{post.authorName}</ThemedText>
-              <ThemedText style={[styles.timeAgo, { color: colors.textSecondary }]}>{getTimeAgo(post.createdAt)}</ThemedText>
+              <ThemedText style={[styles.timeAgo, { color: colors.textSecondary }]}>{timeAgo}</ThemedText>
             </View>
           </View>
 
-          <ThemedText style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-            {post.title}
-          </ThemedText>
+          <View pointerEvents="none">
+            <ThemedText style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+              {post.title}
+            </ThemedText>
 
-          <ThemedText style={[styles.content, { color: colors.textSecondary }]} numberOfLines={2}>
-            {post.content}
-          </ThemedText>
+            <ThemedText style={[styles.content, { color: colors.textSecondary }]} numberOfLines={2}>
+              {post.content}
+            </ThemedText>
+          </View>
 
           <View style={styles.footer}>
             <View style={styles.stat}>
@@ -145,12 +153,23 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: 
         </View>
 
         {hasImage && (
-          <Image source={{ uri: post.mediaUrl! }} style={styles.thumbnail} resizeMode="cover" />
+          <View pointerEvents="none">
+            <LazyImage
+              source={{ uri: post.mediaUrl! }}
+              containerStyle={styles.thumbnail}
+              style={styles.thumbnail}
+              resizeMode="cover"
+            />
+          </View>
         )}
         {hasVideo && (
-          <View style={[styles.thumbnail, styles.videoThumb, { backgroundColor: colors.backgroundSecondary }]}>
+          <View style={[styles.thumbnail, styles.videoThumb, { backgroundColor: colors.backgroundSecondary }]} pointerEvents="none">
             {videoThumbnail ? (
-              <Image source={{ uri: videoThumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              <LazyImage
+                source={{ uri: videoThumbnail }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
             ) : null}
             <View style={styles.videoOverlay}>
               <Video size={18} color="#fff" strokeWidth={2} />
@@ -164,7 +183,14 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave }: 
       ))}
     </Pressable>
   );
-}
+}, (prev, next) => {
+  return prev.post.id === next.post.id &&
+    prev.post.likesCount === next.post.likesCount &&
+    prev.post.commentsCount === next.post.commentsCount &&
+    prev.post.viewsCount === next.post.viewsCount &&
+    prev.post.likes?.length === next.post.likes?.length &&
+    prev.post.savedBy?.length === next.post.savedBy?.length;
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -185,8 +211,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   avatar: { width: 36, height: 36, borderRadius: 18 },
-  avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  avatarInitial: { color: '#FFFFFF', fontSize: typography.sizes.sm, fontWeight: 'bold' },
   authorMeta: { marginLeft: spacing.sm },
   authorName: { fontSize: typography.sizes.sm, fontWeight: '600' },
   timeAgo: { fontSize: typography.sizes.xs, marginTop: 1 },

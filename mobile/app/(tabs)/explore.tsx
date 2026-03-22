@@ -10,26 +10,32 @@ import { ThemedText } from '@/components/themed-text';
 import { NotificationBell } from '@/components/NotificationBell';
 import { spacing, typography } from '@/constants/styles';
 import { allowedEventTypes } from '@/utils/permissions';
+import { useTranslation } from '@/hooks/useTranslation';
 
 import { AnnouncementsTab } from '@/components/explore/AnnouncementsTab';
 import { CalendarTab } from '@/components/explore/CalendarTab';
 import { GroupsTab } from '@/components/explore/GroupsTab';
 
-const SUBTABS = ['Tablón', 'Calendario', 'Grupos'] as const;
-type Subtab = typeof SUBTABS[number];
-
 export default function CampusScreen() {
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
   const { can, role, subrole } = useCurrentUser();
   const { revealHighlight, tab, highlightDay } = useLocalSearchParams<{ revealHighlight: string; tab: string; highlightDay: string }>();
-  const [activeTab, setActiveTab] = useState<Subtab>('Tablón');
+
+  const SUBTABS = [
+    { id: 'bulletin', label: t('common.bulletin_board') || 'Tablón' },
+    { id: 'calendar', label: t('common.calendar') || 'Calendario' },
+    { id: 'groups', label: t('common.groups') || 'Grupos' }
+  ] as const;
+
+  const [activeTab, setActiveTab] = useState<typeof SUBTABS[number]['id']>('bulletin');
 
   useEffect(() => {
-    if (revealHighlight) setActiveTab('Tablón');
+    if (revealHighlight) setActiveTab('bulletin');
   }, [revealHighlight]);
 
   useEffect(() => {
-    if (tab === 'Calendario') setActiveTab('Calendario');
+    if (tab === 'Calendario' || tab === 'calendar') setActiveTab('calendar');
   }, [tab]);
 
   const eventTypes = allowedEventTypes(role, subrole);
@@ -39,33 +45,33 @@ export default function CampusScreen() {
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Campus</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('common.campus') || 'Campus'}</ThemedText>
         <NotificationBell category="campus" />
       </View>
 
       <View style={[styles.subtabBar, { borderBottomColor: colors.border + '33', backgroundColor: colors.background }]}>
-        {SUBTABS.map(tab => (
+        {SUBTABS.map(item => (
           <TouchableOpacity
-            key={tab}
+            key={item.id}
             style={styles.subtab}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => setActiveTab(item.id)}
             activeOpacity={0.7}
           >
             <View style={styles.subtabInner}>
-              {tab === 'Tablón' && <Pin size={16} color={activeTab === tab ? colors.primary : colors.textSecondary} strokeWidth={activeTab === tab ? 2.5 : 2} />}
-              {tab === 'Calendario' && <CalendarDays size={16} color={activeTab === tab ? colors.primary : colors.textSecondary} strokeWidth={activeTab === tab ? 2.5 : 2} />}
-              {tab === 'Grupos' && <Users size={16} color={activeTab === tab ? colors.primary : colors.textSecondary} strokeWidth={activeTab === tab ? 2.5 : 2} />}
+              {item.id === 'bulletin' && <Pin size={16} color={activeTab === item.id ? colors.primary : colors.textSecondary} strokeWidth={activeTab === item.id ? 2.5 : 2} />}
+              {item.id === 'calendar' && <CalendarDays size={16} color={activeTab === item.id ? colors.primary : colors.textSecondary} strokeWidth={activeTab === item.id ? 2.5 : 2} />}
+              {item.id === 'groups' && <Users size={16} color={activeTab === item.id ? colors.primary : colors.textSecondary} strokeWidth={activeTab === item.id ? 2.5 : 2} />}
               <ThemedText style={[
                 styles.subtabText,
                 {
-                  color: activeTab === tab ? colors.primary : colors.textSecondary,
-                  fontWeight: activeTab === tab ? '700' : '600'
+                  color: activeTab === item.id ? colors.primary : colors.textSecondary,
+                  fontWeight: activeTab === item.id ? '700' : '600'
                 }
               ]}>
-                {tab}
+                {item.label}
               </ThemedText>
             </View>
-            {activeTab === tab && (
+            {activeTab === item.id && (
               <Animated.View
                 style={[styles.subtabUnderline, { backgroundColor: colors.primary }]}
               />
@@ -74,13 +80,13 @@ export default function CampusScreen() {
         ))}
       </View>
 
-      <View style={{ flex: 1, display: activeTab === 'Tablón' ? 'flex' : 'none' }}>
+      <View style={{ flex: 1, display: activeTab === 'bulletin' ? 'flex' : 'none' }}>
         <AnnouncementsTab canCreateAnnouncement={can('createAnnouncement')} highlightId={revealHighlight} />
       </View>
-      <View style={{ flex: 1, display: activeTab === 'Calendario' ? 'flex' : 'none' }}>
+      <View style={{ flex: 1, display: activeTab === 'calendar' ? 'flex' : 'none' }}>
         <CalendarTab eventTypes={eventTypes} highlightDay={highlightDay} />
       </View>
-      <View style={{ flex: 1, display: activeTab === 'Grupos' ? 'flex' : 'none' }}>
+      <View style={{ flex: 1, display: activeTab === 'groups' ? 'flex' : 'none' }}>
         <GroupsTab canCreate={can('createStudyGroup')} />
       </View>
     </SafeAreaView>

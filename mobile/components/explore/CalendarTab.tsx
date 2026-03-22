@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCurrentUser } from '../../contexts/UserContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useCalendarEvents } from '../../hooks/explore/useCalendarEvents';
 import { ThemedText } from '../themed-text';
 import { MiniDatePicker } from '../MiniDatePicker';
@@ -17,12 +18,12 @@ import type { CalendarEventType, CalendarEvent } from '../../types';
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAY_NAMES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
-const EVENT_TYPE_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam: { label: 'Examen', color: '#FF3B30' },
-  deadline: { label: 'Entrega', color: '#FF9500' },
-  holiday: { label: 'Festivo', color: '#34C759' },
-  event: { label: 'Evento', color: '#007AFF' },
-  class: { label: 'Clase', color: '#AF52DE' },
+const EVENT_TYPE_CONFIG: Record<CalendarEventType, { labelKey: string; color: string }> = {
+  exam: { labelKey: 'explore.calendar.event_types.exam', color: '#FF3B30' },
+  deadline: { labelKey: 'explore.calendar.event_types.deadline', color: '#FF9500' },
+  holiday: { labelKey: 'explore.calendar.event_types.holiday', color: '#34C759' },
+  event: { labelKey: 'explore.calendar.event_types.event', color: '#007AFF' },
+  class: { labelKey: 'explore.calendar.event_types.class', color: '#AF52DE' },
 };
 
 function getDaysInMonth(year: number, month: number) {
@@ -48,12 +49,16 @@ interface CalendarTabProps {
 
 export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const currentUser = auth.currentUser;
   const { userData, subrole } = useCurrentUser();
+
+  const MONTH_NAMES = (t('explore.calendar.months', { returnObjects: true }) as unknown) as string[] || ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const DAY_NAMES = (t('explore.calendar.days_short', { returnObjects: true }) as unknown) as string[] || ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   const [today, setToday] = useState(new Date());
 
-  const { allEvents, saveEvent, deleteEvent } = useCalendarEvents();
+  const { allEvents, saveEvent, deleteEvent, publishEventToChannel } = useCalendarEvents();
 
   const userDepartment = userData?.department ?? null;
 
@@ -196,8 +201,8 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
         </View>
 
         <View style={[styles.calGrid, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {DAY_NAMES.map(d => (
-            <ThemedText key={d} style={[styles.calDayName, { color: colors.textSecondary }]}>{d}</ThemedText>
+          {DAY_NAMES.map((d, i) => (
+            <ThemedText key={i} style={[styles.calDayName, { color: colors.textSecondary }]}>{d}</ThemedText>
           ))}
           {calCells.map((day, i) => {
             if (!day) return <View key={`e_${i}`} style={styles.calCell} />;
@@ -207,7 +212,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
             const hasEvent = eventDays.has(day);
             return (
               <TouchableOpacity
-                key={day}
+                key={`d_${i}`}
                 style={[
                   styles.calCell,
                   isSelected && { backgroundColor: colors.primary },
@@ -235,33 +240,36 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
           <TouchableOpacity style={[styles.createBtn, { backgroundColor: colors.primary }]} onPress={openCreate}>
             <Plus size={18} color="#fff" strokeWidth={2.5} />
             <ThemedText style={styles.createBtnText}>
-              {subrole === 'delegate' && userDepartment ? `Evento para ${userDepartment}` : 'Añadir evento'}
+              {subrole === 'delegate' && userDepartment ? `${t('explore.calendar.event_for') || 'Evento para'} ${userDepartment}` : (t('explore.calendar.add_event') || 'Añadir evento')}
             </ThemedText>
           </TouchableOpacity>
         )}
 
         <ThemedText style={[styles.calSectionTitle, { color: colors.textSecondary }]}>
-          {selectedDate ? `Eventos del día ${selectedDate}` : 'Próximos eventos'}
+          {selectedDate ? `${t('explore.calendar.day_events') || 'Eventos del día'} ${selectedDate}` : (t('explore.calendar.upcoming_events') || 'Próximos eventos')}
         </ThemedText>
 
         {selectedEvents.length === 0 ? (
-          <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>Sin eventos</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>{t('explore.calendar.no_events') || 'Sin eventos'}</ThemedText>
         ) : (
           selectedEvents.map((ev: CalendarEvent) => {
             const cfg = EVENT_TYPE_CONFIG[ev.type];
             const isAuthor = currentUser?.uid === ev.authorId;
+            const isAdminOrCoord = userData?.role === 'admin' || userData?.subrole === 'coordinator';
+            const canManage = isAuthor || isAdminOrCoord;
+
             return (
               <TouchableOpacity
                 key={ev.id}
                 style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: cfg.color }]}
-                onPress={isAuthor ? () => handleEditEvent(ev) : undefined}
+                onPress={canManage ? () => handleEditEvent(ev) : undefined}
                 activeOpacity={0.7}
               >
                 <View style={styles.eventCardTop}>
                   <View style={styles.eventCardTopLeft}>
                     <View style={[styles.eventTypeBadge, { backgroundColor: cfg.color + '20' }]}>
                       <EventTypeIcon type={ev.type} />
-                      <ThemedText style={[styles.eventTypeBadgeText, { color: cfg.color }]}>{cfg.label}</ThemedText>
+                      <ThemedText style={[styles.eventTypeBadgeText, { color: cfg.color }]}>{t(cfg.labelKey)}</ThemedText>
                     </View>
                     {ev.departmentId && (
                       <View style={[styles.deptBadge, { backgroundColor: colors.backgroundSecondary }]}>
@@ -269,16 +277,36 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                         <ThemedText style={[styles.deptBadgeText, { color: colors.textSecondary }]}>{ev.departmentId}</ThemedText>
                       </View>
                     )}
+                    {ev.publishedInChannel && (
+                      <View style={[styles.deptBadge, { backgroundColor: '#FF3B3015' }]}>
+                        <Megaphone size={10} color="#FF3B30" strokeWidth={2} />
+                        <ThemedText style={[styles.deptBadgeText, { color: '#FF3B30' }]}>
+                          {t('explore.calendar.notified') || 'AVISADO'}
+                        </ThemedText>
+                      </View>
+                    )}
                   </View>
                   <View style={styles.eventCardActions}>
-                    {isAuthor && (
-                      <TouchableOpacity onPress={() => deleteEvent(ev.id)} style={styles.eventDeleteBtn}>
-                        <Trash2 size={16} color={colors.textSecondary} />
-                      </TouchableOpacity>
+                    {canManage && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {!ev.publishedInChannel && (
+                          <TouchableOpacity onPress={() => publishEventToChannel(ev)} style={styles.eventDeleteBtn}>
+                            <Megaphone size={16} color={colors.primary} />
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity onPress={() => deleteEvent(ev.id)} style={styles.eventDeleteBtn}>
+                          <Trash2 size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
                     )}
                     <View style={styles.eventDateBlock}>
                       <ThemedText style={[styles.eventDate, { color: colors.textSecondary }]}>
-                        {new Date(ev.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        {(() => {
+                          const tag = t('common.locale_code');
+                          // Evitar RangeError si i18n devuelve el nombre de la clave
+                          const safeTag = (tag && tag.includes('-')) ? tag : 'es-ES';
+                          return new Date(ev.date).toLocaleDateString(safeTag, { day: 'numeric', month: 'short' });
+                        })()}
                       </ThemedText>
                       {ev.time && (
                         <ThemedText style={[styles.eventTime, { color: colors.textSecondary }]}>{ev.time}</ThemedText>
@@ -296,7 +324,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                     onPress={() => router.push(`/announcement/${ev.linkedAnnouncementId}` as never)}
                   >
                     <Megaphone size={12} color={colors.primary} strokeWidth={2} />
-                    <ThemedText style={[styles.announcementLinkText, { color: colors.primary }]}>Ver anuncio relacionado</ThemedText>
+                    <ThemedText style={[styles.announcementLinkText, { color: colors.primary }]}>{t('explore.calendar.related_announcement') || 'Ver anuncio relacionado'}</ThemedText>
                     <ChevronRight size={12} color={colors.primary} strokeWidth={2} />
                   </TouchableOpacity>
                 )}
@@ -315,11 +343,11 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                   <X size={20} color={colors.textSecondary} strokeWidth={2} />
                 </TouchableOpacity>
                 <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-                  {editingEventId ? 'Editar evento' : 'Nuevo evento'}
+                  {editingEventId ? (t('explore.calendar.edit_event') || 'Editar evento') : (t('explore.calendar.new_event') || 'Nuevo evento')}
                 </ThemedText>
                 <TouchableOpacity onPress={handleSave} disabled={!form.title.trim()} style={[styles.modalHeaderAction, !form.title.trim() && { opacity: 0.5 }]}>
                   <ThemedText style={[styles.modalActionText, { color: colors.primary }]}>
-                    {editingEventId ? 'Guardar' : 'Crear'}
+                    {editingEventId ? (t('common.save') || 'Guardar') : (t('common.create') || 'Crear')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -329,7 +357,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                   <View style={[styles.inputGroup, { backgroundColor: colors.backgroundSecondary, borderRadius: 16, padding: spacing.sm }]}>
                     <TextInput
                       style={[styles.premiumTitleInput, { color: colors.text }]}
-                      placeholder="Nombre del evento..."
+                      placeholder={t('explore.calendar.placeholders.title') || 'Nombre del evento...'}
                       placeholderTextColor={colors.textSecondary}
                       value={form.title}
                       onChangeText={t => setForm(f => ({ ...f, title: t }))}
@@ -338,7 +366,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                     <View style={[styles.inputDivider, { backgroundColor: colors.border }]} />
                     <TextInput
                       style={[styles.premiumDescInput, { color: colors.text }]}
-                      placeholder="Notas adicionales (opcional)"
+                      placeholder={t('explore.calendar.placeholders.desc') || 'Notas adicionales (opcional)'}
                       placeholderTextColor={colors.textSecondary}
                       value={form.description}
                       onChangeText={t => setForm(f => ({ ...f, description: t }))}
@@ -349,38 +377,38 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                 </View>
 
                 <View style={styles.formSection}>
-                  <ThemedText style={[styles.premiumLabel, { color: colors.textSecondary }]}>Fecha y hora</ThemedText>
+                  <ThemedText style={[styles.premiumLabel, { color: colors.textSecondary }]}>{t('explore.calendar.date_time') || 'Fecha y hora'}</ThemedText>
                   <View style={styles.dateTimeRow}>
                     <View style={{ flex: 1 }}>
-                      <MiniDatePicker value={formDate} onChange={setFormDate} label="Fecha" />
+                      <MiniDatePicker value={formDate} onChange={setFormDate} label={t('explore.calendar.date') || 'Fecha'} />
                     </View>
-                    <TimePicker value={formTime} onChange={setFormTime} label="Hora" />
+                    <TimePicker value={formTime} onChange={setFormTime} label={t('explore.calendar.time') || 'Hora'} />
                   </View>
 
                   {subrole === 'delegate' && userDepartment && (
                     <View style={[styles.deptInfo, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
                       <Users size={14} color={colors.primary} strokeWidth={2} />
                       <ThemedText style={[styles.deptInfoText, { color: colors.primary }]}>
-                        Visible para: {userDepartment}
+                        {t('explore.calendar.visible_for') || 'Visible para'}: {userDepartment}
                       </ThemedText>
                     </View>
                   )}
 
                   <View style={styles.typeGrid}>
-                    {eventTypes.map(t => {
-                      const cfg = EVENT_TYPE_CONFIG[t];
-                      const active = form.type === t;
+                    {eventTypes.map(t_id => {
+                      const cfg = EVENT_TYPE_CONFIG[t_id];
+                      const active = form.type === t_id;
                       return (
                         <TouchableOpacity
-                          key={t}
+                          key={t_id}
                           style={[
                             styles.premiumTypeChip,
                             { backgroundColor: active ? cfg.color : colors.backgroundSecondary, borderColor: active ? cfg.color : colors.border }
                           ]}
-                          onPress={() => setForm(f => ({ ...f, type: t }))}
+                          onPress={() => setForm(f => ({ ...f, type: t_id }))}
                         >
-                          <EventTypeIcon type={t} size={14} color={active ? '#fff' : cfg.color} />
-                          <ThemedText style={[styles.premiumTypeLabel, { color: active ? '#fff' : colors.text }]}>{cfg.label}</ThemedText>
+                          <EventTypeIcon type={t_id} size={14} color={active ? '#fff' : cfg.color} />
+                          <ThemedText style={[styles.premiumTypeLabel, { color: active ? '#fff' : colors.text }]}>{t(cfg.labelKey)}</ThemedText>
                         </TouchableOpacity>
                       );
                     })}

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, TouchableOpacity, Modal, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, FlatList, TouchableOpacity, Modal, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, X, Pin, ImagePlus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -13,7 +13,7 @@ import { uploadAnnouncementImage } from '../../config/cloudinary';
 import { ImagePanPicker } from '../ImagePanPicker';
 import { router } from 'expo-router';
 import { auth } from '../../config/firebase';
-import { StyleSheet } from 'react-native';
+import { useTranslation } from '../../hooks/useTranslation';
 
 type PinDuration = 'permanent' | '1d' | '3d' | '1w' | '1m';
 
@@ -22,11 +22,24 @@ interface AnnouncementsTabProps {
   highlightId?: string | null;
 }
 
+interface FormState {
+  title: string;
+  content: string;
+  pinned: boolean;
+  pinnedUntil: PinDuration;
+  category: string;
+  imageUrl: string | null;
+  imageLocalUri: string | null;
+  imageOffsetY: number;
+}
+
 export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: AnnouncementsTabProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const currentUser = auth.currentUser;
-  const { announcements, loading, createAnnouncement, updateAnnouncement, togglePin, deleteAnnouncement, publishAsSocialPost } = useAnnouncements();
-  const listRef = React.useRef<FlatList>(null);
+  const { announcements, loading, loadingMore, hasMore, loadMore, createAnnouncement, updateAnnouncement, togglePin, deleteAnnouncement, publishAsSocialPost } = useAnnouncements();
+  const listRef = useRef<FlatList>(null);
   const [localHighlight, setLocalHighlight] = useState<string | null>(highlightId || null);
 
   useEffect(() => {
@@ -141,7 +154,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
           }}
         >
           <Plus size={18} color="#fff" strokeWidth={2.5} />
-          <ThemedText style={styles.createBtnText}>Nuevo anuncio</ThemedText>
+          <ThemedText style={styles.createBtnText}>{t('explore.new_announcement') || 'Nuevo anuncio'}</ThemedText>
         </TouchableOpacity>
       )}
       <FlatList
@@ -154,37 +167,48 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
             post={item}
             highlighted={item.id === localHighlight}
             onPress={() => router.push(`/announcement/${item.id}` as never)}
-            onEdit={currentUser?.uid === item.authorId ? () => handleEdit(item) : undefined}
-            onPin={currentUser?.uid === item.authorId ? () => togglePin(item.id, !!item.pinned) : undefined}
-            onDelete={currentUser?.uid === item.authorId ? () => deleteAnnouncement(item.id) : undefined}
-            onPublishSocial={currentUser?.uid === item.authorId ? () => publishAsSocialPost(item) : undefined}
+            onEdit={(currentUser?.uid === item.authorId || canCreateAnnouncement) ? () => handleEdit(item) : undefined}
+            onPin={(currentUser?.uid === item.authorId || canCreateAnnouncement) ? () => togglePin(item.id, !!item.pinned) : undefined}
+            onDelete={(currentUser?.uid === item.authorId || canCreateAnnouncement) ? () => deleteAnnouncement(item.id) : undefined}
+            onPublishSocial={(currentUser?.uid === item.authorId || canCreateAnnouncement) ? () => publishAsSocialPost(item) : undefined}
           />
         )}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 20 }} color={colors.primary} /> : null}
         contentContainerStyle={styles.listPad}
+        initialNumToRender={5}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
         ListEmptyComponent={
           !loading ? (
             <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {canCreateAnnouncement ? 'Crea el primer anuncio.' : 'No hay anuncios aún.'}
+              {canCreateAnnouncement
+                ? (t('explore.create_first') || 'Crea el primer anuncio.')
+                : (t('explore.no_announcements') || 'No hay anuncios aún.')}
             </ThemedText>
-          ) : null
+          ) : (
+            <ActivityIndicator style={{ marginTop: 50 }} color={colors.primary} />
+          )
         }
       />
 
-      <Modal visible={showCreate} animationType="slide" onRequestClose={closeModal}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]} edges={['top']}>
+      <Modal visible={showCreate} animationType="slide" onRequestClose={closeModal} statusBarTranslucent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? insets.top : 0 }}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <TouchableOpacity onPress={closeModal}>
                 <X size={22} color={colors.text} strokeWidth={2} />
               </TouchableOpacity>
               <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-                {editingPostId ? 'Editar anuncio' : 'Nuevo anuncio'}
+                {editingPostId ? (t('explore.edit_announcement') || 'Editar anuncio') : (t('explore.new_announcement') || 'Nuevo anuncio')}
               </ThemedText>
               <TouchableOpacity onPress={handleSave} disabled={!form.title.trim() || !form.content.trim() || uploadingImage}>
                 {uploadingImage
                   ? <ActivityIndicator size="small" color={colors.primary} />
                   : <ThemedText style={[styles.modalAction, { color: form.title.trim() && form.content.trim() ? colors.primary : colors.textSecondary }]}>
-                    {editingPostId ? 'Guardar' : 'Publicar'}
+                    {editingPostId ? (t('common.save') || 'Guardar') : (t('explore.publish') || 'Publicar')}
                   </ThemedText>
                 }
               </TouchableOpacity>
@@ -217,12 +241,12 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                 >
                   <ImagePlus size={22} color={colors.textSecondary} strokeWidth={1.5} />
                   <ThemedText style={[styles.imagePickerLabel, { color: colors.textSecondary }]}>
-                    Añadir imagen de portada (opcional)
+                    {t('explore.add_cover') || 'Añadir imagen de portada (opcional)'}
                   </ThemedText>
                 </TouchableOpacity>
               )}
 
-              <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>Categoría</ThemedText>
+              <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('explore.category') || 'Categoría'}</ThemedText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
                 {ANNOUNCEMENT_CATEGORIES.map(cat => (
                   <TouchableOpacity
@@ -237,7 +261,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                     onPress={() => setForm(f => ({ ...f, category: cat.id }))}
                   >
                     <ThemedText style={[styles.categoryChipText, { color: form.category === cat.id ? '#fff' : colors.text }]}>
-                      {cat.label}
+                      {t(`explore.categories.${cat.id}`) || cat.label}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
@@ -245,14 +269,14 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
 
               <TextInput
                 style={[styles.titleInput, { color: colors.text, borderBottomColor: colors.border }]}
-                placeholder="Título del anuncio"
+                placeholder={t('explore.title_placeholder') || 'Título del anuncio'}
                 placeholderTextColor={colors.textSecondary}
                 value={form.title}
                 onChangeText={t => setForm(f => ({ ...f, title: t }))}
               />
               <TextInput
                 style={[styles.contentInput, { color: colors.text }]}
-                placeholder="Escribe el contenido del anuncio..."
+                placeholder={t('explore.content_placeholder') || 'Escribe el contenido del anuncio...'}
                 placeholderTextColor={colors.textSecondary}
                 value={form.content}
                 onChangeText={t => setForm(f => ({ ...f, content: t }))}
@@ -263,7 +287,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
               <View style={[styles.formRow, { borderTopColor: colors.border }]}>
                 <View style={styles.formRowLeft}>
                   <Pin size={16} color={colors.text} strokeWidth={2} />
-                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>Fijar anuncio</ThemedText>
+                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Fijar anuncio'}</ThemedText>
                 </View>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: form.pinned ? colors.primary : colors.border }]}
@@ -285,14 +309,14 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                       onPress={() => setForm(f => ({ ...f, pinnedUntil: opt }))}
                     >
                       <ThemedText style={[styles.durationChipText, { color: form.pinnedUntil === opt ? colors.primary : colors.textSecondary }]}>
-                        {opt === '1d' ? '1 día' : opt === '3d' ? '3 días' : opt === '1w' ? '1 sem' : opt === '1m' ? '1 mes' : 'Siempre'}
+                        {t(`explore.pin_durations.${opt}`) || opt}
                       </ThemedText>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
             </ScrollView>
-          </SafeAreaView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -302,7 +326,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
 const styles = StyleSheet.create({
   createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, margin: spacing.md, marginBottom: 0, paddingVertical: spacing.sm + 2, borderRadius: 10 },
   createBtnText: { color: '#fff', fontWeight: '600', fontSize: typography.sizes.sm },
-  listPad: { padding: spacing.md, gap: spacing.sm },
+  listPad: { padding: spacing.md, paddingBottom: 100, gap: spacing.sm },
   emptyText: { textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizes.sm },
   modalSafe: { flex: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4, borderBottomWidth: StyleSheet.hairlineWidth },

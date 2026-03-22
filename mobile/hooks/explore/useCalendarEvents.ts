@@ -1,72 +1,96 @@
-import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
+import { useState, useEffect, useCallback } from 'react';
+import { eventsService, authService } from '../../services/shared';
+import { db } from '../../config/firebase';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { auth } from '../../config/firebase';
 import { notificationService } from '../../services/notificationService';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { CalendarEvent, CalendarEventType } from '../../types';
 import { Alert } from 'react-native';
 
 export function useCalendarEvents() {
   const currentUser = auth.currentUser;
+  const { t } = useTranslation();
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
 
+  // 1. Suscripción a eventos
   useEffect(() => {
-    const q = query(collection(db, 'events'), orderBy('startDate', 'asc'));
-    const unsubscribe = onSnapshot(q, snap => {
-      setAllEvents(snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          title: data.title ?? '',
-          description: data.description ?? '',
-          date: data.startDate instanceof Timestamp
-            ? data.startDate.toDate().toISOString()
-            : (data.startDate ? new Date(data.startDate).toISOString() : new Date().toISOString()),
-          endDate: data.endDate instanceof Timestamp
-            ? data.endDate.toDate().toISOString()
-            : null,
-          allDay: data.allDay ?? true,
-          time: data.time ?? null,
-          type: (data.category ?? data.type ?? 'event') as CalendarEventType,
-          authorId: data.creatorId ?? data.authorId ?? '',
-          authorName: data.authorName ?? '',
-          createdAt: data.createdAt instanceof Timestamp
-            ? data.createdAt.toDate().toISOString()
-            : new Date().toISOString(),
-          linkedAnnouncementId: data.linkedAnnouncementId ?? null,
-          departmentId: data.departmentId ?? null,
-        } as CalendarEvent;
-      }));
-    }, (error) => {
-      if (error.code !== 'permission-denied') {
-        console.error('CalendarEvents Snapshot error:', error);
-      }
+    const unsubscribe = eventsService.subscribeToEvents((newEvents: any[]) => {
+      const mappedEvents = newEvents.map(data => ({
+        id: data.id,
+        title: data.title ?? '',
+        description: data.description ?? '',
+        date: (data.startDate as any)?.toDate?.()?.toISOString() ?? (data.startDate ? new Date(data.startDate).toISOString() : new Date().toISOString()),
+        endDate: (data.endDate as any)?.toDate?.()?.toISOString() ?? null,
+        allDay: data.allDay ?? true,
+        time: data.time ?? null,
+        type: (data.category ?? data.type ?? 'event') as CalendarEventType,
+        authorId: data.creatorId ?? data.authorId ?? '',
+        authorName: data.authorName ?? '',
+        createdAt: (data.createdAt as any)?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+        linkedAnnouncementId: data.linkedAnnouncementId ?? null,
+        departmentId: data.departmentId ?? null,
+        publishedInChannel: data.publishedInChannel ?? false,
+      } as CalendarEvent));
+
+      setAllEvents(mappedEvents);
     });
 
-    return unsubscribe;
+    return typeof unsubscribe === 'function' ? unsubscribe : () => { };
   }, []);
+
+  // 2. Lógica de Resiliencia (Limpieza de estados huérfanos)
+  const runResilienceCheck = useCallback(async (events: CalendarEvent[]) => {
+    if (!currentUser?.uid || events.length === 0) return;
+
+    try {
+      const userDoc: any = await authService.getUserData(currentUser.uid);
+      const canPublish = userDoc?.role === 'admin' || userDoc?.subrole === 'coordinator' || userDoc?.subrole === 'delegate';
+
+      if (canPublish) {
+        for (const event of events) {
+          if (event.publishedInChannel) {
+            const q = query(
+              collection(db, 'channels', '3', 'messages'),
+              where('type', '==', 'event'),
+              where('metadata.eventId', '==', event.id)
+            );
+            const snap = await getDocs(q);
+            if (snap.empty) {
+              await updateDoc(doc(db, 'events', event.id), { publishedInChannel: false });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Resilience check error:', e);
+    }
+  }, [currentUser?.uid]);
+
+  // Ejecutar resiliencia cuando cambian los eventos o al montar
+  useEffect(() => {
+    if (allEvents.length > 0) {
+      runResilienceCheck(allEvents);
+    }
+  }, [allEvents.length, runResilienceCheck]);
 
   const saveEvent = async (event: any, editingId: string | null = null) => {
     if (!currentUser) return;
 
-    const data = { ...event, updatedAt: serverTimestamp() };
-
     if (editingId) {
-      await updateDoc(doc(db, 'events', editingId), data);
+      await eventsService.updateEvent(editingId, event);
     } else {
-      const docRef = await addDoc(collection(db, 'events'), {
-        ...data,
-        creatorId: currentUser.uid,
+      const eventId = await eventsService.createEvent({
+        ...event,
         authorName: currentUser.displayName ?? '',
         status: 'upcoming',
-        attendeesCount: 0,
-        createdAt: serverTimestamp(),
-      });
+      }, currentUser.uid);
 
       notificationService.addNotification(currentUser.uid, {
         category: 'campus',
         title: 'Nuevo evento creado',
         body: `Has creado ${event.title}.`,
-        meta: { eventId: docRef.id }
+        meta: { eventId }
       });
     }
   };
@@ -77,23 +101,25 @@ export function useCalendarEvents() {
   ): Promise<string | null> => {
     if (!currentUser) return null;
     try {
-      const docRef = await addDoc(collection(db, 'events'), {
+      const eventId = await eventsService.createEvent({
         title: eventData.title,
         description: '',
-        startDate: Timestamp.fromDate(eventData.date),
+        startDate: eventData.date,
         allDay: !eventData.time,
         time: eventData.time ?? null,
         category: eventData.type,
         linkedAnnouncementId: announcementId,
         departmentId: eventData.departmentId ?? null,
-        creatorId: currentUser.uid,
         authorName: currentUser.displayName ?? '',
         status: 'upcoming',
-        attendeesCount: 0,
-        createdAt: serverTimestamp(),
+      }, currentUser.uid);
+
+      import('firebase/firestore').then(async ({ doc, updateDoc }) => {
+        const { db } = await import('../../config/firebase');
+        await updateDoc(doc(db, 'posts', announcementId), { linkedEventId: eventId });
       });
-      await updateDoc(doc(db, 'posts', announcementId), { linkedEventId: docRef.id });
-      return docRef.id;
+
+      return eventId;
     } catch {
       return null;
     }
@@ -101,15 +127,70 @@ export function useCalendarEvents() {
 
   const deleteEvent = async (eventId: string) => {
     return new Promise<void>((resolve) => {
-      Alert.alert('Eliminar evento', '¿Seguro que quieres borrar este evento?', [
-        { text: 'Cancelar', style: 'cancel', onPress: () => resolve() },
-        {
-          text: 'Borrar', style: 'destructive', onPress: async () => {
-            await deleteDoc(doc(db, 'events', eventId));
-            resolve();
+      Alert.alert(
+        t('explore.calendar.delete_title') || 'Eliminar evento',
+        t('explore.calendar.delete_subtitle') || '¿Seguro que quieres borrar este evento?',
+        [
+          { text: t('common.cancel') || 'Cancelar', style: 'cancel', onPress: () => resolve() },
+          {
+            text: t('common.delete') || 'Borrar', style: 'destructive', onPress: async () => {
+              await eventsService.deleteEvent(eventId);
+              resolve();
+            }
+          },
+        ]);
+    });
+  };
+
+  const publishEventToChannel = async (event: CalendarEvent) => {
+    if (!currentUser) return;
+    return new Promise<void>((resolve) => {
+      Alert.alert(
+        t('explore.calendar.publish_title') || 'Publicar en Canal',
+        t('explore.calendar.publish_subtitle') || '¿Quieres anunciar este evento en el canal institucional?',
+        [
+          { text: t('common.cancel') || 'Cancelar', style: 'cancel', onPress: () => resolve() },
+          {
+            text: t('explore.calendar.publish_button') || 'Publicar',
+            onPress: async () => {
+              try {
+                const { db } = await import('../../config/firebase');
+                const { collection, addDoc, serverTimestamp, doc, updateDoc } = await import('firebase/firestore');
+
+                const msgText = t('explore.calendar.notify_template', {
+                  title: event.title,
+                  description: event.description || t('explore.calendar.no_desc'),
+                  date: new Date(event.date).toLocaleDateString(),
+                  time: event.time || t('explore.calendar.all_day')
+                });
+
+                await addDoc(collection(db, 'channels', '3', 'messages'), {
+                  text: msgText,
+                  senderId: currentUser.uid,
+                  senderName: currentUser.displayName || (t('roles.admin') || 'Administración'),
+                  senderPhoto: currentUser.photoURL || null,
+                  createdAt: serverTimestamp(),
+                  type: 'event',
+                  metadata: {
+                    eventId: event.id,
+                    eventDate: event.date,
+                    eventType: event.type
+                  }
+                });
+
+                await updateDoc(doc(db, 'events', event.id), {
+                  publishedInChannel: true
+                });
+
+                resolve();
+              } catch (error) {
+                console.error('Error publishing event:', error);
+                resolve();
+              }
+            }
           }
-        },
-      ]);
+        ]
+      );
     });
   };
 
@@ -118,5 +199,6 @@ export function useCalendarEvents() {
     saveEvent,
     createLinkedEvent,
     deleteEvent,
+    publishEventToChannel,
   };
 }

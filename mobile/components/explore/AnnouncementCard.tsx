@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, TouchableOpacity, Alert, StyleSheet, Image } from 'react-native';
+import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { imageOffsetStyle } from '../ImagePanPicker';
 import { MoreVertical, Pin, CalendarDays } from 'lucide-react-native';
+import { LazyImage } from '../LazyImage';
 import { ThemedText } from '../themed-text';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, typography } from '../../constants/styles';
 import { getCategoryConfig } from '../../constants/announcementCategories';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { Post } from '../../types';
 
 interface AnnouncementCardProps {
@@ -20,25 +22,28 @@ interface AnnouncementCardProps {
 
 function getDateLabel(iso: string) {
   const date = new Date(iso);
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function AnnouncementCard({
+export const AnnouncementCard = React.memo(({
   post, onPress, onEdit, onPin, onDelete, onPublishSocial, highlighted,
-}: AnnouncementCardProps) {
+}: AnnouncementCardProps) => {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const hasOptions = !!(onEdit || onPin || onDelete);
-  const category = getCategoryConfig(post.category);
+
+  const category = React.useMemo(() => getCategoryConfig(post.category), [post.category]);
+  const dateLabel = React.useMemo(() => getDateLabel(post.createdAt), [post.createdAt]);
 
   const handleOptions = (e: any) => {
     e.stopPropagation();
     const options: any[] = [];
-    if (onEdit) options.push({ text: 'Editar anuncio', onPress: onEdit });
-    if (onPin) options.push({ text: post.pinned ? 'Desfijar' : 'Fijar en el tablón', onPress: onPin });
-    if (onPublishSocial && !post.socialId) options.push({ text: 'Publicar como post', onPress: onPublishSocial });
-    if (onDelete) options.push({ text: 'Eliminar anuncio', style: 'destructive', onPress: onDelete });
-    options.push({ text: 'Cancelar', style: 'cancel' });
-    Alert.alert('Opciones', undefined, options);
+    if (onEdit) options.push({ text: t('explore.calendar.options.edit') || 'Editar anuncio', onPress: onEdit });
+    if (onPin) options.push({ text: post.pinned ? (t('explore.calendar.options.unpin') || 'Desfijar') : (t('explore.calendar.options.pin') || 'Fijar en el tablón'), onPress: onPin });
+    if (onPublishSocial && !post.socialId) options.push({ text: t('explore.publish_social') || 'Publicar como post', onPress: onPublishSocial });
+    if (onDelete) options.push({ text: t('explore.calendar.options.delete') || 'Eliminar anuncio', style: 'destructive', onPress: onDelete });
+    options.push({ text: t('common.cancel') || 'Cancelar', style: 'cancel' });
+    Alert.alert(t('common.options') || 'Opciones', undefined, options);
   };
 
   return (
@@ -53,7 +58,12 @@ export function AnnouncementCard({
     >
       {post.imageUrl ? (
         <View style={styles.headerImage}>
-          <Image source={{ uri: post.imageUrl }} style={imageOffsetStyle(post.imageOffsetY, 160)} resizeMode="cover" />
+          <LazyImage
+            source={{ uri: post.imageUrl }}
+            containerStyle={styles.headerImage}
+            style={imageOffsetStyle(post.imageOffsetY, 160)}
+            resizeMode="cover"
+          />
         </View>
       ) : (
         <View style={[styles.headerPlaceholder, { backgroundColor: category.color + '18' }]}>
@@ -65,7 +75,7 @@ export function AnnouncementCard({
         <View style={styles.topRow}>
           <View style={[styles.categoryChip, { backgroundColor: category.color + '18' }]}>
             <ThemedText style={[styles.categoryChipText, { color: category.color }]}>
-              {category.label.toUpperCase()}
+              {(t(`explore.categories.${category.id}`) || category.label).toUpperCase()}
             </ThemedText>
           </View>
           <View style={styles.topRowRight}>
@@ -93,7 +103,7 @@ export function AnnouncementCard({
 
         <View style={styles.footer}>
           <ThemedText style={[styles.date, { color: colors.textSecondary }]}>
-            {getDateLabel(post.createdAt)}
+            {dateLabel}
           </ThemedText>
           <ThemedText style={[styles.author, { color: colors.textSecondary }]}>
             {post.authorName}
@@ -102,7 +112,14 @@ export function AnnouncementCard({
       </View>
     </TouchableOpacity>
   );
-}
+}, (prev, next) => {
+  return prev.highlighted === next.highlighted &&
+    prev.post.id === next.post.id &&
+    prev.post.pinned === next.post.pinned &&
+    prev.post.title === next.post.title &&
+    prev.post.content === next.post.content &&
+    prev.post.imageUrl === next.post.imageUrl;
+});
 
 const styles = StyleSheet.create({
   card: {
