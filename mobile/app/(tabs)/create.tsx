@@ -5,6 +5,7 @@ import {
   ActivityIndicator, ScrollView, Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -23,6 +24,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { SongPicker } from '@/components/SongPicker';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { forumService } from '@/services/shared';
 import type { Post, JamendoTrack } from '@/types';
 
 const TITLE_MAX = 50;
@@ -31,6 +33,7 @@ type SubTab = 'descubrir' | 'publicar';
 
 export default function ExplorarScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const [subTab, setSubTab] = useState<SubTab>('descubrir');
@@ -95,31 +98,10 @@ export default function ExplorarScreen() {
 
   const handleLike = useCallback(async (postId: string) => {
     if (!user) return;
-    const postRef = doc(db, 'posts', postId);
-
     try {
-      await runTransaction(db, async (transaction) => {
-        const postDoc = await transaction.get(postRef);
-        if (!postDoc.exists()) return;
-
-        const data = postDoc.data();
-        const currentLikes = data.likes || [];
-        const hasLiked = currentLikes.includes(user.uid);
-
-        if (hasLiked) {
-          transaction.update(postRef, {
-            likes: arrayRemove(user.uid),
-            likesCount: increment(-1)
-          });
-        } else {
-          transaction.update(postRef, {
-            likes: arrayUnion(user.uid),
-            likesCount: increment(1)
-          });
-        }
-      });
+      await forumService.toggleLike(postId, user.uid);
     } catch (error) {
-      console.error('Like transaction failed:', error);
+      console.error('Like update failed:', error);
     }
   }, [user]);
 
@@ -136,7 +118,7 @@ export default function ExplorarScreen() {
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galería para subir archivos.');
+      Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para subir archivos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -150,11 +132,11 @@ export default function ExplorarScreen() {
     if (asset.type === 'video') {
       setMedia({ uri: asset.uri, type: 'video' });
       Alert.alert(
-        'Audio del vídeo',
-        '¿Quieres conservar el audio original del vídeo?',
+        t('explore.video_audio_title') || 'Audio del vídeo',
+        t('explore.video_audio_msg') || '¿Quieres conservar el audio original del vídeo?',
         [
-          { text: 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
-          { text: 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+          { text: t('explore.remove_audio') || 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: t('explore.keep_audio') || 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
         ]
       );
     } else {
@@ -203,7 +185,7 @@ export default function ExplorarScreen() {
       setSong(null);
       setSubTab('descubrir');
     } catch {
-      Alert.alert('Error', 'No se pudo publicar el post. Inténtalo de nuevo.');
+      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'No se pudo publicar el post. Inténtalo de nuevo.');
     } finally {
       setPublishing(false);
     }
@@ -212,9 +194,9 @@ export default function ExplorarScreen() {
   const canPublish = title.trim().length > 0 && !publishing;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Explorar</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.title') || 'Explorar'}</ThemedText>
         <NotificationBell category="social" />
       </View>
 
@@ -227,7 +209,7 @@ export default function ExplorarScreen() {
             activeOpacity={0.7}
           >
             <ThemedText style={[styles.tabLabel, { color: subTab === tab ? colors.primary : colors.textSecondary }]}>
-              {tab === 'descubrir' ? 'Descubrir' : 'Publicar'}
+              {tab === 'descubrir' ? (t('explore.discover') || 'Descubrir') : (t('explore.publish_tab') || 'Publicar')}
             </ThemedText>
           </TouchableOpacity>
         ))}
@@ -255,19 +237,22 @@ export default function ExplorarScreen() {
             ListEmptyComponent={
               <View style={styles.center}>
                 <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No hay publicaciones aún.
+                  {t('explore.no_posts') || 'No hay publicaciones aún.'}
                 </ThemedText>
               </View>
             }
           />
         )
       ) : (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <TextInput
                 style={[styles.titleInput, { color: colors.text }]}
-                placeholder="Título del post"
+                placeholder={t('explore.social_placeholders.post_title') || 'Título del post'}
                 placeholderTextColor={colors.textSecondary}
                 value={title}
                 onChangeText={(t) => setTitle(t.slice(0, TITLE_MAX))}
@@ -282,7 +267,7 @@ export default function ExplorarScreen() {
             <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: spacing.md }]}>
               <TextInput
                 style={[styles.contentInput, { color: colors.text }]}
-                placeholder="Escribe tu post aquí..."
+                placeholder={t('explore.social_placeholders.post_content') || 'Escribe tu post aquí...'}
                 placeholderTextColor={colors.textSecondary}
                 value={content}
                 onChangeText={(t) => setContent(t.slice(0, CONTENT_MAX))}
@@ -304,13 +289,13 @@ export default function ExplorarScreen() {
                   ) : (
                     <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                       <Ionicons name="videocam" size={32} color={colors.textSecondary} />
-                      <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>Vídeo seleccionado</ThemedText>
+                      <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>{t('explore.video_selected') || 'Vídeo seleccionado'}</ThemedText>
                       <TouchableOpacity
                         style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
                         onPress={() => setMuteOriginalAudio(prev => !prev)}
                       >
                         <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
-                        <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? 'Sin audio' : 'Con audio'}</ThemedText>
+                        <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Sin audio') : (t('explore.unmute') || 'Con audio')}</ThemedText>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -322,7 +307,7 @@ export default function ExplorarScreen() {
                 <View style={styles.mediaEmpty}>
                   <Ionicons name="images-outline" size={28} color={colors.textSecondary} />
                   <ThemedText style={[styles.mediaEmptyText, { color: colors.textSecondary }]}>
-                    Añadir foto o vídeo
+                    {t('explore.add_media') || 'Añadir foto o vídeo'}
                   </ThemedText>
                 </View>
               )}
@@ -354,7 +339,7 @@ export default function ExplorarScreen() {
                 ) : (
                   <View style={styles.songEmpty}>
                     <Ionicons name="musical-notes-outline" size={22} color={colors.textSecondary} />
-                    <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>Añadir canción</ThemedText>
+                    <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Añadir canción'}</ThemedText>
                   </View>
                 )}
               </TouchableOpacity>
@@ -373,7 +358,7 @@ export default function ExplorarScreen() {
               {publishing ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <ThemedText style={styles.publishButtonText}>Publicar</ThemedText>
+                <ThemedText style={styles.publishButtonText}>{t('explore.publish_btn') || 'Publicar'}</ThemedText>
               )}
             </TouchableOpacity>
           </View>
@@ -397,7 +382,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingTop: Platform.OS === 'android' ? spacing.md : spacing.xs,
+    paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: { fontSize: typography.sizes.xl, fontWeight: 'bold' },

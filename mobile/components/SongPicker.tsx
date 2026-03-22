@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { searchTracks } from '@/config/jamendo';
 import { ThemedText } from './themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
 import type { JamendoTrack } from '@/types';
 
@@ -26,6 +27,7 @@ interface SongPickerProps {
 
 export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [tracks, setTracks] = useState<JamendoTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,9 +102,9 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <ThemedText style={[styles.title, { color: colors.text }]}>Elegir canción</ThemedText>
+            <ThemedText style={[styles.title, { color: colors.text }]}>{t('post.song_picker.title') || 'Elegir canción'}</ThemedText>
             <TouchableOpacity onPress={handleClose}>
-              <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>Cerrar</ThemedText>
+              <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('post.song_picker.close') || 'Cerrar'}</ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -110,7 +112,7 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
             <Ionicons name="search" size={18} color={colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Buscar canción o artista..."
+              placeholder={t('post.song_picker.placeholder') || "Buscar canción o artista..."}
               placeholderTextColor={colors.textSecondary}
               value={query}
               onChangeText={setQuery}
@@ -174,7 +176,7 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
               }}
               ListEmptyComponent={
                 <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {query.trim() ? 'No se encontraron canciones' : 'Busca una canción para añadir a tu post'}
+                  {query.trim() ? (t('post.song_picker.no_results') || 'No se encontraron canciones') : (t('post.song_picker.empty') || 'Busca una canción para añadir a tu post')}
                 </ThemedText>
               }
             />
