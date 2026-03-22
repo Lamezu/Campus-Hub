@@ -14,6 +14,7 @@ type UserContextType = {
   isTeacherOrAdmin: boolean;
   isAdmin: boolean;
   can: (permission: Permission) => boolean;
+  updateLanguage: (lang: string) => Promise<void>;
   loading: boolean;
 };
 
@@ -25,6 +26,7 @@ const UserContext = createContext<UserContextType>({
   isTeacherOrAdmin: false,
   isAdmin: false,
   can: () => false,
+  updateLanguage: async () => { },
   loading: true,
 });
 
@@ -45,7 +47,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser?.uid) return;
     const unsubDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), snap => {
       if (snap.exists()) {
         const data = snap.data() as User;
@@ -79,6 +81,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [role, subrole]
   );
 
+  const updateLanguage = useCallback(async (lang: string) => {
+    if (!firebaseUser) return;
+    const { updateDoc } = await import('firebase/firestore');
+    await updateDoc(doc(db, 'users', firebaseUser.uid), {
+      language: lang,
+      updatedAt: serverTimestamp()
+    });
+  }, [firebaseUser?.uid]);
+
+
   return (
     <UserContext.Provider value={{
       firebaseUser,
@@ -88,6 +100,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       isTeacherOrAdmin: role === 'teacher' || role === 'admin',
       isAdmin: role === 'admin',
       can,
+      updateLanguage,
       loading,
     }}>
       {children}

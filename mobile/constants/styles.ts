@@ -12,6 +12,9 @@ export interface ChatTheme {
   textOwn: string;
   textOther: string;
   nameColor: string;
+  offsetX?: number;
+  offsetY?: number;
+  scale?: number;
 }
 
 export interface ChatSettings {
@@ -258,7 +261,8 @@ export const chatThemes: Record<string, ChatTheme> = {
 export const getColors = (
   theme: AppTheme,
   customPrimary?: string,
-  userChatSettings: ChatSettings = chatSettingsDefaults
+  userChatSettings: ChatSettings = chatSettingsDefaults,
+  customThemes: ChatTheme[] = []
 ): ThemeColors => {
   let baseColors: Omit<ThemeColors, 'chat' | 'chatSettings'>;
 
@@ -290,7 +294,10 @@ export const getColors = (
     baseColors = themes[theme as keyof typeof themes] || themes.light;
   }
 
-  let chatTheme = chatThemes[userChatSettings.themeId] || chatThemes.default;
+  const allThemes: Record<string, ChatTheme> = { ...chatThemes };
+  customThemes.forEach(t => { allThemes[t.id] = t; });
+
+  let chatTheme = allThemes[userChatSettings.themeId] || allThemes.default;
 
   if (userChatSettings.themeId === 'default') {
     chatTheme = {

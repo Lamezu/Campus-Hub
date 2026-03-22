@@ -1,16 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { getColors, type AppTheme, type ThemeColors, type ChatSettings, chatSettingsDefaults } from '@/constants/styles';
+import { getColors, type AppTheme, type ThemeColors, type ChatSettings, chatSettingsDefaults, type ChatTheme } from '@/constants/styles';
 
 type ThemeContextType = {
   theme: AppTheme;
   colors: ThemeColors;
   customPrimary: string | null;
   chatSettings: ChatSettings;
+  customChatThemes: ChatTheme[];
   setTheme: (theme: AppTheme) => Promise<void>;
   setCustomPrimary: (color: string) => Promise<void>;
   setChatSettings: (settings: Partial<ChatSettings>) => Promise<void>;
+  addCustomChatTheme: (theme: ChatTheme) => Promise<void>;
+  deleteCustomChatTheme: (themeId: string) => Promise<void>;
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -20,6 +23,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>('light');
   const [customPrimary, setCustomPrimaryState] = useState<string | null>(null);
   const [chatSettings, setChatSettingsState] = useState<ChatSettings>(chatSettingsDefaults);
+  const [customChatThemes, setCustomChatThemesState] = useState<ChatTheme[]>([]);
 
   useEffect(() => {
     loadTheme();
@@ -27,10 +31,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const loadTheme = async () => {
     try {
-      const [savedTheme, savedColor, savedChatSettings] = await Promise.all([
+      const [savedTheme, savedColor, savedChatSettings, savedChatThemes] = await Promise.all([
         AsyncStorage.getItem('theme'),
         AsyncStorage.getItem('customPrimary'),
         AsyncStorage.getItem('chatSettings'),
+        AsyncStorage.getItem('customChatThemes'),
       ]);
 
       if (savedTheme) {
@@ -45,6 +50,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
       if (savedChatSettings) {
         setChatSettingsState(JSON.parse(savedChatSettings));
+      }
+
+      if (savedChatThemes) {
+        setCustomChatThemesState(JSON.parse(savedChatThemes));
       }
     } catch (error) {
       console.error(error);
@@ -82,7 +91,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const colors = getColors(theme, customPrimary || undefined, chatSettings);
+  const addCustomChatTheme = async (theme: ChatTheme) => {
+    try {
+      const updated = [...customChatThemes, theme];
+      await AsyncStorage.setItem('customChatThemes', JSON.stringify(updated));
+      setCustomChatThemesState(updated);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const deleteCustomChatTheme = async (themeId: string) => {
+    try {
+      const updated = customChatThemes.filter(t => t.id !== themeId);
+      await AsyncStorage.setItem('customChatThemes', JSON.stringify(updated));
+      setCustomChatThemesState(updated);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const colors = getColors(theme, customPrimary || undefined, chatSettings, customChatThemes);
 
   return (
     <ThemeContext.Provider value={{
@@ -90,9 +119,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       colors,
       customPrimary,
       chatSettings,
+      customChatThemes,
       setTheme,
       setCustomPrimary,
-      setChatSettings
+      setChatSettings,
+      addCustomChatTheme,
+      deleteCustomChatTheme
     }}>
       {children}
     </ThemeContext.Provider>

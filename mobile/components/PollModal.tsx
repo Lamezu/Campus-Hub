@@ -12,6 +12,7 @@ import {
 import { X, Plus, Trash2 } from 'lucide-react-native';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedText } from './themed-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,6 +24,7 @@ interface PollModalProps {
 
 export function PollModal({ visible, onClose, onSend }: PollModalProps) {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const [question, setQuestion] = useState('');
     const [options, setOptions] = useState(['', '']);
@@ -73,11 +75,13 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
             <View style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={[styles.header, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-                        <ThemedText style={{ color: colors.primary }}>Cancelar</ThemedText>
+                        <ThemedText style={{ color: colors.primary }}>{t('common.cancel') || 'Cancelar'}</ThemedText>
                     </TouchableOpacity>
-                    <ThemedText style={styles.title}>Crear Encuesta</ThemedText>
+                    <ThemedText style={styles.title}>{t('dm.poll_create') || 'Crear Encuesta'}</ThemedText>
                     <TouchableOpacity onPress={handleSend} style={styles.headerBtn} disabled={!question.trim() || options.filter(o => o.trim()).length < 2}>
-                        <ThemedText style={[styles.sendBtn, { color: colors.primary, opacity: (!question.trim() || options.filter(o => o.trim()).length < 2) ? 0.5 : 1 }]}>Enviar</ThemedText>
+                        <ThemedText style={[styles.sendBtn, { color: colors.primary, opacity: (!question.trim() || options.filter(o => o.trim()).length < 2) ? 0.5 : 1 }]}>
+                            {t('common.send') || 'Enviar'}
+                        </ThemedText>
                     </TouchableOpacity>
                 </View>
 
@@ -86,10 +90,10 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                     contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
                 >
                     <View style={styles.section}>
-                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>PREGUNTA</ThemedText>
+                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_question_label') || 'PREGUNTA'}</ThemedText>
                         <TextInput
                             style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                            placeholder="Escribe tu pregunta..."
+                            placeholder={t('dm.poll_question_placeholder') || 'Escribe tu pregunta...'}
                             placeholderTextColor={colors.textSecondary + '80'}
                             value={question}
                             onChangeText={setQuestion}
@@ -98,12 +102,12 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                     </View>
 
                     <View style={styles.section}>
-                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>OPCIONES</ThemedText>
+                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_options_label') || 'OPCIONES'}</ThemedText>
                         {options.map((opt, index) => (
                             <View key={index} style={styles.optionRow}>
                                 <TextInput
                                     style={[styles.optionInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                                    placeholder={`Opción ${index + 1}`}
+                                    placeholder={t('dm.poll_option_placeholder', { index: index + 1 }) || `Opción ${index + 1}`}
                                     placeholderTextColor={colors.textSecondary + '80'}
                                     value={opt}
                                     onChangeText={(t) => updateOption(t, index)}
@@ -119,14 +123,14 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                         {options.length < 10 && (
                             <TouchableOpacity onPress={addOption} style={styles.addBtn}>
                                 <Plus size={20} color={colors.primary} />
-                                <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>Añadir opción</ThemedText>
+                                <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('dm.poll_add_option') || 'Añadir opción'}</ThemedText>
                             </TouchableOpacity>
                         )}
                     </View>
 
                     <View style={[styles.settings, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <View style={styles.settingItem}>
-                            <ThemedText style={styles.settingLabel}>Permitir varias respuestas</ThemedText>
+                            <ThemedText style={styles.settingLabel}>{t('dm.poll_multiple') || 'Permitir varias respuestas'}</ThemedText>
                             <Switch
                                 value={multipleAnswers}
                                 onValueChange={setMultipleAnswers}
