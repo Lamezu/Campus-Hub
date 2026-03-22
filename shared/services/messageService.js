@@ -1,176 +1,111 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  getDoc,
-  getDocs,
-  updateDoc, 
-  deleteDoc,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp,
-  onSnapshot,
-  writeBatch,
-  Timestamp,
-  Unsubscribe
-} from 'firebase/firestore';
-
 export class MessageService {
-  constructor(db) {
+  constructor(db, firestore) {
     this.db = db;
+    this.fs = firestore;
   }
 
-  async sendMessage(channelId, text, senderId, senderName, senderPhoto = null, attachments = null) {
-    const batch = writeBatch(this.db);
-    
-    const messagesRef = collection(this.db, 'channels', channelId, 'messages');
-    const messageRef = doc(messagesRef);
-    
-    batch.set(messageRef, {
+  async sendMessage(channelId, text, senderId, senderName, senderPhoto = null, attachments = null, replyTo = null, forwarded = false) {
+    const messagesRef = this.fs.collection(this.db, 'channels', channelId, 'messages');
+    const messageRef = this.fs.doc(messagesRef);
+
+    await this.fs.setDoc(messageRef, {
       text,
       senderId,
       senderName,
       senderPhoto,
-      createdAt: serverTimestamp(),
-      edited: false,
-      editedAt: null,
-      attachments,
-      reactions: {}
+      createdAt: this.fs.serverTimestamp(),
+      updatedAt: this.fs.serverTimestamp(),
+      reactions: {},
+      replyTo,
+      forwarded,
+      type: arguments[8] || 'text',
+      metadata: arguments[9] || null
     });
-    
-    const channelRef = doc(this.db, 'channels', channelId);
-    batch.update(channelRef, {
-      lastMessageAt: serverTimestamp()
+
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    await this.fs.updateDoc(channelRef, {
+      lastMessage: text ? text.substring(0, 100) : (attachments ? '[Archivo]' : ''),
+      lastMessageAt: this.fs.serverTimestamp(),
+      lastMessageSenderId: senderId
     });
-    
-    await batch.commit();
+
     return messageRef.id;
   }
 
-  async getMessages(channelId, limitCount = 50) {
-    const q = query(
-      collection(this.db, 'channels', channelId, 'messages'),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
-    );
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })).reverse();
-  }
-
   async editMessage(channelId, messageId, newText) {
-    const messageRef = doc(this.db, 'channels', channelId, 'messages', messageId);
-    await updateDoc(messageRef, {
+    const messageRef = this.fs.doc(this.db, 'channels', channelId, 'messages', messageId);
+    await this.fs.updateDoc(messageRef, {
       text: newText,
       edited: true,
-      editedAt: serverTimestamp()
+      editedAt: this.fs.serverTimestamp(),
+      updatedAt: this.fs.serverTimestamp()
     });
   }
 
   async deleteMessage(channelId, messageId) {
-    const messageRef = doc(this.db, 'channels', channelId, 'messages', messageId);
-    await deleteDoc(messageRef);
+    const messageRef = this.fs.doc(this.db, 'channels', channelId, 'messages', messageId);
+    const messageSnap = await this.fs.getDoc(messageRef);
+
+    if (messageSnap.exists()) {
+      const data = messageSnap.data();
+      // Si el mensaje es un aviso de evento, limpiar el flag en el evento
+      if (data.type === 'event' && data.metadata?.eventId) {
+        const eventRef = this.fs.doc(this.db, 'events', data.metadata.eventId);
+        const eventSnap = await this.fs.getDoc(eventRef);
+        if (eventSnap.exists()) {
+          await this.fs.updateDoc(eventRef, { publishedInChannel: false });
+        }
+      }
+    }
+
+    await this.fs.deleteDoc(messageRef);
   }
 
   async addReaction(channelId, messageId, emoji, userId) {
-    const messageRef = doc(this.db, 'channels', channelId, 'messages', messageId);
-    const messageSnap = await getDoc(messageRef);
-    
+    const messageRef = this.fs.doc(this.db, 'channels', channelId, 'messages', messageId);
+    const messageSnap = await this.fs.getDoc(messageRef);
+
     if (messageSnap.exists()) {
-      const message = messageSnap.data();
-      const reactions = message.reactions || {};
-      
-      if (!reactions[emoji]) {
-        reactions[emoji] = [];
-      }
-      
+      const reactions = messageSnap.data().reactions || {};
+      if (!reactions[emoji]) reactions[emoji] = [];
       if (!reactions[emoji].includes(userId)) {
         reactions[emoji].push(userId);
-        await updateDoc(messageRef, { reactions });
+        await this.fs.updateDoc(messageRef, { reactions });
       }
     }
   }
 
   async removeReaction(channelId, messageId, emoji, userId) {
-    const messageRef = doc(this.db, 'channels', channelId, 'messages', messageId);
-    const messageSnap = await getDoc(messageRef);
-    
+    const messageRef = this.fs.doc(this.db, 'channels', channelId, 'messages', messageId);
+    const messageSnap = await this.fs.getDoc(messageRef);
+
     if (messageSnap.exists()) {
-      const message = messageSnap.data();
-      const reactions = message.reactions || {};
-      
+      const reactions = messageSnap.data().reactions || {};
       if (reactions[emoji]) {
         reactions[emoji] = reactions[emoji].filter(id => id !== userId);
-        
-        if (reactions[emoji].length === 0) {
-          delete reactions[emoji];
-        }
-        
-        await updateDoc(messageRef, { reactions });
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+        await this.fs.updateDoc(messageRef, { reactions });
       }
     }
   }
 
-  subscribeToMessages(channelId, limitCount = 50, callback) {
-    const q = query(
-      collection(this.db, 'channels', channelId, 'messages'),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
+  onMessagesSnapshot(channelId, callback) {
+    const q = this.fs.query(
+      this.fs.collection(this.db, 'channels', channelId, 'messages'),
+      this.fs.orderBy('createdAt', 'desc'),
+      this.fs.limit(50)
     );
-    
-    return onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })).reverse();
-      
-      callback(messages);
+
+    return this.fs.onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).reverse());
     });
   }
 
   async updateLastRead(channelId, userId) {
-    const memberRef = doc(this.db, 'channels', channelId, 'members', userId);
-    await updateDoc(memberRef, {
-      lastRead: serverTimestamp()
-    });
-  }
-
-  async getUnreadCount(channelId, userId) {
-    const memberRef = doc(this.db, 'channels', channelId, 'members', userId);
-    const memberSnap = await getDoc(memberRef);
-    
-    if (!memberSnap.exists()) return 0;
-    
-    const memberData = memberSnap.data();
-    const lastRead = memberData.lastRead;
-    
-    const messagesQuery = query(
-      collection(this.db, 'channels', channelId, 'messages'),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const messagesSnap = await getDocs(messagesQuery);
-    
-    let unreadCount = 0;
-    for (const msgDoc of messagesSnap.docs) {
-      const msgData = msgDoc.data();
-      if (msgData.createdAt && lastRead && msgData.createdAt.toMillis() > lastRead.toMillis()) {
-        unreadCount++;
-      }
-    }
-    
-    return unreadCount;
-  }
-
-  async saveFCMToken(userId, token) {
-    const userRef = doc(this.db, 'users', userId);
-    await updateDoc(userRef, {
-      fcmToken: token,
-      lastTokenUpdate: serverTimestamp()
+    const userReadRef = this.fs.doc(this.db, 'channels', channelId, 'lastRead', userId);
+    await this.fs.setDoc(userReadRef, {
+      lastReadAt: this.fs.serverTimestamp()
     });
   }
 }
+export default MessageService;

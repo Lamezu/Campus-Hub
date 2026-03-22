@@ -1,113 +1,80 @@
-import { 
-  collection, 
-  doc, 
-  getDoc,
-  setDoc,
-  updateDoc, 
-  deleteDoc,
-  onSnapshot,
-  serverTimestamp,
-  addDoc
-} from 'firebase/firestore';
-
 export class CallService {
-  constructor(db) {
+  constructor(db, firestore) {
     this.db = db;
+    this.fs = firestore;
   }
 
-  async initiateCall(callerId, receiverId, type = 'audio', callerName, callerPhoto = null) {
-    const callRef = doc(collection(this.db, 'calls'));
+  async initiateCall(callerId, receiverId, type, callerName, callerPhoto) {
+    const callRef = this.fs.doc(this.fs.collection(this.db, 'calls'));
+    const callId = callRef.id;
 
-    await setDoc(callRef, {
+    await this.fs.setDoc(callRef, {
+      status: 'incoming',
       callerId,
       receiverId,
       type,
-      status: 'ringing',
-      offer: null,
-      answer: null,
       callerName,
       callerPhoto,
-      createdAt: serverTimestamp(),
-      endedAt: null
+      createdAt: this.fs.serverTimestamp(),
+      updatedAt: this.fs.serverTimestamp()
     });
 
-    return callRef.id;
+    return callId;
   }
 
   async setCallOffer(callId, offer) {
-    const callRef = doc(this.db, 'calls', callId);
-    await updateDoc(callRef, {
-      offer,
-      status: 'ringing'
-    });
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    await this.fs.updateDoc(callRef, { offer, updatedAt: this.fs.serverTimestamp() });
   }
 
   async answerCall(callId, answer) {
-    const callRef = doc(this.db, 'calls', callId);
-    await updateDoc(callRef, {
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    await this.fs.updateDoc(callRef, {
+      status: 'ongoing',
       answer,
-      status: 'active',
-      answeredAt: serverTimestamp()
+      answeredAt: this.fs.serverTimestamp(),
+      updatedAt: this.fs.serverTimestamp()
     });
   }
 
   async rejectCall(callId) {
-    const callRef = doc(this.db, 'calls', callId);
-    await updateDoc(callRef, {
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    await this.fs.updateDoc(callRef, {
       status: 'rejected',
-      endedAt: serverTimestamp()
+      updatedAt: this.fs.serverTimestamp()
     });
   }
 
   async endCall(callId) {
-    const callRef = doc(this.db, 'calls', callId);
-    await updateDoc(callRef, {
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    await this.fs.updateDoc(callRef, {
       status: 'ended',
-      endedAt: serverTimestamp()
+      endedAt: this.fs.serverTimestamp(),
+      updatedAt: this.fs.serverTimestamp()
     });
-
-    setTimeout(async () => {
-      try {
-        await deleteDoc(callRef);
-      } catch (error) {
-        console.error('Error cleaning up call:', error);
-      }
-    }, 30000);
-  }
-
-  async addCallerCandidate(callId, candidate) {
-    const candidatesRef = collection(this.db, 'calls', callId, 'callerCandidates');
-    await addDoc(candidatesRef, candidate);
-  }
-
-  async addReceiverCandidate(callId, candidate) {
-    const candidatesRef = collection(this.db, 'calls', callId, 'receiverCandidates');
-    await addDoc(candidatesRef, candidate);
   }
 
   async getCall(callId) {
-    const callRef = doc(this.db, 'calls', callId);
-    const callSnap = await getDoc(callRef);
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    const callSnap = await this.fs.getDoc(callRef);
+    return callSnap.exists() ? { id: callSnap.id, ...callSnap.data() } : null;
+  }
 
-    if (callSnap.exists()) {
-      return {
-        id: callSnap.id,
-        ...callSnap.data()
-      };
-    }
+  async addCallerCandidate(callId, candidate) {
+    const candRef = this.fs.doc(this.fs.collection(this.db, 'calls', callId, 'callerCandidates'));
+    await this.fs.setDoc(candRef, candidate);
+  }
 
-    return null;
+  async addReceiverCandidate(callId, candidate) {
+    const candRef = this.fs.doc(this.fs.collection(this.db, 'calls', callId, 'receiverCandidates'));
+    await this.fs.setDoc(candRef, candidate);
   }
 
   onCallSnapshot(callId, callback) {
-    const callRef = doc(this.db, 'calls', callId);
-
-    return onSnapshot(callRef, (snapshot) => {
+    const callRef = this.fs.doc(this.db, 'calls', callId);
+    return this.fs.onSnapshot(callRef, (snapshot) => {
       if (snapshot.exists()) {
-        callback({
-          id: snapshot.id,
-          ...snapshot.data()
-        });
+        callback({ id: snapshot.id, ...snapshot.data() });
       } else {
         callback(null);
       }
@@ -115,55 +82,35 @@ export class CallService {
   }
 
   onCallerCandidates(callId, callback) {
-    const candidatesRef = collection(this.db, 'calls', callId, 'callerCandidates');
-
-    return onSnapshot(candidatesRef, (snapshot) => {
+    const q = this.fs.collection(this.db, 'calls', callId, 'callerCandidates');
+    return this.fs.onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          callback(change.doc.data());
-        }
+        if (change.type === 'added') callback(change.doc.data());
       });
     });
   }
 
   onReceiverCandidates(callId, callback) {
-    const candidatesRef = collection(this.db, 'calls', callId, 'receiverCandidates');
-
-    return onSnapshot(candidatesRef, (snapshot) => {
+    const q = this.fs.collection(this.db, 'calls', callId, 'receiverCandidates');
+    return this.fs.onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          callback(change.doc.data());
-        }
+        if (change.type === 'added') callback(change.doc.data());
       });
     });
   }
 
-  subscribeToIncomingCalls(userId, callback) {
-    const callsRef = collection(this.db, 'calls');
+  subscribeToIncomingCalls(userId, callback, onError) {
+    const q = this.fs.query(
+      this.fs.collection(this.db, 'calls'),
+      this.fs.where('receiverId', '==', userId),
+      this.fs.where('status', '==', 'incoming'),
+      this.fs.orderBy('createdAt', 'desc'),
+      this.fs.limit(1)
+    );
 
-    return onSnapshot(callsRef, (snapshot) => {
-      const incomingCalls = [];
-
-      snapshot.docs.forEach((doc) => {
-        const call = doc.data();
-        if (call.receiverId === userId && call.status === 'ringing') {
-          incomingCalls.push({
-            id: doc.id,
-            ...call
-          });
-        }
-      });
-
-      callback(incomingCalls);
-    });
-  }
-
-  async upgradeToVideo(callId) {
-    const callRef = doc(this.db, 'calls', callId);
-    await updateDoc(callRef, {
-      type: 'video'
-    });
+    return this.fs.onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, onError);
   }
 }
-
 export default CallService;

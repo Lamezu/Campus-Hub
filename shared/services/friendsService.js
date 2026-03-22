@@ -1,262 +1,125 @@
-import { 
-  collection, 
-  doc, 
-  getDoc,
-  getDocs, 
-  setDoc,
-  updateDoc, 
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  onSnapshot,
-  writeBatch
-} from 'firebase/firestore';
-
 export class FriendsService {
-  constructor(db) {
+  constructor(db, firestore) {
     this.db = db;
+    this.fs = firestore;
   }
 
   async sendFriendRequest(fromUserId, toUserId, fromUserName, fromUserPhoto = null) {
-    const existingRequest = await this.getFriendRequest(fromUserId, toUserId);
-    if (existingRequest) {
-      throw new Error('Friend request already exists');
-    }
+    const requestId = [fromUserId, toUserId].sort().join('_');
+    const requestRef = this.fs.doc(this.db, 'friendRequests', requestId);
 
-    const areFriends = await this.areFriends(fromUserId, toUserId);
-    if (areFriends) {
-      throw new Error('Users are already friends');
-    }
-
-    const requestRef = doc(collection(this.db, 'friendRequests'));
-    await setDoc(requestRef, {
+    await this.fs.setDoc(requestRef, {
       fromUserId,
       toUserId,
       fromUserName,
       fromUserPhoto,
       status: 'pending',
-      createdAt: serverTimestamp()
+      createdAt: this.fs.serverTimestamp()
     });
 
-    return requestRef.id;
+    return requestId;
   }
 
   async getFriendRequest(userId1, userId2) {
-    const q1 = query(
-      collection(this.db, 'friendRequests'),
-      where('fromUserId', '==', userId1),
-      where('toUserId', '==', userId2),
-      where('status', '==', 'pending')
-    );
+    const requestId = [userId1, userId2].sort().join('_');
+    const requestRef = this.fs.doc(this.db, 'friendRequests', requestId);
+    const requestSnap = await this.fs.getDoc(requestRef);
 
-    const q2 = query(
-      collection(this.db, 'friendRequests'),
-      where('fromUserId', '==', userId2),
-      where('toUserId', '==', userId1),
-      where('status', '==', 'pending')
-    );
-
-    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-
-    if (!snap1.empty) {
-      return { id: snap1.docs[0].id, ...snap1.docs[0].data() };
-    }
-    if (!snap2.empty) {
-      return { id: snap2.docs[0].id, ...snap2.docs[0].data() };
-    }
-
-    return null;
-  }
-
-  async getReceivedRequests(userId) {
-    const q = query(
-      collection(this.db, 'friendRequests'),
-      where('toUserId', '==', userId),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-  }
-
-  async getSentRequests(userId) {
-    const q = query(
-      collection(this.db, 'friendRequests'),
-      where('fromUserId', '==', userId),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    return requestSnap.exists() ? { id: requestSnap.id, ...requestSnap.data() } : null;
   }
 
   async acceptFriendRequest(requestId) {
-    const batch = writeBatch(this.db);
+    const requestRef = this.fs.doc(this.db, 'friendRequests', requestId);
+    const requestSnap = await this.fs.getDoc(requestRef);
 
-    const requestRef = doc(this.db, 'friendRequests', requestId);
-    const requestSnap = await getDoc(requestRef);
+    if (requestSnap.exists()) {
+      const { fromUserId, toUserId } = requestSnap.data();
+      const batch = this.fs.writeBatch(this.db);
 
-    if (!requestSnap.exists()) {
-      throw new Error('Friend request not found');
+      batch.delete(requestRef);
+
+      const friend1Ref = this.fs.doc(this.db, 'users', fromUserId, 'friends', toUserId);
+      batch.set(friend1Ref, { createdAt: this.fs.serverTimestamp() });
+
+      const friend2Ref = this.fs.doc(this.db, 'users', toUserId, 'friends', fromUserId);
+      batch.set(friend2Ref, { createdAt: this.fs.serverTimestamp() });
+
+      await batch.commit();
     }
-
-    const requestData = requestSnap.data();
-
-    batch.update(requestRef, {
-      status: 'accepted',
-      acceptedAt: serverTimestamp()
-    });
-
-    const friendship1Ref = doc(collection(this.db, 'friendships'));
-    batch.set(friendship1Ref, {
-      userId: requestData.fromUserId,
-      friendId: requestData.toUserId,
-      createdAt: serverTimestamp()
-    });
-
-    const friendship2Ref = doc(collection(this.db, 'friendships'));
-    batch.set(friendship2Ref, {
-      userId: requestData.toUserId,
-      friendId: requestData.fromUserId,
-      createdAt: serverTimestamp()
-    });
-
-    await batch.commit();
   }
 
   async rejectFriendRequest(requestId) {
-    const requestRef = doc(this.db, 'friendRequests', requestId);
-    await updateDoc(requestRef, {
-      status: 'rejected',
-      rejectedAt: serverTimestamp()
-    });
+    const requestRef = this.fs.doc(this.db, 'friendRequests', requestId);
+    await this.fs.deleteDoc(requestRef);
   }
 
   async cancelFriendRequest(requestId) {
-    const requestRef = doc(this.db, 'friendRequests', requestId);
-    await deleteDoc(requestRef);
+    const requestRef = this.fs.doc(this.db, 'friendRequests', requestId);
+    await this.fs.deleteDoc(requestRef);
   }
 
   async areFriends(userId1, userId2) {
-    const q = query(
-      collection(this.db, 'friendships'),
-      where('userId', '==', userId1),
-      where('friendId', '==', userId2)
-    );
-
-    const snapshot = await getDocs(q);
-    return !snapshot.empty;
-  }
-
-  async getFriends(userId) {
-    const q = query(
-      collection(this.db, 'friendships'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    const friendships = snapshot.docs.map(doc => doc.data());
-
-    const friendsData = await Promise.all(
-      friendships.map(async (friendship) => {
-        const userRef = doc(this.db, 'users', friendship.friendId);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          return {
-            id: friendship.friendId,
-            ...userSnap.data(),
-            friendsSince: friendship.createdAt
-          };
-        }
-        return null;
-      })
-    );
-
-    return friendsData.filter(friend => friend !== null);
+    const friendRef = this.fs.doc(this.db, 'users', userId1, 'friends', userId2);
+    const friendSnap = await this.fs.getDoc(friendRef);
+    return friendSnap.exists();
   }
 
   async removeFriend(userId, friendId) {
-    const batch = writeBatch(this.db);
-
-    const q1 = query(
-      collection(this.db, 'friendships'),
-      where('userId', '==', userId),
-      where('friendId', '==', friendId)
-    );
-
-    const q2 = query(
-      collection(this.db, 'friendships'),
-      where('userId', '==', friendId),
-      where('friendId', '==', userId)
-    );
-
-    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-
-    snap1.docs.forEach(doc => batch.delete(doc.ref));
-    snap2.docs.forEach(doc => batch.delete(doc.ref));
-
+    const batch = this.fs.writeBatch(this.db);
+    batch.delete(this.fs.doc(this.db, 'users', userId, 'friends', friendId));
+    batch.delete(this.fs.doc(this.db, 'users', friendId, 'friends', userId));
     await batch.commit();
   }
 
   subscribeToReceivedRequests(userId, callback) {
-    const q = query(
-      collection(this.db, 'friendRequests'),
-      where('toUserId', '==', userId),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc')
+    const q = this.fs.query(
+      this.fs.collection(this.db, 'friendRequests'),
+      this.fs.where('toUserId', '==', userId),
+      this.fs.where('status', '==', 'pending')
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      callback(requests);
+    return this.fs.onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
   }
 
   subscribeToFriends(userId, callback) {
-    const q = query(
-      collection(this.db, 'friendships'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+    const q = this.fs.collection(this.db, 'users', userId, 'friends');
+
+    return this.fs.onSnapshot(q, async (snapshot) => {
+      const friends = await Promise.all(snapshot.docs.map(async (friendDoc) => {
+        const userDoc = await this.fs.getDoc(this.fs.doc(this.db, 'users', friendDoc.id));
+        return { id: friendDoc.id, ...userDoc.data(), ...friendDoc.data() };
+      }));
+      callback(friends);
+    });
+  }
+
+  async toggleBestFriend(userId, friendId) {
+    const friendRef = this.fs.doc(this.db, 'users', userId, 'friends', friendId);
+    const friendSnap = await this.fs.getDoc(friendRef);
+
+    if (friendSnap.exists()) {
+      const isBest = friendSnap.data().isBestFriend || false;
+      await this.fs.updateDoc(friendRef, { isBestFriend: !isBest });
+      return !isBest;
+    }
+    return false;
+  }
+
+  subscribeToBestFriends(userId, callback) {
+    const q = this.fs.query(
+      this.fs.collection(this.db, 'users', userId, 'friends'),
+      this.fs.where('isBestFriend', '==', true)
     );
 
-    return onSnapshot(q, async (snapshot) => {
-      const friendships = snapshot.docs.map(doc => doc.data());
-
-      const friendsData = await Promise.all(
-        friendships.map(async (friendship) => {
-          const userRef = doc(this.db, 'users', friendship.friendId);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists()) {
-            return {
-              id: friendship.friendId,
-              ...userSnap.data(),
-              friendsSince: friendship.createdAt
-            };
-          }
-          return null;
-        })
-      );
-
-      callback(friendsData.filter(friend => friend !== null));
+    return this.fs.onSnapshot(q, async (snapshot) => {
+      const friends = await Promise.all(snapshot.docs.map(async (friendDoc) => {
+        const userDoc = await this.fs.getDoc(this.fs.doc(this.db, 'users', friendDoc.id));
+        return { id: friendDoc.id, ...userDoc.data(), ...friendDoc.data() };
+      }));
+      callback(friends);
     });
   }
 }
-
 export default FriendsService;
