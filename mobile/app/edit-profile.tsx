@@ -24,6 +24,8 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
+import { Check } from 'lucide-react-native';
+import { useTranslation } from '@/hooks/useTranslation';
 import { uploadProfilePhoto } from '@/config/cloudinary';
 
 export default function EditProfileScreen() {
@@ -33,6 +35,7 @@ export default function EditProfileScreen() {
     const [displayName, setDisplayName] = useState('');
     const [bio, setBio] = useState('');
     const [photoURL, setPhotoURL] = useState<string | null>(null);
+    const { t, language, setLanguage } = useTranslation();
 
     useEffect(() => {
         loadUserProfile();
@@ -57,7 +60,7 @@ export default function EditProfileScreen() {
             }
         } catch (error) {
             console.error('Error loading profile:', error);
-            Alert.alert('Error', 'No se pudo cargar el perfil');
+            Alert.alert(t('common.error') || 'Error', t('profile.loading_error') || 'No se pudo cargar el perfil');
         } finally {
             setLoading(false);
         }
@@ -66,7 +69,7 @@ export default function EditProfileScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galería para cambiar la foto.');
+            Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para cambiar la foto.');
             return;
         }
 
@@ -106,21 +109,21 @@ export default function EditProfileScreen() {
                 updatedAt: serverTimestamp()
             });
 
-            Alert.alert('Éxito', 'Perfil actualizado correctamente');
+            Alert.alert(t('common.success') || 'Éxito', t('profile.save_success') || 'Perfil actualizado correctamente');
             router.back();
         } catch (error: any) {
             console.error('Error saving profile:', error);
 
             if (error.code === 'auth/requires-recent-login') {
-                Alert.alert('Error', 'Por favor, cierra sesión e inicia de nuevo para cambiar el email.');
+                Alert.alert(t('common.error') || 'Error', t('auth.recent_login_required') || 'Por favor, cierra sesión e inicia de nuevo para cambiar el email.');
             } else if (error.code === 'auth/email-already-in-use') {
-                Alert.alert('Error', 'Este correo ya está en uso por otra cuenta.');
+                Alert.alert(t('common.error') || 'Error', t('auth.email_already_in_use') || 'Este correo ya está en uso por otra cuenta.');
             } else if (error.code === 'auth/wrong-password') {
-                Alert.alert('Error', 'Contraseña incorrecta.');
+                Alert.alert(t('common.error') || 'Error', t('auth.wrong_password') || 'Contraseña incorrecta.');
             } else if (error.code === 'auth/invalid-email') {
-                Alert.alert('Error', 'Formato de email inválido.');
+                Alert.alert(t('common.error') || 'Error', t('auth.invalid_email') || 'Formato de email inválido.');
             } else {
-                Alert.alert('Error', 'No se pudieron guardar los cambios');
+                Alert.alert(t('common.error') || 'Error', t('profile.save_error') || 'No se pudieron guardar los cambios');
             }
         } finally {
             setSaving(false);
@@ -144,7 +147,7 @@ export default function EditProfileScreen() {
             <Stack.Screen
                 options={{
                     headerShown: true,
-                    headerTitle: 'Editar Perfil',
+                    headerTitle: t('profile.edit_profile') || 'Editar Perfil',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
                             <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -155,7 +158,7 @@ export default function EditProfileScreen() {
                             {saving ? (
                                 <ActivityIndicator size="small" color={colors.primary} />
                             ) : (
-                                <ThemedText style={[styles.saveButtonText, { color: colors.primary }]}>Guardar</ThemedText>
+                                <ThemedText style={[styles.saveButtonText, { color: colors.primary }]}>{t('common.save') || 'Guardar'}</ThemedText>
                             )}
                         </TouchableOpacity>
                     ),
@@ -181,28 +184,28 @@ export default function EditProfileScreen() {
                                 </View>
                             )}
                         </TouchableOpacity>
-                        <ThemedText style={styles.changePhotoText}>Cambiar foto</ThemedText>
+                        <ThemedText style={styles.changePhotoText}>{t('profile.change_photo') || 'Cambiar foto'}</ThemedText>
                     </View>
 
                     <View style={styles.formSection}>
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>Nombre de usuario</ThemedText>
+                            <ThemedText style={styles.label}>{t('profile.username_label') || 'Nombre de usuario'}</ThemedText>
                             <TextInput
                                 style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
                                 value={displayName}
                                 onChangeText={setDisplayName}
-                                placeholder="Tu nombre"
+                                placeholder={t('profile.bio_placeholder') || 'Tu nombre'}
                                 placeholderTextColor={colors.textSecondary}
                             />
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>Biografía</ThemedText>
+                            <ThemedText style={styles.label}>{t('profile.bio_label') || 'Biografía'}</ThemedText>
                             <TextInput
                                 style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
                                 value={bio}
                                 onChangeText={setBio}
-                                placeholder="Cuéntanos sobre ti..."
+                                placeholder={t('profile.describe_yourself') || 'Cuéntanos sobre ti...'}
                                 placeholderTextColor={colors.textSecondary}
                                 multiline
                                 numberOfLines={4}
@@ -219,20 +222,49 @@ export default function EditProfileScreen() {
                         {saving ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <ThemedText style={styles.primarySaveButtonText}>Guardar Cambios</ThemedText>
+                            <ThemedText style={styles.primarySaveButtonText}>{t('profile.save_changes') || 'Guardar Cambios'}</ThemedText>
                         )}
                     </TouchableOpacity>
 
+                    <View style={styles.formSection}>
+                        <ThemedText style={styles.sectionTitle}>{t('settings.change_language')}</ThemedText>
+                        <View style={styles.languageContainer}>
+                            {[
+                                { id: 'es', label: t('common.spanish') || 'Español', flag: '🇪🇸' },
+                                { id: 'en', label: t('common.english') || 'English', flag: '🇺🇸' }
+                            ].map((item) => {
+                                const isSelected = language === item.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={[
+                                            styles.langBtn,
+                                            { backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary, borderColor: isSelected ? colors.primary : colors.border }
+                                        ]}
+                                        onPress={() => setLanguage(item.id as any)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <ThemedText style={styles.langFlag}>{item.flag}</ThemedText>
+                                        <ThemedText style={[styles.langText, { color: isSelected ? colors.primary : colors.text }]}>
+                                            {item.label}
+                                        </ThemedText>
+                                        {isSelected && <Check size={16} color={colors.primary} strokeWidth={3} />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+
                     <View style={styles.dangerZone}>
-                        <ThemedText style={styles.sectionTitle}>Cuenta y Privacidad</ThemedText>
-                        <ThemedText style={styles.sectionDescription}>Gestiona tu correo electrónico y seguridad desde una sección protegida.</ThemedText>
+                        <ThemedText style={styles.sectionTitle}>{t('profile.account_privacy') || 'Cuenta y Privacidad'}</ThemedText>
+                        <ThemedText style={styles.sectionDescription}>{t('profile.manage_account_desc') || 'Gestiona tu correo electrónico y seguridad desde una sección protegida.'}</ThemedText>
 
                         <TouchableOpacity
                             style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
                             onPress={() => router.push('/account-details' as any)}
                         >
                             <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-                            <ThemedText style={styles.manageAccountText}>Datos de la cuenta</ThemedText>
+                            <ThemedText style={styles.manageAccountText}>{t('profile.account_data') || 'Datos de la cuenta'}</ThemedText>
                             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
@@ -241,7 +273,7 @@ export default function EditProfileScreen() {
                         style={[styles.cancelButton, { borderColor: colors.danger }]}
                         onPress={() => router.back()}
                     >
-                        <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>Descartar Cambios</ThemedText>
+                        <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>{t('profile.discard_changes') || 'Descartar Cambios'}</ThemedText>
                     </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -372,5 +404,27 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         alignItems: 'center',
+    },
+    languageContainer: {
+        marginTop: spacing.xs,
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    langBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: spacing.sm,
+    },
+    langFlag: {
+        fontSize: 20,
+    },
+    langText: {
+        flex: 1,
+        fontSize: typography.sizes.sm,
+        fontWeight: '600',
     },
 });
