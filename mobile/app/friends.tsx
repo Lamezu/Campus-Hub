@@ -3,6 +3,7 @@ import { View, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicat
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Users, UserStar, Search, UserPlus, Heart, MessageCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -15,6 +16,7 @@ type TabType = 'all' | 'best';
 
 export default function FriendsScreen() {
     const { colors } = useTheme();
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ tab?: string }>();
 
@@ -86,7 +88,7 @@ export default function FriendsScreen() {
 
                 <View style={styles.friendInfo}>
                     <ThemedText style={styles.friendName}>{item.displayName}</ThemedText>
-                    <ThemedText style={styles.friendRole}>{item.role === 'teacher' ? 'Profesor' : 'Estudiante'}</ThemedText>
+                    <ThemedText style={styles.friendRole}>{item.role === 'teacher' ? (t('roles.teacher') || 'Profesor') : (t('roles.student') || 'Estudiante')}</ThemedText>
                 </View>
 
                 <View style={styles.friendActions}>
@@ -116,7 +118,7 @@ export default function FriendsScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
                 </TouchableOpacity>
-                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Amigos</ThemedText>
+                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('friends.title') || 'Amigos'}</ThemedText>
                 <View style={{ width: 32 }} />
             </View>
 
@@ -128,7 +130,7 @@ export default function FriendsScreen() {
                     >
                         <Users size={18} color={activeTab === 'all' ? colors.primary : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'all' ? colors.text : colors.textSecondary }]}>
-                            Todos
+                            {t('friends.tabs.all') || 'Todos'}
                         </ThemedText>
                     </TouchableOpacity>
 
@@ -138,14 +140,14 @@ export default function FriendsScreen() {
                     >
                         <UserStar size={18} color={activeTab === 'best' ? colors.warning : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'best' ? colors.text : colors.textSecondary }]}>
-                            Mejores
+                            {t('friends.tabs.best') || 'Mejores'}
                         </ThemedText>
                     </TouchableOpacity>
                 </View>
 
                 <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary }]}>
                     <Search size={20} color={colors.textSecondary} />
-                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>Buscar amigos...</ThemedText>
+                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>{t('friends.search_placeholder') || 'Buscar amigos...'}</ThemedText>
                 </View>
             </View>
 
@@ -163,12 +165,12 @@ export default function FriendsScreen() {
                         <View style={styles.emptyContainer}>
                             <Users size={64} color={colors.border} strokeWidth={1} />
                             <ThemedText style={styles.emptyTitle}>
-                                {activeTab === 'all' ? 'No tienes amigos todavía' : 'No tienes mejores amigos'}
+                                {activeTab === 'all' ? (t('friends.empty.no_friends') || 'No tienes amigos todavía') : (t('friends.empty.no_best') || 'No tienes mejores amigos')}
                             </ThemedText>
                             <ThemedText style={styles.emptySubtitle}>
                                 {activeTab === 'all'
-                                    ? '¡Empieza a conectar con otros estudiantes!'
-                                    : 'Añade a tus conexiones más cercanas como mejores amigos'}
+                                    ? (t('friends.empty.start_connecting') || '¡Empieza a conectar con otros estudiantes!')
+                                    : (t('friends.empty.add_best_desc') || 'Añade a tus conexiones más cercanas como mejores amigos')}
                             </ThemedText>
                         </View>
                     }
