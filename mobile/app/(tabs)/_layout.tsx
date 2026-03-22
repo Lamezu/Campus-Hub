@@ -7,10 +7,12 @@ import { House, GraduationCap, Compass, MessagesSquare, UserRound } from 'lucide
 import { HapticTab } from '@/components/haptic-tab';
 import { useTheme } from '@/contexts/ThemeContext';
 import { notificationService } from '@/services/notificationService';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useState, useEffect } from 'react';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [counts, setCounts] = useState({ channel: 0, dm: 0, total: 0 });
 
@@ -53,7 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
+          title: t('tabs.home') || 'Inicio',
           tabBarIcon: ({ color }) => (
             <House size={26} color={color} strokeWidth={2} />
           ),
@@ -64,7 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Campus',
+          title: t('tabs.campus') || 'Campus',
           tabBarIcon: ({ color }) => (
             <GraduationCap size={26} color={color} strokeWidth={2} />
           ),
@@ -73,7 +75,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Explorar',
+          title: t('tabs.explore') || 'Explorar',
           tabBarIcon: ({ color }) => (
             <Compass size={26} color={color} strokeWidth={2} />
           ),
@@ -82,7 +84,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Mensajes',
+          title: t('tabs.messages') || 'Mensajes',
           tabBarIcon: ({ color }) => (
             <MessagesSquare size={26} color={color} strokeWidth={2} />
           ),
@@ -93,7 +95,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
+          title: t('tabs.profile') || 'Perfil',
           tabBarIcon: ({ color }) => (
             <UserRound size={26} color={color} strokeWidth={2} />
           ),

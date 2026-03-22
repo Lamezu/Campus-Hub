@@ -10,6 +10,7 @@ import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrentUser } from '@/contexts/UserContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { NotificationBell } from '@/components/NotificationBell';
 
 function formatNumber(num: number): string {
@@ -20,6 +21,7 @@ function formatNumber(num: number): string {
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { isAdmin } = useCurrentUser();
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,7 @@ export default function ProfileScreen() {
     );
 
     const unsubFriends = onSnapshot(
-      query(collection(db, 'friendships'), where('userId', '==', currentUser.uid)),
+      collection(db, 'users', currentUser.uid, 'friends'),
       (snap) => {
         setFriendsCount(snap.size);
       }, (error) => {
@@ -102,12 +104,12 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ThemedText>Cargando perfil...</ThemedText>
+        <ThemedText>{t('profile.loading') || 'Cargando perfil...'}</ThemedText>
       </ThemedView>
     );
   }
 
-  const displayName = userData?.displayName || currentUser?.displayName || 'Usuario';
+  const displayName = userData?.displayName || currentUser?.displayName || t('common.user') || 'Usuario';
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -147,29 +149,29 @@ export default function ProfileScreen() {
           style={[styles.editButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/edit-profile' as any)}
         >
-          <ThemedText style={styles.editButtonText}>Editar Perfil</ThemedText>
+          <ThemedText style={styles.editButtonText}>{t('profile.edit_profile') || 'Editar Perfil'}</ThemedText>
         </TouchableOpacity>
       </View>
 
       <View style={[styles.statsContainer, { backgroundColor: colors.backgroundSecondary }]}>
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(channelsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>Canales</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('common.channels') || 'Canales'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(userData?.messageCount || 0)}</ThemedText>
-          <ThemedText style={styles.statLabel}>Mensajes</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('profile.messages') || 'Mensajes'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(friendsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>Amigos</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('profile.friends') || 'Amigos'}</ThemedText>
         </View>
       </View>
 
       <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>Acciones Rápidas</ThemedText>
+        <ThemedText style={styles.sectionTitle}>{t('profile.quick_actions') || 'Acciones Rápidas'}</ThemedText>
 
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -177,8 +179,8 @@ export default function ProfileScreen() {
         >
           <SaveAll size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>Mensajes Guardados</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>Ver contenido guardado</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.saved_messages') || 'Mensajes Guardados'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.view_saved') || 'Ver contenido guardado'}</ThemedText>
           </View>
         </TouchableOpacity>
 
@@ -188,8 +190,8 @@ export default function ProfileScreen() {
         >
           <Users size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>Amigos</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>Gestionar lista de amigos</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.friends') || 'Amigos'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.manage_friends') || 'Gestionar lista de amigos'}</ThemedText>
           </View>
         </TouchableOpacity>
 
@@ -199,23 +201,23 @@ export default function ProfileScreen() {
         >
           <UserStar size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>Mejores Amigos</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>Tus conexiones más cercanas</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.best_friends') || 'Mejores Amigos'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.close_connections') || 'Tus conexiones más cercanas'}</ThemedText>
           </View>
         </TouchableOpacity>
       </View>
 
       {isAdmin && (
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Administración</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('profile.administration') || 'Administración'}</ThemedText>
           <TouchableOpacity
             style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => router.push('/admin/users' as any)}
           >
             <ShieldCheck size={20} color={colors.primary} strokeWidth={1.8} />
             <View style={styles.actionText}>
-              <ThemedText style={styles.actionTitle}>Gestión de usuarios</ThemedText>
-              <ThemedText style={styles.actionSubtitle}>Asignar roles y subroles</ThemedText>
+              <ThemedText style={styles.actionTitle}>{t('profile.user_management') || 'Gestión de usuarios'}</ThemedText>
+              <ThemedText style={styles.actionSubtitle}>{t('profile.assign_roles') || 'Asignar roles y subroles'}</ThemedText>
             </View>
           </TouchableOpacity>
         </View>

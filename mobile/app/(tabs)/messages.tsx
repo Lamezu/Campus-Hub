@@ -10,25 +10,33 @@ import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { auth } from '@/config/firebase';
 import { subscribeToConversations } from '@/services/dmService';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { DMConversation } from '@/types';
 
 export default function MessagesScreen() {
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [conversations, setConversations] = useState<DMConversation[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const meId = auth.currentUser?.uid;
     if (!meId) return;
-    const unsub = subscribeToConversations(meId, setConversations);
+    const unsub = subscribeToConversations(meId, setConversations, (err) => {
+      console.error('Messages subscription error:', err);
+      if (err.code === 'failed-precondition') {
+        setError(t('dm.db_index_error') || 'Falta un índice en la base de datos para cargar las conversaciones.');
+      }
+    });
     return unsub;
   }, []);
 
   const filtered = query.trim()
     ? conversations.filter(c =>
-        c.participantName.toLowerCase().includes(query.toLowerCase())
-      )
+      c.participantName.toLowerCase().includes(query.toLowerCase())
+    )
     : conversations;
 
   const handleRefresh = useCallback(() => {
@@ -48,7 +56,7 @@ export default function MessagesScreen() {
       />
 
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <ThemedText style={[styles.title, { color: colors.text }]}>Mensajes</ThemedText>
+        <ThemedText style={[styles.title, { color: colors.text }]}>{t('dm.title') || 'Mensajes'}</ThemedText>
         <View style={styles.headerActions}>
           <NotificationBell category="dm" />
           <TouchableOpacity
@@ -65,7 +73,7 @@ export default function MessagesScreen() {
         <Search size={16} color={colors.textSecondary} strokeWidth={2} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Buscar conversación..."
+          placeholder={t('dm.search_conversations') || 'Buscar conversación...'}
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
@@ -88,15 +96,28 @@ export default function MessagesScreen() {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <MessageSquare size={48} color={colors.textSecondary} strokeWidth={1.5} />
-            <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-              {query ? 'Sin resultados' : 'Sin mensajes'}
-            </ThemedText>
-            <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              {query
-                ? `No hay conversaciones con "${query}"`
-                : 'Empieza una conversación con alguien'}
-            </ThemedText>
+            {error ? (
+              <>
+                <ThemedText style={[styles.errorText, { color: colors.danger ?? '#FF3B30' }]}>
+                  ⚠️ {error}
+                </ThemedText>
+                <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  {t('dm.db_index_help') || 'Por favor, revisa la consola de Firebase para crear el índice necesario.'}
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <MessageSquare size={48} color={colors.textSecondary} strokeWidth={1.5} />
+                <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
+                  {query ? (t('dm.no_results') || 'Sin resultados') : (t('dm.no_messages_title') || 'Sin mensajes')}
+                </ThemedText>
+                <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  {query
+                    ? (t('dm.no_results_with', { query }) || `No hay conversaciones con "${query}"`)
+                    : (t('dm.start_dm_help') || 'Empieza una conversación con alguien')}
+                </ThemedText>
+              </>
+            )}
           </View>
         }
       />
@@ -162,6 +183,11 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: typography.sizes.sm,
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: typography.sizes.sm,
+    fontWeight: '700',
     textAlign: 'center',
   },
 });

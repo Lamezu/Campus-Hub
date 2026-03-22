@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { StyleSheet, SectionList, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, SectionList, TouchableOpacity, View, ActivityIndicator, Platform } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection, query, where, orderBy, onSnapshot, Timestamp,
@@ -17,7 +17,9 @@ import { CHANNELS } from '@/constants/channelData';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { subscribeToChannelUnread } from '@/services/channelReadService';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Channel, StudyGroup } from '@/types';
 
 function studyGroupToChannel(g: StudyGroup, unreadCount = 0): Channel {
@@ -42,7 +44,9 @@ type Section = { title: string; data: Array<{ channel: Channel; color?: string; 
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
@@ -198,7 +202,7 @@ export default function HomeScreen() {
 
   const sections: Section[] = useMemo(() => {
     const channelSection: Section = {
-      title: 'Canales',
+      title: t('common.channels') || 'Canales',
       data: realChannels.map(ch => ({
         channel: { ...ch, unreadCount: unreadCounts[ch.id] ?? 0 },
         realId: ch.id,
@@ -206,7 +210,7 @@ export default function HomeScreen() {
     };
     if (myGroups.length === 0) return [channelSection];
     const groupSection: Section = {
-      title: 'Mis grupos',
+      title: t('common.my_groups') || 'Mis grupos',
       data: myGroups.map(g => ({
         channel: studyGroupToChannel(g, unreadCounts[g.id] ?? 0),
         color: g.color,
@@ -214,7 +218,7 @@ export default function HomeScreen() {
       })),
     };
     return [channelSection, groupSection];
-  }, [myGroups, unreadCounts, realChannels]);
+  }, [myGroups, unreadCounts, realChannels, t]);
 
   const handlePress = (item: Section['data'][number]) => {
     router.push({ pathname: '/chat/[id]', params: { id: item.channel.id } });
@@ -258,12 +262,12 @@ export default function HomeScreen() {
               </View>
             ) : null
           }
-          contentContainerStyle={{ paddingBottom: insets.bottom + spacing.md }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.xl + (Platform.OS === 'ios' ? 0 : spacing.md) }}
           stickySectionHeadersEnabled={false}
           ListEmptyComponent={
             <View style={styles.center}>
               <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No hay canales disponibles.
+                {t('home.no_channels') || 'No hay canales disponibles.'}
               </ThemedText>
             </View>
           }
