@@ -9,6 +9,8 @@
       ]
     },
     "allowImportingTsExtensions": false,
+    "allowJs": true,
+    "checkJs": false,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true
