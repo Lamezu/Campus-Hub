@@ -1,82 +1,56 @@
 # 🎓 CampusHub
 
-Multi-platform communication and wellbeing platform for educational centers.
+[![Expo](https://img.shields.io/badge/Expo-4630EB?style=flat&logo=expo&logoColor=white)](https://expo.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=flat&logo=react&logoColor=black)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-## 🏗️ Project Structure
+**CampusHub** es una plataforma integral de comunicación y bienestar diseñada para centros educativos. Combina herramientas académicas con una red social segura para mejorar la experiencia universitaria.
+
+## 🏗️ Estructura del Proyecto
 ```
 Campus-Hub/
-├── mobile/          # React Native + Expo (Android + iOS)
-├── web/             # React + Vite (Browser interface)
-├── desktop/         # Electron (Desktop admin panel) - Sprint 5-6
-├── shared/          # Shared code and types
-└── firebase/        # Backend configuration
+├── mobile/          # Aplicación Móvil (Expo + React Native)
+├── dashboard/       # Panel de Administración (Vite + React)
+├── web/             # Landing Page informativa
+├── shared/          # Lógica de negocio y tipos compartidos
+├── docs/            # Documentación técnica y guías
+└── firebase/        # Configuración de Backend y Reglas
 ```
 
-## 🚀 Tech Stack
+## ✨ Funcionalidades Clave
 
-### Mobile App
-- React Native + Expo
-- TypeScript
-- Firebase (Auth, Firestore, Cloud Messaging)
+- **Campus Digital**: Tablón de anuncios oficiales, grupos de estudio por carrera y calendario de eventos.
+- **Red Social**: Feed de noticias, compartición de multimedia (foto/video/música) e interacción con "me gusta" y comentarios.
+- **Mensajería Avanzada**: Chats en tiempo real, encuestas dinámicas y llamadas de voz/video vía WebRTC.
+- **Personalización**: Temas Ivory, Dark y Dinámico, soporte multilingüe (ES/EN) y perfiles detallados.
 
-### Web App
-- React + Vite
-- TypeScript
-- Firebase
+## 🚀 Tecnologías
 
-### Desktop App (Planned)
-- Electron
-- React + Vite
-- Firebase
+- **Frontend**: React Native (Expo), React (Vite).
+- **Backend**: Firebase (Auth, Firestore, Cloud Messaging, Storage).
+- **Media**: Cloudinary for optimized image and video delivery.
+- **Comunicación**: WebRTC para llamadas P2P integradas.
 
-### Backend
-- Firebase (Firestore, Auth, Storage, Cloud Messaging)
-- Cloudinary (Image storage)
+## 📝 Documentación Detallada
 
-## 👥 Team: A&S Technologies
+Para más información, consulta los siguientes documentos en la carpeta `/docs`:
 
-- **Alejandro Mejías Ramírez** - Mobile UI/UX & Frontend
-- **Samuel Morán Hernández** - Backend & Firebase
-- **Sara Alonso Perdomo** - QA & Testing & Admin Panel
+- 🏗️ [**Arquitectura**](docs/ARCHITECTURE.md) - Visión técnica y flujo de datos.
+- 🛠️ [**Guía del Desarrollador**](docs/DEVELOPER_GUIDE.md) - Configuración del entorno y estándares.
+- 📖 [**Guía de Usuario (ES)**](docs/USER_GUIDE_ES.md) - Manual de uso en español.
+- 📖 [**User Guide (EN)**](docs/USER_GUIDE_EN.md) - English user manual.
 
-**CIFP Villa de Agüimes** | 2025-2026
+## 👥 Equipo: A&S Technologies
 
-## 📅 Development Roadmap
+- **Alejandro Mejías Ramírez** - UI/UX Mobile & Frontend
+- **Samuel Morán Hernández** - Backend & Firebase Speciality
+- **Sara Alonso Perdomo** - QA Testing & Admin Panel Management
 
-- ✅ Sprint 0: Initial setup (Jan 12-26)
-- 🔄 Sprint 1: Authentication (Jan 27 - Feb 9)
-- ⏳ Sprint 2: Messaging (Feb 10-23)
-- ⏳ Sprint 3: Notifications + Forum (Feb 24 - Mar 9)
-- ⏳ Sprint 4: Events + Reports (Mar 10-23)
-- ⏳ Sprint 5: Admin Panel (Mar 24 - Apr 6)
-- ⏳ Sprint 6: Testing + Deployment (Apr 7-16)
+**CIFP Villa de Agüimes** | *Proyecto de Fin de Grado 2025-2026*
 
-## 🛠️ Development Setup
-
-### Mobile
-```bash
-cd mobile
-npm install
-npm install expo
-npx expo start --tunnel
-```
-
-### Web
-```bash
-cd web
-npm install
-npm run dev
-```
-
-### Desktop
-Coming in Sprint 5-6
-
-## 📝 Documentation
-
-See `/docs` for detailed project documentation.
-
-## 🔗 Links
+## 🔗 Enlaces de Interés
 
 - [Trello Board](https://trello.com/b/JoQyXFej/campushub)
 - [Firebase Console](https://console.firebase.google.com/project/campushub-52343/overview)
-- [GitHub Repository](https://github.com/Lamezu/Campus-Hub)
+- [Repositorio GitHub](https://github.com/Lamezu/Campus-Hub)
