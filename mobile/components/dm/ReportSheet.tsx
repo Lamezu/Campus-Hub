@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, Animated, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
 
 interface ReportSheetProps {
@@ -14,6 +15,7 @@ interface ReportSheetProps {
 
 export function ReportSheet({ visible, userName, onReportOnly, onReportAndBlock, onClose }: ReportSheetProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const slideAnim = useRef(new Animated.Value(300)).current;
 
   useEffect(() => {
@@ -34,31 +36,31 @@ export function ReportSheet({ visible, userName, onReportOnly, onReportAndBlock,
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
         <ThemedText style={[styles.title, { color: colors.text }]}>
-          Reportar a {userName}
+          {t('dm.report_sheet.title', { name: userName }) || `Reportar a ${userName}`}
         </ThemedText>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-          Tu reporte será revisado por el equipo de Campus Hub. Puedes reportar y bloquear al usuario simultáneamente.
+          {t('dm.report_sheet.desc') || 'Tu reporte será revisado por el equipo de Campus Hub. Puedes reportar y bloquear al usuario simultáneamente.'}
         </ThemedText>
         <TouchableOpacity
           style={[styles.option, styles.destructive]}
           onPress={() => { onReportAndBlock(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveText}>Reportar y bloquear</ThemedText>
+          <ThemedText style={styles.destructiveText}>{t('dm.report_sheet.report_and_block') || 'Reportar y bloquear'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, styles.destructiveSoft]}
           onPress={() => { onReportOnly(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveSoftText}>Solo reportar</ThemedText>
+          <ThemedText style={styles.destructiveSoftText}>{t('dm.report_sheet.report_only') || 'Solo reportar'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, { backgroundColor: colors.backgroundSecondary }]}
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>Cancelar</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

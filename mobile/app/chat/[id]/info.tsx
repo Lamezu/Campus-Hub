@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
     ActivityIndicator, Alert, StatusBar, TextInput,
-    Modal, FlatList, Pressable, Image,
+    Modal, FlatList, Pressable, Image, Switch,
 } from 'react-native';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import {
@@ -14,6 +14,7 @@ import { db, auth } from '@/config/firebase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
     ChevronLeft, Search, UserPlus, Plus, Check,
     Trash2, LogOut, Edit3, Bell, BellOff, ChevronRight, X,
@@ -31,6 +32,7 @@ function useChannelInfo(id: string) {
     const [isMuted, setIsMuted] = useState(false);
     const [muteUntil, setMuteUntil] = useState<Date | null>(null);
     const currentUser = auth.currentUser;
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (!id || !currentUser) return;
@@ -55,7 +57,7 @@ function useChannelInfo(id: string) {
                 const p = profiles[i];
                 return {
                     ...m,
-                    displayName: p.exists() ? (p.data()?.displayName || 'Usuario') : 'Usuario',
+                    displayName: p.exists() ? (p.data()?.displayName || t('chat.unknown_user') || 'Usuario') : t('chat.unknown_user') || 'Usuario',
                     photoURL: p.exists() ? (p.data()?.photoURL || null) : null,
                     bio: p.exists() ? (p.data()?.bio || '') : '',
                     userRole: p.exists() ? (p.data()?.role || 'student') : 'student',
@@ -85,12 +87,15 @@ function useChannelInfo(id: string) {
     return { channel, members, loading, isMuted, muteUntil };
 }
 
-const ROLE_FILTERS = [
-    { key: 'all', label: 'Todos' },
-    { key: 'student', label: 'Estudiantes' },
-    { key: 'teacher', label: 'Profesores' },
-    { key: 'admin', label: 'Admins' },
-];
+function useRoleFilters() {
+    const { t } = useTranslation();
+    return [
+        { key: 'all', label: t('admin.filters.all') || 'Todos' },
+        { key: 'student', label: t('admin.filters.students') || 'Estudiantes' },
+        { key: 'teacher', label: t('admin.filters.teachers') || 'Profesores' },
+        { key: 'admin', label: t('admin.filters.admins') || 'Admins' },
+    ];
+}
 
 function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
     visible: boolean;
@@ -99,6 +104,8 @@ function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
     existingMemberIds: string[];
 }) {
     const { colors, theme } = useTheme();
+    const { t } = useTranslation();
+    const ROLE_FILTERS = useRoleFilters();
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [results, setResults] = useState<any[]>([]);
@@ -133,7 +140,7 @@ function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
                 <View style={[amStyles.sheet, { backgroundColor: theme === 'dark' ? '#1C1C1E' : '#F2F2F7' }]}>
                     <View style={[amStyles.handle, { backgroundColor: colors.border }]} />
                     <View style={amStyles.header}>
-                        <ThemedText style={amStyles.title}>Añadir miembros</ThemedText>
+                        <ThemedText style={amStyles.title}>{t('chat.info.add_members') || 'Añadir miembros'}</ThemedText>
                         <TouchableOpacity onPress={onClose} style={[amStyles.closeBtn, { backgroundColor: colors.border + '44' }]}>
                             <X size={18} color={colors.text} />
                         </TouchableOpacity>
@@ -143,7 +150,7 @@ function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
                         <Search size={18} color={colors.primary} />
                         <TextInput
                             style={[amStyles.searchInput, { color: colors.text }]}
-                            placeholder="Buscar por nombre..."
+                            placeholder={t('chat.info.search_placeholder') || "Buscar por nombre..."}
                             placeholderTextColor={colors.textSecondary}
                             value={search}
                             onChangeText={setSearch}
@@ -193,7 +200,7 @@ function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
                             ListEmptyComponent={
                                 <View style={amStyles.emptyWrap}>
                                     <ThemedText style={[amStyles.empty, { color: colors.textSecondary }]}>
-                                        {search.length < 2 ? 'Busca personas para añadir' : 'No se encontraron resultados'}
+                                        {search.length < 2 ? (t('chat.info.search_hint') || 'Busca personas para añadir') : (t('chat.info.no_results') || 'No se encontraron resultados')}
                                     </ThemedText>
                                 </View>
                             }
@@ -215,9 +222,9 @@ function AddMembersModal({ visible, onClose, onAdd, existingMemberIds }: {
                                             )}
                                         </View>
                                         <View style={amStyles.userInfo}>
-                                            <ThemedText style={amStyles.userName}>{item.displayName || 'Usuario'}</ThemedText>
+                                            <ThemedText style={amStyles.userName}>{item.displayName || t('chat.unknown_user') || 'Usuario'}</ThemedText>
                                             <ThemedText style={[amStyles.userRole, { color: colors.textSecondary }]}>
-                                                {item.role === 'teacher' ? 'Profesor' : item.role === 'admin' ? 'Administrador' : 'Estudiante'} • {item.department || 'Campus'}
+                                                {item.role === 'teacher' ? (t('roles.teacher') || 'Profesor') : item.role === 'admin' ? (t('roles.admin') || 'Administrador') : (t('roles.student') || 'Estudiante')} • {item.department || 'Campus'}
                                             </ThemedText>
                                         </View>
                                         <View style={[amStyles.addBtn, { backgroundColor: colors.primary + '15' }]}>
@@ -313,11 +320,14 @@ const amStyles = StyleSheet.create({
     empty: { textAlign: 'center', fontSize: 15, fontWeight: '500', opacity: 0.7 },
 });
 
-const MUTE_OPTIONS = [
-    { label: '8 horas', hours: 8 },
-    { label: '1 semana', hours: 24 * 7 },
-    { label: 'Siempre', hours: 24 * 365 * 10 },
-];
+function useMuteOptions() {
+    const { t } = useTranslation();
+    return [
+        { label: t('chat.info.mute_options.8h') || '8 horas', hours: 8 },
+        { label: t('chat.info.mute_options.1w') || '1 semana', hours: 24 * 7 },
+        { label: t('chat.info.mute_options.always') || 'Siempre', hours: 24 * 365 * 10 },
+    ];
+}
 
 function MuteModal({ visible, isMuted, muteUntil, onClose, onMute, onUnmute }: {
     visible: boolean;
@@ -328,13 +338,15 @@ function MuteModal({ visible, isMuted, muteUntil, onClose, onMute, onUnmute }: {
     onUnmute: () => void;
 }) {
     const { colors } = useTheme();
+    const { t, language } = useTranslation();
+    const MUTE_OPTIONS = useMuteOptions();
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <Pressable style={muteStyles.overlay} onPress={onClose}>
                 <Pressable style={[muteStyles.sheet, { backgroundColor: colors.background }]} onPress={() => { }}>
                     <View style={[muteStyles.handle, { backgroundColor: colors.border }]} />
                     <View style={[muteStyles.header, { borderBottomColor: colors.border }]}>
-                        <ThemedText style={muteStyles.title}>Silenciar notificaciones</ThemedText>
+                        <ThemedText style={muteStyles.title}>{t('chat.info.mute_notifications') || 'Silenciar notificaciones'}</ThemedText>
                         <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
                             <X size={20} color={colors.text} />
                         </TouchableOpacity>
@@ -342,7 +354,7 @@ function MuteModal({ visible, isMuted, muteUntil, onClose, onMute, onUnmute }: {
                     <View style={{ paddingHorizontal: spacing.md, paddingTop: 8, paddingBottom: 24 }}>
                         {isMuted && (
                             <TouchableOpacity style={[muteStyles.option, { borderBottomColor: colors.border }]} onPress={onUnmute}>
-                                <ThemedText style={[muteStyles.optionLabel, { color: colors.primary }]}>Desactivar silencio</ThemedText>
+                                <ThemedText style={[muteStyles.optionLabel, { color: colors.primary }]}>{t('chat.info.unmute_notifications') || 'Desactivar silencio'}</ThemedText>
                                 <Check size={18} color={colors.primary} />
                             </TouchableOpacity>
                         )}
@@ -357,12 +369,12 @@ function MuteModal({ visible, isMuted, muteUntil, onClose, onMute, onUnmute }: {
                         ))}
                         {isMuted && muteUntil && muteUntil.getFullYear() < 2100 && (
                             <ThemedText style={[muteStyles.muteInfo, { color: colors.textSecondary }]}>
-                                Silenciado hasta {muteUntil.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                {t('chat.info.muted_until', { date: muteUntil.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) }) || `Silenciado hasta ${muteUntil.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`}
                             </ThemedText>
                         )}
                         {isMuted && muteUntil && muteUntil.getFullYear() >= 2100 && (
                             <ThemedText style={[muteStyles.muteInfo, { color: colors.textSecondary }]}>
-                                Silenciado indefinidamente
+                                {t('chat.info.muted_indefinite') || 'Silenciado indefinidamente'}
                             </ThemedText>
                         )}
                     </View>
@@ -385,17 +397,18 @@ const muteStyles = StyleSheet.create({
 
 function MemberRow({ member, isCreator, isSelf, canRemove, onPress, onRemove }: any) {
     const { colors } = useTheme();
-    const roleLabel = isCreator ? 'Creador' : (member.role === 'admin' || member.role === 'coordinator') ? 'Admin.' : null;
+    const { t } = useTranslation();
+    const roleLabel = isCreator ? (t('chat.info.creator') || 'Creador') : (member.role === 'admin' || member.role === 'coordinator') ? (t('chat.info.admin') || 'Admin.') : null;
     const initials = member.displayName?.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() || '?';
 
     const handleLongPress = () => {
         if (!canRemove || isSelf) return;
         Alert.alert(
             member.displayName,
-            '¿Qué quieres hacer?',
+            t('chat.info.what_to_do') || '¿Qué quieres hacer?',
             [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Eliminar del grupo', style: 'destructive', onPress: onRemove },
+                { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+                { text: t('chat.info.remove_member') || 'Eliminar del grupo', style: 'destructive', onPress: onRemove },
             ]
         );
     };
@@ -417,7 +430,7 @@ function MemberRow({ member, isCreator, isSelf, canRemove, onPress, onRemove }: 
                 )}
             </View>
             <View style={{ flex: 1 }}>
-                <ThemedText style={styles.memberName}>{isSelf ? 'Tú' : (member.displayName || 'Usuario')}</ThemedText>
+                <ThemedText style={styles.memberName}>{isSelf ? (t('chat.info.you') || 'Tú') : (member.displayName || t('chat.unknown_user') || 'Usuario')}</ThemedText>
                 {member.bio ? <ThemedText style={[styles.memberBio, { color: colors.textSecondary }]} numberOfLines={1}>{member.bio}</ThemedText> : null}
             </View>
             {roleLabel && <ThemedText style={[styles.roleLabel, { color: colors.textSecondary }]}>{roleLabel}</ThemedText>}
@@ -429,6 +442,7 @@ function MemberRow({ member, isCreator, isSelf, canRemove, onPress, onRemove }: 
 export default function ChannelInfoScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { colors, theme } = useTheme();
+    const { t, language } = useTranslation();
     const { role: userRole, subrole } = useCurrentUser();
     const { channel, members, loading, isMuted, muteUntil } = useChannelInfo(id || '');
 
@@ -464,7 +478,10 @@ export default function ChannelInfoScreen() {
                 const url = await uploadGroupPhoto(result.assets[0].uri, realId);
                 await setDoc(doc(db, colName, realId), { photoURL: url }, { merge: true });
             }
-        } catch (e) { console.error(e); Alert.alert('Error', 'No se pudo subir la imagen.'); }
+        } catch (e) {
+            console.error(e);
+            Alert.alert(t('common.error') || 'Error', t('chat.info.image_error') || 'No se pudo subir la imagen.');
+        }
         finally { setUpdating(false); }
     };
 
@@ -488,7 +505,7 @@ export default function ChannelInfoScreen() {
             await setDoc(doc(db, colName, realId, 'members', user.id), {
                 userId: user.id, role: 'member', joinedAt: serverTimestamp(), notifications: true,
             });
-            Alert.alert('Éxito', `${user.displayName} añadido.`);
+            Alert.alert(t('common.success') || 'Éxito', `${user.displayName} ${t('common.added') || 'añadido.'}`);
         } catch (e) { console.error(e); }
     };
 
@@ -504,9 +521,9 @@ export default function ChannelInfoScreen() {
 
     const handleClearChat = () => {
         const buttons: any[] = [
-            { text: 'Cancelar', style: 'cancel' },
+            { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
             {
-                text: 'Eliminar para mí', onPress: async () => {
+                text: t('chat.delete_for_me') || 'Eliminar para mí', onPress: async () => {
                     if (!currentUser || !realId) return;
                     setUpdating(true);
                     try {
@@ -523,7 +540,7 @@ export default function ChannelInfoScreen() {
         ];
         if (userRole === 'admin') {
             buttons.push({
-                text: 'Eliminar para todos', style: 'destructive', onPress: async () => {
+                text: t('chat.delete_for_all') || 'Eliminar para todos', style: 'destructive', onPress: async () => {
                     if (!realId) return;
                     setUpdating(true);
                     try {
@@ -538,14 +555,14 @@ export default function ChannelInfoScreen() {
                 }
             });
         }
-        Alert.alert('Vaciar chat', '¿Cómo quieres vaciar el chat?', buttons);
+        Alert.alert(t('chat.clear_chat') || 'Vaciar chat', t('chat.clear_chat_msg') || '¿Cómo quieres vaciar el chat?', buttons);
     };
 
     const handleLeave = () => {
-        Alert.alert('Salir del grupo', '¿Seguro que quieres abandonar este grupo?', [
-            { text: 'Cancelar', style: 'cancel' },
+        Alert.alert(t('chat.info.leave_group') || 'Salir del grupo', t('chat.info.leave_confirm') || '¿Seguro que quieres abandonar este grupo?', [
+            { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
             {
-                text: 'Salir', style: 'destructive', onPress: async () => {
+                text: t('chat.info.leave_btn') || 'Salir', style: 'destructive', onPress: async () => {
                     if (!currentUser || !realId) return;
                     await updateDoc(doc(db, colName, realId), { memberIds: arrayRemove(currentUser.uid), memberCount: increment(-1) });
                     await deleteDoc(doc(db, colName, realId, 'members', currentUser.uid));
@@ -565,7 +582,7 @@ export default function ChannelInfoScreen() {
 
     const createdAt = channel?.createdAt?.toDate?.();
     const createdAtStr = createdAt
-        ? createdAt.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+        ? createdAt.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })
         : null;
 
     return (
@@ -578,7 +595,7 @@ export default function ChannelInfoScreen() {
                     <ChevronLeft size={28} color={colors.text} />
                 </TouchableOpacity>
                 <ThemedText style={styles.navTitle} numberOfLines={1}>
-                    {channel?.name || (isSG ? 'Grupo' : 'Canal')}
+                    {channel?.name || (isSG ? (t('chat.info.study_group') || 'Grupo') : (t('chat.info.campus_channel') || 'Canal'))}
                 </ThemedText>
                 <View style={{ width: 44 }} />
             </View>
@@ -603,7 +620,7 @@ export default function ChannelInfoScreen() {
                     </TouchableOpacity>
                     <ThemedText style={styles.heroName}>{channel?.name}</ThemedText>
                     <ThemedText style={[styles.heroSub, { color: colors.textSecondary }]}>
-                        {isSG ? 'Grupo de Estudio' : 'Canal del Campus'} • {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
+                        {isSG ? (t('chat.info.study_group') || 'Grupo de Estudio') : (t('chat.info.campus_channel') || 'Canal del Campus')} • {members.length === 1 ? t('chat.info.member_count_one') : t('chat.info.member_count_other', { count: members.length })}
                     </ThemedText>
                     {channel?.description ? (
                         <ThemedText style={[styles.heroDesc, { color: colors.textSecondary }]}>{channel.description}</ThemedText>
@@ -612,7 +629,7 @@ export default function ChannelInfoScreen() {
 
                 <View style={styles.sectionHeader}>
                     <ThemedText style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                        {members.length} {members.length === 1 ? 'MIEMBRO' : 'MIEMBROS'}
+                        {members.length === 1 ? t('chat.info.miembro') : t('chat.info.miembros')}
                     </ThemedText>
                     <TouchableOpacity
                         onPress={() => { setShowMemberSearch(!showMemberSearch); setMemberFilter(''); }}
@@ -627,7 +644,7 @@ export default function ChannelInfoScreen() {
                         <Search size={14} color={colors.textSecondary} />
                         <TextInput
                             style={[styles.memberSearchInput, { color: colors.text }]}
-                            placeholder="Buscar miembro..."
+                            placeholder={t('chat.info.search_placeholder') || "Buscar miembro..."}
                             placeholderTextColor={colors.textSecondary}
                             value={memberFilter}
                             onChangeText={setMemberFilter}
@@ -643,7 +660,7 @@ export default function ChannelInfoScreen() {
                                 <View style={[styles.addIconWrap, { backgroundColor: colors.primary + '18' }]}>
                                     <UserPlus size={20} color={colors.primary} />
                                 </View>
-                                <ThemedText style={[styles.addLabel, { color: colors.primary }]}>Añadir miembros</ThemedText>
+                                <ThemedText style={[styles.addLabel, { color: colors.primary }]}>{t('chat.info.add_members') || 'Añadir miembros'}</ThemedText>
                             </TouchableOpacity>
                             <View style={[styles.divider, { backgroundColor: colors.border }]} />
                         </>
@@ -666,25 +683,32 @@ export default function ChannelInfoScreen() {
                 </View>
 
                 <View style={[styles.card, { backgroundColor: colors.card, marginTop: 16 }]}>
-                    <TouchableOpacity style={styles.actionRow} onPress={() => setShowMuteModal(true)}>
+                    <View style={styles.actionRow}>
                         {isMuted
                             ? <BellOff size={20} color={colors.textSecondary} />
                             : <Bell size={20} color={colors.textSecondary} />}
                         <ThemedText style={[styles.actionLabel, { color: colors.text }]}>
-                            {isMuted ? 'Silenciado' : 'Silenciar notificaciones'}
+                            {t('chat.info.mute_notifications') || 'Silenciar notificaciones'}
                         </ThemedText>
-                    </TouchableOpacity>
+                        <View style={{ flex: 1 }} />
+                        <Switch
+                            value={isMuted}
+                            onValueChange={(val) => val ? handleMute(24 * 365 * 10) : handleUnmute()}
+                            trackColor={{ false: colors.border, true: colors.primary }}
+                            thumbColor="#fff"
+                        />
+                    </View>
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <TouchableOpacity style={styles.actionRow} onPress={handleClearChat}>
                         <Trash2 size={20} color={colors.danger} />
-                        <ThemedText style={[styles.actionLabel, { color: colors.danger }]}>Vaciar chat</ThemedText>
+                        <ThemedText style={[styles.actionLabel, { color: colors.danger }]}>{t('chat.clear_chat') || 'Vaciar chat'}</ThemedText>
                     </TouchableOpacity>
                 </View>
 
                 <View style={[styles.card, { backgroundColor: colors.card, marginTop: 8 }]}>
                     <TouchableOpacity style={styles.actionRow} onPress={handleLeave}>
                         <LogOut size={20} color={colors.danger} />
-                        <ThemedText style={[styles.actionLabel, { color: colors.danger }]}>Salir del grupo</ThemedText>
+                        <ThemedText style={[styles.actionLabel, { color: colors.danger }]}>{t('chat.info.leave_group') || 'Salir del grupo'}</ThemedText>
                     </TouchableOpacity>
                 </View>
 
@@ -692,24 +716,17 @@ export default function ChannelInfoScreen() {
                     <View style={styles.footer}>
                         {creatorMember && (
                             <ThemedText style={[styles.footerText, { color: colors.textSecondary }]}>
-                                Creado por {creatorMember.id === currentUser?.uid ? 'ti' : creatorMember.displayName}.
+                                {t('chat.info.created_by', { name: creatorMember.id === currentUser?.uid ? (t('chat.info.created_by_you') || 'ti') : creatorMember.displayName }) || `Creado por ${creatorMember.id === currentUser?.uid ? 'ti' : creatorMember.displayName}.`}
                             </ThemedText>
                         )}
                         <ThemedText style={[styles.footerText, { color: colors.textSecondary }]}>
-                            Creado el {createdAtStr}.
+                            {t('chat.info.created_at', { date: createdAtStr }) || `Creado el ${createdAtStr}.`}
                         </ThemedText>
                     </View>
                 )}
             </ScrollView>
 
-            <MuteModal
-                visible={showMuteModal}
-                isMuted={isMuted}
-                muteUntil={muteUntil}
-                onClose={() => setShowMuteModal(false)}
-                onMute={handleMute}
-                onUnmute={handleUnmute}
-            />
+
             <AddMembersModal
                 visible={showAddModal}
                 onClose={() => setShowAddModal(false)}

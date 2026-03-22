@@ -2,10 +2,11 @@
 import { View, StyleSheet, Animated, PanResponder, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Audio } from 'expo-av';
-import { Reply, Play, Pause, Mic, FileText, Download, CheckCircle2, Image as ReplyImageIcon, BarChart3, ChevronRight } from 'lucide-react-native';
+import { Reply, Play, Pause, Mic, FileText, Download, CheckCircle2, Image as ReplyImageIcon, BarChart3, ChevronRight, Calendar } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Message } from '@/types';
 
 const SWIPE_THRESHOLD = 60;
@@ -216,6 +217,7 @@ function PollBubble({
   bubbleBg: string;
 }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const hasVoted = poll.options.some((opt: any) => opt.votes?.includes(currentUserId));
   const totalVotes = poll.totalVotes || 0;
 
@@ -234,32 +236,73 @@ function PollBubble({
               key={optionId}
               style={[
                 styles.pollOption,
-                { backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
+                { backgroundColor: 'rgba(0,0,0,0.06)' },
                 isSelected && { borderColor: colors.primary, borderWidth: 1 }
               ]}
               onPress={() => onVote?.(optionId)}
               activeOpacity={0.7}
             >
-              <View style={[styles.pollProgress, { width: `${percentage}%`, backgroundColor: isSelected ? colors.primary + '44' : (isOwnMessage ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)') }]} />
+              <View style={[styles.pollProgress, { width: `${percentage}%`, backgroundColor: isSelected ? colors.primary + '44' : 'rgba(0,0,0,0.05)' }]} />
               <View style={styles.pollOptionContent}>
                 <ThemedText style={[styles.pollOptionText, { color: textColor }]}>{option.text}</ThemedText>
-                {hasVoted && (
-                  <ThemedText style={[styles.pollVotes, { color: textColor, opacity: 0.7 }]}>{votes}</ThemedText>
-                )}
-              </View>
-              {isSelected && (
-                <View style={styles.pollCheck}>
-                  <CheckCircle2 size={14} color={colors.primary} />
+                <View style={styles.pollOptionRight}>
+                  {hasVoted && (
+                    <ThemedText style={[styles.pollVotes, { color: textColor, opacity: 0.7 }]}>{votes}</ThemedText>
+                  )}
+                  {isSelected && (
+                    <View style={styles.pollCheck}>
+                      <BarChart3 size={14} color={colors.primary} />
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
             </TouchableOpacity>
           );
         })}
       </View>
-      <ThemedText style={[styles.pollFooter, { color: textColor, opacity: 0.6 }]}>
-        {totalVotes} {totalVotes === 1 ? 'voto' : 'votos'} • {poll.multipleAnswers ? 'Selección múltiple' : 'Selección única'}
+      <ThemedText style={[styles.pollFooter, { color: textColor, opacity: 0.65, marginTop: 10 }]}>
+        {totalVotes} {totalVotes === 1 ? (t('dm.votes.one') || 'voto') : (t('dm.votes.other') || 'votos')} • {poll.multipleAnswers ? (t('dm.poll_multiple_selection') || 'Selección múltiple') : (t('dm.poll_single_selection') || 'Selección única')}
       </ThemedText>
     </View>
+  );
+}
+
+function EventBubble({
+  metadata,
+  textColor,
+}: {
+  metadata: any;
+  textColor: string;
+}) {
+  const { colors } = useTheme();
+
+  const handlePress = () => {
+    if (metadata?.eventDate) {
+      router.replace(`/(tabs)/explore?tab=Calendario&highlightDay=${metadata.eventDate}` as any);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={handlePress}
+      style={styles.eventBubbleContainer}
+    >
+      <View style={[styles.eventIconContainer, { backgroundColor: colors.primary + '15' }]}>
+        <Calendar size={20} color={colors.primary} strokeWidth={2.5} />
+      </View>
+      <View style={styles.eventInfo}>
+        <ThemedText style={[styles.eventTitle, { color: textColor }]}>
+          {metadata?.title || 'Evento'}
+        </ThemedText>
+        <ThemedText style={[styles.eventDate, { color: textColor, opacity: 0.7 }]}>
+          {metadata?.eventDate ? new Date(metadata.eventDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : ''}
+        </ThemedText>
+      </View>
+      <View style={styles.eventAction}>
+        <ChevronRight size={18} color={textColor} opacity={0.5} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -279,6 +322,7 @@ export function MessageBubble({
   onFilePress,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const chatTheme = colors.chat;
   const settings = colors.chatSettings;
 
@@ -379,28 +423,28 @@ export function MessageBubble({
             <View style={styles.replyPreviewAudioRow}>
               <Mic size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                {'Mensaje de voz' + (message.replyTo.audioDuration ? ` (${formatAudioTime(message.replyTo.audioDuration)})` : '')}
+                {(t('dm.reply_types.audio') || 'Mensaje de voz') + (message.replyTo.audioDuration ? ` (${formatAudioTime(message.replyTo.audioDuration)})` : '')}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'image' ? (
             <View style={styles.replyPreviewAudioRow}>
               <ReplyImageIcon size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                Imagen
+                {t('dm.reply_types.image') || 'Imagen'}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'poll' ? (
             <View style={styles.replyPreviewAudioRow}>
               <BarChart3 size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                Encuesta: {message.replyTo.text}
+                {t('dm.reply_types.poll') || 'Encuesta'}: {message.replyTo.text}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'file' ? (
             <View style={styles.replyPreviewAudioRow}>
               <FileText size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                Archivo: {message.replyTo.attachmentName || message.replyTo.text}
+                {t('dm.reply_types.file') || 'Archivo'}: {message.replyTo.attachmentName || message.replyTo.text}
               </ThemedText>
             </View>
           ) : (
@@ -429,6 +473,11 @@ export function MessageBubble({
           currentUserId={currentUserId}
           textColor={textColor}
           bubbleBg={bubbleBg}
+        />
+      ) : message.type === 'event' ? (
+        <EventBubble
+          metadata={message.metadata}
+          textColor={textColor}
         />
       ) : message.attachments?.some(a => a.type === 'image') ? (
         <View style={styles.mediaContainer}>
@@ -472,7 +521,7 @@ export function MessageBubble({
                     {att.bio}
                   </ThemedText>
                 ) : (
-                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.5 }]}>Estudiante</ThemedText>
+                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.5 }]}>{t('roles.student') || 'Estudiante'}</ThemedText>
                 )}
               </View>
               <ChevronRight size={18} color={textColor} opacity={0.5} />
@@ -786,19 +835,50 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+  pollOptionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   pollVotes: {
     fontSize: 12,
-    marginLeft: 8,
   },
   pollCheck: {
-    position: 'absolute',
-    right: 8,
-    top: 4,
     zIndex: 2,
   },
   pollFooter: {
     fontSize: 11,
     marginTop: 10,
     textAlign: 'right',
+  },
+  eventBubbleContainer: {
+    width: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  eventIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eventInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  eventDate: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  eventAction: {
+    paddingLeft: 4,
   },
 });

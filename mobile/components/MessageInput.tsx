@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
   Modal,
   Image,
+  Keyboard,
 } from 'react-native';
 import { Audio } from 'expo-av';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Ionicons } from '@expo/vector-icons';
 import { X, Mic, Lock, LockOpen, Trash2, ChevronLeft, ChevronUp, Play, Pause, Square, Plus, Image as ImageIcon, Camera, FileText, BarChart3 } from 'lucide-react-native';
 import { spacing, typography } from '@/constants/styles';
@@ -27,6 +29,7 @@ import { PollModal } from './PollModal';
 export interface MessageInputHandle {
   startRecording: () => Promise<void>;
   startRecordingLocked: () => Promise<void>;
+  focus: () => void;
 }
 
 interface MessageInputProps {
@@ -121,9 +124,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   onCancelReply,
   disabled = false,
 }, ref) {
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
+  const inputRef = useRef<TextInput>(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -133,6 +138,22 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewProgress, setPreviewProgress] = useState(0);
   const [previewSeconds, setPreviewSeconds] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const stoppedAudioRef = useRef<{ uri: string; duration: number } | null>(null);
@@ -153,6 +174,12 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const lockBadgeY = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const micScaleAnim = useRef(new Animated.Value(1)).current;
+  const itemAnims = [
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+  ];
 
   const chatTheme = colors.chat;
   const isDefault = chatTheme.id === 'default';
@@ -163,8 +190,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     backdropAnim.setValue(0);
     Animated.parallel([
       Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 320, mass: 0.7 }),
-      Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-      Animated.timing(plusRotateAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(plusRotateAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.stagger(60, itemAnims.map(a =>
+        Animated.spring(a, { toValue: 1, useNativeDriver: true, friction: 7, tension: 45 })
+      ))
     ]).start();
   };
 
@@ -173,6 +203,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       Animated.timing(sheetAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
       Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(plusRotateAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ...itemAnims.map(a => Animated.timing(a, { toValue: 0, duration: 120, useNativeDriver: true }))
     ]).start(() => setShowAttachmentMenu(false));
   };
 
@@ -181,13 +212,14 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     Animated.timing(plusRotateAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
   };
 
+  const containerBgColor = theme === 'dark' ? '#1C1C1E' : colors.background; // Forzar fondo oscuro en tema oscuro
   const inputBgColor = isDefault
     ? colors.backgroundSecondary
-    : chatTheme.bubbleOther + '66';
-  const containerBgColor = isDefault ? colors.background : chatTheme.background;
+    : chatTheme.bubbleOther + 'CC';
+  const chatContainerBgColor = isDefault ? colors.background : chatTheme.background;
   const inputTextColor = isDefault
     ? colors.text
-    : getContrastForBlend(chatTheme.bubbleOther, chatTheme.background, 0.4);
+    : getContrastForBlend(chatTheme.bubbleOther, chatTheme.background, 0.82);
   const placeholderColor = isDefault ? colors.textSecondary : inputTextColor + '80';
 
   useEffect(() => {
@@ -222,7 +254,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        alert('Se necesitan permisos de micrófono para enviar audios.');
+        alert(t('dm.mic_perm_error') || 'Se necesitan permisos de micrófono para enviar audios.');
         return false;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -355,7 +387,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       const url = await uploadAudio(audioData.uri);
       onSendAudio(url, audioData.duration);
     } catch {
-      alert('Error al enviar el audio.');
+      alert(t('dm.audio_error') || 'Error al enviar el audio.');
     } finally {
       setIsUploading(false);
     }
@@ -429,7 +461,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           const name = asset.fileName || `video_${Date.now()}.mp4`;
           onSendFile?.(name, url, asset.fileSize ?? 0);
         } catch {
-          alert('Error al enviar el video.');
+          alert(t('dm.file_error') || 'Error al enviar el video.');
         } finally {
           setIsUploading(false);
         }
@@ -444,7 +476,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     closeSheetImmediate();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      alert('Se necesitan permisos de cámara');
+      alert(t('dm.camera_perm_error') || 'Se necesitan permisos de cámara');
       return;
     }
 
@@ -468,7 +500,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       onSendImage?.(url, width, height);
     } catch (error) {
       console.error('Error sending image:', error);
-      alert('Error al enviar la imagen');
+      alert(t('dm.image_error') || 'Error al enviar la imagen');
     } finally {
       setIsUploading(false);
     }
@@ -501,7 +533,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           const url = await uploadChatFile(asset.uri, asset.name, asset.mimeType || undefined);
           onSendFile?.(asset.name, url, asset.size || 0);
         } catch {
-          alert('Error al subir el archivo');
+          alert(t('dm.file_error') || 'Error al subir el archivo');
         } finally {
           setIsUploading(false);
         }
@@ -539,6 +571,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         }
       }
     },
+    focus: () => inputRef.current?.focus(),
   }));
 
   const hasText = !!text.trim();
@@ -577,8 +610,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             backgroundColor: containerBgColor,
             borderTopColor: isDefault ? colors.border : 'transparent',
             paddingBottom: Platform.OS === 'ios'
-              ? Math.max(insets.bottom - 20, 4)
-              : Math.max(insets.bottom, spacing.sm),
+              ? Math.max(insets.bottom - 20, 6)
+              : (isKeyboardVisible ? 6 : Math.max(insets.bottom, spacing.sm)),
           },
         ]}
       >
@@ -589,6 +622,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               {
                 borderLeftColor: colors.primary,
                 backgroundColor: isDefault ? colors.backgroundSecondary : inputBgColor,
+                marginTop: 2,
               },
             ]}
           >
@@ -604,7 +638,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      {'Mensaje de voz' + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
+                      {(t('dm.voice_message') || 'Mensaje de voz') + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
                     </ThemedText>
                   </>
                 ) : replyTo.type === 'image' ? (
@@ -614,7 +648,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      Imagen
+                      {t('dm.image_msg') || 'Imagen'}
                     </ThemedText>
                   </>
                 ) : replyTo.type === 'poll' ? (
@@ -624,7 +658,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      Encuesta: {replyTo.text}
+                      {t('dm.poll_msg', { text: replyTo.text }) || `Encuesta: ${replyTo.text}`}
                     </ThemedText>
                   </>
                 ) : replyTo.type === 'file' ? (
@@ -634,7 +668,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      Archivo: {replyTo.attachmentName || replyTo.text}
+                      {t('dm.file_msg', { name: replyTo.attachmentName || replyTo.text }) || `Archivo: ${replyTo.attachmentName || replyTo.text}`}
                     </ThemedText>
                   </>
                 ) : (
@@ -657,7 +691,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           <View style={styles.inputRow}>
             <ActivityIndicator color={colors.primary} size="small" />
             <ThemedText style={[styles.uploadingText, { color: colors.textSecondary }]}>
-              Enviando...
+              {t('dm.sending') || 'Enviando...'}
             </ThemedText>
           </View>
 
@@ -760,7 +794,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             <Animated.View style={[styles.cancelHint, { opacity: Animated.add(0.38, Animated.multiply(0.62, cancelProgressAnim)) }]}>
               <ChevronLeft size={15} color={colors.textSecondary} strokeWidth={2.5} />
               <ThemedText style={[styles.cancelHintText, { color: colors.textSecondary }]}>
-                Cancelar
+                {t('dm.cancel') || 'Cancelar'}
               </ThemedText>
             </Animated.View>
 
@@ -796,8 +830,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             </TouchableOpacity>
 
             <TextInput
+              ref={inputRef}
               style={[styles.input, { backgroundColor: inputBgColor, color: inputTextColor }]}
-              placeholder="Escribe un mensaje..."
+              placeholder={t('dm.write_placeholder') || 'Escribe un mensaje...'}
               placeholderTextColor={placeholderColor}
               value={text}
               onChangeText={setText}
@@ -859,32 +894,41 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               },
             ]}
           >
-            <View style={styles.sheetHandle} />
+            <View style={[
+              styles.sheetHandle,
+              { backgroundColor: isDefault ? 'rgba(120,120,128,0.3)' : colors.textSecondary + '40' }
+            ]} />
             <View style={styles.sheetGrid}>
-              <TouchableOpacity style={styles.sheetItem} onPress={handlePickImage} activeOpacity={0.75}>
-                <View style={[styles.sheetIconBox, { backgroundColor: '#5856D6' }]}>
-                  <ImageIcon size={28} color="#FFF" strokeWidth={1.8} />
-                </View>
-                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Fotos</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sheetItem} onPress={handleTakePhoto} activeOpacity={0.75}>
-                <View style={[styles.sheetIconBox, { backgroundColor: '#FF9500' }]}>
-                  <Camera size={28} color="#FFF" strokeWidth={1.8} />
-                </View>
-                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Cámara</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sheetItem} onPress={handlePickFile} activeOpacity={0.75}>
-                <View style={[styles.sheetIconBox, { backgroundColor: '#007AFF' }]}>
-                  <FileText size={28} color="#FFF" strokeWidth={1.8} />
-                </View>
-                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Documento</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sheetItem} onPress={handleOpenPoll} activeOpacity={0.75}>
-                <View style={[styles.sheetIconBox, { backgroundColor: '#FF2D55' }]}>
-                  <BarChart3 size={28} color="#FFF" strokeWidth={1.8} />
-                </View>
-                <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>Encuesta</ThemedText>
-              </TouchableOpacity>
+              {[
+                { icon: <ImageIcon size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.photos') || 'Fotos', color: '#5856D6', onPress: () => { closeSheetImmediate(); setTimeout(handlePickImage, 300); } },
+                { icon: <Camera size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.camera') || 'Cámara', color: '#FF9500', onPress: () => { closeSheetImmediate(); setTimeout(handleTakePhoto, 300); } },
+                { icon: <FileText size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.document') || 'Documento', color: '#007AFF', onPress: () => { closeSheetImmediate(); setTimeout(handlePickFile, 300); } },
+                { icon: <BarChart3 size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.poll') || 'Encuesta', color: '#FF2D55', onPress: () => { closeSheetImmediate(); handleOpenPoll(); } },
+              ].map((item, i) => (
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.sheetItem,
+                    {
+                      opacity: itemAnims[i],
+                      transform: [{ scale: itemAnims[i] }]
+                    }
+                  ]}
+                >
+                  <TouchableOpacity style={styles.sheetItemContent} onPress={item.onPress} activeOpacity={0.75}>
+                    <View style={[
+                      styles.sheetIconBox,
+                      {
+                        backgroundColor: item.color,
+                        shadowColor: isDefault ? '#000' : colors.text
+                      }
+                    ]}>
+                      {item.icon}
+                    </View>
+                    <ThemedText style={[styles.sheetItemLabel, { color: colors.text }]}>{item.label}</ThemedText>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
             </View>
           </Animated.View>
         </View>
@@ -1125,7 +1169,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(120,120,128,0.3)',
     alignSelf: 'center',
     marginBottom: 20,
   },
@@ -1135,9 +1178,11 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   sheetItem: {
+    flex: 1,
+  },
+  sheetItemContent: {
     alignItems: 'center',
     gap: 8,
-    flex: 1,
   },
   sheetIconBox: {
     width: 60,
@@ -1145,7 +1190,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 6,

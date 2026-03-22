@@ -3,6 +3,7 @@ import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, Animated, Styl
 import { Check } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
 import type { SaveToPhotosPreference } from '@/types';
 
@@ -13,15 +14,18 @@ interface SaveToPhotosSheetProps {
   onClose: () => void;
 }
 
-const OPTIONS: { value: SaveToPhotosPreference; label: string; description: string }[] = [
-  { value: 'default', label: 'Por defecto (Sí)', description: 'Guardar automáticamente según configuración global' },
-  { value: 'always', label: 'Siempre', description: 'Guardar siempre en la galería' },
-  { value: 'never', label: 'Nunca', description: 'No guardar nunca en la galería' },
+const getOptions = (t: any): { value: SaveToPhotosPreference; label: string; description: string }[] => [
+  { value: 'default', label: t('dm.save_to_photos_sheet.options.default.label') || 'Por defecto (Sí)', description: t('dm.save_to_photos_sheet.options.default.desc') || 'Guardar automáticamente según configuración global' },
+  { value: 'always', label: t('dm.save_to_photos_sheet.options.always.label') || 'Siempre', description: t('dm.save_to_photos_sheet.options.always.desc') || 'Guardar siempre en la galería' },
+  { value: 'never', label: t('dm.save_to_photos_sheet.options.never.label') || 'Nunca', description: t('dm.save_to_photos_sheet.options.never.desc') || 'No guardar nunca en la galería' },
 ];
 
 export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveToPhotosSheetProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const slideAnim = useRef(new Animated.Value(300)).current;
+
+  const OPTIONS = getOptions(t);
 
   useEffect(() => {
     if (visible) {
@@ -53,7 +57,7 @@ export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveT
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
         <ThemedText style={[styles.sheetTitle, { color: colors.text }]}>
-          Guardar en Fotos
+          {t('dm.save_to_photos_sheet.title') || 'Guardar en Fotos'}
         </ThemedText>
         {OPTIONS.map(opt => (
           <TouchableOpacity
@@ -76,7 +80,7 @@ export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveT
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>Cancelar</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

@@ -4,16 +4,12 @@ import { Archive, BellOff } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { DMConversation } from '@/types';
 
 const SWIPE_THRESHOLD = 60;
 const MAX_SWIPE = 90;
 
-const ROLE_LABELS: Record<DMConversation['participantRole'], string> = {
-  student: 'Alumno',
-  teacher: 'Profesor',
-  admin: 'Admin',
-};
 
 const ROLE_COLORS: Record<DMConversation['participantRole'], string> = {
   student: '#007AFF',
@@ -28,12 +24,12 @@ function formatTime(isoString: string): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
-    return date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   }
   if (diffDays < 7) {
-    return date.toLocaleDateString('es', { weekday: 'short' });
+    return date.toLocaleDateString(undefined, { weekday: 'short' });
   }
-  return date.toLocaleDateString('es', { day: '2-digit', month: '2-digit' });
+  return date.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
 }
 
 interface DMConversationItemProps {
@@ -43,6 +39,7 @@ interface DMConversationItemProps {
 
 export function DMConversationItem({ conversation, onPress }: DMConversationItemProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const translateX = useRef(new Animated.Value(0)).current;
   const swipeDirection = useRef<'left' | 'right' | null>(null);
 
@@ -90,12 +87,12 @@ export function DMConversationItem({ conversation, onPress }: DMConversationItem
     <View style={styles.wrapper} {...panResponder.panHandlers}>
       <Animated.View style={[styles.actionLeft, { opacity: muteOpacity }]}>
         <BellOff size={22} color="#fff" strokeWidth={2} />
-        <ThemedText style={styles.actionLabel}>Silenciar</ThemedText>
+        <ThemedText style={styles.actionLabel}>{t('dm.conversations.actions.mute') || 'Silenciar'}</ThemedText>
       </Animated.View>
 
       <Animated.View style={[styles.actionRight, { opacity: archiveOpacity }]}>
         <Archive size={22} color="#fff" strokeWidth={2} />
-        <ThemedText style={styles.actionLabel}>Archivar</ThemedText>
+        <ThemedText style={styles.actionLabel}>{t('dm.conversations.actions.archive') || 'Archivar'}</ThemedText>
       </Animated.View>
 
       <Animated.View style={{ transform: [{ translateX }] }}>
@@ -125,7 +122,7 @@ export function DMConversationItem({ conversation, onPress }: DMConversationItem
                 </ThemedText>
                 <View style={[styles.roleBadge, { backgroundColor: ROLE_COLORS[conversation.participantRole] + '22' }]}>
                   <ThemedText style={[styles.roleText, { color: ROLE_COLORS[conversation.participantRole] }]}>
-                    {ROLE_LABELS[conversation.participantRole]}
+                    {t(`roles.labels.${conversation.participantRole}`) || conversation.participantRole}
                   </ThemedText>
                 </View>
               </View>

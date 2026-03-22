@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, Animated, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
 
 interface BlockSheetProps {
@@ -14,6 +15,7 @@ interface BlockSheetProps {
 
 export function BlockSheet({ visible, userName, onBlockOnly, onBlockAndReport, onClose }: BlockSheetProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const slideAnim = useRef(new Animated.Value(300)).current;
 
   useEffect(() => {
@@ -34,31 +36,31 @@ export function BlockSheet({ visible, userName, onBlockOnly, onBlockAndReport, o
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
         <ThemedText style={[styles.title, { color: colors.text }]}>
-          Bloquear a {userName}
+          {t('dm.block_sheet.title', { name: userName }) || `Bloquear a ${userName}`}
         </ThemedText>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-          No podrá enviarte mensajes ni ver tu perfil. Puedes desbloquear en cualquier momento.
+          {t('dm.block_sheet.desc') || 'No podrá enviarte mensajes ni ver tu perfil. Puedes desbloquear en cualquier momento.'}
         </ThemedText>
         <TouchableOpacity
           style={[styles.option, styles.destructive]}
           onPress={() => { onBlockAndReport(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveText}>Bloquear y reportar</ThemedText>
+          <ThemedText style={styles.destructiveText}>{t('dm.block_sheet.block_and_report') || 'Bloquear y reportar'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, styles.destructiveSoft]}
           onPress={() => { onBlockOnly(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveSoftText}>Solo bloquear</ThemedText>
+          <ThemedText style={styles.destructiveSoftText}>{t('dm.block_sheet.block_only') || 'Solo bloquear'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, { backgroundColor: colors.backgroundSecondary }]}
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>Cancelar</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

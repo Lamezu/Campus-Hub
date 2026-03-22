@@ -12,18 +12,21 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import type { Message, ReplyPreview } from '@/types';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown } from 'lucide-react-native';
 import { notificationService } from '@/services/notificationService';
 import { markChannelRead } from '@/services/channelReadService';
 import { useCurrentUser } from '@/contexts/UserContext';
+import { ChatSettingsSheet } from '@/components/chat/ChatSettingsSheet';
 
 const MESSAGES_PER_PAGE = 50;
 const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function ChatScreen() {
   const { colors, theme, chatSettings, setChatSettings } = useTheme();
+  const { t } = useTranslation();
   const { isAdmin } = useCurrentUser();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -43,10 +46,11 @@ export default function ChatScreen() {
 
   const channel = MOCK_CHANNELS.find(ch => ch.id === id);
   const [channelDetails, setChannelDetails] = useState<any>(channel || null);
-  const channelName = channelDetails?.name || channel?.name || (id?.startsWith('sg_') ? 'Grupo' : 'Canal');
-  const currentUser = auth.currentUser;
   const isSG = id?.startsWith('sg_') ?? false;
   const realId = isSG ? (id?.replace('sg_', '') ?? '') : (id ?? '');
+  const currentUser = auth.currentUser;
+  const fallbackName = realId.charAt(0).toUpperCase() + realId.slice(1).replace(/_/g, ' ');
+  const channelName = channelDetails?.name || channel?.name || fallbackName;
 
   useEffect(() => {
     if (!id) return;
@@ -62,7 +66,14 @@ export default function ChatScreen() {
       }
     });
     return () => unsub();
-  }, [id]);
+  }, [realId, isSG]);
+
+  useEffect(() => {
+    if (highlightId && messages.length > 0) {
+      const timer = setTimeout(() => handleReplyPreviewPress(highlightId), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, messages.length]);
 
   useEffect(() => {
     if (!id || !currentUser) return;
@@ -107,7 +118,7 @@ export default function ChatScreen() {
             id: doc.id,
             text: data.text || '',
             senderId: data.senderId || '',
-            senderName: data.senderName || 'Desconocido',
+            senderName: data.senderName || t('chat.unknown_user') || 'Desconocido',
             senderPhoto: data.senderPhoto || null,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             edited: data.edited || false,
@@ -117,6 +128,8 @@ export default function ChatScreen() {
             replyTo: data.replyTo || null,
             poll: data.poll || null,
             deletedForUsers: data.deletedForUsers || [],
+            metadata: data.metadata || null,
+            type: data.type || 'text',
           };
         })
         .filter(msg => !currentUser || !msg.deletedForUsers?.includes(currentUser.uid));
@@ -149,7 +162,7 @@ export default function ChatScreen() {
             id: doc.id,
             text: data.text || '',
             senderId: data.senderId || '',
-            senderName: data.senderName || 'Desconocido',
+            senderName: data.senderName || t('chat.unknown_user') || 'Desconocido',
             senderPhoto: data.senderPhoto || null,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             edited: data.edited || false,
@@ -159,6 +172,8 @@ export default function ChatScreen() {
             replyTo: data.replyTo || null,
             poll: data.poll || null,
             deletedForUsers: data.deletedForUsers || [],
+            metadata: data.metadata || null,
+            type: data.type || 'text',
           };
         })
         .filter(msg => !currentUser || !msg.deletedForUsers?.includes(currentUser.uid));
@@ -176,7 +191,7 @@ export default function ChatScreen() {
 
   const buildMessageBase = () => ({
     senderId: currentUser!.uid,
-    senderName: userProfile?.displayName || currentUser!.displayName || 'Usuario',
+    senderName: userProfile?.displayName || currentUser!.displayName || t('chat.unknown_user') || 'Usuario',
     senderPhoto: userProfile?.photoURL || currentUser!.photoURL || null,
     createdAt: serverTimestamp(),
     edited: false,
@@ -200,7 +215,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert('Error al enviar el mensaje.');
+      alert(t('dm.send_error') || 'Error al enviar el mensaje.');
     } finally {
       setSending(false);
     }
@@ -220,7 +235,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert('Error al guardar el audio.');
+      alert(t('dm.audio_error') || 'Error al guardar el audio.');
     }
   };
 
@@ -238,7 +253,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert('Error al guardar la imagen.');
+      alert(t('dm.image_error') || 'Error al guardar la imagen.');
     }
   };
 
@@ -256,7 +271,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert('Error al guardar el archivo.');
+      alert(t('dm.file_error') || 'Error al guardar el archivo.');
     }
   };
 
@@ -352,9 +367,9 @@ export default function ChatScreen() {
 
   const handleClearChannel = () => {
     const buttons: any[] = [
-      { text: 'Cancelar', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Eliminar para mí',
+        text: t('chat.delete_for_me'),
         onPress: async () => {
           if (!currentUser) return;
           try {
@@ -364,17 +379,17 @@ export default function ChatScreen() {
               snap.docs.forEach(d => batch.update(d.ref, { deletedForUsers: arrayUnion(currentUser.uid) }));
               await batch.commit();
             }
-            Alert.alert('Chat vaciado', 'Los mensajes ya no son visibles para ti');
+            Alert.alert(t('chat.chat_cleared'), t('chat.chat_cleared_msg'));
           } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'No se pudo vaciar el chat');
+            Alert.alert(t('common.error'), t('chat.clear_error'));
           }
         },
       },
     ];
     if (isAdmin || userProfile?.role === 'admin') {
       buttons.push({
-        text: 'Eliminar para todos',
+        text: t('chat.delete_for_all'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -384,15 +399,15 @@ export default function ChatScreen() {
               snap.docs.forEach(d => batch.delete(d.ref));
               await batch.commit();
             }
-            Alert.alert('Chat eliminado', 'Se eliminaron todos los mensajes');
+            Alert.alert(t('chat.chat_deleted'), t('chat.chat_deleted_msg'));
           } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'No se pudo eliminar el chat');
+            Alert.alert(t('common.error'), t('chat.delete_error'));
           }
         },
       });
     }
-    Alert.alert('Vaciar chat', '¿Cómo quieres vaciar el chat?', buttons);
+    Alert.alert(t('chat.clear_chat'), t('chat.clear_chat_msg'), buttons);
   };
 
   const handleReply = (message: Message) => {
@@ -499,7 +514,19 @@ export default function ChatScreen() {
 
   const handleForward = async (message: Message) => {
     setMenuMessage(null);
-    if (message.text) await Share.share({ message: message.text });
+    const audio = message.attachments?.find(a => a.type === 'audio');
+    const image = message.attachments?.find(a => a.type === 'image');
+    const file = message.attachments?.find(a => a.type === 'file');
+
+    if (audio) {
+      router.push(`/forward?audioUrl=${encodeURIComponent(audio.url)}&audioDuration=${audio.duration ?? 0}` as never);
+    } else if (image) {
+      router.push(`/forward?imageUrl=${encodeURIComponent(image.url)}&imageWidth=${image.imageWidth ?? 0}&imageHeight=${image.imageHeight ?? 0}&messageText=${encodeURIComponent(message.text || '')}` as never);
+    } else if (file) {
+      router.push(`/forward?fileUrl=${encodeURIComponent(file.url)}&fileName=${encodeURIComponent(file.name || 'archivo')}&fileSize=${file.size ?? 0}&messageText=${encodeURIComponent(message.text || '')}` as never);
+    } else {
+      router.push(`/forward?messageText=${encodeURIComponent(message.text || '')}` as never);
+    }
   };
 
   const handleQuickAudioReply = (message: Message) => {
@@ -530,7 +557,7 @@ export default function ChatScreen() {
         <Stack.Screen options={{ title: channelName, headerShown: true }} />
         <ThemedView style={[styles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText style={styles.loadingText}>Cargando mensajes...</ThemedText>
+          <ThemedText style={styles.loadingText}>{t('chat.loading') || 'Cargando mensajes...'}</ThemedText>
         </ThemedView>
       </View>
     );
@@ -579,73 +606,24 @@ export default function ChatScreen() {
         {colors.chat.backgroundImage && (
           <Image
             source={{ uri: colors.chat.backgroundImage }}
-            style={StyleSheet.absoluteFillObject}
+            style={[
+              StyleSheet.absoluteFillObject,
+              (colors.chat.offsetX !== undefined || colors.chat.offsetY !== undefined || colors.chat.scale !== undefined) ? {
+                transform: [
+                  { translateX: colors.chat.offsetX || 0 },
+                  { translateY: colors.chat.offsetY || 0 },
+                  { scale: colors.chat.scale || 1 }
+                ]
+              } : {}
+            ]}
             resizeMode="cover"
           />
         )}
-        {Platform.OS === 'ios' ? (
-          <KeyboardAvoidingView
-            style={styles.container}
-            behavior="padding"
-            keyboardVerticalOffset={headerHeight}
-          >
-            <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                  <MessageBubble
-                    message={item}
-                    isOwnMessage={item.senderId === currentUser?.uid}
-                    currentUserId={currentUser?.uid}
-                    onReply={handleReply}
-                    onLongPress={setMenuMessage}
-                    onDoubleTap={() => handleMessageDoubleTap(item.id, item.reactions ?? {})}
-                    onSwipeStart={onMessageSwipeStart}
-                    onSwipeEnd={onMessageSwipeEnd}
-                    onQuickAudioReply={handleQuickAudioReply}
-                    onReplyPreviewPress={handleReplyPreviewPress}
-                    highlighted={highlightedMessageId === item.id}
-                    onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                    onFilePress={(url, name) => {
-                      Share.share({ url, message: `Archivo de ${channelName}: ${name}` });
-                    }}
-                  />
-                )}
-                contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
-                onEndReached={loadMoreMessages}
-                onEndReachedThreshold={0.5}
-                scrollEnabled={!isSwipingMessage}
-                onScrollToIndexFailed={() => { }}
-                ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
-                ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
-                inverted
-                onScroll={handleListScroll}
-                scrollEventThrottle={100}
-              />
-              <Animated.View
-                pointerEvents={showScrollDown ? 'auto' : 'none'}
-                style={[styles.scrollDownBtn, { opacity: scrollDownAnim, transform: [{ scale: scrollDownAnim }] }]}
-              >
-                <Pressable onPress={scrollToBottom} style={[styles.scrollDownBtnInner, { backgroundColor: colors.card }]}>
-                  <ChevronDown size={26} color={colors.text} strokeWidth={2.5} />
-                </Pressable>
-              </Animated.View>
-              <MessageInput
-                ref={messageInputRef}
-                onSend={handleSendMessage}
-                onSendAudio={handleSendAudio}
-                onSendImage={handleSendImage}
-                onSendFile={handleSendFile}
-                onSendPoll={handleSendPoll}
-                replyTo={replyingTo}
-                onCancelReply={() => setReplyingTo(null)}
-                disabled={sending}
-              />
-            </View>
-          </KeyboardAvoidingView>
-        ) : (
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+        >
           <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
             <FlatList
               ref={flatListRef}
@@ -666,7 +644,7 @@ export default function ChatScreen() {
                   highlighted={highlightedMessageId === item.id}
                   onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
                   onFilePress={(url, name) => {
-                    Share.share({ url, message: `Archivo de ${channelName}: ${name}` });
+                    Share.share({ url, message: t('chat.file_share_msg', { channel: channelName, name }) || `Archivo de ${channelName}: ${name}` });
                   }}
                 />
               )}
@@ -676,7 +654,7 @@ export default function ChatScreen() {
               scrollEnabled={!isSwipingMessage}
               onScrollToIndexFailed={() => { }}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
-              ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>No hay mensajes aún.</ThemedText></View>}
+              ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>{t('chat.no_messages') || 'No hay mensajes aún.'}</ThemedText></View>}
               inverted
               onScroll={handleListScroll}
               scrollEventThrottle={100}
@@ -701,7 +679,7 @@ export default function ChatScreen() {
               disabled={sending}
             />
           </View>
-        )}
+        </KeyboardAvoidingView>
       </View>
 
       <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
@@ -737,31 +715,31 @@ export default function ChatScreen() {
                   {menuMessage?.senderName}
                 </ThemedText>
                 <ThemedText style={[styles.menuPreviewText, { color: colors.textSecondary }]} numberOfLines={2}>
-                  {menuMessage?.attachments?.find(a => a.type === 'audio') ? '­ƒÄñ Mensaje de voz' : menuMessage?.text}
+                  {menuMessage?.attachments?.find(a => a.type === 'audio') ? t('chat.voice_msg_preview') : menuMessage?.text}
                 </ThemedText>
               </View>
               <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleReply(menuMessage)}>
                 <Reply size={20} color={colors.text} strokeWidth={2} />
-                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Responder</ThemedText>
+                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.reply')}</ThemedText>
               </TouchableOpacity>
               <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
               <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleForward(menuMessage)}>
                 <Forward size={20} color={colors.text} strokeWidth={2} />
-                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Reenviar</ThemedText>
+                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.forward')}</ThemedText>
               </TouchableOpacity>
               {!!menuMessage?.text && (
                 <>
                   <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
                   <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleCopy(menuMessage)}>
                     <Copy size={20} color={colors.text} strokeWidth={2} />
-                    <ThemedText style={[styles.menuItemText, { color: colors.text }]}>Copiar</ThemedText>
+                    <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.copy')}</ThemedText>
                   </TouchableOpacity>
                 </>
               )}
               <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
               <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleMenuDelete(menuMessage)}>
                 <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
-                <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>Eliminar</ThemedText>
+                <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>{t('chat.delete')}</ThemedText>
               </TouchableOpacity>
             </Animated.View>
           </View>
@@ -791,7 +769,7 @@ export default function ChatScreen() {
           >
             <View style={[styles.emojiInputBox, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
               <ThemedText style={[styles.emojiInputLabel, { color: colors.textSecondary }]}>
-                Selecciona un emoji del teclado
+                {t('chat.emoji_picker_title') || 'Selecciona un emoji del teclado'}
               </ThemedText>
               <TextInput
                 autoFocus
@@ -815,65 +793,12 @@ export default function ChatScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={showSettings} animationType="slide" transparent={true} onRequestClose={() => setShowSettings(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <ThemedText style={styles.modalTitle}>Personalizar Chat</ThemedText>
-              <TouchableOpacity onPress={() => setShowSettings(false)}>
-                <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>Hecho</ThemedText>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.settingsSection}>
-                <ThemedText style={styles.settingsLabel}>Temas del Chat</ThemedText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.themeScrollContent}>
-                  {Object.values(chatThemes).map((t) => (
-                    <TouchableOpacity key={t.id} style={[styles.themeItem, { borderColor: chatSettings.themeId === t.id ? colors.primary : colors.border }]} onPress={() => setChatSettings({ themeId: t.id })}>
-                      <View style={[styles.themePreview, { backgroundColor: t.background === 'transparent' ? colors.background : t.background, overflow: 'hidden' }]}>
-                        {t.backgroundImage && <Image source={{ uri: t.backgroundImage }} style={StyleSheet.absoluteFill} />}
-                        <View style={[styles.bubblePreview, { backgroundColor: t.bubbleOwn, alignSelf: 'flex-end', opacity: 0.9 }]} />
-                        <View style={[styles.bubblePreview, { backgroundColor: t.bubbleOther, alignSelf: 'flex-start', opacity: 0.9 }]} />
-                      </View>
-                      <ThemedText style={[styles.themeName, chatSettings.themeId === t.id && { color: colors.primary }]}>{t.name}</ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={styles.settingsSection}>
-                <ThemedText style={styles.settingsLabel}>Tamaño de Letra ({chatSettings.fontSize}px)</ThemedText>
-                <View style={styles.row}>
-                  {[12, 14, 16, 18, 20].map(size => (
-                    <TouchableOpacity key={size} style={[styles.sizeButton, { borderColor: colors.border }, chatSettings.fontSize === size && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setChatSettings({ fontSize: size })}>
-                      <ThemedText style={{ color: chatSettings.fontSize === size ? '#FFF' : colors.text }}>{size}</ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <View style={styles.settingsSection}>
-                <ThemedText style={styles.settingsLabel}>Estilo de Letra</ThemedText>
-                <View style={styles.row}>
-                  <TouchableOpacity style={[styles.styleButton, { borderColor: colors.border }, chatSettings.fontWeight === 'bold' && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setChatSettings({ fontWeight: chatSettings.fontWeight === 'bold' ? '400' : 'bold' })}>
-                    <ThemedText style={[chatSettings.fontWeight === 'bold' && { color: '#FFF' }]}>Negrita</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.styleButton, { borderColor: colors.border, marginLeft: spacing.sm }, chatSettings.fontStyle === 'italic' && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setChatSettings({ fontStyle: chatSettings.fontStyle === 'italic' ? 'normal' : 'italic' })}>
-                    <ThemedText style={[chatSettings.fontStyle === 'italic' && { color: '#FFF' }]}>Cursiva</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={[styles.settingsSection, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.lg }]}>
-                <ThemedText style={styles.settingsLabel}>Chat</ThemedText>
-                <TouchableOpacity
-                  style={[styles.clearChatBtn, { borderColor: '#FF3B30' }]}
-                  onPress={() => { setShowSettings(false); setTimeout(handleClearChannel, 300); }}
-                >
-                  <ThemedText style={styles.clearChatBtnText}>Vaciar chat</ThemedText>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <ChatSettingsSheet
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        onClearChat={handleClearChannel}
+        showClearChat={true}
+      />
 
       <Modal
         visible={!!deleteConfirmMsg}
@@ -889,12 +814,12 @@ export default function ChatScreen() {
           <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
             <View style={styles.deleteDialogHeader}>
               <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
-                Eliminar mensaje
+                {t('chat.delete_message') || 'Eliminar mensaje'}
               </ThemedText>
               <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
                 {deleteConfirmMsg?.senderId === currentUser?.uid
-                  ? '¿Cómo quieres eliminarlo?'
-                  : 'Solo se eliminará para ti.'}
+                  ? (t('chat.delete_confirm_msg') || '¿Cómo quieres eliminarlo?')
+                  : (t('chat.delete_for_me_only') || 'Solo se eliminará para ti.')}
               </ThemedText>
             </View>
             <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
@@ -907,7 +832,7 @@ export default function ChatScreen() {
               }}
             >
               <ThemedText style={[styles.deleteDialogBtnText, { color: colors.text }]}>
-                Eliminar para mí
+                {t('chat.delete_for_me') || 'Eliminar para mí'}
               </ThemedText>
             </TouchableOpacity>
             {deleteConfirmMsg?.senderId === currentUser?.uid && (
@@ -922,7 +847,7 @@ export default function ChatScreen() {
                   }}
                 >
                   <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>
-                    Eliminar para todos
+                    {t('chat.delete_for_all') || 'Eliminar para todos'}
                   </ThemedText>
                 </TouchableOpacity>
               </>
@@ -933,7 +858,7 @@ export default function ChatScreen() {
               onPress={() => setDeleteConfirmMsg(null)}
             >
               <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
-                Cancelar
+                {t('common.cancel') || 'Cancelar'}
               </ThemedText>
             </TouchableOpacity>
           </View>
