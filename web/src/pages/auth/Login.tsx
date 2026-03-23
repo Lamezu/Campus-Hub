@@ -1,21 +1,59 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../config/firebase';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../config/firebase';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/home');
+    } catch {
+      setError('Email o contraseña incorrectos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const userRef = doc(db, 'users', user.uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || 'Usuario',
+          photoURL: user.photoURL || null,
+          role: 'student',
+          department: null,
+          createdAt: serverTimestamp(),
+          lastActive: serverTimestamp(),
+          fcmToken: null,
+        });
+      }
+      navigate('/home');
     } catch (err: any) {
-      setError(err.message);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError('No se pudo iniciar sesión con Google');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -23,7 +61,7 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <h1 className="login-title">CampusHub</h1>
-        
+
         <p className="text-subtitle" style={{ textAlign: 'center', marginBottom: '24px' }}>
           Bienvenido de nuevo
         </p>
@@ -55,8 +93,8 @@ export default function Login() {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="btn">
-            Iniciar Sesión
+          <button type="submit" className="btn" disabled={loading} style={{ opacity: loading ? 0.6 : 1 }}>
+            {loading ? 'Entrando...' : 'Iniciar Sesión'}
           </button>
         </form>
 
@@ -64,7 +102,7 @@ export default function Login() {
           O continuar con
         </p>
 
-        <button className="btn btn-google">
+        <button className="btn btn-google" onClick={handleGoogleLogin} disabled={loading}>
           Continuar con Google
         </button>
 
