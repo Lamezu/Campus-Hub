@@ -25,6 +25,7 @@ import {
   type DMMessage,
   type DMReplyTo
 } from '../../services/firebase/directMessageService';
+import { playMessageTone } from '../../utils/toneGenerator';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
 const MESSAGES_PER_PAGE = 50;
@@ -199,6 +200,7 @@ export default function DirectChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastDocRef = useRef<QueryDocumentSnapshot | null>(null);
+  const isFirstMsgLoad = useRef(true);
   const navigate = useNavigate();
   const { colors } = useTheme();
   const chatTheme = colors.chat;
@@ -230,7 +232,18 @@ export default function DirectChat() {
     if (!conversationId || !currentUser) return;
 
     const uid = currentUser.uid;
+    isFirstMsgLoad.current = true;
     const unsubscribe = subscribeToMessages(conversationId, (msgs, lastDoc) => {
+      if (!isFirstMsgLoad.current && msgs.length > 0) {
+        const last = msgs[msgs.length - 1];
+        if (last.senderId !== uid) {
+          const mute = userData?.settings?.globalMute ?? 'off';
+          if (mute === 'off') {
+            playMessageTone(userData?.settings?.globalTone ?? 'Melodía');
+          }
+        }
+      }
+      isFirstMsgLoad.current = false;
       setMessages(msgs);
       setLoading(false);
       setHasMore(msgs.length === MESSAGES_PER_PAGE);
@@ -240,7 +253,7 @@ export default function DirectChat() {
     });
 
     return () => unsubscribe();
-  }, [conversationId, currentUser]);
+  }, [conversationId, currentUser, userData]);
 
   const handleLoadMore = async () => {
     if (!conversationId || !hasMore || loadingMore || !lastDocRef.current) return;

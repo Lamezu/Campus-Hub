@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import Layout from '../../components/Layout';
-import { LogOut } from 'lucide-react';
+import { LogOut, Check } from 'lucide-react';
+import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
+
+type MuteDuration = '8h' | '1w' | 'always' | 'off';
+
+const MUTE_OPTIONS: { value: MuteDuration; label: string }[] = [
+  { value: '8h', label: '8 horas' },
+  { value: '1w', label: '1 semana' },
+  { value: 'always', label: 'Siempre' },
+  { value: 'off', label: 'No silenciar' },
+];
 
 const PRESET_COLORS = [
   '#007AFF', '#FF2D55', '#5856D6', '#AF52DE',
@@ -20,15 +30,48 @@ export default function Settings() {
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
+  const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
+  const [globalTone, setGlobalTone] = useState('Melodía');
+  const [callTone, setCallTone] = useState('Trompeta');
   const currentUser = auth.currentUser;
 
   useEffect(() => {
     if (!currentUser) return;
     const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (snap) => {
-      if (snap.exists()) setUserData(snap.data());
+      if (snap.exists()) {
+        const data = snap.data();
+        setUserData(data);
+        if (data.settings?.globalMute) setGlobalMute(data.settings.globalMute);
+        if (data.settings?.globalTone) setGlobalTone(data.settings.globalTone);
+        if (data.settings?.callTone) setCallTone(data.settings.callTone);
+      }
     });
     return () => unsubscribe();
   }, [currentUser]);
+
+  const handleMuteChange = async (value: MuteDuration) => {
+    setGlobalMute(value);
+    if (currentUser) {
+      await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.globalMute': value });
+    }
+  };
+
+  const handleToneChange = async (tone: string) => {
+    setGlobalTone(tone);
+    previewTone(tone);
+    if (currentUser) {
+      await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.globalTone': tone });
+    }
+  };
+
+  const handleCallToneChange = async (tone: string) => {
+    setCallTone(tone);
+    playCallTone(tone);
+    setTimeout(() => { import('../../utils/toneGenerator').then(m => m.stopCallTone()); }, 4000);
+    if (currentUser) {
+      await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.callTone': tone });
+    }
+  };
 
   const handleLogout = async () => {
     if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
@@ -132,6 +175,79 @@ export default function Settings() {
                   transition: 'outline 0.15s',
                 }}
               />
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2 className="settings-section-title">Notificaciones</h2>
+          <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px', marginBottom: '14px' }}>
+            Silenciar todas las notificaciones de la aplicación.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {MUTE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => handleMuteChange(opt.value)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 16px', borderRadius: '12px', cursor: 'pointer',
+                  border: globalMute === opt.value ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                  backgroundColor: globalMute === opt.value ? colors.primary + '11' : 'transparent',
+                  color: globalMute === opt.value ? colors.primary : colors.text,
+                }}
+              >
+                <span style={{ fontSize: '15px', fontWeight: globalMute === opt.value ? '600' : '400' }}>
+                  {opt.label}
+                </span>
+                {globalMute === opt.value && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '20px', marginBottom: '14px' }}>
+            Tono de alerta global.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {MESSAGE_TONE_NAMES.map(tone => (
+              <button
+                key={tone}
+                onClick={() => handleToneChange(tone)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 16px', borderRadius: '12px', cursor: 'pointer',
+                  border: globalTone === tone ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                  backgroundColor: globalTone === tone ? colors.primary + '11' : 'transparent',
+                  color: globalTone === tone ? colors.primary : colors.text,
+                }}
+              >
+                <span style={{ fontSize: '15px', fontWeight: globalTone === tone ? '600' : '400' }}>
+                  {tone}
+                </span>
+                {globalTone === tone && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '20px', marginBottom: '14px' }}>
+            Tono de llamada entrante.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {CALL_TONE_NAMES.map(tone => (
+              <button
+                key={tone}
+                onClick={() => handleCallToneChange(tone)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 16px', borderRadius: '12px', cursor: 'pointer',
+                  border: callTone === tone ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                  backgroundColor: callTone === tone ? colors.primary + '11' : 'transparent',
+                  color: callTone === tone ? colors.primary : colors.text,
+                }}
+              >
+                <span style={{ fontSize: '15px', fontWeight: callTone === tone ? '600' : '400' }}>
+                  {tone}
+                </span>
+                {callTone === tone && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+              </button>
             ))}
           </div>
         </div>

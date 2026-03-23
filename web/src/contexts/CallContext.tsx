@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import {
   subscribeToIncomingCalls,
   missCall,
@@ -8,6 +9,7 @@ import {
   type Call,
   type CallType
 } from '../services/firebase/callService';
+import { playCallTone, stopCallTone } from '../utils/toneGenerator';
 
 export interface ActiveCall {
   callId: string;
@@ -48,7 +50,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [incomingCall, setIncomingCall] = useState<Call | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
-  const ringingRef = useRef<HTMLAudioElement | null>(null);
+  const callToneRef = useRef<string>('Trompeta');
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -58,15 +60,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!userId) return;
+    const unsub = onSnapshot(doc(db, 'users', userId), (snap) => {
+      if (snap.exists()) {
+        const tone = snap.data().settings?.callTone;
+        if (tone) callToneRef.current = tone;
+      }
+    });
+    return unsub;
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
 
     const unsub = subscribeToIncomingCalls(userId, (call) => {
       if (call && !activeCallId) {
         setIncomingCall(call);
-        if (!ringingRef.current) {
-          ringingRef.current = new Audio('/sounds/ringtone.mp3');
-          ringingRef.current.loop = true;
-        }
-        ringingRef.current.play().catch(() => {});
+        playCallTone(callToneRef.current);
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
         missTimerRef.current = setTimeout(() => {
           missCall(call.id).catch(() => {});
@@ -84,10 +93,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [userId, activeCallId]);
 
   function stopRinging() {
-    if (ringingRef.current) {
-      ringingRef.current.pause();
-      ringingRef.current.currentTime = 0;
-    }
+    stopCallTone();
   }
 
   function dismissIncoming() {
