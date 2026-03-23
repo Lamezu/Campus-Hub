@@ -1,15 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc, limit, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import Layout from '../../components/Layout';
 import { ChannelCard } from '../../components/ChannelCard';
 import type { Channel, StudyGroup } from '../../types';
-import { Settings } from 'lucide-react';
+import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircleQuestion, Users, type LucideIcon } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
+
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  'messages-square': MessagesSquare,
+  'code-xml': CodeXml,
+  'folders': Folders,
+  'calendar-fold': CalendarFold,
+  'message-circle-question': MessageCircleQuestion,
+};
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos días';
+  if (h < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+}
 
 function studyGroupToChannel(g: StudyGroup): Channel {
   return {
@@ -31,8 +47,13 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null);
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>(
+    () => Object.fromEntries(MOCK_CHANNELS.map(ch => [ch.id, ch.unreadCount ?? 0]))
+  );
+  const [channelLastMessages, setChannelLastMessages] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const isDesktop = useWindowSize();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -80,6 +101,48 @@ export default function Home() {
     });
   }, [user?.uid]);
 
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    let active = true;
+    const unsubs: (() => void)[] = [];
+
+    (async () => {
+      for (const channel of MOCK_CHANNELS) {
+        const memberSnap = await getDoc(doc(db, 'channels', channel.id, 'members', currentUser.uid));
+        if (!active) return;
+        const lastRead: Timestamp | null = memberSnap.exists() ? memberSnap.data().lastRead ?? null : null;
+
+        const msgsQuery = query(
+          collection(db, 'channels', channel.id, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const unsub = onSnapshot(msgsQuery, snap => {
+          const count = snap.docs.filter(d => {
+            const data = d.data();
+            if (data.senderId === currentUser.uid) return false;
+            if (!lastRead) return false;
+            const createdAt = data.createdAt as Timestamp;
+            return createdAt && createdAt.seconds > lastRead.seconds;
+          }).length;
+          setChannelUnreads(prev => ({ ...prev, [channel.id]: count }));
+
+          if (snap.docs.length > 0) {
+            const last = snap.docs[0].data();
+            const text = last.attachments?.length
+              ? '📎 Archivo adjunto'
+              : last.text || '';
+            setChannelLastMessages(prev => ({ ...prev, [channel.id]: text }));
+          }
+        });
+        unsubs.push(unsub);
+      }
+    })();
+
+    return () => { active = false; unsubs.forEach(u => u()); };
+  }, [user?.uid]);
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -91,55 +154,186 @@ export default function Home() {
   if (!user) return null;
 
   const displayName = userData?.displayName || user.displayName || 'User';
+  const totalUnread = MOCK_CHANNELS.reduce((sum, ch) => sum + (channelUnreads[ch.id] ?? 0), 0);
+
+  if (!isDesktop) {
+    return (
+      <Layout
+        title={`Bienvenido, ${displayName}!`}
+        rightAction={
+          <>
+            <NotificationBell />
+            <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
+              <Settings />
+            </button>
+          </>
+        }
+      >
+        <div style={{ padding: '0 16px' }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Canales</div>
+            {MOCK_CHANNELS.map((channel) => (
+              <ChannelCard key={channel.id} channel={channel} onPress={() => navigate(`/chat/${channel.id}`)} />
+            ))}
+          </div>
+          {myGroups.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Mis grupos</div>
+              {myGroups.map((group) => (
+                <div key={group.id} style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
+                  <ChannelCard channel={studyGroupToChannel(group)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout
-      title={`Bienvenido, ${displayName}!`}
+      title="Inicio"
       rightAction={
         <>
           <NotificationBell />
-          <button
-            className="settings-button"
-            onClick={() => navigate('/settings')}
-            style={{ fontSize: '24px' }}
-          >
+          <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
             <Settings />
           </button>
         </>
       }
     >
-      <div style={{ padding: '0 16px' }}>
+      <div style={{ padding: '32px 32px 40px', display: 'flex', flexDirection: 'column', gap: 32 }}>
 
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>
-            Canales
+        <div style={{
+          borderRadius: 20,
+          padding: '28px 32px',
+          background: `linear-gradient(135deg, ${colors.primary}18 0%, ${colors.primary}08 100%)`,
+          border: `1px solid ${colors.primary}22`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: colors.text }}>
+              {getGreeting()}, {displayName.split(' ')[0]}!
+            </div>
+            <div style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>
+              {totalUnread > 0
+                ? `Tienes ${totalUnread} mensaje${totalUnread !== 1 ? 's' : ''} sin leer`
+                : 'Estás al día con todos los mensajes'}
+            </div>
           </div>
-          {MOCK_CHANNELS.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              onPress={() => navigate(`/chat/${channel.id}`)}
+          {(userData?.photoURL || user?.photoURL) ? (
+            <img
+              src={userData?.photoURL || user?.photoURL}
+              alt=""
+              style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${colors.primary}44` }}
             />
-          ))}
+          ) : (
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundColor: colors.primary,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26, fontWeight: 800, color: '#fff',
+            }}>
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
 
-        {myGroups.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>
+        <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+
+          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary, marginBottom: 14 }}>
+              Canales
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              {MOCK_CHANNELS.map((channel) => {
+                const Icon = CHANNEL_ICONS[channel.icon ?? ''] ?? MessagesSquare;
+                return (
+                  <div
+                    key={channel.id}
+                    onClick={() => navigate(`/chat/${channel.id}`)}
+                    style={{
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: 16,
+                      padding: '18px 20px',
+                      cursor: 'pointer',
+                      backgroundColor: colors.background,
+                      display: 'flex', flexDirection: 'column', gap: 12,
+                      transition: 'background-color 0.15s, border-color 0.15s',
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = colors.backgroundSecondary; e.currentTarget.style.borderColor = colors.primary + '66'; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = colors.background; e.currentTarget.style.borderColor = colors.border; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={20} color={colors.primary} strokeWidth={1.8} />
+                      </div>
+                      {(channelUnreads[channel.id] ?? 0) > 0 && (
+                        <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{channelUnreads[channel.id]}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, marginBottom: 3 }}>{channel.name}</div>
+                      <div style={{ fontSize: 13, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{channel.description}</div>
+                    </div>
+                    {channelLastMessages[channel.id] && (
+                      <div style={{ fontSize: 12, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingTop: 8, borderTop: `1px solid ${colors.border}` }}>
+                        {channelLastMessages[channel.id]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ width: 320, flexShrink: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary, marginBottom: 14 }}>
               Mis grupos
             </div>
-            {myGroups.map((group) => (
-              <div key={group.id} style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
-                <ChannelCard
-                  channel={studyGroupToChannel(group)}
-                  onPress={() => navigate(`/chat/sg_${group.id}`)}
-                />
+            {myGroups.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 24px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 14 }}>
+                <Users size={32} strokeWidth={1.2} color={colors.border} style={{ marginBottom: 8, display: 'block', margin: '0 auto 12px' }} />
+                No perteneces a ningún grupo todavía
               </div>
-            ))}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {myGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    onClick={() => navigate(`/chat/sg_${group.id}`)}
+                    style={{
+                      border: `1px solid ${colors.border}`,
+                      borderLeft: `4px solid ${group.color}`,
+                      borderRadius: 14,
+                      padding: '14px 18px',
+                      cursor: 'pointer',
+                      backgroundColor: colors.background,
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = colors.background)}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: group.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Users size={18} color={group.color} strokeWidth={2} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
+                      <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{group.subject} · {group.memberCount} miembro{group.memberCount !== 1 ? 's' : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
 
+        </div>
       </div>
     </Layout>
   );

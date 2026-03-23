@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, Pin, ImagePlus } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
 import { useAnnouncements } from '../../hooks/campus/useAnnouncements';
 import { AnnouncementCard } from './AnnouncementCard';
 import { ANNOUNCEMENT_CATEGORIES } from '../../constants/announcementCategories';
@@ -23,6 +24,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
   const { colors } = useTheme();
   const navigate = useNavigate();
   const currentUser = auth.currentUser;
+  const isDesktop = useWindowSize();
   const { announcements, loading, createAnnouncement, updateAnnouncement, togglePin, deleteAnnouncement, publishAsSocialPost } = useAnnouncements();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -107,24 +109,51 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      {canCreateAnnouncement && (
-        <button
-          onClick={() => { resetForm(); setEditingPostId(null); setShowCreate(true); }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            margin: '12px 16px 0', padding: '12px', borderRadius: 10, border: 'none',
-            backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          <Plus size={18} color="#fff" strokeWidth={2.5} />
-          Nuevo anuncio
-        </button>
+      {isDesktop ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '16px 32px 8px' }}>
+          {canCreateAnnouncement && (
+            <button
+              onClick={() => { resetForm(); setEditingPostId(null); setShowCreate(true); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '9px 18px', borderRadius: 10, border: 'none',
+                backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Plus size={16} color="#fff" strokeWidth={2.5} />
+              Nuevo anuncio
+            </button>
+          )}
+        </div>
+      ) : (
+        canCreateAnnouncement && (
+          <button
+            onClick={() => { resetForm(); setEditingPostId(null); setShowCreate(true); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              margin: '12px 16px 0', padding: '12px', borderRadius: 10, border: 'none',
+              backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <Plus size={18} color="#fff" strokeWidth={2.5} />
+            Nuevo anuncio
+          </button>
+        )
       )}
 
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', flex: 1 }}>
-        {loading && <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40 }}>Cargando...</div>}
+      <div style={{
+        padding: isDesktop ? '8px 32px 32px' : 16,
+        display: isDesktop ? 'grid' : 'flex',
+        gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : undefined,
+        flexDirection: isDesktop ? undefined : 'column',
+        gap: isDesktop ? 16 : 10,
+        overflowY: 'auto',
+        flex: 1,
+        alignItems: isDesktop ? 'start' : undefined,
+      }}>
+        {loading && <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, gridColumn: '1 / -1' }}>Cargando...</div>}
         {!loading && announcements.length === 0 && (
-          <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, fontSize: 14 }}>
+          <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, fontSize: 14, gridColumn: '1 / -1' }}>
             {canCreateAnnouncement ? 'Crea el primer anuncio.' : 'No hay anuncios aún.'}
           </div>
         )}

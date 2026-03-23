@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
 import { useCalendarEvents } from '../../hooks/campus/useCalendarEvents';
 import type { CalendarEventType, CalendarEvent } from '../../types';
 
@@ -37,6 +38,7 @@ interface CalendarTabProps {
 
 export function CalendarTab({ eventTypes, department, subrole, currentUserId }: CalendarTabProps) {
   const { colors } = useTheme();
+  const isDesktop = useWindowSize();
   const today = new Date();
   const { allEvents, saveEvent, deleteEvent } = useCalendarEvents();
 
@@ -108,8 +110,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
 
   const canCreateEvent = eventTypes.length > 0;
 
-  return (
-    <div style={{ overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+  const calendarPanel = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, border: `1px solid ${colors.border}`, padding: '12px 16px', backgroundColor: colors.card }}>
         <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
           <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
@@ -120,10 +122,10 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
         </button>
       </div>
 
-      <div style={{ borderRadius: 12, border: `1px solid ${colors.border}`, padding: 8, backgroundColor: colors.card }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+      <div style={{ borderRadius: 12, border: `1px solid ${colors.border}`, padding: isDesktop ? 12 : 8, backgroundColor: colors.card }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isDesktop ? 4 : 0 }}>
           {DAY_NAMES.map(d => (
-            <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textSecondary, paddingBottom: 4 }}>{d}</div>
+            <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textSecondary, paddingBottom: 6 }}>{d}</div>
           ))}
           {calCells.map((day, i) => {
             if (!day) return <div key={`e_${i}`} />;
@@ -140,7 +142,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                   backgroundColor: isSelected ? colors.primary : isToday ? colors.primary + '20' : 'transparent',
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 500, color: isSelected ? '#fff' : isToday ? colors.primary : colors.text }}>{day}</span>
+                <span style={{ fontSize: isDesktop ? 14 : 13, fontWeight: 500, color: isSelected ? '#fff' : isToday ? colors.primary : colors.text }}>{day}</span>
                 {hasEvent && <div style={{ width: 4, height: 4, borderRadius: 2, marginTop: 2, backgroundColor: isSelected ? '#fff' : colors.primary }} />}
               </div>
             );
@@ -157,13 +159,17 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
           {subrole === 'delegate' && department ? `Evento para ${department}` : 'Añadir evento'}
         </button>
       )}
+    </div>
+  );
 
-      <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
+  const eventsPanel = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
         {selectedDate ? `Eventos del día ${selectedDate}` : 'Próximos eventos'}
       </div>
 
       {selectedEvents.length === 0 ? (
-        <div style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>Sin eventos</div>
+        <div style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 14, padding: '24px 0' }}>Sin eventos</div>
       ) : (
         selectedEvents.map(ev => {
           const cfg = EVENT_TYPE_CONFIG[ev.type];
@@ -214,6 +220,25 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
             </div>
           );
         })
+      )}
+    </div>
+  );
+
+  return (
+    <div style={isDesktop
+      ? { display: 'flex', gap: 32, padding: '24px 32px', height: '100%', overflow: 'hidden' }
+      : { overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }
+    }>
+      {isDesktop ? (
+        <>
+          <div style={{ width: 380, flexShrink: 0, overflowY: 'auto' }}>{calendarPanel}</div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>{eventsPanel}</div>
+        </>
+      ) : (
+        <>
+          {calendarPanel}
+          {eventsPanel}
+        </>
       )}
 
       {showCreate && (

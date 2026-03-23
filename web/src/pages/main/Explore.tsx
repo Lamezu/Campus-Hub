@@ -30,7 +30,6 @@ export default function ExploreScreen() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUser = auth.currentUser;
-
   const [showCreate, setShowCreate] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,6 +158,106 @@ export default function ExploreScreen() {
 
   const canPublish = title.trim().length > 0 && !publishing;
 
+  const createForm = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ display: 'none' }} />
+
+      <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 14px', backgroundColor: colors.card }}>
+        <input
+          type="text"
+          placeholder="Título del post"
+          value={title}
+          onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
+          maxLength={TITLE_MAX}
+          style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 15, fontWeight: '600', color: colors.text, padding: '4px 0' }}
+        />
+        <div style={{ fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: 2 }}>{title.length}/{TITLE_MAX}</div>
+      </div>
+
+      <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 14px', backgroundColor: colors.card }}>
+        <textarea
+          placeholder="Escribe tu post aquí..."
+          value={content}
+          onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
+          maxLength={CONTENT_MAX}
+          rows={6}
+          style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: colors.text, resize: 'vertical', lineHeight: '22px', padding: '4px 0', fontFamily: 'inherit' }}
+        />
+      </div>
+
+      <div
+        onClick={media ? undefined : () => fileInputRef.current?.click()}
+        style={{ border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'hidden', minHeight: 90, cursor: media ? 'default' : 'pointer', backgroundColor: colors.card, position: 'relative' }}
+      >
+        {media ? (
+          <>
+            {media.type === 'image' ? (
+              <img src={media.previewUrl} alt="preview" style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+            ) : (
+              <div style={{ height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.backgroundSecondary }}>
+                <Video size={28} color={colors.textSecondary} />
+                <span style={{ fontSize: 13, color: colors.textSecondary }}>Vídeo seleccionado</span>
+                <button
+                  onClick={() => setMuteOriginalAudio(prev => !prev)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary, color: '#FFF', fontSize: 12, fontWeight: '600' }}
+                >
+                  {muteOriginalAudio ? <><VolumeX size={13} /><span>Sin audio</span></> : <><Volume2 size={13} /><span>Con audio</span></>}
+                </button>
+              </div>
+            )}
+            <button onClick={removeMedia} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+              <X size={24} color="#FF3B30" strokeWidth={2.5} />
+            </button>
+          </>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 6 }}>
+            <Images size={24} color={colors.textSecondary} />
+            <span style={{ fontSize: 13, color: colors.textSecondary }}>Añadir foto o vídeo</span>
+          </div>
+        )}
+      </div>
+
+      {media && (
+        <button
+          onClick={() => setShowSongPicker(true)}
+          style={{ border: `1px solid ${song ? colors.primary : colors.border}`, borderRadius: 12, padding: 12, cursor: 'pointer', backgroundColor: colors.card, width: '100%', textAlign: 'left' }}
+        >
+          {song ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {song.coverUrl
+                ? <img src={song.coverUrl} alt={song.name} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} />
+                : <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+              }
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: '600', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</div>
+                <div style={{ fontSize: 12, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artistName}</div>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setSong(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <X size={18} color={colors.textSecondary} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Music size={20} color={colors.textSecondary} />
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>Añadir canción</span>
+            </div>
+          )}
+        </button>
+      )}
+
+      <button
+        onClick={handlePublish}
+        disabled={!canPublish}
+        style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', backgroundColor: colors.primary, color: '#FFF', fontSize: 15, fontWeight: '600', cursor: canPublish ? 'pointer' : 'not-allowed', opacity: canPublish ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        {publishing
+          ? <div style={{ width: 18, height: 18, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#FFF', animation: 'spin 0.8s linear infinite' }} />
+          : 'Publicar'
+        }
+      </button>
+    </div>
+  );
+
   return (
     <Layout title="Explorar" rightAction={<NotificationBell />}>
       <div style={{ position: 'relative', minHeight: '100%' }}>
@@ -166,51 +265,23 @@ export default function ExploreScreen() {
           <>
             <button
               onClick={() => setShowCreate(true)}
-              style={{
-                position: 'fixed',
-                bottom: '90px',
-                right: '20px',
-                width: '56px',
-                height: '56px',
-                borderRadius: '28px',
-                backgroundColor: colors.primary,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                zIndex: 100
-              }}
+              style={{ position: 'fixed', bottom: '90px', right: '20px', width: '56px', height: '56px', borderRadius: '28px', backgroundColor: colors.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}
             >
               <Plus size={28} color="#FFFFFF" />
             </button>
 
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 48 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  border: `3px solid ${colors.backgroundSecondary}`,
-                  borderTopColor: colors.primary,
-                  animation: 'spin 0.8s linear infinite',
-                }} />
+                <div style={{ width: 32, height: 32, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
               </div>
             ) : posts.length === 0 ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 48 }}>
-                <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>
-                  No hay posts todavía.{'\n'}¡Sé el primero en publicar!
-                </p>
+                <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>No hay posts todavía.{'\n'}¡Sé el primero en publicar!</p>
               </div>
             ) : (
               <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: '80px' }}>
                 {posts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onPress={() => navigate(`/post/${post.id}`)}
-                    onDoubleTap={() => handleDoubleTap(post.id)}
-                    currentUserId={currentUser?.uid}
-                  />
+                  <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} currentUserId={currentUser?.uid} />
                 ))}
               </div>
             )}
@@ -219,199 +290,13 @@ export default function ExploreScreen() {
           <div style={{ maxWidth: 600, margin: '0 auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: '80px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <h2 style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>Crear Post</h2>
-              <button
-                onClick={() => setShowCreate(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: 24,
-                  cursor: 'pointer',
-                  color: colors.textSecondary,
-                  padding: '4px 8px'
-                }}
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: colors.textSecondary, padding: '4px 8px' }}>✕</button>
             </div>
-
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 16px', backgroundColor: colors.card }}>
-              <input
-                type="text"
-                placeholder="Título del post"
-                value={title}
-                onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-                maxLength={TITLE_MAX}
-                style={{
-                  width: '100%', border: 'none', outline: 'none', background: 'transparent',
-                  fontSize: 16, fontWeight: '600', color: colors.text, padding: '6px 0',
-                }}
-              />
-              <div style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>
-                {title.length}/{TITLE_MAX}
-              </div>
-            </div>
-
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 16px', backgroundColor: colors.card }}>
-              <textarea
-                placeholder="Escribe tu post aquí..."
-                value={content}
-                onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
-                maxLength={CONTENT_MAX}
-                rows={6}
-                style={{
-                  width: '100%', border: 'none', outline: 'none', background: 'transparent',
-                  fontSize: 16, color: colors.text, resize: 'vertical', lineHeight: '22px',
-                  padding: '6px 0', fontFamily: 'inherit',
-                }}
-              />
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-
-            <div
-              onClick={media ? undefined : () => fileInputRef.current?.click()}
-              style={{
-                border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'hidden',
-                minHeight: 120, cursor: media ? 'default' : 'pointer',
-                backgroundColor: colors.card, position: 'relative',
-              }}
-            >
-              {media ? (
-                <>
-                  {media.type === 'image' ? (
-                    <img
-                      src={media.previewUrl}
-                      alt="preview"
-                      style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }}
-                    />
-                  ) : (
-                    <div style={{
-                      height: 160, display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center', gap: 8,
-                      backgroundColor: colors.backgroundSecondary,
-                    }}>
-                      <Video size={32} color={colors.textSecondary} />
-                      <span style={{ fontSize: 14, color: colors.textSecondary }}>Vídeo seleccionado</span>
-                      <button
-                        onClick={() => setMuteOriginalAudio(prev => !prev)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 4,
-                          padding: '4px 12px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                          backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary,
-                          color: '#FFF', fontSize: 12, fontWeight: '600',
-                        }}
-                      >
-                        {muteOriginalAudio
-                          ? <><VolumeX size={14} /><span>Sin audio</span></>
-                          : <><Volume2 size={14} /><span>Con audio</span></>
-                        }
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={removeMedia}
-                    style={{
-                      position: 'absolute', top: 8, right: 8,
-                      background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex',
-                    }}
-                  >
-                    <X size={26} color="#FF3B30" strokeWidth={2.5} />
-                  </button>
-                </>
-              ) : (
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', padding: 32, gap: 8,
-                }}>
-                  <Images size={28} color={colors.textSecondary} />
-                  <span style={{ fontSize: 14, color: colors.textSecondary }}>Añadir foto o vídeo</span>
-                </div>
-              )}
-            </div>
-
-            {media && (
-              <button
-                onClick={() => setShowSongPicker(true)}
-                style={{
-                  border: `1px solid ${song ? colors.primary : colors.border}`,
-                  borderRadius: 12, padding: 16, cursor: 'pointer',
-                  backgroundColor: colors.card, width: '100%', textAlign: 'left',
-                }}
-              >
-                {song ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {song.coverUrl ? (
-                      <img src={song.coverUrl} alt={song.name} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{
-                        width: 40, height: 40, borderRadius: 6,
-                        backgroundColor: colors.backgroundSecondary,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <Music size={18} color={colors.textSecondary} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: '600', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {song.name}
-                      </div>
-                      <div style={{ fontSize: 12, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {song.artistName}
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSong(null); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
-                    >
-                      <X size={20} color={colors.textSecondary} />
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Music size={22} color={colors.textSecondary} />
-                    <span style={{ fontSize: 14, color: colors.textSecondary }}>Añadir canción</span>
-                  </div>
-                )}
-              </button>
-            )}
-
-            <div style={{ padding: '8px 0', borderTop: `1px solid ${colors.border}` }}>
-              <button
-                onClick={handlePublish}
-                disabled={!canPublish}
-                style={{
-                  width: '100%', padding: '14px', borderRadius: 10, border: 'none',
-                  backgroundColor: colors.primary, color: '#FFF', fontSize: 16,
-                  fontWeight: '600', cursor: canPublish ? 'pointer' : 'not-allowed',
-                  opacity: canPublish ? 1 : 0.5,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                {publishing ? (
-                  <div style={{
-                    width: 20, height: 20, borderRadius: '50%',
-                    border: '3px solid rgba(255,255,255,0.3)',
-                    borderTopColor: '#FFF',
-                    animation: 'spin 0.8s linear infinite',
-                  }} />
-                ) : 'Publicar'}
-              </button>
-            </div>
+            {createForm}
           </div>
         )}
 
-        <SongPicker
-          visible={showSongPicker}
-          onClose={() => setShowSongPicker(false)}
-          onSelect={setSong}
-          selected={song}
-        />
+        <SongPicker visible={showSongPicker} onClose={() => setShowSongPicker(false)} onSelect={setSong} selected={song} />
       </div>
     </Layout>
   );

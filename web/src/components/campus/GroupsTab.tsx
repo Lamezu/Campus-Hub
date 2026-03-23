@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, X, Search, Check, ChevronLeft, Globe, Lock, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
 import { useStudyGroups } from '../../hooks/campus/useStudyGroups';
 import { GroupCard } from './GroupCard';
 import { auth } from '../../config/firebase';
@@ -43,6 +44,7 @@ const initialForm = {
 
 export function GroupsTab({ canCreate, isAdmin }: GroupsTabProps) {
   const { colors } = useTheme();
+  const isDesktop = useWindowSize();
   const navigate = useNavigate();
   const currentUser = auth.currentUser;
   const { groups, allUsers, loadingUsers, joinGroup, leaveGroup, createGroup, updateGroup, deleteGroup, loadUsers } = useStudyGroups(isAdmin);
@@ -102,30 +104,36 @@ export function GroupsTab({ canCreate, isAdmin }: GroupsTabProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', margin: '12px 16px', padding: '8px 14px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, gap: 10 }}>
-        <Search size={18} color={colors.textSecondary} />
-        <input
-          type="text"
-          placeholder="Buscar grupos..."
-          value={groupSearch}
-          onChange={e => setGroupSearch(e.target.value)}
-          style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: colors.text, fontSize: 15, fontFamily: 'inherit' }}
-        />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: isDesktop ? '16px 32px 8px' : '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, padding: '8px 14px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, gap: 10 }}>
+          <Search size={18} color={colors.textSecondary} />
+          <input
+            type="text"
+            placeholder="Buscar grupos..."
+            value={groupSearch}
+            onChange={e => setGroupSearch(e.target.value)}
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: colors.text, fontSize: 15, fontFamily: 'inherit' }}
+          />
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => { loadUsers(); setShowCreate(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: isDesktop ? '10px 18px' : '10px 14px', borderRadius: 12, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+          >
+            <Plus size={17} color="#fff" strokeWidth={2.5} />
+            {isDesktop ? 'Crear grupo de estudio' : 'Crear'}
+          </button>
+        )}
       </div>
 
-      {canCreate && (
-        <button
-          onClick={() => { loadUsers(); setShowCreate(true); }}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginInline: 16, marginBottom: 12, padding: '14px', borderRadius: 12, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}
-        >
-          <Plus size={18} color="#fff" strokeWidth={2.5} />
-          Crear grupo de estudio
-        </button>
-      )}
-
-      <div style={{ overflowY: 'auto', flex: 1, padding: '0 16px 16px' }}>
+      <div style={{ overflowY: 'auto', flex: 1, padding: isDesktop ? '0 32px 32px' : '0 16px 16px',
+        display: isDesktop ? 'grid' : 'block',
+        gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : undefined,
+        gap: isDesktop ? 16 : undefined,
+        alignContent: 'start',
+      }}>
         {filteredGroups.length === 0 ? (
-          <div style={{ textAlign: 'center', marginTop: 40, fontSize: 15, color: colors.textSecondary, opacity: 0.6 }}>
+          <div style={{ textAlign: 'center', marginTop: 40, fontSize: 15, color: colors.textSecondary, opacity: 0.6, gridColumn: '1 / -1' }}>
             {groupSearch ? 'No se encontraron grupos.' : 'No hay grupos aún.'}
           </div>
         ) : filteredGroups.map(item => {
