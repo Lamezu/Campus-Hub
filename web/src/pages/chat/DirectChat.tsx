@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -26,6 +26,7 @@ import {
   type DMReplyTo
 } from '../../services/firebase/directMessageService';
 import { playMessageTone } from '../../utils/toneGenerator';
+import { saveMessage } from '../../services/firebase/savedItemsService';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
 const MESSAGES_PER_PAGE = 50;
@@ -161,6 +162,7 @@ function MessageInput({
 
 export default function DirectChat() {
   const { conversationId } = useParams<{ conversationId: string }>();
+  const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<DMMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -171,6 +173,7 @@ export default function DirectChat() {
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const { setActiveCall, setActiveCallId } = useCall();
 
   const handleStartCall = async (type: CallType) => {
@@ -243,12 +246,27 @@ export default function DirectChat() {
           }
         }
       }
+      const wasFirst = isFirstMsgLoad.current;
       isFirstMsgLoad.current = false;
       setMessages(msgs);
       setLoading(false);
       setHasMore(msgs.length === MESSAGES_PER_PAGE);
       lastDocRef.current = lastDoc;
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
+      const targetId = searchParams.get('messageId');
+      if (wasFirst && targetId) {
+        setTimeout(() => {
+          const el = messagesContainerRef.current?.querySelector(`[data-message-id="${targetId}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedMessageId(targetId);
+            setTimeout(() => setHighlightedMessageId(null), 2500);
+          } else {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+          }
+        }, 150);
+      } else if (wasFirst) {
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
+      }
       markAsRead(conversationId, uid).catch(() => {});
     });
 
@@ -363,6 +381,22 @@ export default function DirectChat() {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handleSave = async (message: any) => {
+    if (!currentUser || !conversationId) return;
+    await saveMessage(
+      currentUser.uid,
+      {
+        id: message.id,
+        text: message.text,
+        senderName: message.senderName,
+        senderId: message.senderId,
+        originalChannelId: conversationId,
+        attachments: message.attachments,
+      },
+      conversationId
+    );
   };
 
   const filteredMessages = messages.filter(
@@ -488,8 +522,15 @@ export default function DirectChat() {
           </div>
         ) : (
           filteredMessages.map(message => (
-            <MessageBubble
+            <div
               key={message.id}
+              style={{
+                borderRadius: 12,
+                transition: 'background-color 0.4s ease',
+                backgroundColor: highlightedMessageId === message.id ? `${colors.primary}22` : 'transparent',
+              }}
+            >
+            <MessageBubble
               message={message as any}
               isOwnMessage={message.senderId === currentUser?.uid}
               onReply={(msg: any) => setReplyingTo(msg)}
@@ -498,7 +539,9 @@ export default function DirectChat() {
               onCopy={handleCopy}
               onScrollToMessage={handleScrollToMessage}
               onAudioReply={(msg: any) => { setReplyingTo(msg); setShowRecorder(true); }}
+              onSave={handleSave}
             />
+            </div>
           ))
         )}
         <div ref={messagesEndRef} />

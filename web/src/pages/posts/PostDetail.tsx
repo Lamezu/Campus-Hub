@@ -5,6 +5,7 @@ import {
   addDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, increment,
 } from 'firebase/firestore';
 import { Pencil, Trash2, Bookmark, Send, Heart, CornerDownRight, X } from 'lucide-react';
+import { unsavePost, savePost } from '../../services/firebase/savedItemsService';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -52,11 +53,15 @@ export default function PostDetail() {
     getDoc(doc(db, 'posts', id)).then((snap) => {
       if (!snap.exists()) { navigate(-1); return; }
       const d = snap.data();
-      setPost({
+      const loaded = {
         id: snap.id, ...d,
         createdAt: d.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
         updatedAt: d.updatedAt?.toDate?.()?.toISOString() ?? null,
-      } as Post);
+      } as Post;
+      setPost(loaded);
+      if (auth.currentUser) {
+        setBookmarked((d.savedBy ?? []).includes(auth.currentUser.uid));
+      }
       setLoadingPost(false);
     });
   }, [id, navigate]);
@@ -151,7 +156,16 @@ export default function PostDetail() {
       rightAction={
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button
-            onClick={() => setBookmarked(b => !b)}
+            onClick={async () => {
+              if (!currentUser || !id) return;
+              const next = !bookmarked;
+              setBookmarked(next);
+              if (next) {
+                await savePost(currentUser.uid, id);
+              } else {
+                await unsavePost(currentUser.uid, id);
+              }
+            }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px 6px' }}
           >
             <Bookmark

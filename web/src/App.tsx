@@ -18,6 +18,7 @@ import DirectChat from './pages/chat/DirectChat';
 import { CallProvider, useCall } from './contexts/CallContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import Friends from './pages/main/Friends';
+import SavedItems from './pages/main/SavedItems';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
 
 function GlobalCallOverlay() {
@@ -77,6 +78,7 @@ function App() {
             <Route path="/post/:id/edit" element={<EditPost />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
+            <Route path="/saved-items" element={<SavedItems />} />
           </Routes>
         </BrowserRouter>
       </CallProvider>

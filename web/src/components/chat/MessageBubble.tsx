@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic } from 'lucide-react';
+import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import AudioMessage from './AudioMessage';
 import type { Message } from '../../types';
@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   onCopy?: (text: string) => void;
   onScrollToMessage?: (messageId: string) => void;
   onAudioReply?: (message: Message) => void;
+  onSave?: (message: Message) => void;
 }
 
 
@@ -45,6 +46,7 @@ export default function MessageBubble({
   onCopy,
   onScrollToMessage,
   onAudioReply,
+  onSave,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
   const chatTheme = colors.chat;
@@ -524,6 +526,19 @@ export default function MessageBubble({
           >
             <Copy size={16} color={colors.textSecondary} />
             <span>Copiar</span>
+          </div>
+
+          <div
+            style={menuItemStyle}
+            onClick={() => {
+              onSave?.(message);
+              setShowMenu(false);
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Bookmark size={16} color={colors.primary} />
+            <span>Guardar mensaje</span>
           </div>
 
           {isOwnMessage && (

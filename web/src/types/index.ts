@@ -110,6 +110,7 @@ export interface Post {
   imageOffsetY?: number | null;
   linkedEventId?: string | null;
   socialId?: string | null;
+  savedBy?: string[];
 }
 
 export interface Comment {

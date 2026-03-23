@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import Layout from '../../components/Layout';
@@ -26,9 +26,10 @@ const UserStarIcon = ({ size = 24, color = 'currentColor' }: { size?: number; co
 type Tab = 'friends' | 'best';
 
 export default function Friends() {
+  const [searchParams] = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>('friends');
+  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'best' ? 'best' : 'friends');
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [bestFriendIds, setBestFriendIds] = useState<string[]>([]);
