@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useWindowSize } from '../hooks/useWindowSize';
@@ -13,10 +13,10 @@ interface LayoutProps {
   titleAlignLeft?: boolean;
 }
 
-export default function Layout({ 
-  children, 
-  title, 
-  showBackButton = false, 
+export default function Layout({
+  children,
+  title,
+  showBackButton = false,
   onBack,
   rightAction,
   titleAlignLeft = false
@@ -24,16 +24,32 @@ export default function Layout({
   const navigate = useNavigate();
   const location = useLocation();
   const isDesktop = useWindowSize();
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
+
+  const handleToggle = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebarCollapsed', String(next));
+      return next;
+    });
+  };
+
+  const sidebarWidth = isDesktop ? (collapsed ? 72 : 280) : 0;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar isDesktop={isDesktop} />
-      
-      <div className={isDesktop ? 'main-content-with-sidebar' : ''} style={{ 
-        width: '100%',
+      <Sidebar isDesktop={isDesktop} collapsed={collapsed} onToggle={handleToggle} />
+
+      <div style={{
+        marginLeft: sidebarWidth,
+        transition: 'margin-left 0.25s ease',
+        width: `calc(100% - ${sidebarWidth}px)`,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'var(--background)'
+        backgroundColor: 'var(--background)',
+        minHeight: '100vh',
       }}>
         <header className="header" style={{ 
           position: 'sticky', 

@@ -555,7 +555,6 @@ a:hover {
 }
 
 .sidebar {
-  width: 280px;
   height: 100vh;
   background-color: var(--background);
   border-right: 1px solid var(--border);
@@ -564,7 +563,7 @@ a:hover {
   top: 0;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -621,8 +620,6 @@ a:hover {
 }
 
 .main-content-with-sidebar {
-  margin-left: 280px;
-  width: calc(100% - 280px);
   min-height: 100vh;
   background-color: var(--background);
 }
