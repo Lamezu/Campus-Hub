@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { playRingback, stopRingback } from '../../utils/toneGenerator';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, PhoneIncoming } from 'lucide-react';
 import {
   answerCall,
@@ -40,6 +41,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unsubsRef = useRef<(() => void)[]>([]);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+
+  useEffect(() => {
+    if (isCaller && status === 'ringing') playRingback();
+    else stopRingback();
+    return () => stopRingback();
+  }, [isCaller, status]);
 
   const startTimer = useCallback(() => {
     if (!timerRef.current) {

@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot, updateDoc, deleteField } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import Layout from '../../components/Layout';
-import { LogOut, Check } from 'lucide-react';
+import { LogOut, Check, Upload, Play, Music, Trash2 } from 'lucide-react';
 import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
+import { uploadCallTone } from '../../config/cloudinary';
 
 type MuteDuration = '8h' | '1w' | 'always' | 'off';
 
@@ -33,21 +34,28 @@ export default function Settings() {
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
   const [globalTone, setGlobalTone] = useState('Melodía');
   const [callTone, setCallTone] = useState('Trompeta');
+  const [callToneUrl, setCallToneUrl] = useState<string | null>(null);
+  const [uploadingTone, setUploadingTone] = useState(false);
+  const callToneInputRef = useRef<HTMLInputElement>(null);
   const currentUser = auth.currentUser;
 
   useEffect(() => {
-    if (!currentUser) return;
-    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setUserData(data);
-        if (data.settings?.globalMute) setGlobalMute(data.settings.globalMute);
-        if (data.settings?.globalTone) setGlobalTone(data.settings.globalTone);
-        if (data.settings?.callTone) setCallTone(data.settings.callTone);
-      }
+    let unsubSnapshot: (() => void) | null = null;
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      unsubSnapshot = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setUserData(data);
+          if (data.settings?.globalMute) setGlobalMute(data.settings.globalMute);
+          if (data.settings?.globalTone) setGlobalTone(data.settings.globalTone);
+          if (data.settings?.callTone) setCallTone(data.settings.callTone);
+          setCallToneUrl(data.settings?.callToneUrl ?? null);
+        }
+      });
     });
-    return () => unsubscribe();
-  }, [currentUser]);
+    return () => { unsubAuth(); unsubSnapshot?.(); };
+  }, []);
 
   const handleMuteChange = async (value: MuteDuration) => {
     setGlobalMute(value);
@@ -70,6 +78,63 @@ export default function Settings() {
     setTimeout(() => { import('../../utils/toneGenerator').then(m => m.stopCallTone()); }, 4000);
     if (currentUser) {
       await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.callTone': tone });
+    }
+  };
+
+  const handlePreviewCustomTone = () => {
+    if (!callToneUrl) return;
+    const audio = new Audio(callToneUrl);
+    audio.play();
+    setTimeout(() => { audio.pause(); audio.currentTime = 0; }, 4000);
+  };
+
+  const handleSelectCustomTone = async () => {
+    if (!callToneUrl || !currentUser) return;
+    setCallTone('Personalizado');
+    await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.callTone': 'Personalizado' });
+  };
+
+  const handleDeleteCustomTone = async () => {
+    if (!currentUser) return;
+    setCallToneUrl(null);
+    if (callTone === 'Personalizado') setCallTone('Trompeta');
+    await updateDoc(doc(db, 'users', currentUser.uid), {
+      'settings.callToneUrl': deleteField(),
+      ...(callTone === 'Personalizado' ? { 'settings.callTone': 'Trompeta' } : {}),
+    });
+  };
+
+  const handleCustomToneUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    const duration = await new Promise<number>((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const a = new Audio(url);
+      a.addEventListener('loadedmetadata', () => { URL.revokeObjectURL(url); resolve(a.duration); });
+      a.addEventListener('error', () => { URL.revokeObjectURL(url); reject(); });
+    }).catch(() => 0);
+    if (duration > 60) {
+      alert('El tono no puede durar más de 1 minuto.');
+      e.target.value = '';
+      return;
+    }
+    setUploadingTone(true);
+    try {
+      const url = await uploadCallTone(file, currentUser.uid);
+      setCallTone('Personalizado');
+      setCallToneUrl(url);
+      const audio = new Audio(url);
+      audio.play();
+      setTimeout(() => { audio.pause(); audio.currentTime = 0; }, 4000);
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        'settings.callTone': 'Personalizado',
+        'settings.callToneUrl': url,
+      });
+    } catch {
+      alert('No se pudo subir el tono. Inténtalo de nuevo.');
+    } finally {
+      setUploadingTone(false);
+      e.target.value = '';
     }
   };
 
@@ -249,6 +314,66 @@ export default function Settings() {
                 {callTone === tone && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
               </button>
             ))}
+            <input
+              ref={callToneInputRef}
+              type="file"
+              accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4"
+              onChange={handleCustomToneUpload}
+              style={{ display: 'none' }}
+            />
+            {callToneUrl && (
+              <div style={{
+                border: callTone === 'Personalizado' ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                borderRadius: '12px',
+                backgroundColor: callTone === 'Personalizado' ? colors.primary + '11' : 'transparent',
+                overflow: 'hidden',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 10 }}>
+                  <Music size={15} color={callTone === 'Personalizado' ? colors.primary : colors.textSecondary} />
+                  <span style={{ flex: 1, fontSize: '15px', fontWeight: callTone === 'Personalizado' ? '600' : '400', color: callTone === 'Personalizado' ? colors.primary : colors.text }}>
+                    Tono personalizado
+                  </span>
+                  <button
+                    onClick={handlePreviewCustomTone}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
+                    title="Escuchar"
+                  >
+                    <Play size={15} color={colors.textSecondary} />
+                  </button>
+                  <button
+                    onClick={handleDeleteCustomTone}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
+                    title="Eliminar"
+                  >
+                    <Trash2 size={15} color={colors.danger ?? '#FF3B30'} />
+                  </button>
+                  {callTone === 'Personalizado' && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                </div>
+                {callTone !== 'Personalizado' && (
+                  <button
+                    onClick={handleSelectCustomTone}
+                    style={{ width: '100%', padding: '8px 16px', background: 'none', border: 'none', borderTop: `1px solid ${colors.border}`, cursor: 'pointer', fontSize: '13px', color: colors.primary, fontWeight: '600', textAlign: 'left' }}
+                  >
+                    Usar este tono
+                  </button>
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => callToneInputRef.current?.click()}
+              disabled={uploadingTone}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '12px 16px', borderRadius: '12px', cursor: uploadingTone ? 'not-allowed' : 'pointer',
+                border: `1px solid ${colors.border}`, backgroundColor: 'transparent',
+                color: colors.textSecondary, opacity: uploadingTone ? 0.6 : 1,
+              }}
+            >
+              <Upload size={15} color={colors.textSecondary} />
+              <span style={{ fontSize: '15px' }}>
+                {uploadingTone ? 'Subiendo...' : callToneUrl ? 'Cambiar tono...' : 'Subir tono personalizado...'}
+              </span>
+            </button>
           </div>
         </div>
 

@@ -51,6 +51,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const callToneRef = useRef<string>('Trompeta');
+  const callToneUrlRef = useRef<string | null>(null);
+  const customAudioRef = useRef<HTMLAudioElement | null>(null);
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -62,8 +64,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
     const unsub = onSnapshot(doc(db, 'users', userId), (snap) => {
       if (snap.exists()) {
-        const tone = snap.data().settings?.callTone;
-        if (tone) callToneRef.current = tone;
+        const data = snap.data();
+        if (data.settings?.callTone) callToneRef.current = data.settings.callTone;
+        callToneUrlRef.current = data.settings?.callToneUrl ?? null;
       }
     });
     return unsub;
@@ -74,14 +77,28 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
     const unsub = subscribeToIncomingCalls(userId, (call) => {
       if (call && !activeCallId) {
+        if (call.callerId === userId) return;
         setIncomingCall(call);
-        playCallTone(callToneRef.current);
+        if (customAudioRef.current) {
+          customAudioRef.current.pause();
+          customAudioRef.current.currentTime = 0;
+          customAudioRef.current = null;
+        }
+        if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
+          const audio = new Audio(callToneUrlRef.current);
+          audio.loop = true;
+          audio.play().catch(() => {});
+          customAudioRef.current = audio;
+        } else {
+          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          playCallTone(preset);
+        }
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
         missTimerRef.current = setTimeout(() => {
           missCall(call.id).catch(() => {});
           setIncomingCall(null);
           stopRinging();
-        }, 30000);
+        }, 45000);
       } else if (!call) {
         setIncomingCall(null);
         stopRinging();
@@ -93,6 +110,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [userId, activeCallId]);
 
   function stopRinging() {
+    if (customAudioRef.current) {
+      customAudioRef.current.pause();
+      customAudioRef.current.currentTime = 0;
+      customAudioRef.current = null;
+    }
     stopCallTone();
   }
 

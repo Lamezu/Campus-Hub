@@ -319,3 +319,53 @@ export function stopCallTone(): void {
     callSource = null;
   }
 }
+
+let ringbackIntervalId: ReturnType<typeof setInterval> | null = null;
+let ringbackSource: AudioBufferSourceNode | null = null;
+
+function buildRingbackBuffer(ctx: AudioContext): AudioBuffer {
+  const freq = 370;
+  const n = Math.floor(0.85 * SAMPLE_RATE);
+  const buffer = ctx.createBuffer(1, n, SAMPLE_RATE);
+  const data = buffer.getChannelData(0);
+  const fadeIn = Math.floor(0.04 * SAMPLE_RATE);
+  const fadeOut = Math.floor(0.06 * SAMPLE_RATE);
+  for (let i = 0; i < n; i++) {
+    let env: number;
+    if (i < fadeIn) env = i / fadeIn;
+    else if (i > n - fadeOut) env = (n - i) / Math.max(1, fadeOut);
+    else env = 1;
+    data[i] = 0.22 * env * Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE);
+  }
+  return buffer;
+}
+
+export function playRingback(): void {
+  stopRingback();
+  try {
+    const ctx = getCtx();
+    const buffer = buildRingbackBuffer(ctx);
+    const beep = () => {
+      try {
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        src.start();
+        ringbackSource = src;
+      } catch {}
+    };
+    beep();
+    ringbackIntervalId = setInterval(beep, 3000);
+  } catch {}
+}
+
+export function stopRingback(): void {
+  if (ringbackIntervalId) {
+    clearInterval(ringbackIntervalId);
+    ringbackIntervalId = null;
+  }
+  if (ringbackSource) {
+    try { ringbackSource.stop(); } catch {}
+    ringbackSource = null;
+  }
+}

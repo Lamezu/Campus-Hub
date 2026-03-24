@@ -68,3 +68,9 @@ export async function uploadAnnouncementImage(file: File): Promise<string> {
   const filename = `announcement_${Date.now()}`;
   return upload(file, 'image', 'campushub/announcements', filename);
 }
+
+export async function uploadCallTone(file: File, userId: string): Promise<string> {
+  const filename = `calltone_${userId}_${Date.now()}`;
+  const url = await upload(file, 'audio', 'campushub/calltones', filename);
+  return url.replace('/video/upload/', '/video/upload/f_mp3/');
+}
