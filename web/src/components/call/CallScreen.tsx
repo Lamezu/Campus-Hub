@@ -151,6 +151,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const [showDevices, setShowDevices] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showLocalVideo, setShowLocalVideo] = useState(true);
+  const [showNoVideoParticipants, setShowNoVideoParticipants] = useState(true);
   const [subPanel, setSubPanel] = useState<'input' | 'output' | null>(null);
   const [showCamPicker, setShowCamPicker] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -1054,7 +1055,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           );
           return (
             <>
-              <div style={tileStyle('remote')} onClick={onTileClick('remote')}>
+              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }) }} onClick={onTileClick('remote')}>
                 {callType === 'video' && (
                   <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
@@ -1080,7 +1081,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {label('Tu pantalla')}
               </div>
 
-              <div style={tileStyle('local')} onClick={onTileClick('local')}>
+              <div style={{ ...tileStyle('local'), ...(!showLocalVideo && { display: 'none' }) }} onClick={onTileClick('local')}>
                 {callType === 'video' && (
                   <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
@@ -1252,39 +1253,6 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           </div>
         )}
 
-        {showMoreMenu && (
-          <div style={{
-            position: 'absolute', bottom: 'calc(100% + 8px)', right: 20,
-            backgroundColor: '#18191c', border: '1px solid rgba(255,255,255,0.07)',
-            borderRadius: 8, padding: '4px 0', width: 220,
-            zIndex: 30, boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
-          }}>
-            {callType === 'video' && (
-              <button
-                onClick={() => setShowLocalVideo(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde' }}
-              >
-                <span style={{ fontSize: 14 }}>Mostrar mi propia cámara</span>
-                <div style={{
-                  width: 16, height: 16, borderRadius: 3, flexShrink: 0,
-                  backgroundColor: showLocalVideo ? '#5865f2' : 'transparent',
-                  border: `1.5px solid ${showLocalVideo ? '#5865f2' : 'rgba(255,255,255,0.35)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  {showLocalVideo && <Check size={10} color="#fff" />}
-                </div>
-              </button>
-            )}
-            <button
-              onClick={() => { setShowMoreMenu(false); openDevicePicker(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde' }}
-            >
-              <Settings size={15} />
-              <span style={{ fontSize: 14 }}>Ajustes de voz y vídeo</span>
-            </button>
-          </div>
-        )}
-
         <p style={{ color: mediaError ? '#ed4245' : '#b9bbbe', fontSize: 13, textAlign: 'center', margin: '0 0 10px' }}>
           {mediaError ?? statusLabel}
         </p>
@@ -1334,13 +1302,60 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             mobile={isMobile}
           />
           {status === 'active' && (
-            <CtrlBtn
-              icon={<MoreHorizontal size={isMobile ? 18 : 20} />}
-              label="Más"
-              active={showMoreMenu}
-              onClick={() => { setShowDevices(false); setShowMoreMenu(m => !m); }}
-              mobile={isMobile}
-            />
+            <div style={{ position: 'relative' }}>
+              {showMoreMenu && (
+                <div style={{
+                  position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
+                  backgroundColor: '#18191c', border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: 8, padding: '4px 0', width: 230,
+                  zIndex: 30, boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                }}>
+                  <button
+                    onClick={() => setShowLocalVideo(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
+                  >
+                    <span style={{ fontSize: 14 }}>Mostrar mi propia cámara</span>
+                    <div style={{
+                      width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                      backgroundColor: showLocalVideo ? '#5865f2' : 'transparent',
+                      border: `1.5px solid ${showLocalVideo ? '#5865f2' : 'rgba(255,255,255,0.35)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      {showLocalVideo && <Check size={10} color="#fff" />}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setShowNoVideoParticipants(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
+                  >
+                    <span style={{ fontSize: 14 }}>Mostrar participantes sin vídeo</span>
+                    <div style={{
+                      width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                      backgroundColor: showNoVideoParticipants ? '#5865f2' : 'transparent',
+                      border: `1.5px solid ${showNoVideoParticipants ? '#5865f2' : 'rgba(255,255,255,0.35)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      {showNoVideoParticipants && <Check size={10} color="#fff" />}
+                    </div>
+                  </button>
+                  <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                  <button
+                    onClick={() => { setShowMoreMenu(false); openDevicePicker(); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
+                  >
+                    <Settings size={15} />
+                    <span style={{ fontSize: 14 }}>Ajustes de voz y vídeo</span>
+                  </button>
+                </div>
+              )}
+              <CtrlBtn
+                icon={<MoreHorizontal size={isMobile ? 18 : 20} />}
+                label="Más"
+                active={showMoreMenu}
+                onClick={() => { setShowDevices(false); setShowMoreMenu(m => !m); }}
+                mobile={isMobile}
+              />
+            </div>
           )}
           {status === 'active' && (
             <CtrlBtn
