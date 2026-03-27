@@ -13,6 +13,8 @@ import {
   addCallerCandidate,
   addReceiverCandidate,
   updateCallOffer,
+  updateReceiverOffer,
+  updateCallerReanswer,
   updateCamState,
   signalVideo,
   subscribeToCall,
@@ -158,6 +160,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const [duration, setDuration] = useState(0);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [remoteVideoMuted, setRemoteVideoMuted] = useState(false);
+  const [remoteSharing, setRemoteSharing] = useState(false);
+  const [focusedTile, setFocusedTile] = useState<'remote' | 'remoteShare' | 'localShare' | 'local' | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
   const [inPip, setInPip] = useState(false);
@@ -190,12 +194,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const triggerPip = useCallback(async () => {
     if (!document.pictureInPictureEnabled || document.pictureInPictureElement) return;
 
+    if (remoteSharing && remoteShareVideoRef.current) {
+      try { await remoteShareVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch {}
+    }
     if (callType === 'video' && remoteVideoRef.current && remoteVideoReady && !remoteVideoMuted) {
-      try {
-        await remoteVideoRef.current.requestPictureInPicture();
-        setInPip(true);
-        return;
-      } catch {}
+      try { await remoteVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch {}
     }
 
     try {
@@ -259,7 +262,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     } catch {
       if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
     }
-  }, [callType, otherUserName, remoteVideoReady, remoteVideoMuted]);
+  }, [callType, otherUserName, remoteVideoReady, remoteVideoMuted, remoteSharing]);
 
 
   const handleExpand = useCallback(async () => {
@@ -281,11 +284,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
     while (area.firstChild) area.removeChild(area.firstChild);
 
-    const hasVideo = callType === 'video' && remoteVideoReady && !remoteVideoMuted;
+    const shareStream = remoteSharing ? remoteShareStreamRef.current : null;
+    const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted);
     if (hasVideo) {
       const v = pip.document.createElement('video') as HTMLVideoElement;
       v.autoplay = true; v.playsInline = true; v.muted = true;
-      v.srcObject = remoteStreamRef.current;
+      v.srcObject = shareStream ?? remoteStreamRef.current;
       v.style.cssText = 'width:100%;height:100%;object-fit:contain;';
       area.appendChild(v);
     } else {
@@ -298,7 +302,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       } else { av.textContent = otherUserName[0]?.toUpperCase() || '?'; }
       area.appendChild(av);
     }
-  }, [remoteVideoReady, remoteVideoMuted, callType, otherUserName, otherUserPhoto]);
+  }, [remoteVideoReady, remoteVideoMuted, callType, otherUserName, otherUserPhoto, remoteSharing]);
 
   const durationRef = useRef(0);
   useEffect(() => { durationRef.current = duration; }, [duration]);
@@ -320,6 +324,34 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       if (v.paused) v.play().catch(() => {});
     }
   }, [remoteVideoMuted, remoteVideoReady, callType]);
+
+  useEffect(() => {
+    if (focusedTile === 'remoteShare' && !remoteSharing) setFocusedTile(null);
+    if (focusedTile === 'localShare' && !sharing) setFocusedTile(null);
+  }, [remoteSharing, sharing, focusedTile]);
+
+  useEffect(() => {
+    if (minimized || inPip) return;
+    if (callType === 'video') {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        remoteVideoRef.current.play().catch(() => {});
+      }
+      if (localVideoRef.current && activeVideoTrackRef.current) {
+        const ms = new MediaStream([activeVideoTrackRef.current]);
+        localVideoRef.current.srcObject = ms;
+        localVideoRef.current.play().catch(() => {});
+      }
+    }
+    if (remoteShareVideoRef.current && remoteSharing) {
+      remoteShareVideoRef.current.srcObject = remoteShareStreamRef.current;
+      remoteShareVideoRef.current.play().catch(() => {});
+    }
+    if (screenShareVideoRef.current && sharing && screenStreamRef.current) {
+      screenShareVideoRef.current.srcObject = screenStreamRef.current;
+      screenShareVideoRef.current.play().catch(() => {});
+    }
+  }, [minimized, inPip]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent | TouchEvent) => {
@@ -377,11 +409,18 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const unsubsRef = useRef<(() => void)[]>([]);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const screenShareVideoRef = useRef<HTMLVideoElement>(null);
+  const screenSenderRef = useRef<RTCRtpSender | null>(null);
   const videoSenderRef = useRef<RTCRtpSender | null>(null);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const remoteShareStreamRef = useRef<MediaStream>(new MediaStream());
+  const remoteShareVideoRef = useRef<HTMLVideoElement>(null);
   const connectedRef = useRef(false);
   const preMicOnRef = useRef(true);
   const lastVideoSignalRef = useRef<number>(0);
+  const lastReceiverOfferSdpRef = useRef<string>('');
+  const lastCallerReanswerSdpRef = useRef<string>('');
 
   useEffect(() => {
     if (isCaller && status === 'ringing') playRingback();
@@ -439,11 +478,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       const area = pip.document.createElement('div');
       area.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;background:#2b2d31;overflow:hidden;';
       docPipAreaRef.current = area;
-      const hasVideo = callType === 'video' && remoteVideoReady && !remoteVideoMuted;
+      const shareStream = remoteSharing ? remoteShareStreamRef.current : null;
+      const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted);
       if (hasVideo) {
         const v = pip.document.createElement('video') as HTMLVideoElement;
         v.autoplay = true; v.playsInline = true; v.muted = true;
-        v.srcObject = remoteStreamRef.current;
+        v.srcObject = shareStream ?? remoteStreamRef.current;
         v.style.cssText = 'width:100%;height:100%;object-fit:contain;';
         area.appendChild(v);
       } else {
@@ -484,7 +524,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         setMinimized(false);
       });
     } catch {}
-  }, [callType, otherUserName, otherUserPhoto, remoteVideoReady, remoteVideoMuted, triggerPip, handleHangUp]);
+  }, [callType, otherUserName, otherUserPhoto, remoteVideoReady, remoteVideoMuted, remoteSharing, triggerPip, handleHangUp]);
   useEffect(() => { openDocPipRef.current = openDocPip; }, [openDocPip]);
 
   const refreshRemoteMedia = useCallback(() => {
@@ -562,18 +602,29 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       stream.getVideoTracks().forEach(t => { activeVideoTrackRef.current = t; videoSenderRef.current = pc.addTrack(t, stream); });
 
       pc.ontrack = (event) => {
-        const rs = remoteStreamRef.current;
-        if (!rs.getTracks().find(t => t.id === event.track.id)) {
-          rs.addTrack(event.track);
+        if (event.track.kind === 'audio') {
+          const rs = remoteStreamRef.current;
+          if (!rs.getTracks().find(t => t.id === event.track.id)) rs.addTrack(event.track);
+          if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = rs; remoteAudioRef.current.play().catch(() => {}); }
+          return;
         }
-        if (callType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = rs;
-          remoteVideoRef.current.play().catch(() => {});
-        } else if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = rs;
-          remoteAudioRef.current.play().catch(() => {});
+        if (callType === 'audio') {
+          const rss = remoteShareStreamRef.current;
+          if (!rss.getTracks().find(t => t.id === event.track.id)) rss.addTrack(event.track);
+          if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
+          setRemoteSharing(true);
+          event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
+          event.track.addEventListener('mute', () => setRemoteSharing(false));
+          event.track.addEventListener('unmute', () => setRemoteSharing(true));
+          return;
         }
-        if (event.track.kind === 'video') {
+        const alreadyHasCam = remoteStreamRef.current.getVideoTracks().length > 0;
+        if (!alreadyHasCam) {
+          remoteStreamRef.current.addTrack(event.track);
+          if (callType === 'video' && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            remoteVideoRef.current.play().catch(() => {});
+          }
           setRemoteVideoMuted(event.track.muted);
           if (!event.track.muted) setRemoteVideoReady(true);
           event.track.addEventListener('mute', () => setRemoteVideoMuted(true));
@@ -585,6 +636,14 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               remoteVideoRef.current.play().catch(() => {});
             }
           });
+        } else {
+          const rss = remoteShareStreamRef.current;
+          if (!rss.getTracks().find(t => t.id === event.track.id)) rss.addTrack(event.track);
+          if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
+          setRemoteSharing(true);
+          event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
+          event.track.addEventListener('mute', () => setRemoteSharing(false));
+          event.track.addEventListener('unmute', () => setRemoteSharing(true));
         }
       };
 
@@ -634,6 +693,16 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               }
             };
           }
+          const receiverOfferSdp = call.receiverOffer?.sdp ?? '';
+          if (receiverOfferSdp && receiverOfferSdp !== lastReceiverOfferSdpRef.current && pc.signalingState === 'stable' && connectedRef.current) {
+            lastReceiverOfferSdpRef.current = receiverOfferSdp;
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(call.receiverOffer!));
+              const reanswer = await pc.createAnswer();
+              await pc.setLocalDescription(reanswer);
+              await updateCallerReanswer(callId, reanswer);
+            } catch {}
+          }
         });
 
         const unsubCandidates = subscribeToReceiverCandidates(callId, async (candidate) => {
@@ -679,6 +748,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               } catch {}
             }
           }
+          const callerReanswer = call.callerReanswer;
+          if (callerReanswer?.sdp && callerReanswer.sdp !== lastCallerReanswerSdpRef.current && pc.signalingState === 'have-local-offer') {
+            lastCallerReanswerSdpRef.current = callerReanswer.sdp;
+            await pc.setRemoteDescription(new RTCSessionDescription(callerReanswer)).catch(() => {});
+          }
         });
 
         const unsubCandidates = subscribeToCallerCandidates(callId, async (candidate) => {
@@ -723,6 +797,15 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         setStatus('active');
         startTimer();
         connectedRef.current = true;
+        pc.onnegotiationneeded = async () => {
+          if (pc.signalingState === 'stable' && connectedRef.current) {
+            try {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              await updateReceiverOffer(callId, offer);
+            } catch {}
+          }
+        };
       }
     }
 
@@ -860,54 +943,30 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     } catch {}
   };
 
-  const revertToCam = useCallback(async () => {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: selectedCamId ? { deviceId: { exact: selectedCamId } } : { width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      const track = s.getVideoTracks()[0];
-      const sender = videoSenderRef.current;
-      if (sender && track) await sender.replaceTrack(track);
-      activeVideoTrackRef.current?.stop();
-      activeVideoTrackRef.current = track;
-      if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => {}); }
-      if (!camOn) track.enabled = false;
-    } catch {}
-  }, [selectedCamId, camOn]);
+  const stopScreenShare = useCallback(() => {
+    screenTrackRef.current?.stop();
+    screenTrackRef.current = null;
+    screenStreamRef.current = null;
+    if (screenSenderRef.current && pcRef.current) {
+      pcRef.current.removeTrack(screenSenderRef.current);
+      screenSenderRef.current = null;
+    }
+    if (screenShareVideoRef.current) screenShareVideoRef.current.srcObject = null;
+    setSharing(false);
+  }, []);
 
   const toggleScreenShare = async () => {
-    if (sharing) {
-      screenTrackRef.current?.stop();
-      screenTrackRef.current = null;
-      setSharing(false);
-      if (callType === 'video') {
-        await revertToCam();
-        updateCamState(callId, isCaller, !camOn).catch(() => {});
-      }
-      return;
-    }
+    if (sharing) { stopScreenShare(); return; }
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       const track = screenStream.getVideoTracks()[0];
       screenTrackRef.current = track;
-      track.onended = async () => {
-        screenTrackRef.current = null;
-        setSharing(false);
-        if (callType === 'video') {
-          await revertToCam();
-          updateCamState(callId, isCaller, !camOn).catch(() => {});
-        }
-      };
-      if (callType === 'video') {
-        const sender = videoSenderRef.current;
-        if (sender) await sender.replaceTrack(track);
-        if (localVideoRef.current) { localVideoRef.current.srcObject = screenStream; localVideoRef.current.play().catch(() => {}); }
-        updateCamState(callId, isCaller, false).catch(() => {});
-        signalVideo(callId, isCaller).catch(() => {});
-      } else if (pcRef.current) {
-        pcRef.current.addTrack(track, screenStream);
+      track.onended = () => stopScreenShare();
+      if (pcRef.current) {
+        screenSenderRef.current = pcRef.current.addTrack(track, screenStream);
       }
+      screenStreamRef.current = screenStream;
+      if (screenShareVideoRef.current) { screenShareVideoRef.current.srcObject = screenStream; screenShareVideoRef.current.play().catch(() => {}); }
       setSharing(true);
     } catch {}
   };
@@ -957,8 +1016,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         ...(minimized ? { height: inPip ? 0 : 158 } : { flex: 1 }),
         position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
         display: 'flex',
-        ...(callType === 'video' && !minimized
-          ? { flexDirection: isMobile ? 'column' : 'row', gap: 8, padding: 8, alignItems: 'stretch' }
+        ...(!minimized
+          ? { flexDirection: isMobile ? 'column' : 'row', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', overflowY: isMobile ? 'auto' : 'hidden' }
           : { alignItems: 'center', justifyContent: 'center' }
         ),
       }}>
@@ -975,59 +1034,70 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           </div>
         )}
 
-        {callType === 'video' && !minimized && (
-          <>
-            <div style={{ flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#2b2d31', minWidth: 0, minHeight: 0 }}>
-              <video ref={remoteVideoRef} autoPlay playsInline style={{
-                position: 'absolute', inset: 0, width: '100%', height: '100%',
-                objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s'
-              }} />
-              {!remoteVideoVisible && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
-                    {otherUserPhoto
-                      ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>
-                          {otherUserName[0]?.toUpperCase() || '?'}
-                        </div>
-                    }
-                  </div>
-                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{otherUserName}</p>
-                  <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>
-                    {mediaError ?? (!remoteVideoReady ? statusLabel : 'Cámara desactivada')}
-                  </p>
-                </div>
-              )}
-              <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 5, background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: '3px 10px', color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                {otherUserName}
-              </div>
+        {!minimized && (() => {
+          type TileId = 'remote' | 'remoteShare' | 'localShare' | 'local';
+          const tileStyle = (id: TileId, extra?: React.CSSProperties): React.CSSProperties => {
+            if (focusedTile !== null && focusedTile !== id) return { display: 'none' };
+            if (focusedTile === id) return { position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden', backgroundColor: '#2b2d31', cursor: 'pointer', ...extra };
+            return {
+              position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#2b2d31',
+              aspectRatio: '16/9', cursor: 'pointer',
+              ...(isMobile ? { width: '100%', flexShrink: 0 } : { flex: 1, minWidth: 0 }),
+              ...extra,
+            };
+          };
+          const onTileClick = (id: TileId) => () => setFocusedTile(f => f === id ? null : id);
+          const label = (text: string) => (
+            <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 5, background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: '3px 10px', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+              {text}
             </div>
+          );
+          return (
+            <>
+              <div style={tileStyle('remote')} onClick={onTileClick('remote')}>
+                {callType === 'video' && (
+                  <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
+                )}
+                {(callType === 'audio' || !remoteVideoVisible) && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
+                      {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
+                    </div>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{otherUserName}</p>
+                    <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{mediaError ?? (callType === 'audio' ? statusLabel : (!remoteVideoReady ? statusLabel : 'Cámara desactivada'))}</p>
+                  </div>
+                )}
+                {label(otherUserName)}
+              </div>
 
-            <div style={{ flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#2b2d31', minWidth: 0, minHeight: 0 }}>
-              <video ref={localVideoRef} autoPlay playsInline muted style={{
-                position: 'absolute', inset: 0, width: '100%', height: '100%',
-                objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s'
-              }} />
-              {!camOn && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
-                    {currentUserPhoto
-                      ? <img src={currentUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>
-                          {currentUserInitial}
-                        </div>
-                    }
-                  </div>
-                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>Tú</p>
-                  <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>Cámara desactivada</p>
-                </div>
-              )}
-              <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 5, background: 'rgba(0,0,0,0.55)', borderRadius: 6, padding: '3px 10px', color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                Tú
+              <div style={{ ...tileStyle('remoteShare', { backgroundColor: '#111214' }), ...(!remoteSharing && { display: 'none' }) }} onClick={onTileClick('remoteShare')}>
+                <video ref={remoteShareVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+                {label(`Pantalla de ${otherUserName}`)}
               </div>
-            </div>
-          </>
-        )}
+
+              <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')}>
+                <video ref={screenShareVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+                {label('Tu pantalla')}
+              </div>
+
+              <div style={tileStyle('local')} onClick={onTileClick('local')}>
+                {callType === 'video' && (
+                  <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
+                )}
+                {(callType === 'audio' || !camOn) && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
+                      {currentUserPhoto ? <img src={currentUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{currentUserInitial}</div>}
+                    </div>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>Tú</p>
+                    {callType === 'video' && <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>Cámara desactivada</p>}
+                  </div>
+                )}
+                {label('Tú')}
+              </div>
+            </>
+          );
+        })()}
 
         {callType === 'video' && minimized && (
           <video ref={remoteVideoRef} autoPlay playsInline style={{
@@ -1036,25 +1106,6 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           }} />
         )}
 
-        {callType === 'audio' && (
-          <div style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
-            <div style={{
-              width: 100, height: 100, borderRadius: '50%', backgroundColor: '#36393f',
-              margin: '0 auto 18px', overflow: 'hidden'
-            }}>
-              {otherUserPhoto
-                ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42, color: '#fff', fontWeight: 700 }}>
-                    {otherUserName[0]?.toUpperCase() || '?'}
-                  </div>
-              }
-            </div>
-            <p style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: '0 0 8px' }}>{otherUserName}</p>
-            <p style={{ color: mediaError ? '#ed4245' : '#b9bbbe', fontSize: 14, margin: 0 }}>
-              {mediaError ?? statusLabel}
-            </p>
-          </div>
-        )}
 
       </div>
 
@@ -1234,11 +1285,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           </div>
         )}
 
-        {callType === 'video' && (
-          <p style={{ color: '#b9bbbe', fontSize: 13, textAlign: 'center', margin: '0 0 10px' }}>
-            {mediaError ?? statusLabel}
-          </p>
-        )}
+        <p style={{ color: mediaError ? '#ed4245' : '#b9bbbe', fontSize: 13, textAlign: 'center', margin: '0 0 10px' }}>
+          {mediaError ?? statusLabel}
+        </p>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
           <CompoundBtn
