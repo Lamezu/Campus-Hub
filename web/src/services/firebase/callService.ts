@@ -28,6 +28,10 @@ export interface Call {
   createdAt: any;
   offer?: RTCSessionDescriptionInit;
   answer?: RTCSessionDescriptionInit;
+  callerCamOff?: boolean;
+  receiverCamOff?: boolean;
+  callerVideoSignal?: number;
+  receiverVideoSignal?: number;
 }
 
 export async function createCall(
@@ -80,6 +84,16 @@ export async function endCall(callId: string): Promise<void> {
 
 export async function missCall(callId: string): Promise<void> {
   await updateDoc(doc(db, 'calls', callId), { status: 'missed' });
+}
+
+export async function updateCamState(callId: string, isCaller: boolean, camOff: boolean): Promise<void> {
+  const field = isCaller ? 'callerCamOff' : 'receiverCamOff';
+  await updateDoc(doc(db, 'calls', callId), { [field]: camOff });
+}
+
+export async function signalVideo(callId: string, isCaller: boolean): Promise<void> {
+  const field = isCaller ? 'callerVideoSignal' : 'receiverVideoSignal';
+  await updateDoc(doc(db, 'calls', callId), { [field]: Date.now() });
 }
 
 export async function addCallerCandidate(
