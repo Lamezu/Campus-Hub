@@ -152,6 +152,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showLocalVideo, setShowLocalVideo] = useState(true);
   const [showNoVideoParticipants, setShowNoVideoParticipants] = useState(true);
+  const [localSpeaking, setLocalSpeaking] = useState(false);
+  const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const [subPanel, setSubPanel] = useState<'input' | 'output' | null>(null);
   const [showCamPicker, setShowCamPicker] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -422,6 +424,14 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const lastVideoSignalRef = useRef<number>(0);
   const lastReceiverOfferSdpRef = useRef<string>('');
   const lastCallerReanswerSdpRef = useRef<string>('');
+  const localAnalyserRef = useRef<AnalyserNode | null>(null);
+  const remoteAnalyserRef = useRef<AnalyserNode | null>(null);
+  const remoteAudioCtxRef = useRef<AudioContext | null>(null);
+  const speakingRafRef = useRef<number | null>(null);
+  const localSpeakingUntilRef = useRef(0);
+  const remoteSpeakingUntilRef = useRef(0);
+  const localSpeakingStateRef = useRef(false);
+  const remoteSpeakingStateRef = useRef(false);
 
   useEffect(() => {
     if (isCaller && status === 'ringing') playRingback();
@@ -448,6 +458,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     gainDestRef.current = null;
     gainCtxRef.current?.close().catch(() => {});
     gainCtxRef.current = null;
+    if (speakingRafRef.current) { cancelAnimationFrame(speakingRafRef.current); speakingRafRef.current = null; }
+    remoteAudioCtxRef.current?.close().catch(() => {});
+    remoteAudioCtxRef.current = null;
+    localAnalyserRef.current = null;
+    remoteAnalyserRef.current = null;
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
@@ -596,6 +611,10 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           gainDestRef.current = dest;
           src.connect(gainNode);
           gainNode.connect(dest);
+          const localAnalyser = gainCtx.createAnalyser();
+          localAnalyser.fftSize = 256;
+          gainNode.connect(localAnalyser);
+          localAnalyserRef.current = localAnalyser;
           pcAudioTracks = dest.stream.getAudioTracks();
         } catch {}
       }
@@ -607,6 +626,16 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           const rs = remoteStreamRef.current;
           if (!rs.getTracks().find(t => t.id === event.track.id)) rs.addTrack(event.track);
           if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = rs; remoteAudioRef.current.play().catch(() => {}); }
+          if (!remoteAudioCtxRef.current) {
+            try {
+              const ctx = new AudioContext();
+              remoteAudioCtxRef.current = ctx;
+              const analyser = ctx.createAnalyser();
+              analyser.fftSize = 256;
+              ctx.createMediaStreamSource(new MediaStream([event.track])).connect(analyser);
+              remoteAnalyserRef.current = analyser;
+            } catch {}
+          }
           return;
         }
         if (callType === 'audio') {
@@ -818,6 +847,33 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (status !== 'active') return;
     refreshRemoteMedia();
   }, [status, refreshRemoteMedia]);
+
+  useEffect(() => {
+    if (status !== 'active') return;
+    const buf = new Uint8Array(128);
+    const THRESHOLD = 15;
+    const HOLD_MS = 500;
+    const tick = () => {
+      const now = performance.now();
+      if (localAnalyserRef.current) {
+        localAnalyserRef.current.getByteFrequencyData(buf);
+        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+        if (avg > THRESHOLD) localSpeakingUntilRef.current = now + HOLD_MS;
+      }
+      const isLocal = now < localSpeakingUntilRef.current;
+      if (isLocal !== localSpeakingStateRef.current) { localSpeakingStateRef.current = isLocal; setLocalSpeaking(isLocal); }
+      if (remoteAnalyserRef.current) {
+        remoteAnalyserRef.current.getByteFrequencyData(buf);
+        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+        if (avg > THRESHOLD) remoteSpeakingUntilRef.current = now + HOLD_MS;
+      }
+      const isRemote = now < remoteSpeakingUntilRef.current;
+      if (isRemote !== remoteSpeakingStateRef.current) { remoteSpeakingStateRef.current = isRemote; setRemoteSpeaking(isRemote); }
+      speakingRafRef.current = requestAnimationFrame(tick);
+    };
+    speakingRafRef.current = requestAnimationFrame(tick);
+    return () => { if (speakingRafRef.current) cancelAnimationFrame(speakingRafRef.current); };
+  }, [status]);
 
   useEffect(() => {
     return () => cleanup();
@@ -1055,7 +1111,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           );
           return (
             <>
-              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }) }} onClick={onTileClick('remote')}>
+              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }), ...(remoteSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('remote')}>
                 {callType === 'video' && (
                   <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
@@ -1081,7 +1137,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {label('Tu pantalla')}
               </div>
 
-              <div style={{ ...tileStyle('local'), ...(!showLocalVideo && { display: 'none' }) }} onClick={onTileClick('local')}>
+              <div style={{ ...tileStyle('local'), ...(!showLocalVideo && { display: 'none' }), ...(localSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
                 {callType === 'video' && (
                   <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
