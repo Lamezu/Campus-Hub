@@ -35,8 +35,11 @@ export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, 
       }}
       onClick={isMember ? onNavigate : undefined}
     >
-      <div style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: group.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>{group.name.charAt(0).toUpperCase()}</span>
+      <div style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: group.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+        {group.photoURL
+          ? <img src={group.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>{group.name.charAt(0).toUpperCase()}</span>
+        }
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>

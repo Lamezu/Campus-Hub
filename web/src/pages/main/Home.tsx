@@ -39,6 +39,7 @@ function studyGroupToChannel(g: StudyGroup): Channel {
     lastMessageAt: null,
     departmentRestricted: false,
     allowedDepartments: [],
+    photoURL: g.photoURL ?? null,
   };
 }
 
@@ -47,6 +48,7 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null);
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS);
   const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>(
     () => Object.fromEntries(MOCK_CHANNELS.map(ch => [ch.id, ch.unreadCount ?? 0]))
   );
@@ -73,6 +75,21 @@ export default function Home() {
   }, [navigate]);
 
   useEffect(() => {
+    const unsubs = MOCK_CHANNELS.map(ch =>
+      onSnapshot(doc(db, 'channels', ch.id), snap => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        setChannels(prev => prev.map(c =>
+          c.id === ch.id
+            ? { ...c, photoURL: data.photoURL ?? null, name: data.name ?? c.name, description: data.description ?? c.description, icon: data.icon ?? c.icon }
+            : c
+        ));
+      })
+    );
+    return () => unsubs.forEach(u => u());
+  }, []);
+
+  useEffect(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
     const q = query(
@@ -95,6 +112,7 @@ export default function Home() {
           createdAt: data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
           color: data.color ?? '#007AFF',
           isPrivate: data.isPrivate ?? false,
+          photoURL: data.photoURL ?? null,
         } as StudyGroup;
       }));
     }, (error) => {
@@ -154,7 +172,7 @@ export default function Home() {
   if (!user) return null;
 
   const displayName = userData?.displayName || user.displayName || 'User';
-  const totalUnread = MOCK_CHANNELS.reduce((sum, ch) => sum + (channelUnreads[ch.id] ?? 0), 0);
+  const totalUnread = channels.reduce((sum, ch) => sum + (channelUnreads[ch.id] ?? 0), 0);
 
   if (!isDesktop) {
     return (
@@ -172,7 +190,7 @@ export default function Home() {
         <div style={{ padding: '0 16px' }}>
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Canales</div>
-            {MOCK_CHANNELS.map((channel) => (
+            {channels.map((channel) => (
               <ChannelCard key={channel.id} channel={channel} onPress={() => navigate(`/chat/${channel.id}`)} />
             ))}
           </div>
@@ -248,7 +266,7 @@ export default function Home() {
               Canales
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-              {MOCK_CHANNELS.map((channel) => {
+              {channels.map((channel) => {
                 const Icon = CHANNEL_ICONS[channel.icon ?? ''] ?? MessagesSquare;
                 return (
                   <div
@@ -268,8 +286,11 @@ export default function Home() {
                     onMouseLeave={e => { e.currentTarget.style.backgroundColor = colors.background; e.currentTarget.style.borderColor = colors.border; }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon size={20} color={colors.primary} strokeWidth={1.8} />
+                      <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {channel.photoURL
+                          ? <img src={channel.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <Icon size={20} color={colors.primary} strokeWidth={1.8} />
+                        }
                       </div>
                       {(channelUnreads[channel.id] ?? 0) > 0 && (
                         <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
@@ -320,8 +341,11 @@ export default function Home() {
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = colors.background)}
                   >
-                    <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: group.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Users size={18} color={group.color} strokeWidth={2} />
+                    <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: group.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                      {group.photoURL
+                        ? <img src={group.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <Users size={18} color={group.color} strokeWidth={2} />
+                      }
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>

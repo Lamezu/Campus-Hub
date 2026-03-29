@@ -79,9 +79,14 @@ export function ChannelCard({ channel, onPress }: ChannelCardProps) {
             marginRight: spacing.md,
             backgroundColor: colors.backgroundSecondary,
             display: 'flex',
+            overflow: 'hidden',
+            flexShrink: 0,
           }}
         >
-          <Icon size={22} color={colors.primary} strokeWidth={1.8} />
+          {channel.photoURL
+            ? <img src={channel.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <Icon size={22} color={colors.primary} strokeWidth={1.8} />
+          }
         </div>
 
         <div style={{ flex: 1 }}>

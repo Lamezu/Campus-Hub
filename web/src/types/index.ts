@@ -22,6 +22,7 @@ export interface Channel {
   departmentRestricted: boolean;
   allowedDepartments: string[];
   icon?: string;
+  photoURL?: string | null;
   unreadCount?: number;
   lastMessage?: string;
   lastMessageTime?: string;
