@@ -9,9 +9,14 @@ import ForwardModal from '../../components/chat/FowardModal';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
-import { Settings, CornerDownRight, X, Mic, ChevronsDown } from 'lucide-react';
-import { uploadAudio } from '../../config/cloudinary';
+import { Settings, CornerDownRight, X, Mic, ChevronsDown, Info, Plus, Image, FileText, BarChart3 } from 'lucide-react';
+import ChannelInfoPanel from '../../components/chat/ChannelInfoPanel';
+import DMInfoPanel from '../../components/chat/DMInfoPanel';
+import { PollModal } from '../../components/chat/PollModal';
+import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
+import type { PollData } from '../../types';
 import { updateLastRead } from '../../services/firebase/messageService';
+import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
 
 const MESSAGES_PER_PAGE = 50;
 
@@ -29,9 +34,11 @@ interface ThemeStyle {
   text: string;
 }
 
-function MessageInput({ onSend, onSendAudio, disabled = false, replyingTo, onCancelReply, themeStyle, showRecorder, setShowRecorder }: {
+function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, disabled = false, replyingTo, onCancelReply, themeStyle, showRecorder, setShowRecorder }: {
   onSend: (text: string) => void;
   onSendAudio: (audioBlob: Blob, duration: number) => void;
+  onSendAttachment: (file: File, type: 'image' | 'file') => void;
+  onSendPoll: (poll: Omit<PollData, 'votes'>) => void;
   disabled?: boolean;
   replyingTo?: any;
   onCancelReply?: () => void;
@@ -40,8 +47,12 @@ function MessageInput({ onSend, onSendAudio, disabled = false, replyingTo, onCan
   setShowRecorder: (v: boolean) => void;
 }) {
   const [text, setText] = useState('');
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
   const { colors } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
     if (text.trim() && !disabled) {
@@ -58,8 +69,30 @@ function MessageInput({ onSend, onSendAudio, disabled = false, replyingTo, onCan
     }
   };
 
+  const attachItems = [
+    { label: 'Fotos', icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
+    { label: 'Documento', icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
+    { label: 'Encuesta', icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+  ];
+
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%', position: 'relative' }}>
+      {showAttachMenu && (
+        <>
+          <div onClick={() => setShowAttachMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{ position: 'absolute', bottom: '100%', left: 8, zIndex: 50, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '12px 16px', display: 'flex', gap: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.18)', marginBottom: 6 }}>
+            {attachItems.map(item => (
+              <button key={item.label} onClick={item.action} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</div>
+                <span style={{ fontSize: 11, color: colors.textSecondary, fontWeight: 500 }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'image'); e.target.value = ''; }} />
+      <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'file'); e.target.value = ''; }} />
+      <PollModal visible={showPoll} onClose={() => setShowPoll(false)} onSend={onSendPoll} />
       {replyingTo && (
         <div style={{
           display: 'flex',
@@ -77,36 +110,23 @@ function MessageInput({ onSend, onSendAudio, disabled = false, replyingTo, onCan
               <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyingTo.text.substring(0, 30)}...</span>
             </span>
           </div>
-          <button
-            onClick={onCancelReply}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: themeStyle ? themeStyle.text : colors.textSecondary,
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px'
-            }}
-          >
+          <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: themeStyle ? themeStyle.text : colors.textSecondary, display: 'flex', alignItems: 'center', padding: '4px' }}>
             <X size={18} />
           </button>
         </div>
       )}
-      <div
-        className="chat-input-container"
-        style={themeStyle ? { backgroundColor: themeStyle.bg, borderTop: `1px solid ${themeStyle.border}` } : {}}
-      >
+      <div className="chat-input-container" style={themeStyle ? { backgroundColor: themeStyle.bg, borderTop: `1px solid ${themeStyle.border}` } : {}}>
         {showRecorder ? (
-          <AudioRecorder
-            onSend={(audioBlob, duration) => {
-              onSendAudio(audioBlob, duration);
-              setShowRecorder(false);
-            }}
-            onCancel={() => setShowRecorder(false)}
-          />
+          <AudioRecorder onSend={(audioBlob, duration) => { onSendAudio(audioBlob, duration); setShowRecorder(false); }} onCancel={() => setShowRecorder(false)} />
         ) : (
           <>
+            <button
+              onClick={() => setShowAttachMenu(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0 }}
+              title="Adjuntar"
+            >
+              <Plus size={22} strokeWidth={2} />
+            </button>
             <textarea
               ref={textareaRef}
               value={text}
@@ -118,27 +138,10 @@ function MessageInput({ onSend, onSendAudio, disabled = false, replyingTo, onCan
               disabled={disabled}
               rows={1}
             />
-            <button
-              onClick={() => setShowRecorder(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: colors.primary,
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Grabar audio"
-            >
+            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Grabar audio">
               <Mic size={20} />
             </button>
-            <button
-              onClick={handleSend}
-              disabled={!text.trim() || disabled}
-              className="chat-send-button"
-            >
+            <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button">
               <div className="chat-send-icon" />
             </button>
           </>
@@ -162,6 +165,9 @@ export default function Chat() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastDocRef = useRef<any>(null);
@@ -225,7 +231,10 @@ export default function Chat() {
             isForwarded: data.isForwarded || false,
             originalSender: data.originalSender || null,
             forwardedFrom: data.forwardedFrom || null,
-            replyTo: data.replyTo || null
+            replyTo: data.replyTo || null,
+            poll: (data.poll && typeof data.poll === 'object' && !Array.isArray(data.poll) && typeof data.poll.question === 'string' && Array.isArray(data.poll.options))
+              ? { ...data.poll, options: (data.poll.options as any[]).map((o: any) => typeof o === 'string' ? o : (o?.text ?? o?.label ?? o?.value ?? String(o))), votes: data.poll.votes || {} }
+              : null,
           };
         }).reverse();
 
@@ -282,7 +291,8 @@ export default function Chat() {
           isForwarded: data.isForwarded || false,
           originalSender: data.originalSender || null,
           forwardedFrom: data.forwardedFrom || null,
-          replyTo: data.replyTo || null
+          replyTo: data.replyTo || null,
+          poll: data.poll || null,
         };
       }).reverse();
 
@@ -295,6 +305,30 @@ export default function Chat() {
     } catch {
     } finally {
       setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser || !id) return;
+    const unsub = subscribeToSavedMessages(currentUser.uid, msgs => {
+      setSavedIds(new Set(msgs.filter(m => m.originalChannelId === id).map(m => m.id)));
+    });
+    return () => unsub();
+  }, [currentUser, id]);
+
+  const handleSave = async (message: Message) => {
+    if (!currentUser || !id) return;
+    if (savedIds.has(message.id)) {
+      await unsaveMessage(currentUser.uid, message.id);
+    } else {
+      await saveMessage(currentUser.uid, {
+        id: message.id,
+        text: message.text,
+        senderName: message.senderName,
+        senderId: message.senderId,
+        originalChannelId: id,
+        attachments: message.attachments?.map(a => ({ type: a.type, url: a.url })),
+      }, id);
     }
   };
 
@@ -394,6 +428,43 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     setSending(false);
   }
 };
+
+  const handleSendAttachment = async (file: File, type: 'image' | 'file') => {
+    if (!currentUser || !id || sending) return;
+    setSending(true);
+    try {
+      const url = type === 'image' ? await uploadChatImage(file, `${id}_${Date.now()}`) : await uploadChatFile(file, `${id}_${Date.now()}`);
+      await addDoc(collection(db, 'channels', id, 'messages'), {
+        text: '',
+        senderId: currentUser.uid,
+        senderName: userData?.displayName || currentUser.displayName || 'User',
+        senderPhoto: userData?.photoURL || currentUser.photoURL || null,
+        createdAt: serverTimestamp(),
+        edited: false, editedAt: null,
+        attachments: [{ url, type, name: file.name, size: file.size }],
+        reactions: {}, deletedForUsers: [],
+      });
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch { alert('Error al enviar el archivo'); } finally { setSending(false); }
+  };
+
+  const handleSendPoll = async (poll: Omit<PollData, 'votes'>) => {
+    if (!currentUser || !id || sending) return;
+    setSending(true);
+    try {
+      await addDoc(collection(db, 'channels', id, 'messages'), {
+        text: poll.question,
+        senderId: currentUser.uid,
+        senderName: userData?.displayName || currentUser.displayName || 'User',
+        senderPhoto: userData?.photoURL || currentUser.photoURL || null,
+        createdAt: serverTimestamp(),
+        edited: false, editedAt: null,
+        attachments: null, reactions: {}, deletedForUsers: [],
+        poll: { ...poll, votes: {} },
+      });
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch { } finally { setSending(false); }
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -605,14 +676,24 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
           ←
         </button>
         <h1 className="chat-header-title" style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}>{channelName}</h1>
-        <button
-          className="chat-back-button"
-          onClick={() => navigate('/settings/theme')}
-          style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
-          title="Personalizar tema"
-        >
-          <Settings size={20} color={desktopThemeStyle ? desktopThemeStyle.text : undefined} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            className="chat-back-button"
+            onClick={() => setShowInfoPanel(v => !v)}
+            style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
+            title="Información"
+          >
+            <Info size={20} color={showInfoPanel ? colors.primary : (desktopThemeStyle ? desktopThemeStyle.text : undefined)} />
+          </button>
+          <button
+            className="chat-back-button"
+            onClick={() => navigate('/settings/theme')}
+            style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
+            title="Personalizar tema"
+          >
+            <Settings size={20} color={desktopThemeStyle ? desktopThemeStyle.text : undefined} />
+          </button>
+        </div>
       </div>
       
       <div
@@ -643,6 +724,9 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
               key={message.id}
               message={message}
               isOwnMessage={message.senderId === currentUser?.uid}
+              chatId={id}
+              isConversation={false}
+              isSaved={savedIds.has(message.id)}
               onReply={handleReply}
               onDelete={handleDelete}
               onForward={handleForward}
@@ -650,6 +734,8 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
               onCopy={handleCopy}
               onScrollToMessage={handleScrollToMessage}
               onAudioReply={handleAudioReply}
+              onSave={handleSave}
+              onAvatarClick={(senderId) => { if (senderId !== currentUser?.uid) setProfileUserId(senderId); }}
             />
           ))
         )}
@@ -686,6 +772,8 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
       <MessageInput
         onSend={handleSendMessage}
         onSendAudio={handleSendAudio}
+        onSendAttachment={handleSendAttachment}
+        onSendPoll={handleSendPoll}
         disabled={sending}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
@@ -693,6 +781,28 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         showRecorder={showRecorder}
         setShowRecorder={setShowRecorder}
       />
+
+      {showInfoPanel && id && (
+        <ChannelInfoPanel
+          chatId={id}
+          isGroup={!!id?.startsWith('sg_')}
+          currentUserId={currentUser?.uid ?? ''}
+          userRole={userData?.role ?? 'student'}
+          colors={colors}
+          onClose={() => setShowInfoPanel(false)}
+          onClearChat={() => setMessages([])}
+          onLeave={() => { setShowInfoPanel(false); navigate('/home'); }}
+        />
+      )}
+
+      {profileUserId && (
+        <DMInfoPanel
+          otherUserId={profileUserId}
+          currentUserId={currentUser?.uid ?? ''}
+          colors={colors}
+          onClose={() => setProfileUserId(null)}
+        />
+      )}
 
       <ForwardModal
         isOpen={showForwardModal}
