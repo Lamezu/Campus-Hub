@@ -50,6 +50,13 @@ export interface ForwardedFrom {
   senderName: string;
 }
 
+export interface PollData {
+  question: string;
+  options: string[];
+  multipleAnswers: boolean;
+  votes: Record<string, string[]>;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -66,6 +73,7 @@ export interface Message {
   isForwarded?: boolean;
   originalSender?: string | null;
   forwardedFrom?: ForwardedFrom | null;
+  poll?: PollData | null;
 }
 
 export interface Attachment {
