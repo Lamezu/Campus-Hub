@@ -1,13 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark } from 'lucide-react';
+import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import AudioMessage from './AudioMessage';
 import type { Message } from '../../types';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { auth } from '../../config/firebase';
 
 interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
+  chatId?: string;
+  isConversation?: boolean;
+  isSaved?: boolean;
   onReply?: (message: Message) => void;
   onDelete?: (message: Message, forEveryone: boolean) => void;
   onForward?: (message: Message) => void;
@@ -16,10 +22,12 @@ interface MessageBubbleProps {
   onScrollToMessage?: (messageId: string) => void;
   onAudioReply?: (message: Message) => void;
   onSave?: (message: Message) => void;
+  onAvatarClick?: (senderId: string) => void;
 }
 
 
 function hexToRgba(hex: string, alpha: number): string {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return `rgba(128,128,128,${alpha})`;
   const h = hex.replace('#', '').slice(0, 6);
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
@@ -28,6 +36,7 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 function getLuminance(hex: string): number {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return 0.5;
   const h = hex.replace('#', '').slice(0, 6);
   const r = parseInt(h.slice(0, 2), 16) / 255;
   const g = parseInt(h.slice(2, 4), 16) / 255;
@@ -39,6 +48,9 @@ function getLuminance(hex: string): number {
 export default function MessageBubble({
   message,
   isOwnMessage,
+  chatId,
+  isConversation = false,
+  isSaved = false,
   onReply,
   onDelete,
   onForward,
@@ -47,6 +59,7 @@ export default function MessageBubble({
   onScrollToMessage,
   onAudioReply,
   onSave,
+  onAvatarClick,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
   const chatTheme = colors.chat;
@@ -67,6 +80,56 @@ export default function MessageBubble({
   };
 
   const audioAttachment = message.attachments?.find(a => a.type === 'audio');
+  const imageAttachment = message.attachments?.find(a => a.type === 'image');
+  const fileAttachment = message.attachments?.find(a => a.type === 'file');
+  const currentUid = auth.currentUser?.uid ?? '';
+  const poll = (message.poll && typeof message.poll === 'object' && !Array.isArray(message.poll) && typeof message.poll.question === 'string' && Array.isArray(message.poll.options))
+    ? message.poll
+    : null;
+
+  const handleVote = async (optionIndex: number) => {
+    if (!poll || !chatId || !currentUid) return;
+    const msgRef = isConversation
+      ? doc(db, 'conversations', chatId, 'messages', message.id)
+      : doc(db, 'channels', chatId, 'messages', message.id);
+    const key = `poll.votes.${optionIndex}`;
+    const pollVotes = poll.votes || {};
+    const alreadyVoted = ((pollVotes[optionIndex] ?? pollVotes[String(optionIndex)]) ?? []).includes(currentUid);
+    if (alreadyVoted) {
+      await updateDoc(msgRef, { [key]: arrayRemove(currentUid) });
+    } else {
+      if (!poll.multipleAnswers) {
+        const updates: Record<string, any> = {};
+        poll.options.forEach((_, i) => {
+          const v = ((pollVotes)[i] ?? (pollVotes)[String(i)]) ?? [];
+          if (v.includes(currentUid)) {
+            updates[`poll.votes.${i}`] = arrayRemove(currentUid);
+          }
+        });
+        updates[key] = arrayUnion(currentUid);
+        await updateDoc(msgRef, updates);
+      } else {
+        await updateDoc(msgRef, { [key]: arrayUnion(currentUid) });
+      }
+    }
+  };
+
+  const downloadFile = async (url: string, name: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -338,15 +401,18 @@ export default function MessageBubble({
 
 
   const avatar = (
-    <div style={{
-      width: '32px',
-      height: '32px',
-      borderRadius: '50%',
-      flexShrink: 0,
-      alignSelf: 'flex-end',
-      overflow: 'hidden',
-      backgroundColor: colors.backgroundSecondary,
-    }}>
+    <div
+      onClick={() => onAvatarClick?.(message.senderId)}
+      style={{
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
+        flexShrink: 0,
+        alignSelf: 'flex-end',
+        overflow: 'hidden',
+        backgroundColor: colors.backgroundSecondary,
+        cursor: onAvatarClick ? 'pointer' : 'default',
+      }}>
       {message.senderPhoto
         ? <img src={message.senderPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{
@@ -434,6 +500,61 @@ export default function MessageBubble({
               duration={audioAttachment.duration || 0}
               isOwnMessage={isOwnMessage}
             />
+          ) : imageAttachment ? (
+            <div>
+              <img
+                src={imageAttachment.url}
+                alt={imageAttachment.name}
+                style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 10, display: 'block', cursor: 'pointer' }}
+                onClick={() => window.open(imageAttachment.url, '_blank')}
+              />
+              {message.text ? <div style={{ marginTop: 6 }}>{message.text}</div> : null}
+            </div>
+          ) : fileAttachment ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'inherit' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.2)' : colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FileText size={20} color={isOwnMessage ? '#fff' : colors.primary} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileAttachment.name}</div>
+                <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{(fileAttachment.size / 1024).toFixed(0)} KB</div>
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); downloadFile(fileAttachment.url, fileAttachment.name); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', opacity: 0.7 }}
+                title="Descargar"
+              >
+                <Download size={16} color={bubbleText} />
+              </button>
+            </div>
+          ) : poll ? (
+            <div style={{ minWidth: 220 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{poll.question}</div>
+              {poll.options.map((opt, i) => {
+                const pollVotes = poll.votes || {};
+                const votes = (pollVotes[i] ?? pollVotes[String(i)]) ?? [];
+                const totalVotes = Object.values(pollVotes).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0);
+                const pct = totalVotes > 0 ? Math.round((votes.length / totalVotes) * 100) : 0;
+                const voted = Array.isArray(votes) && votes.includes(currentUid);
+                return (
+                  <div
+                    key={i}
+                    onClick={() => handleVote(i)}
+                    style={{ position: 'relative', marginBottom: 8, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: `1.5px solid ${voted ? (isOwnMessage ? 'rgba(255,255,255,0.6)' : colors.primary) : 'rgba(128,128,128,0.3)'}`, padding: '8px 12px' }}
+                  >
+                    <div style={{ position: 'absolute', inset: 0, backgroundColor: voted ? (isOwnMessage ? 'rgba(255,255,255,0.15)' : colors.primary + '22') : 'transparent', width: `${pct}%`, transition: 'width 0.3s' }} />
+                    <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13 }}>{opt}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.8 }}>{pct}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+                {Object.values(poll.votes || {}).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0)} voto{Object.values(poll.votes || {}).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0) !== 1 ? 's' : ''}
+                {poll.multipleAnswers ? ' · Varias respuestas' : ''}
+              </div>
+            </div>
           ) : (
             <div>
               {message.text}
@@ -537,8 +658,10 @@ export default function MessageBubble({
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Bookmark size={16} color={colors.primary} />
-            <span>Guardar mensaje</span>
+            <Bookmark size={16} color={colors.primary} fill={isSaved ? colors.primary : 'none'} />
+            <span style={{ color: isSaved ? colors.primary : colors.text }}>
+              {isSaved ? 'Quitar de guardados' : 'Guardar mensaje'}
+            </span>
           </div>
 
           {isOwnMessage && (

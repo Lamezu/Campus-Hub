@@ -36,6 +36,7 @@ export interface DMMessage {
   read: boolean;
   readAt: string | null;
   deletedForUsers?: string[];
+  poll?: any;
 }
 
 export interface DMAttachment {
@@ -126,7 +127,10 @@ function mapDoc(d: QueryDocumentSnapshot): DMMessage {
     replyTo: data.replyTo || null,
     read: data.read || false,
     readAt: data.readAt?.toDate?.()?.toISOString() || null,
-    deletedForUsers: data.deletedForUsers || []
+    deletedForUsers: data.deletedForUsers || [],
+    poll: (data.poll && typeof data.poll === 'object' && !Array.isArray(data.poll) && typeof data.poll.question === 'string' && Array.isArray(data.poll.options))
+      ? { ...data.poll, options: (data.poll.options as any[]).map((o: any) => typeof o === 'string' ? o : (o?.text ?? o?.label ?? o?.value ?? String(o))), votes: data.poll.votes || {} }
+      : null,
   };
 }
 
@@ -173,7 +177,8 @@ export async function sendMessage(
   senderName: string,
   senderPhoto: string | null,
   attachments: DMAttachment[] | null = null,
-  replyTo: DMReplyTo | null = null
+  replyTo: DMReplyTo | null = null,
+  poll: any = null
 ): Promise<string> {
   const batch = writeBatch(db);
 
@@ -196,6 +201,7 @@ export async function sendMessage(
   };
 
   if (replyTo) messageData.replyTo = replyTo;
+  if (poll) messageData.poll = poll;
 
   batch.set(messageRef, messageData);
 
