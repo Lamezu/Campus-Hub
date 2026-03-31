@@ -74,3 +74,24 @@ export async function uploadCallTone(file: File, userId: string): Promise<string
   const url = await upload(file, 'audio', 'campushub/calltones', filename);
   return url.replace('/video/upload/', '/video/upload/f_mp3/');
 }
+
+export async function uploadChatImage(file: File, messageId: string): Promise<string> {
+  const filename = `chat_img_${messageId}_${Date.now()}`;
+  return upload(file, 'image', 'campushub/chat', filename);
+}
+
+export async function uploadChatFile(file: File, messageId: string): Promise<string> {
+  const filename = `chat_doc_${messageId}_${Date.now()}`;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', 'campushub/chat_files');
+  formData.append('public_id', filename);
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`;
+  const response = await axios.post(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  });
+  if (!response.data?.secure_url) throw new Error('No se recibió URL de Cloudinary');
+  return response.data.secure_url as string;
+}
