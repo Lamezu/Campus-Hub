@@ -17,6 +17,7 @@ import AnnouncementDetail from './pages/campus/AnnouncementDetail';
 import DirectChat from './pages/chat/DirectChat';
 import { CallProvider, useCall } from './contexts/CallContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
+import { MessageSoundProvider } from './contexts/MessageSoundContext';
 import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
@@ -58,6 +59,7 @@ function App() {
     <NotificationsProvider>
       <CallProvider>
         <BrowserRouter>
+          <MessageSoundProvider>
           <GlobalCallOverlay />
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -80,6 +82,7 @@ function App() {
             <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
             <Route path="/saved-items" element={<SavedItems />} />
           </Routes>
+          </MessageSoundProvider>
         </BrowserRouter>
       </CallProvider>
     </NotificationsProvider>

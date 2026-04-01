@@ -29,7 +29,6 @@ import {
   type DMMessage,
   type DMReplyTo
 } from '../../services/firebase/directMessageService';
-import { playMessageTone } from '../../utils/toneGenerator';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
@@ -223,15 +222,6 @@ export default function DirectChat() {
     const uid = currentUser.uid;
     isFirstMsgLoad.current = true;
     const unsubscribe = subscribeToMessages(conversationId, (msgs, lastDoc) => {
-      if (!isFirstMsgLoad.current && msgs.length > 0) {
-        const last = msgs[msgs.length - 1];
-        if (last.senderId !== uid) {
-          const mute = userData?.settings?.globalMute ?? 'off';
-          if (mute === 'off') {
-            playMessageTone(userData?.settings?.globalTone ?? 'Melodía');
-          }
-        }
-      }
       const wasFirst = isFirstMsgLoad.current;
       isFirstMsgLoad.current = false;
       setMessages(msgs);
