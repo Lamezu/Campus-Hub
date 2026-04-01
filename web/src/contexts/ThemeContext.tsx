@@ -12,6 +12,9 @@ export interface ChatTheme {
   textOwn: string;
   textOther: string;
   nameColor: string;
+  offsetX?: number;
+  offsetY?: number;
+  scale?: number;
 }
 
 export interface ChatSettings {
@@ -258,7 +261,8 @@ export const chatThemes: Record<string, ChatTheme> = {
 export const getColors = (
   theme: AppTheme,
   customPrimary?: string,
-  userChatSettings: ChatSettings = chatSettingsDefaults
+  userChatSettings: ChatSettings = chatSettingsDefaults,
+  customChatThemes: ChatTheme[] = []
 ): ThemeColors => {
   let baseColors: Omit<ThemeColors, 'chat' | 'chatSettings'>;
 
@@ -290,7 +294,9 @@ export const getColors = (
     baseColors = themes[theme as keyof typeof themes] || themes.light;
   }
 
-  let chatTheme = chatThemes[userChatSettings.themeId] || chatThemes.default;
+  let chatTheme = chatThemes[userChatSettings.themeId]
+    || customChatThemes.find(t => t.id === userChatSettings.themeId)
+    || chatThemes.default;
 
   if (userChatSettings.themeId === 'default') {
     chatTheme = {
@@ -315,9 +321,12 @@ type ThemeContextType = {
   customPrimary: string | null;
   chatSettings: ChatSettings;
   chatThemes: Record<string, ChatTheme>;
+  customChatThemes: ChatTheme[];
   setTheme: (theme: AppTheme) => void;
   setCustomPrimary: (color: string) => void;
   setChatSettings: (settings: Partial<ChatSettings>) => void;
+  addCustomChatTheme: (theme: ChatTheme) => void;
+  deleteCustomChatTheme: (themeId: string) => void;
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -326,11 +335,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<AppTheme>('light');
   const [customPrimary, setCustomPrimaryState] = useState<string | null>(null);
   const [chatSettings, setChatSettingsState] = useState<ChatSettings>(chatSettingsDefaults);
+  const [customChatThemes, setCustomChatThemesState] = useState<ChatTheme[]>([]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as AppTheme | null;
     const savedColor = localStorage.getItem('customPrimary');
     const savedChatSettings = localStorage.getItem('chatSettings');
+    const savedCustomThemes = localStorage.getItem('customChatThemes');
 
     if (savedTheme) {
       setThemeState(savedTheme);
@@ -346,6 +357,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (savedChatSettings) {
       try {
         setChatSettingsState(JSON.parse(savedChatSettings));
+      } catch {
+      }
+    }
+
+    if (savedCustomThemes) {
+      try {
+        setCustomChatThemesState(JSON.parse(savedCustomThemes));
       } catch {
       }
     }
@@ -370,7 +388,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setChatSettingsState(updated);
   };
 
-  const colors = getColors(theme, customPrimary || undefined, chatSettings);
+  const addCustomChatTheme = (newTheme: ChatTheme) => {
+    const updated = [...customChatThemes, newTheme];
+    localStorage.setItem('customChatThemes', JSON.stringify(updated));
+    setCustomChatThemesState(updated);
+  };
+
+  const deleteCustomChatTheme = (themeId: string) => {
+    const updated = customChatThemes.filter(t => t.id !== themeId);
+    localStorage.setItem('customChatThemes', JSON.stringify(updated));
+    setCustomChatThemesState(updated);
+    if (chatSettings.themeId === themeId) {
+      setChatSettings({ themeId: 'default' });
+    }
+  };
+
+  const colors = getColors(theme, customPrimary || undefined, chatSettings, customChatThemes);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -396,9 +429,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       customPrimary,
       chatSettings,
       chatThemes,
+      customChatThemes,
       setTheme,
       setCustomPrimary,
-      setChatSettings
+      setChatSettings,
+      addCustomChatTheme,
+      deleteCustomChatTheme,
     }}>
       {children}
     </ThemeContext.Provider>

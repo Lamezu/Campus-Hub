@@ -428,25 +428,28 @@ export default function DirectChat() {
     msg => !msg.deletedForUsers?.includes(currentUser?.uid || '')
   );
 
+  const isCustomTheme = chatTheme.id?.startsWith('custom_');
   const isNonDefaultTheme = colors.chatSettings.themeId !== 'default';
   const useThemeStyling = isDesktop && isNonDefaultTheme;
   const themeIsLight = getLuminance(chatTheme.background) > 0.55;
   const themeTextColor = themeIsLight ? '#1C1C1E' : '#FFFFFF';
   const themeBorderColor = themeIsLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)';
-  const desktopThemeStyle: ThemeStyle | undefined = useThemeStyling
+  const desktopThemeStyle: ThemeStyle | undefined = (useThemeStyling && !isCustomTheme)
     ? { bg: chatTheme.background, border: themeBorderColor, text: themeTextColor }
     : undefined;
 
-  const backgroundStyles = isDesktop
-    ? { backgroundColor: chatTheme.background, backgroundImage: 'none' }
-    : {
-        backgroundImage: chatTheme.backgroundImage ? `url(${chatTheme.backgroundImage})` : 'none',
-        backgroundColor: chatTheme.background,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed'
-      };
+  const backgroundStyles: React.CSSProperties = isCustomTheme
+    ? { position: 'relative' }
+    : isDesktop
+      ? { backgroundColor: chatTheme.background, backgroundImage: 'none' }
+      : {
+          backgroundImage: chatTheme.backgroundImage ? `url(${chatTheme.backgroundImage})` : 'none',
+          backgroundColor: chatTheme.background,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        };
 
   const headerContent = (
     <div className="chat-header" style={{
@@ -519,9 +522,28 @@ export default function DirectChat() {
     </div>
   );
 
+  const customBgOverlay = isCustomTheme && chatTheme.backgroundImage ? (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
+      <img
+        src={chatTheme.backgroundImage}
+        alt=""
+        draggable={false}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: `translate(${chatTheme.offsetX || 0}px, ${chatTheme.offsetY || 0}px) scale(${chatTheme.scale || 1})`,
+          transformOrigin: 'center',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  ) : null;
+
   if (loading) {
     return (
       <div className="chat-loading-container" style={{ ...backgroundStyles, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {customBgOverlay}
         {headerContent}
         <div className="chat-loading-content">
           <div className="loading-spinner" />
@@ -533,6 +555,7 @@ export default function DirectChat() {
 
   return (
     <div className="chat-loading-container" style={{ ...backgroundStyles, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {customBgOverlay}
       {headerContent}
 
       <div
