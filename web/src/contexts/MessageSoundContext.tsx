@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { useLocation } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { playMessageTone } from '../utils/toneGenerator';
@@ -13,14 +13,27 @@ export function MessageSoundProvider({ children }: { children: React.ReactNode }
   const dmUnreadRef = useRef<Record<string, number>>({});
   const channelLastMsgRef = useRef<Record<string, string>>({});
   const unsubsRef = useRef<(() => void)[]>([]);
+  const dmContactCacheRef = useRef<Record<string, { otherId: string; alertTone?: string; mute?: string }>>({});
 
   locationRef.current = location.pathname;
 
-  const playIfAllowed = () => {
-    const mute = settingsRef.current?.globalMute ?? 'off';
-    if (mute === 'off') {
-      playMessageTone(settingsRef.current?.globalTone ?? 'Melodía');
+  const playIfAllowed = (conversationId?: string) => {
+    const globalMute = settingsRef.current?.globalMute ?? 'off';
+    const globalTone = settingsRef.current?.globalTone ?? 'Melodía';
+
+    if (conversationId) {
+      const contact = dmContactCacheRef.current[conversationId];
+      if (contact) {
+        if (contact.mute === 'always') return;
+        if (contact.alertTone && contact.alertTone !== 'Predeterminado') {
+          playMessageTone(contact.alertTone);
+          return;
+        }
+      }
     }
+
+    if (globalMute !== 'off') return;
+    playMessageTone(globalTone);
   };
 
   useEffect(() => {
@@ -29,6 +42,7 @@ export function MessageSoundProvider({ children }: { children: React.ReactNode }
       unsubsRef.current = [];
       dmUnreadRef.current = {};
       channelLastMsgRef.current = {};
+      dmContactCacheRef.current = {};
 
       if (!user) {
         userIdRef.current = null;
@@ -45,17 +59,45 @@ export function MessageSoundProvider({ children }: { children: React.ReactNode }
       const dmUnsub = onSnapshot(
         query(collection(db, 'conversations'), where('participants', 'array-contains', user.uid)),
         snap => {
-          snap.docChanges().forEach(change => {
+          snap.docChanges().forEach(async change => {
             const data = change.doc.data();
+            const convId = change.doc.id;
             const count = data.unreadCount?.[user.uid] ?? 0;
+
             if (change.type === 'added') {
-              dmUnreadRef.current[change.doc.id] = count;
-            } else if (change.type === 'modified') {
-              const prev = dmUnreadRef.current[change.doc.id] ?? 0;
-              if (count > prev && !locationRef.current.includes(change.doc.id)) {
-                playIfAllowed();
+              dmUnreadRef.current[convId] = count;
+              const otherId = (data.participants as string[] | undefined)?.find(id => id !== user.uid);
+              if (otherId) {
+                try {
+                  const csSnap = await getDoc(doc(db, 'users', user.uid, 'contactSettings', otherId));
+                  const cs = csSnap.exists() ? csSnap.data() : {};
+                  dmContactCacheRef.current[convId] = { otherId, alertTone: cs.alertTone, mute: cs.mute };
+                } catch {
+                  dmContactCacheRef.current[convId] = { otherId };
+                }
               }
-              dmUnreadRef.current[change.doc.id] = count;
+            } else if (change.type === 'modified') {
+              const prev = dmUnreadRef.current[convId] ?? 0;
+              const hasNewMsg = count > prev && !locationRef.current.includes(convId);
+
+              const otherId = dmContactCacheRef.current[convId]?.otherId
+                ?? (data.participants as string[] | undefined)?.find(id => id !== user.uid);
+
+              if (otherId) {
+                getDoc(doc(db, 'users', user.uid, 'contactSettings', otherId))
+                  .then(csSnap => {
+                    const cs = csSnap.exists() ? csSnap.data() : {};
+                    dmContactCacheRef.current[convId] = { otherId, alertTone: cs.alertTone, mute: cs.mute };
+                    if (hasNewMsg) playIfAllowed(convId);
+                  })
+                  .catch(() => {
+                    if (hasNewMsg) playIfAllowed(convId);
+                  });
+              } else if (hasNewMsg) {
+                playIfAllowed(convId);
+              }
+
+              dmUnreadRef.current[convId] = count;
             }
           });
         }

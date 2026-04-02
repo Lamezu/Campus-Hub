@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, getDocs, collection, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { X, Bell, BellOff, Trash2, Phone, Video, MessageSquare, Shield, AlertTriangle, ChevronRight, UserPlus, UserCheck, Heart, Star, Image as ImageIcon, ArrowLeft, FileText, Download, Link as LinkIcon, Bookmark } from 'lucide-react';
+import { X, Bell, BellOff, Trash2, Phone, Video, MessageSquare, Shield, AlertTriangle, ChevronRight, UserPlus, UserCheck, Heart, Star, Image as ImageIcon, ArrowLeft, FileText, Download, Link as LinkIcon, Bookmark, Music } from 'lucide-react';
 import { getFriendRequest, areFriends, sendFriendRequest, acceptFriendRequest } from '../../services/firebase/friendsService';
 import { auth } from '../../config/firebase';
 import { subscribeToSavedMessages, type SavedMessage } from '../../services/firebase/savedItemsService';
+import { MESSAGE_TONE_NAMES, previewTone } from '../../utils/toneGenerator';
 
 type MuteDuration = 'off' | '8h' | '1w' | 'always';
 
@@ -52,6 +53,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const [bio, setBio] = useState('');
 
   const [mute, setMute] = useState<MuteDuration>('off');
+  const [alertTone, setAlertTone] = useState<string>('Predeterminado');
   const [isBestFriend, setIsBestFriend] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
   const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'received'>('none');
@@ -60,6 +62,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const [showAllGroups, setShowAllGroups] = useState(false);
 
   const [showMuteMenu, setShowMuteMenu] = useState(false);
+  const [showAlertToneMenu, setShowAlertToneMenu] = useState(false);
   const [showClearOptions, setShowClearOptions] = useState(false);
   const [activeSubPanel, setActiveSubPanel] = useState<null | 'media' | 'saved'>(null);
 
@@ -108,6 +111,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
       if (!snap.exists()) return;
       const d = snap.data();
       setMute(d.mute ?? 'off');
+      setAlertTone(d.alertTone ?? 'Predeterminado');
       setIsBestFriend(d.isBestFriend ?? false);
     }).catch(() => {});
 
@@ -158,6 +162,13 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
     await updateContactSetting({ mute: val });
   };
 
+  const handleToneChange = async (val: string) => {
+    setAlertTone(val);
+    setShowAlertToneMenu(false);
+    previewTone(val);
+    await updateContactSetting({ alertTone: val });
+  };
+
   const downloadFile = async (url: string, name: string) => {
     try {
       const res = await fetch(url);
@@ -178,6 +189,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const openMediaPanel = async () => {
     setActiveSubPanel('media');
     if (sharedFiles.length > 0 || sharedLinks.length > 0) return;
+    if (!conversationId) return;
     setLoadingMedia(true);
     try {
       const snap = await getDocs(query(
@@ -252,6 +264,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const clearForEveryone = async () => {
     setShowClearOptions(false);
     if (!window.confirm('¿Eliminar todos los mensajes para ambos participantes?')) return;
+    if (!conversationId) return;
     try {
       const snap = await getDocs(collection(db, 'conversations', conversationId, 'messages'));
       for (let i = 0; i < snap.docs.length; i += 500) {
@@ -384,7 +397,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         <div style={{ borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowMuteMenu(v => !v)}
+              onClick={() => { setShowMuteMenu(v => !v); setShowAlertToneMenu(false); }}
               onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
             >
@@ -405,6 +418,36 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
                     >
                       {muteDurationLabel[val]}
                       {mute === val && <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.primary, display: 'inline-block' }} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setShowAlertToneMenu(v => !v); setShowMuteMenu(false); }}
+              onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+            >
+              <Music size={18} color={colors.textSecondary} strokeWidth={1.8} />
+              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>Tono de alerta</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>{alertTone}</span>
+              <ChevronRight size={15} color={colors.textSecondary} />
+            </button>
+            {showAlertToneMenu && (
+              <>
+                <div onClick={() => setShowAlertToneMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                <div style={{ position: 'absolute', right: 12, top: '100%', zIndex: 20, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'hidden', minWidth: 180, boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
+                  {MESSAGE_TONE_NAMES.map(val => (
+                    <button key={val} onClick={() => handleToneChange(val)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: alertTone === val ? colors.primary : colors.text, fontWeight: alertTone === val ? 600 : 400 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = colors.backgroundSecondary)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      {val}
+                      {alertTone === val && <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.primary, display: 'inline-block' }} />}
                     </button>
                   ))}
                 </div>
