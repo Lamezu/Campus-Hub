@@ -120,6 +120,7 @@ export interface Post {
   linkedEventId?: string | null;
   socialId?: string | null;
   savedBy?: string[];
+  docsContent?: string | null;
 }
 
 export interface Comment {

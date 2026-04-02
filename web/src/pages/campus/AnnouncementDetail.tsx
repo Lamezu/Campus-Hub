@@ -5,7 +5,8 @@ import {
   onSnapshot, serverTimestamp, getDoc,
 } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
-import { ChevronLeft, Pin, Megaphone, X, Pencil, Trash2, CalendarDays, ChevronRight, ImagePlus } from 'lucide-react';
+import { ChevronLeft, Pin, Megaphone, X, Pencil, Trash2, CalendarDays, ChevronRight, ImagePlus, FileText, Search, AlignLeft } from 'lucide-react';
+import RichTextEditor from '../../components/RichTextEditor';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCurrentUser } from '../../hooks/campus/useCurrentUser';
@@ -13,6 +14,7 @@ import { useCalendarEvents } from '../../hooks/campus/useCalendarEvents';
 import { getCategoryConfig, ANNOUNCEMENT_CATEGORIES } from '../../constants/announcementCategories';
 import { uploadAnnouncementImage } from '../../config/cloudinary';
 import Layout from '../../components/Layout';
+import { useWindowSize } from '../../hooks/useWindowSize';
 import type { Post, CalendarEvent, CalendarEventType } from '../../types';
 
 type PinDuration = 'permanent' | '1d' | '3d' | '1w' | '1m';
@@ -44,6 +46,7 @@ export default function AnnouncementDetail() {
   const navigate = useNavigate();
   const { colors } = useTheme();
   const { can, department } = useCurrentUser();
+  const isMobile = !useWindowSize();
   const currentUser = auth.currentUser;
   const { createLinkedEvent } = useCalendarEvents();
 
@@ -60,6 +63,13 @@ export default function AnnouncementDetail() {
     title: '', content: '', pinned: false,
     pinnedUntil: 'permanent' as PinDuration, category: 'general', imageUrl: null as string | null,
   });
+
+  const [showDocsEditor, setShowDocsEditor] = useState(false);
+  const [showDocsViewer, setShowDocsViewer] = useState(false);
+  const [docsContent, setDocsContent] = useState('');
+  const [savingDocs, setSavingDocs] = useState(false);
+  const [docsSearchQuery, setDocsSearchQuery] = useState('');
+  const [showDocsSearch, setShowDocsSearch] = useState(false);
 
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
@@ -84,6 +94,7 @@ export default function AnnouncementDetail() {
           pinnedUntil: (ann.pinnedUntil as PinDuration) || 'permanent',
           category: ann.category || 'general', imageUrl: ann.imageUrl || null,
         });
+        setDocsContent(ann.docsContent || '');
         setEventForm(f => ({ ...f, title: ann.title }));
       }
       setLoading(false);
@@ -199,6 +210,27 @@ export default function AnnouncementDetail() {
     setShowCreateEvent(false);
   };
 
+  const handleSaveDocs = async () => {
+    if (!id) return;
+    setSavingDocs(true);
+    await updateDoc(doc(db, 'posts', id), { docsContent: docsContent || null });
+    setSavingDocs(false);
+    setShowDocsEditor(false);
+  };
+
+  const handleDeleteDocs = async () => {
+    if (!id || !window.confirm('¿Eliminar toda la documentación?')) return;
+    await updateDoc(doc(db, 'posts', id), { docsContent: null });
+    setDocsContent('');
+    setShowDocsEditor(false);
+  };
+
+  const highlightSearchInHtml = (html: string, query: string): string => {
+    if (!query.trim()) return html;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return html.replace(new RegExp(`(${escaped})`, 'gi'), '<mark style="background:#FFD60A55;border-radius:2px;padding:0 2px;">$1</mark>');
+  };
+
   if (loading) {
     return (
       <Layout title="Anuncio">
@@ -273,6 +305,31 @@ export default function AnnouncementDetail() {
             <p style={{ fontSize: 16, color: colors.text, margin: 0, lineHeight: '26px', whiteSpace: 'pre-wrap' }}>{announcement.content}</p>
           </div>
 
+          {(announcement.docsContent || isAuthor) && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              {announcement.docsContent && (
+                <button
+                  onClick={() => setShowDocsViewer(true)}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 10, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <FileText size={16} strokeWidth={2} />
+                  Ver documentación
+                </button>
+              )}
+              {isAuthor && (
+                <button
+                  onClick={() => setShowDocsEditor(true)}
+                  style={{ flex: announcement.docsContent ? 0 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 10, border: `1px dashed ${colors.primary}60`, backgroundColor: colors.primary + '08', color: colors.primary, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {announcement.docsContent
+                    ? <Pencil size={15} strokeWidth={2} />
+                    : <><AlignLeft size={15} strokeWidth={2} /> Añadir documentación</>
+                  }
+                </button>
+              )}
+            </div>
+          )}
+
           {linkedEvent ? (
             <div
               onClick={() => navigate('/campus')}
@@ -319,6 +376,7 @@ export default function AnnouncementDetail() {
               </button>
             )
           )}
+
         </div>
       </div>
 
@@ -400,6 +458,102 @@ export default function AnnouncementDetail() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {showDocsViewer && announcement?.docsContent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0, backgroundColor: colors.background }}>
+            <button onClick={() => { setShowDocsViewer(false); setShowDocsSearch(false); setDocsSearchQuery(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 6 }}>
+              <X size={22} color={colors.text} strokeWidth={2} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FileText size={15} color={colors.textSecondary} strokeWidth={2} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>Documentación</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => { setShowDocsSearch(v => !v); setDocsSearchQuery(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', borderRadius: 8, backgroundColor: showDocsSearch ? colors.primary + '15' : 'transparent' }}
+              >
+                <Search size={17} color={showDocsSearch ? colors.primary : colors.textSecondary} strokeWidth={2} />
+              </button>
+              {isAuthor && (
+                <button
+                  onClick={() => { setShowDocsViewer(false); setShowDocsEditor(true); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 8, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Pencil size={13} strokeWidth={2} /> Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {showDocsSearch && (
+            <div style={{ padding: '8px 16px', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, flexShrink: 0 }}>
+              <input
+                type="text"
+                placeholder="Buscar en documentación..."
+                value={docsSearchQuery}
+                onChange={e => setDocsSearchQuery(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+            </div>
+          )}
+
+          <div style={{ flex: 1, overflowY: 'auto', backgroundColor: isMobile ? '#fff' : '#e8eaed', padding: isMobile ? 0 : '40px 24px' }}>
+            <div style={{ maxWidth: isMobile ? '100%' : 860, margin: '0 auto', backgroundColor: '#ffffff', boxShadow: isMobile ? 'none' : '0 1px 5px rgba(0,0,0,0.18)', borderRadius: isMobile ? 0 : 2, padding: isMobile ? '20px 16px 40px' : '72px 96px', minHeight: isMobile ? 'auto' : 1040 }}>
+              <div style={{ marginBottom: isMobile ? 16 : 32, paddingBottom: 12, borderBottom: '1px solid #e0e0e0' }}>
+                <h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, color: '#202124', margin: 0 }}>{announcement.title}</h2>
+              </div>
+              <div
+                className="ch-prose"
+                style={{ fontSize: 15, lineHeight: '28px', color: '#202124' }}
+                dangerouslySetInnerHTML={{
+                  __html: docsSearchQuery.trim()
+                    ? highlightSearchInHtml(announcement.docsContent, docsSearchQuery)
+                    : announcement.docsContent,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDocsEditor && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0, backgroundColor: colors.background }}>
+            <button onClick={() => setShowDocsEditor(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 6 }}>
+              <X size={22} color={colors.text} strokeWidth={2} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FileText size={15} color={colors.textSecondary} strokeWidth={2} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>Documentación</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {announcement?.docsContent && (
+                <button onClick={handleDeleteDocs} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex' }}>
+                  <Trash2 size={18} color="#FF3B30" strokeWidth={1.8} />
+                </button>
+              )}
+              <button
+                onClick={handleSaveDocs}
+                disabled={savingDocs}
+                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', backgroundColor: savingDocs ? colors.border : colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: savingDocs ? 'default' : 'pointer' }}
+              >
+                {savingDocs ? '...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+          <RichTextEditor
+            content={docsContent}
+            onChange={setDocsContent}
+            colors={colors}
+            placeholder="Añade información adicional, instrucciones, recursos o cualquier detalle relevante..."
+            pageMode
+            pageTitle={announcement?.title}
+          />
         </div>
       )}
 
