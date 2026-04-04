@@ -4,11 +4,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Check, Send, Mic, Search, X, Hash, MessageCircle } from 'lucide-react-native';
+import { ChevronLeft, Check, Send, Mic, Search, X, Hash, MessageCircle, Users } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import { spacing, typography } from '@/constants/styles';
-import { auth } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { CHANNELS } from '@/constants/channelData';
 import {
   subscribeToConversations,
@@ -16,10 +19,13 @@ import {
   sendMessage as dmSendMessage,
   sendAudioMessage as dmSendAudioMessage,
 } from '@/services/dmService';
-import { messageService } from '@/services/shared';
-import type { DMConversation, Channel } from '@/types';
+import { messageService, forumService } from '@/services/shared';
+import { useStudyGroups } from '@/hooks/explore/useStudyGroups';
+import type { DMConversation, Channel, StudyGroup } from '@/types';
 
-type ForwardTab = 'channels' | 'dms';
+type ForwardTab = 'channels' | 'dms' | 'groups';
+
+const FORWARD_EXCLUDED_CHANNEL_IDS = new Set(['3', '4']);
 
 function ChannelRow({
   channel,
@@ -31,6 +37,9 @@ function ChannelRow({
   onToggle: (id: string) => void;
 }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
+  const displayName = t(`predefined_channels.${channel.id}.name`) || channel.name;
+  const displayDescription = t(`predefined_channels.${channel.id}.description`) || channel.description;
   return (
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: colors.border }]}
@@ -42,10 +51,10 @@ function ChannelRow({
       </View>
       <View style={styles.info}>
         <ThemedText style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-          {channel.name}
+          {displayName}
         </ThemedText>
         <ThemedText style={[styles.role, { color: colors.textSecondary }]} numberOfLines={1}>
-          {channel.description}
+          {displayDescription}
         </ThemedText>
       </View>
       <View style={[
@@ -107,13 +116,55 @@ function ConversationRow({
   );
 }
 
+function GroupRow({
+  group,
+  selected,
+  onToggle,
+}: {
+  group: StudyGroup;
+  selected: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity
+      style={[styles.row, { borderBottomColor: colors.border }]}
+      onPress={() => onToggle(group.id)}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.groupIcon, { backgroundColor: group.color + '22' }]}>
+        <ThemedText style={[styles.groupIconText, { color: group.color }]}>
+          {group.name[0].toUpperCase()}
+        </ThemedText>
+      </View>
+      <View style={styles.info}>
+        <ThemedText style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+          {group.name}
+        </ThemedText>
+        <ThemedText style={[styles.role, { color: colors.textSecondary }]} numberOfLines={1}>
+          {group.subject} · {group.memberCount} miembros
+        </ThemedText>
+      </View>
+      <View style={[
+        styles.checkbox,
+        { borderColor: selected ? colors.primary : colors.border },
+        selected && { backgroundColor: colors.primary },
+      ]}>
+        {selected && <Check size={14} color="#fff" strokeWidth={2.5} />}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function ForwardScreen() {
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
   const {
     messageText, audioUrl, audioDuration,
     imageUrl, imageWidth, imageHeight,
     fileUrl, fileName, fileSize,
     contactUserId, contactName, contactRole, contactBio, contactPhoto,
+    postId, postTitle, postContent, postImageUrl, postAuthorName, postAuthorPhoto,
   } = useLocalSearchParams<{
     messageText?: string;
     audioUrl?: string;
@@ -129,10 +180,17 @@ export default function ForwardScreen() {
     contactRole?: string;
     contactBio?: string;
     contactPhoto?: string;
+    postId?: string;
+    postTitle?: string;
+    postContent?: string;
+    postImageUrl?: string;
+    postAuthorName?: string;
+    postAuthorPhoto?: string;
   }>();
 
   const isContact = !!contactUserId;
-  const title = isContact ? 'Compartir contacto' : 'Reenviar a...';
+  const isPost = !!postId;
+  const title = isContact ? 'Compartir contacto' : isPost ? 'Compartir post' : 'Reenviar a...';
 
   const [allConversationsRaw, setAllConversationsRaw] = useState<DMConversation[]>([]);
   const allConversations = useMemo(
@@ -146,17 +204,21 @@ export default function ForwardScreen() {
     return subscribeToConversations(meId, setAllConversationsRaw);
   }, []);
 
+  const { groups: allStudyGroups } = useStudyGroups();
+
   const [tab, setTab] = useState<ForwardTab>('channels');
   const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
   const [selectedDMs, setSelectedDMs] = useState<Set<string>>(new Set());
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
 
-  const totalSelected = selectedChannels.size + selectedDMs.size;
+  const totalSelected = selectedChannels.size + selectedDMs.size + selectedGroups.size;
 
   const filteredChannels = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return CHANNELS;
-    return CHANNELS.filter(c =>
+    const forwardable = CHANNELS.filter(c => !FORWARD_EXCLUDED_CHANNEL_IDS.has(c.id));
+    if (!q) return forwardable;
+    return forwardable.filter(c =>
       c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
     );
   }, [query]);
@@ -166,6 +228,16 @@ export default function ForwardScreen() {
     if (!q) return allConversations;
     return allConversations.filter(c => c.participantName.toLowerCase().includes(q));
   }, [allConversations, query]);
+
+  const filteredGroups = useMemo(() => {
+    const meId = auth.currentUser?.uid ?? '';
+    const joined = allStudyGroups.filter(g => g.memberIds.includes(meId));
+    const q = query.trim().toLowerCase();
+    if (!q) return joined;
+    return joined.filter(g =>
+      g.name.toLowerCase().includes(q) || g.subject?.toLowerCase().includes(q),
+    );
+  }, [allStudyGroups, query]);
 
   const toggleChannel = useCallback((id: string) => {
     setSelectedChannels(prev => {
@@ -177,6 +249,14 @@ export default function ForwardScreen() {
 
   const toggleDM = useCallback((id: string) => {
     setSelectedDMs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleGroup = useCallback((id: string) => {
+    setSelectedGroups(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -196,14 +276,17 @@ export default function ForwardScreen() {
     let singleChannelMsgId: string | null = null;
     let singleDMParticipantId: string | null = null;
     let singleDMMsgId: string | null = null;
+    let singleGroupId: string | null = null;
 
     const tasks: Promise<any>[] = [];
-    const isSingleChannel = selectedChannels.size === 1 && selectedDMs.size === 0;
-    const isSingleDM = selectedDMs.size === 1 && selectedChannels.size === 0;
+    const isSingleChannel = selectedChannels.size === 1 && selectedDMs.size === 0 && selectedGroups.size === 0;
+    const isSingleDM = selectedDMs.size === 1 && selectedChannels.size === 0 && selectedGroups.size === 0;
+    const isSingleGroup = selectedGroups.size === 1 && selectedChannels.size === 0 && selectedDMs.size === 0;
 
     if (selectedChannels.size > 0) {
       const text = isContact
         ? `👤 ${contactName ?? 'Usuario'}${contactBio ? ` — ${contactBio}` : ''}`
+        : isPost ? ''
         : messageText ?? '';
       selectedChannels.forEach(channelId => {
         const attachments = isContact ? [{
@@ -213,6 +296,16 @@ export default function ForwardScreen() {
           size: 0,
           bio: contactBio ?? '',
           userId: contactUserId
+        } as any] : isPost ? [{
+          type: 'post',
+          url: postImageUrl ?? '',
+          name: postTitle ?? '',
+          size: 0,
+          postId,
+          postTitle: postTitle ?? '',
+          postContent: postContent ?? '',
+          postAuthorName: postAuthorName ?? '',
+          postAuthorPhoto: postAuthorPhoto ?? '',
         } as any] : null;
 
         const p = messageService.sendMessage(
@@ -263,6 +356,18 @@ export default function ForwardScreen() {
             tasks.push(p.then(msgId => { singleDMMsgId = msgId; }));
           } else { tasks.push(p); }
         });
+      } else if (isPost) {
+        selectedConvs.forEach(c => {
+          const p = dmSendMessage(
+            getConversationId(meId, c.participantId),
+            meId, senderName, senderPhoto, '', null, true,
+            [{ type: 'post', url: postImageUrl ?? '', name: postTitle ?? '', size: 0, postId, postTitle: postTitle ?? '', postContent: postContent ?? '', postAuthorName: postAuthorName ?? '', postAuthorPhoto: postAuthorPhoto ?? '' }]
+          );
+          if (isSingleDM) {
+            singleDMParticipantId = c.participantId;
+            tasks.push(p.then(msgId => { singleDMMsgId = msgId; }));
+          } else { tasks.push(p); }
+        });
       } else if (audioUrl) {
         const duration = parseFloat(audioDuration ?? '0');
         selectedConvs.forEach(c => {
@@ -297,7 +402,52 @@ export default function ForwardScreen() {
       }
     }
 
+    if (selectedGroups.size > 0) {
+      const forwardText = isContact
+        ? `👤 ${contactName ?? 'Usuario'}${contactBio ? ` — ${contactBio}` : ''}`
+        : isPost ? ''
+        : messageText ?? '';
+      const forwardAttachments = isContact ? [{
+        type: 'contact', url: contactPhoto ?? '', name: contactName ?? 'Usuario',
+        size: 0, bio: contactBio ?? '', userId: contactUserId,
+      }] : isPost ? [{
+        type: 'post', url: postImageUrl ?? '', name: postTitle ?? '', size: 0,
+        postId, postTitle: postTitle ?? '', postContent: postContent ?? '',
+        postAuthorName: postAuthorName ?? '', postAuthorPhoto: postAuthorPhoto ?? '',
+      }] : audioUrl ? [{
+        type: 'audio', url: audioUrl, name: 'audio.m4a',
+        size: 0, duration: parseFloat(audioDuration ?? '0'),
+      }] : imageUrl ? [{
+        type: 'image', url: imageUrl, name: 'imagen.jpg', size: 0,
+        imageWidth: parseFloat(imageWidth ?? '0'), imageHeight: parseFloat(imageHeight ?? '0'),
+      }] : fileUrl ? [{
+        type: 'file', url: fileUrl, name: fileName ?? 'archivo', size: parseFloat(fileSize ?? '0'),
+      }] : null;
+
+      selectedGroups.forEach(groupId => {
+        if (isSingleGroup) singleGroupId = groupId;
+        tasks.push(addDoc(collection(db, 'studyGroups', groupId, 'messages'), {
+          text: forwardText,
+          senderId: meId,
+          senderName,
+          senderPhoto,
+          createdAt: serverTimestamp(),
+          edited: false,
+          editedAt: null,
+          attachments: forwardAttachments,
+          reactions: {},
+          replyTo: null,
+          deletedForUsers: [],
+          forwarded: true,
+        }));
+      });
+    }
+
     await Promise.all(tasks);
+
+    if (isPost && postId && meId) {
+      await forumService.trackShare(postId, meId);
+    }
 
     if (singleChannelId) {
       const dest = singleChannelMsgId
@@ -309,6 +459,8 @@ export default function ForwardScreen() {
         ? `/dm/${singleDMParticipantId}?highlight=${singleDMMsgId}`
         : `/dm/${singleDMParticipantId}`;
       router.replace(dest as never);
+    } else if (singleGroupId) {
+      router.replace(`/chat/sg_${singleGroupId}` as never);
     } else {
       router.back();
     }
@@ -338,6 +490,11 @@ export default function ForwardScreen() {
         <View style={[styles.previewBanner, { backgroundColor: colors.backgroundSecondary }]}>
           <ThemedText style={[styles.previewLabel, { color: colors.textSecondary }]}>Contacto a compartir</ThemedText>
           <ThemedText style={[styles.previewText, { color: colors.text }]} numberOfLines={1}>{contactName}</ThemedText>
+        </View>
+      ) : isPost ? (
+        <View style={[styles.previewBanner, { backgroundColor: colors.backgroundSecondary }]}>
+          <ThemedText style={[styles.previewLabel, { color: colors.textSecondary }]}>Post a compartir</ThemedText>
+          <ThemedText style={[styles.previewText, { color: colors.text }]} numberOfLines={1}>{postTitle}</ThemedText>
         </View>
       ) : audioUrl ? (
         <View style={[styles.previewBanner, { backgroundColor: colors.backgroundSecondary }]}>
@@ -373,9 +530,20 @@ export default function ForwardScreen() {
         >
           <MessageCircle size={14} color={tab === 'dms' ? colors.primary : colors.textSecondary} strokeWidth={2} />
           <ThemedText style={[styles.tabLabel, { color: tab === 'dms' ? colors.primary : colors.textSecondary }]}>
-            Mensajes directos{selectedDMs.size > 0 ? ` (${selectedDMs.size})` : ''}
+            Mensajes{selectedDMs.size > 0 ? ` (${selectedDMs.size})` : ''}
           </ThemedText>
           {tab === 'dms' && <View style={[styles.tabUnderline, { backgroundColor: colors.primary }]} />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, tab === 'groups' && styles.tabItemActive]}
+          onPress={() => { setTab('groups'); setQuery(''); }}
+          activeOpacity={0.7}
+        >
+          <Users size={14} color={tab === 'groups' ? colors.primary : colors.textSecondary} strokeWidth={2} />
+          <ThemedText style={[styles.tabLabel, { color: tab === 'groups' ? colors.primary : colors.textSecondary }]}>
+            Grupos{selectedGroups.size > 0 ? ` (${selectedGroups.size})` : ''}
+          </ThemedText>
+          {tab === 'groups' && <View style={[styles.tabUnderline, { backgroundColor: colors.primary }]} />}
         </TouchableOpacity>
       </View>
 
@@ -383,7 +551,7 @@ export default function ForwardScreen() {
         <Search size={16} color={colors.textSecondary} strokeWidth={2} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder={tab === 'channels' ? 'Buscar canal...' : 'Buscar persona...'}
+          placeholder={tab === 'channels' ? 'Buscar canal...' : tab === 'groups' ? 'Buscar grupo...' : 'Buscar persona...'}
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
@@ -410,9 +578,21 @@ export default function ForwardScreen() {
             />
           )}
           keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>Sin resultados</ThemedText>
-          }
+          ListEmptyComponent={<EmptyState icon={Search} title={t('dm.no_users_found')} />}
+        />
+      ) : tab === 'groups' ? (
+        <FlatList
+          data={filteredGroups}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <GroupRow
+              group={item}
+              selected={selectedGroups.has(item.id)}
+              onToggle={toggleGroup}
+            />
+          )}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={<EmptyState icon={Users} title="No perteneces a ningún grupo" />}
         />
       ) : (
         <FlatList
@@ -426,9 +606,7 @@ export default function ForwardScreen() {
             />
           )}
           keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>Sin resultados</ThemedText>
-          }
+          ListEmptyComponent={<EmptyState icon={Search} title={t('dm.no_users_found')} />}
         />
       )}
 
@@ -526,11 +704,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingVertical: 0,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: spacing.xl,
-    fontSize: typography.sizes.sm,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -599,5 +772,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  groupIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupIconText: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 20,
+    includeFontPadding: false,
   },
 });

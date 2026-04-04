@@ -254,7 +254,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        alert(t('dm.mic_perm_error') || 'Se necesitan permisos de micrófono para enviar audios.');
+        alert(t('dm.mic_perm_error') || 'Mic Perm Error');
         return false;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -387,7 +387,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       const url = await uploadAudio(audioData.uri);
       onSendAudio(url, audioData.duration);
     } catch {
-      alert(t('dm.audio_error') || 'Error al enviar el audio.');
+      alert(t('dm.audio_error') || 'Audio Error');
     } finally {
       setIsUploading(false);
     }
@@ -461,7 +461,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           const name = asset.fileName || `video_${Date.now()}.mp4`;
           onSendFile?.(name, url, asset.fileSize ?? 0);
         } catch {
-          alert(t('dm.file_error') || 'Error al enviar el video.');
+          alert(t('dm.file_error') || 'File Error');
         } finally {
           setIsUploading(false);
         }
@@ -476,7 +476,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     closeSheetImmediate();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      alert(t('dm.camera_perm_error') || 'Se necesitan permisos de cámara');
+      alert(t('dm.camera_perm_error') || 'Camera Perm Error');
       return;
     }
 
@@ -500,7 +500,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       onSendImage?.(url, width, height);
     } catch (error) {
       console.error('Error sending image:', error);
-      alert(t('dm.image_error') || 'Error al enviar la imagen');
+      alert(t('dm.image_error') || 'Image Error');
     } finally {
       setIsUploading(false);
     }
@@ -533,7 +533,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           const url = await uploadChatFile(asset.uri, asset.name, asset.mimeType || undefined);
           onSendFile?.(asset.name, url, asset.size || 0);
         } catch {
-          alert(t('dm.file_error') || 'Error al subir el archivo');
+          alert(t('dm.file_error') || 'File Error');
         } finally {
           setIsUploading(false);
         }
@@ -611,7 +611,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             borderTopColor: isDefault ? colors.border : 'transparent',
             paddingBottom: Platform.OS === 'ios'
               ? Math.max(insets.bottom - 20, 6)
-              : (isKeyboardVisible ? 6 : Math.max(insets.bottom, spacing.sm)),
+              : (isKeyboardVisible ? 6 : insets.bottom),
           },
         ]}
       >
@@ -638,7 +638,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      {(t('dm.voice_message') || 'Mensaje de voz') + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
+                      {(t('dm.voice_message') || 'Voice Message') + (replyTo.audioDuration ? ` (${formatDuration(replyTo.audioDuration)})` : '')}
                     </ThemedText>
                   </>
                 ) : replyTo.type === 'image' ? (
@@ -648,7 +648,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
                       style={[styles.replyBarText, { color: isDefault ? colors.textSecondary : inputTextColor }]}
                       numberOfLines={1}
                     >
-                      {t('dm.image_msg') || 'Imagen'}
+                      {t('dm.image_msg') || 'Image Msg'}
                     </ThemedText>
                   </>
                 ) : replyTo.type === 'poll' ? (
@@ -691,7 +691,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
           <View style={styles.inputRow}>
             <ActivityIndicator color={colors.primary} size="small" />
             <ThemedText style={[styles.uploadingText, { color: colors.textSecondary }]}>
-              {t('dm.sending') || 'Enviando...'}
+              {t('dm.sending') || 'Sending'}
             </ThemedText>
           </View>
 
@@ -794,7 +794,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             <Animated.View style={[styles.cancelHint, { opacity: Animated.add(0.38, Animated.multiply(0.62, cancelProgressAnim)) }]}>
               <ChevronLeft size={15} color={colors.textSecondary} strokeWidth={2.5} />
               <ThemedText style={[styles.cancelHintText, { color: colors.textSecondary }]}>
-                {t('dm.cancel') || 'Cancelar'}
+                {t('dm.cancel') || 'Cancel'}
               </ThemedText>
             </Animated.View>
 
@@ -832,7 +832,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             <TextInput
               ref={inputRef}
               style={[styles.input, { backgroundColor: inputBgColor, color: inputTextColor }]}
-              placeholder={t('dm.write_placeholder') || 'Escribe un mensaje...'}
+              placeholder={t('dm.write_placeholder') || 'Write Placeholder'}
               placeholderTextColor={placeholderColor}
               value={text}
               onChangeText={setText}
@@ -900,10 +900,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
             ]} />
             <View style={styles.sheetGrid}>
               {[
-                { icon: <ImageIcon size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.photos') || 'Fotos', color: '#5856D6', onPress: () => { closeSheetImmediate(); setTimeout(handlePickImage, 300); } },
-                { icon: <Camera size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.camera') || 'Cámara', color: '#FF9500', onPress: () => { closeSheetImmediate(); setTimeout(handleTakePhoto, 300); } },
-                { icon: <FileText size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.document') || 'Documento', color: '#007AFF', onPress: () => { closeSheetImmediate(); setTimeout(handlePickFile, 300); } },
-                { icon: <BarChart3 size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.poll') || 'Encuesta', color: '#FF2D55', onPress: () => { closeSheetImmediate(); handleOpenPoll(); } },
+                { icon: <ImageIcon size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.photos') || 'Photos', color: '#5856D6', onPress: () => { closeSheetImmediate(); setTimeout(handlePickImage, 300); } },
+                { icon: <Camera size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.camera') || 'Camera', color: '#FF9500', onPress: () => { closeSheetImmediate(); setTimeout(handleTakePhoto, 300); } },
+                { icon: <FileText size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.document') || 'Document', color: '#007AFF', onPress: () => { closeSheetImmediate(); setTimeout(handlePickFile, 300); } },
+                { icon: <BarChart3 size={28} color="#FFF" strokeWidth={1.8} />, label: t('dm.poll') || 'Poll', color: '#FF2D55', onPress: () => { closeSheetImmediate(); handleOpenPoll(); } },
               ].map((item, i) => (
                 <Animated.View
                   key={i}
@@ -1085,8 +1085,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    position: 'absolute',
-    left: 0,
     zIndex: 1,
   },
   cancelHintText: {

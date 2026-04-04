@@ -1,7 +1,18 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
 const CLOUD_NAME = 'dcwzlpg7m';
 const UPLOAD_PRESET = 'campushub-profiles';
+
+async function appendFileToForm(formData: FormData, fieldName: string, uri: string, mimeType: string, filename: string) {
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    formData.append(fieldName, blob, filename);
+  } else {
+    formData.append(fieldName, { uri, type: mimeType, name: filename } as any);
+  }
+}
 
 async function upload(
   uri: string,
@@ -13,7 +24,7 @@ async function upload(
   const ext = resourceType === 'video' ? 'mp4' : 'jpg';
 
   const formData = new FormData();
-  formData.append('file', { uri, type: mimeType, name: `${filename}.${ext}` } as any);
+  await appendFileToForm(formData, 'file', uri, mimeType, `${filename}.${ext}`);
   formData.append('upload_preset', UPLOAD_PRESET);
   formData.append('folder', folder);
 
@@ -34,6 +45,10 @@ export async function uploadGroupPhoto(uri: string, groupId: string): Promise<st
   return upload(uri, 'image', 'campushub/groups', `group_${groupId}_${Date.now()}`);
 }
 
+export async function uploadChannelPhoto(uri: string, channelId: string): Promise<string> {
+  return upload(uri, 'image', 'campushub/channels', `channel_${channelId}_${Date.now()}`);
+}
+
 export async function uploadPostMedia(
   uri: string,
   mediaType: 'image' | 'video',
@@ -52,7 +67,7 @@ export async function uploadChatImage(uri: string): Promise<string> {
 
 export async function uploadAudio(uri: string): Promise<string> {
   const formData = new FormData();
-  formData.append('file', { uri, type: 'audio/mp4', name: `audio_${Date.now()}.m4a` } as any);
+  await appendFileToForm(formData, 'file', uri, 'audio/mp4', `audio_${Date.now()}.m4a`);
   formData.append('upload_preset', UPLOAD_PRESET);
   formData.append('folder', 'campushub/audio');
 
@@ -71,7 +86,7 @@ export async function uploadChatVideo(uri: string): Promise<string> {
 
 export async function uploadChatFile(uri: string, filename: string, mimeType?: string): Promise<string> {
   const formData = new FormData();
-  formData.append('file', { uri, type: mimeType || 'application/octet-stream', name: filename } as any);
+  await appendFileToForm(formData, 'file', uri, mimeType || 'application/octet-stream', filename);
   formData.append('upload_preset', UPLOAD_PRESET);
   formData.append('folder', 'campushub/files');
 
@@ -83,3 +98,4 @@ export async function uploadChatFile(uri: string, filename: string, mimeType?: s
   if (!response.data?.secure_url) throw new Error('Upload failed: missing secure_url');
   return response.data.secure_url as string;
 }
+
