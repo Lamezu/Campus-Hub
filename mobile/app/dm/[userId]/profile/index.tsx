@@ -8,7 +8,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft, MessageSquare, Phone, Video, Image as ImageIcon,
   Star, Bell, ImagePlus, Plus, ChevronRight, Share2,
-  UserPlus, UserCheck, UserMinus, Heart, Trash2, Shield, AlertTriangle, Users,
+  UserPlus, UserCheck, UserMinus, Heart, Trash2, Shield, AlertTriangle,
 } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -293,14 +293,6 @@ export default function DMContactProfileScreen() {
               <Video size={22} color={colors.primary} strokeWidth={1.8} />
               <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.video') || 'Video'}</ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
-              onPress={() => router.push({ pathname: '/dm/group/select', params: { preselectedId: userId } } as any)}
-              activeOpacity={0.7}
-            >
-              <Users size={22} color={colors.primary} strokeWidth={1.8} />
-              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.create_group') || 'Create Group'}</ThemedText>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -352,7 +344,9 @@ export default function DMContactProfileScreen() {
         <View style={[styles.section, { borderBottomColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-              {t(mutualGroups.length === 1 ? 'dm.profile.mutual_groups.title.one' : 'dm.profile.mutual_groups.title.other', { count: mutualGroups.length }) || (mutualGroups.length === 1 ? '1 Group in common' : `${mutualGroups.length} Groups in common`)}
+              {mutualGroups.length === 1
+                ? (t('dm.profile.mutual_groups.other.one') || '1 grupo en común')
+                : (t('dm.profile.mutual_groups.other.other', { count: mutualGroups.length }) || `${mutualGroups.length} grupos en común`)}
             </ThemedText>
           </View>
           <TouchableOpacity

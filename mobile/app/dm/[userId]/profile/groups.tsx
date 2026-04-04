@@ -103,7 +103,7 @@ export default function DMGroupsScreen() {
           );
         }}
         ListEmptyComponent={
-          <EmptyState icon={Users} title={t('dm.profile.mutual_groups.other', { count: 0 })} />
+          <EmptyState icon={Users} title={t('dm.profile.mutual_groups.none') || 'No hay grupos en común'} fill />
         }
       />
     </SafeAreaView>
