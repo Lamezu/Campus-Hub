@@ -1,8 +1,10 @@
-﻿import React, { useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, Animated, PanResponder, TouchableOpacity, Image } from 'react-native';
+﻿import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Animated, TouchableOpacity, Image } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { Audio } from 'expo-av';
-import { Reply, Play, Pause, Mic, FileText, Download, CheckCircle2, Image as ReplyImageIcon, BarChart3, ChevronRight, Calendar } from 'lucide-react-native';
+import { Reply, Play, Pause, Mic, FileText, Download, Check, Image as ReplyImageIcon, BarChart3, ChevronRight, Calendar, Star } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -18,16 +20,48 @@ interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
   currentUserId?: string;
-  onReply: (msg: Message) => void;
+  onReply?: (msg: Message) => void;
   onLongPress: (msg: Message) => void;
   onDoubleTap?: () => void;
   onSwipeStart?: () => void;
   onSwipeEnd?: () => void;
   onQuickAudioReply?: (msg: Message) => void;
   onReplyPreviewPress?: (messageId: string) => void;
+  onSenderPress?: (senderId: string) => void;
   highlighted?: boolean;
   onVotePoll?: (optionId: string) => void;
   onFilePress?: (url: string, name: string) => void;
+  showReadReceipt?: boolean;
+  searchHighlight?: string;
+  isStarred?: boolean;
+}
+
+function HighlightedText({
+  text,
+  highlight,
+  style,
+  highlightColor,
+}: {
+  text: string;
+  highlight: string;
+  style: any;
+  highlightColor: string;
+}) {
+  if (!highlight.trim()) return <ThemedText style={style}>{text}</ThemedText>;
+  const parts = text.split(new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return (
+    <ThemedText style={style}>
+      {parts.map((part, i) =>
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <ThemedText key={i} style={[style, { backgroundColor: highlightColor, borderRadius: 2 }]}>
+            {part}
+          </ThemedText>
+        ) : (
+          part
+        )
+      )}
+    </ThemedText>
+  );
 }
 
 function formatAudioTime(seconds: number): string {
@@ -220,6 +254,8 @@ function PollBubble({
   const { t } = useTranslation();
   const hasVoted = poll.options.some((opt: any) => opt.votes?.includes(currentUserId));
   const totalVotes = poll.totalVotes || 0;
+  const isLightBubble = hexLuminance(bubbleBg.slice(0, 7)) > 0.45;
+  const optionTextColor = isLightBubble ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.9)';
 
   return (
     <View style={styles.pollContainer}>
@@ -230,6 +266,10 @@ function PollBubble({
           const votes = option.votes?.length || 0;
           const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
           const isSelected = option.votes?.includes(currentUserId);
+          const optionLabel = typeof option === 'string'
+            ? option
+            : (option.text || option.label || option.option || option.value || option.title || option.name || option.answer || option.content || option.choice ||
+               (Object.entries(option as Record<string, unknown>).find(([k, v]) => typeof v === 'string' && (v as string).length > 0 && k !== 'id')?.[1] as string ?? ''));
 
           return (
             <TouchableOpacity
@@ -244,10 +284,10 @@ function PollBubble({
             >
               <View style={[styles.pollProgress, { width: `${percentage}%`, backgroundColor: isSelected ? colors.primary + '44' : 'rgba(0,0,0,0.05)' }]} />
               <View style={styles.pollOptionContent}>
-                <ThemedText style={[styles.pollOptionText, { color: textColor }]}>{option.text}</ThemedText>
+                <ThemedText style={[styles.pollOptionText, { color: optionTextColor }]}>{optionLabel}</ThemedText>
                 <View style={styles.pollOptionRight}>
                   {hasVoted && (
-                    <ThemedText style={[styles.pollVotes, { color: textColor, opacity: 0.7 }]}>{votes}</ThemedText>
+                    <ThemedText style={[styles.pollVotes, { color: optionTextColor, opacity: 0.7 }]}>{votes}</ThemedText>
                   )}
                   {isSelected && (
                     <View style={styles.pollCheck}>
@@ -261,7 +301,7 @@ function PollBubble({
         })}
       </View>
       <ThemedText style={[styles.pollFooter, { color: textColor, opacity: 0.65, marginTop: 10 }]}>
-        {totalVotes} {totalVotes === 1 ? (t('dm.votes.one') || 'voto') : (t('dm.votes.other') || 'votos')} • {poll.multipleAnswers ? (t('dm.poll_multiple_selection') || 'Selección múltiple') : (t('dm.poll_single_selection') || 'Selección única')}
+        {totalVotes} {totalVotes === 1 ? (t('dm.votes.one') || 'voto') : (t('dm.votes.other') || 'votos')} • {poll.multipleAnswers ? (t('dm.poll_multiple_selection') || 'Poll Multiple Selection') : (t('dm.poll_single_selection') || 'Poll Single Selection')}
       </ThemedText>
     </View>
   );
@@ -317,9 +357,13 @@ export function MessageBubble({
   onSwipeEnd,
   onQuickAudioReply,
   onReplyPreviewPress,
+  onSenderPress,
   highlighted,
   onVotePoll,
   onFilePress,
+  showReadReceipt,
+  searchHighlight,
+  isStarred,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -345,39 +389,38 @@ export function MessageBubble({
 
   const onSwipeStartRef = useRef(onSwipeStart);
   const onSwipeEndRef = useRef(onSwipeEnd);
+  const onReplyRef = useRef(onReply);
+  const messageRef = useRef(message);
   onSwipeStartRef.current = onSwipeStart;
   onSwipeEndRef.current = onSwipeEnd;
+  onReplyRef.current = onReply;
+  messageRef.current = message;
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gs) =>
-        gs.dx > 8 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2,
-      onPanResponderGrant: () => {
-        onSwipeStartRef.current?.();
-      },
-      onPanResponderMove: (_, gs) => {
-        const dx = Math.min(Math.max(gs.dx, 0), MAX_SWIPE);
-        translateX.setValue(dx);
-        replyIconOpacity.setValue(Math.min(dx / SWIPE_THRESHOLD, 1));
-      },
-      onPanResponderRelease: (_, gs) => {
-        onSwipeEndRef.current?.();
-        if (gs.dx >= SWIPE_THRESHOLD) onReply(message);
-        Animated.parallel([
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-          Animated.timing(replyIconOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-        ]).start();
-      },
-      onPanResponderTerminate: () => {
-        onSwipeEndRef.current?.();
-        Animated.parallel([
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-          Animated.timing(replyIconOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-        ]).start();
-      },
-    })
-  ).current;
+  const swipeGesture = useMemo(() => {
+    const doStart = () => { onSwipeStartRef.current?.(); };
+    const doUpdate = (dx: number) => {
+      translateX.setValue(dx);
+      replyIconOpacity.setValue(Math.min(dx / SWIPE_THRESHOLD, 1));
+    };
+    const doFinalize = (tx: number, doReply: boolean) => {
+      onSwipeEndRef.current?.();
+      if (doReply) onReplyRef.current?.(messageRef.current);
+      Animated.parallel([
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+        Animated.timing(replyIconOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+      ]).start();
+    };
+    return Gesture.Pan()
+      .activeOffsetX(5)
+      .failOffsetY([-10, 10])
+      .onStart(() => { runOnJS(doStart)(); })
+      .onUpdate(({ translationX: tx }) => {
+        runOnJS(doUpdate)(Math.min(Math.max(tx, 0), MAX_SWIPE));
+      })
+      .onFinalize(({ translationX: tx }, success) => {
+        runOnJS(doFinalize)(tx, !!(success && tx >= SWIPE_THRESHOLD));
+      });
+  }, []);
 
   if (currentUserId && message.deletedForUsers?.includes(currentUserId)) return null;
 
@@ -423,28 +466,28 @@ export function MessageBubble({
             <View style={styles.replyPreviewAudioRow}>
               <Mic size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                {(t('dm.reply_types.audio') || 'Mensaje de voz') + (message.replyTo.audioDuration ? ` (${formatAudioTime(message.replyTo.audioDuration)})` : '')}
+                {(t('dm.reply_types.audio') || 'Audio') + (message.replyTo.audioDuration ? ` (${formatAudioTime(message.replyTo.audioDuration)})` : '')}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'image' ? (
             <View style={styles.replyPreviewAudioRow}>
               <ReplyImageIcon size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                {t('dm.reply_types.image') || 'Imagen'}
+                {t('dm.reply_types.image') || 'Image'}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'poll' ? (
             <View style={styles.replyPreviewAudioRow}>
               <BarChart3 size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                {t('dm.reply_types.poll') || 'Encuesta'}: {message.replyTo.text}
+                {t('dm.reply_types.poll') || 'Poll'}: {message.replyTo.text}
               </ThemedText>
             </View>
           ) : message.replyTo.type === 'file' ? (
             <View style={styles.replyPreviewAudioRow}>
               <FileText size={11} color={textColor} strokeWidth={2} />
               <ThemedText style={[styles.replyPreviewText, { color: textColor }]} numberOfLines={1}>
-                {t('dm.reply_types.file') || 'Archivo'}: {message.replyTo.attachmentName || message.replyTo.text}
+                {t('dm.reply_types.file') || 'File'}: {message.replyTo.attachmentName || message.replyTo.text}
               </ThemedText>
             </View>
           ) : (
@@ -521,7 +564,7 @@ export function MessageBubble({
                     {att.bio}
                   </ThemedText>
                 ) : (
-                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.5 }]}>{t('roles.student') || 'Estudiante'}</ThemedText>
+                  <ThemedText style={[styles.contactBio, { color: textColor, opacity: 0.5 }]}>{t('roles.student') || 'Student'}</ThemedText>
                 )}
               </View>
               <ChevronRight size={18} color={textColor} opacity={0.5} />
@@ -533,6 +576,99 @@ export function MessageBubble({
             </ThemedText>
           ) : null}
         </View>
+      ) : message.attachments?.some(a => a.type === 'file') ? (
+        <View style={styles.fileContainer}>
+          {message.attachments.filter(a => a.type === 'file').map((att, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.fileCard, { backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.06)' }]}
+              onPress={() => onFilePress?.(att.url, att.name)}
+              onLongPress={() => onLongPress(message)}
+              activeOpacity={0.75}
+            >
+              <View style={styles.fileIconWrap}>
+                <FileText size={22} color={textColor} strokeWidth={1.8} />
+              </View>
+              <View style={styles.fileInfo}>
+                <ThemedText style={[styles.fileName, { color: textColor }]} numberOfLines={2}>
+                  {att.name}
+                </ThemedText>
+                {att.size > 0 && (
+                  <ThemedText style={[styles.fileSize, { color: textColor, opacity: 0.65 }]}>
+                    {att.size < 1024 * 1024
+                      ? `${Math.round(att.size / 1024)} KB`
+                      : `${(att.size / (1024 * 1024)).toFixed(1)} MB`}
+                  </ThemedText>
+                )}
+              </View>
+              <Download size={18} color={textColor} strokeWidth={1.8} opacity={0.7} />
+            </TouchableOpacity>
+          ))}
+          {!!message.text && (
+            <ThemedText style={[styles.messageText, { color: textColor, marginTop: spacing.xs, fontSize: settings.fontSize }]}>
+              {message.text}
+            </ThemedText>
+          )}
+        </View>
+      ) : message.attachments?.some((a: any) => a.type === 'post') ? (
+        <View>
+          {message.attachments.filter((a: any) => a.type === 'post').map((att: any, idx: number) => (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.postCard, { backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
+              onPress={() => router.push(`/post/${att.postId}` as any)}
+              onLongPress={() => onLongPress(message)}
+              activeOpacity={0.8}
+            >
+              {att.url ? (
+                <Image source={{ uri: att.url }} style={styles.postCardImage} resizeMode="cover" />
+              ) : null}
+              <View style={styles.postCardBody}>
+                <View style={styles.postCardAuthorRow}>
+                  {att.postAuthorPhoto ? (
+                    <Image source={{ uri: att.postAuthorPhoto }} style={styles.postCardAvatar} />
+                  ) : (
+                    <View style={[styles.postCardAvatar, { backgroundColor: colors.primary + '30', justifyContent: 'center', alignItems: 'center' }]}>
+                      <ThemedText style={{ color: colors.primary, fontSize: 10, fontWeight: '700' }}>
+                        {att.postAuthorName?.[0]?.toUpperCase() ?? '?'}
+                      </ThemedText>
+                    </View>
+                  )}
+                  <ThemedText style={[styles.postCardAuthorName, { color: textColor }]} numberOfLines={1}>
+                    {att.postAuthorName}
+                  </ThemedText>
+                </View>
+                <ThemedText style={[styles.postCardTitle, { color: textColor }]} numberOfLines={2}>
+                  {att.postTitle || att.name}
+                </ThemedText>
+                {att.postContent ? (
+                  <ThemedText style={[styles.postCardContent, { color: textColor }]} numberOfLines={2}>
+                    {att.postContent}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <View style={styles.postCardFooter}>
+                <ChevronRight size={14} color={textColor} opacity={0.4} />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : searchHighlight && message.text ? (
+        <HighlightedText
+          text={message.text}
+          highlight={searchHighlight}
+          style={[
+            styles.messageText,
+            {
+              color: textColor,
+              fontSize: settings.fontSize,
+              lineHeight: Math.round(settings.fontSize * 1.35),
+              fontWeight: settings.fontWeight,
+              fontStyle: settings.fontStyle,
+            },
+          ]}
+          highlightColor={colors.primary + '55'}
+        />
       ) : (
         <ThemedText
           style={[
@@ -551,11 +687,22 @@ export function MessageBubble({
       )
       }
 
-      <ThemedText
-        style={[styles.time, { color: timeColor, fontSize: Math.max(10, settings.fontSize - 4) }]}
-      >
-        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </ThemedText>
+      <View style={styles.timeRow}>
+        {isStarred && <Star size={11} color="#FFD60A" fill="#FFD60A" strokeWidth={2} />}
+        <ThemedText
+          style={[styles.time, { color: timeColor, fontSize: Math.max(10, settings.fontSize - 4) }]}
+        >
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </ThemedText>
+        {showReadReceipt && isOwnMessage && (
+          <View style={styles.ticks}>
+            <Check size={11} color={message.status === 'read' ? colors.primary : timeColor} strokeWidth={3} />
+            <View style={styles.tick2}>
+              <Check size={11} color={message.status === 'read' ? colors.primary : timeColor} strokeWidth={3} />
+            </View>
+          </View>
+        )}
+      </View>
 
       <Animated.View
         pointerEvents="none"
@@ -574,9 +721,9 @@ export function MessageBubble({
   );
 
   return (
-    <View
+    <GestureDetector gesture={swipeGesture}>
+    <Animated.View
       style={[styles.row, isOwnMessage ? styles.rowOwn : styles.rowOther]}
-      {...panResponder.panHandlers}
     >
       <Animated.View style={[styles.replyIconWrap, { opacity: replyIconOpacity }]}>
         <Reply size={18} color={colors.textSecondary} strokeWidth={1.8} />
@@ -590,15 +737,21 @@ export function MessageBubble({
         ]}
       >
         {!isOwnMessage && (
-          <ThemedText
-            style={[
-              styles.senderName,
-              { color: chatTheme.nameColor },
-              chatTheme.id === 'zen' && styles.senderNameZen,
-            ]}
+          <TouchableOpacity
+            onPress={() => onSenderPress?.(message.senderId)}
+            disabled={!onSenderPress}
+            activeOpacity={0.6}
           >
-            {message.senderName}
-          </ThemedText>
+            <ThemedText
+              style={[
+                styles.senderName,
+                { color: chatTheme.nameColor },
+                chatTheme.id === 'zen' && styles.senderNameZen,
+              ]}
+            >
+              {message.senderName}
+            </ThemedText>
+          </TouchableOpacity>
         )}
 
         {audioAttachment && onQuickAudioReply ? (
@@ -626,7 +779,8 @@ export function MessageBubble({
           </View>
         )}
       </Animated.View>
-    </View>
+    </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -658,7 +812,7 @@ const styles = StyleSheet.create({
   replyPreviewName: { fontSize: typography.sizes.xs, lineHeight: 14, fontWeight: '600', marginBottom: 1 },
   replyPreviewText: { fontSize: typography.sizes.xs, lineHeight: 14, opacity: 0.85 },
   messageText: { fontSize: typography.sizes.md },
-  time: { fontSize: 10, lineHeight: 16, includeFontPadding: false, alignSelf: 'flex-end', marginTop: 2 },
+  time: { fontSize: 10, lineHeight: 16, includeFontPadding: false },
   audioBubble: {
     minWidth: 220,
     gap: 4,
@@ -677,16 +831,24 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   fileContainer: { gap: 4 },
-  fileAttachment: {
+  fileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.xs,
     padding: spacing.sm,
-    borderRadius: 12,
+    borderRadius: 10,
+    minWidth: 200,
+  },
+  fileIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fileInfo: { flex: 1, gap: 2 },
-  fileName: { fontSize: typography.sizes.sm, fontWeight: '600' },
-  fileSize: { fontSize: typography.sizes.xs },
+  fileName: { fontSize: typography.sizes.sm, fontWeight: '600', lineHeight: 18 },
+  fileSize: { fontSize: typography.sizes.xs, lineHeight: 15, marginTop: 1 },
   contactContainer: { width: 220, gap: 4 },
   contactCard: {
     flexDirection: 'row',
@@ -880,5 +1042,63 @@ const styles = StyleSheet.create({
   },
   eventAction: {
     paddingLeft: 4,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 2,
+    gap: 2,
+  },
+  ticks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tick2: {
+    marginLeft: -6,
+  },
+  postCard: {
+    width: 240,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  postCardImage: {
+    width: '100%',
+    height: 120,
+  },
+  postCardBody: {
+    padding: 10,
+    gap: 4,
+  },
+  postCardAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  postCardAvatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  postCardAuthorName: {
+    fontSize: 11,
+    flex: 1,
+    opacity: 0.7,
+  },
+  postCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  postCardContent: {
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.7,
+  },
+  postCardFooter: {
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    alignItems: 'flex-end',
   },
 });

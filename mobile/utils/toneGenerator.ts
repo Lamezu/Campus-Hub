@@ -13,38 +13,41 @@ interface ToneSegment {
   expDecay?: number;
 }
 
+const E5 = 659.25;
+const G5 = 783.99;  const A5 = 880.00;
+
 const TONE_DEFINITIONS: Record<string, ToneSegment[]> = {
   default: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.09, amplitude: 0.52, fadeIn: 0.04, expDecay: 5 },
-    { freq: 0, duration: 0.03 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.24, amplitude: 0.55, fadeIn: 0.02, expDecay: 4.5 },
+    { freq: E5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: G5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: A5, duration: 0.22, amplitude: 0.22, fadeIn: 0.04, fadeOut: 0.22, expDecay: 3.5 },
   ],
   classic: [
-    { freq: 880, harmonics: [{ freq: 1320, amp: 0.45 }, { freq: 1760, amp: 0.2 }], duration: 0.4, amplitude: 0.5, fadeIn: 0.01, expDecay: 2.5 },
-    { freq: 0, duration: 0.06 },
-    { freq: 659, harmonics: [{ freq: 990, amp: 0.4 }], duration: 0.4, amplitude: 0.48, fadeIn: 0.01, expDecay: 2.5 },
+    { freq: G5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
+    { freq: E5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
+    { freq: G5, duration: 0.28, amplitude: 0.20, fadeIn: 0.05, fadeOut: 0.25, expDecay: 3.0 },
   ],
   soft: [
-    { freq: 523, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1047, amp: 0.2 }], duration: 0.6, amplitude: 0.4, fadeIn: 0.14, expDecay: 1.8 },
-    { freq: 0, duration: 0.05 },
-    { freq: 659, harmonics: [{ freq: 988, amp: 0.3 }], duration: 0.55, amplitude: 0.38, fadeIn: 0.1, expDecay: 1.8 },
+    { freq: E5, duration: 0.18, amplitude: 0.16, fadeIn: 0.12, fadeOut: 0.25, expDecay: 2.5 },
+    { freq: G5, duration: 0.18, amplitude: 0.15, fadeIn: 0.10, fadeOut: 0.25, expDecay: 2.5 },
+    { freq: A5, duration: 0.30, amplitude: 0.14, fadeIn: 0.10, fadeOut: 0.28, expDecay: 2.0 },
   ],
   melody: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.25 }], duration: 0.1, amplitude: 0.52, fadeIn: 0.02, expDecay: 6 },
-    { freq: 0, duration: 0.04 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.2 }], duration: 0.1, amplitude: 0.55, fadeIn: 0.02, expDecay: 6 },
-    { freq: 0, duration: 0.04 },
-    { freq: 1568, harmonics: [{ freq: 3136, amp: 0.2 }, { freq: 2352, amp: 0.15 }], duration: 0.28, amplitude: 0.58, fadeIn: 0.02, expDecay: 4 },
+    { freq: E5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: A5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: E5, duration: 0.24, amplitude: 0.20, fadeIn: 0.04, fadeOut: 0.25, expDecay: 3.5 },
   ],
   bell: [
-    { freq: 880, harmonics: [{ freq: 1100, amp: 0.6 }, { freq: 2200, amp: 0.35 }, { freq: 3520, amp: 0.18 }], duration: 0.9, amplitude: 0.48, fadeIn: 0.005, expDecay: 2.8 },
+    { freq: A5, harmonics: [{ freq: 1108.73, amp: 0.18 }, { freq: 2093.00, amp: 0.06 }], duration: 0.90, amplitude: 0.16, fadeIn: 0.008, fadeOut: 0.15, expDecay: 2.5 },
   ],
   pulse: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
-    { freq: 0, duration: 0.07 },
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
-    { freq: 0, duration: 0.07 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.1, amplitude: 0.56, fadeIn: 0.01, expDecay: 8 },
+    { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
+    { freq: 0, duration: 0.04 },
+    { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
+    { freq: 0, duration: 0.04 },
+    { freq: A5, duration: 0.18, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.22, expDecay: 7.0 },
   ],
   none: [],
 };
@@ -81,8 +84,8 @@ function buildWavBase64(segments: ToneSegment[]): string {
   ws(8, 'WAVE');
   ws(12, 'fmt ');
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // Mono
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
   view.setUint32(24, SAMPLE_RATE, true);
   view.setUint32(28, SAMPLE_RATE * 2, true);
   view.setUint16(32, 2, true);
@@ -91,25 +94,34 @@ function buildWavBase64(segments: ToneSegment[]): string {
   view.setUint32(40, dataSize, true);
 
   let off = 44;
+  let continuousTime = 0;
+
   for (const seg of segments) {
     const n = Math.floor(seg.duration * SAMPLE_RATE);
     if (seg.freq !== 0) {
       const amp = seg.amplitude ?? 0.55;
       const harmonics = seg.harmonics ?? [];
       const normFactor = 1 + harmonics.reduce((s, h) => s + h.amp, 0);
-      const fadeInSamples = Math.floor((seg.fadeIn ?? 0) * n);
+      const fadeInSamples  = Math.floor((seg.fadeIn  ?? 0) * n);
+      const fadeOutSamples = Math.floor((seg.fadeOut ?? 0) * n);
 
       for (let i = 0; i < n; i++) {
-        const t = i / SAMPLE_RATE;
+        const t = continuousTime + i / SAMPLE_RATE;
+
         let env: number;
         if (i < fadeInSamples) {
-          env = i / Math.max(1, fadeInSamples);
+          env = i / Math.max(1, fadeInSamples - 1);
         } else if (seg.expDecay !== undefined) {
           const decayI = i - fadeInSamples;
           const decayN = Math.max(1, n - fadeInSamples);
           env = Math.exp(-seg.expDecay * decayI / decayN);
         } else {
-          env = 1;
+          env = 1.0;
+        }
+
+        const fromEnd = n - 1 - i;
+        if (fadeOutSamples > 0 && fromEnd < fadeOutSamples) {
+          env *= fromEnd / Math.max(1, fadeOutSamples - 1);
         }
 
         let wave = Math.sin(2 * Math.PI * seg.freq * t);
@@ -118,7 +130,11 @@ function buildWavBase64(segments: ToneSegment[]): string {
         }
         wave /= normFactor;
 
-        const sample = amp * env * wave;
+        const raw = amp * env * wave;
+        const abs = Math.abs(raw);
+        const sample = abs > 0.32
+          ? Math.sign(raw) * (0.32 + 0.68 * Math.tanh((abs - 0.32) / 0.68))
+          : raw;
         const s16 = Math.round(Math.max(-1, Math.min(1, sample)) * 32767);
         view.setInt16(off, s16, true);
         off += 2;
@@ -129,6 +145,7 @@ function buildWavBase64(segments: ToneSegment[]): string {
         off += 2;
       }
     }
+    continuousTime += seg.duration;
   }
 
   return toBase64(new Uint8Array(buf));
@@ -138,10 +155,6 @@ let activeSound: Audio.Sound | null = null;
 let isAudioModeSet = false;
 const toneCache: Record<string, string> = {};
 
-/**
- * Pre-genera los archivos WAV para todos los tonos y los guarda en caché.
- * Debe llamarse al inicio de la aplicación.
- */
 export async function prewarmTones(): Promise<void> {
   try {
     if (!isAudioModeSet) {
@@ -159,6 +172,7 @@ export async function prewarmTones(): Promise<void> {
 
     for (const name of Object.keys(TONE_DEFINITIONS)) {
       if (name === 'none') continue;
+      if (toneCache[name]) continue;
 
       const segments = TONE_DEFINITIONS[name];
       const base64 = buildWavBase64(segments);
@@ -175,8 +189,9 @@ export async function prewarmTones(): Promise<void> {
 }
 
 export async function previewTone(name: string): Promise<void> {
-  if (name === 'none' || name === 'Sin tono') return;
-  const segments = TONE_DEFINITIONS[name];
+  const key = name.toLowerCase();
+  if (key === 'none') return;
+  const segments = TONE_DEFINITIONS[key];
   if (!segments || segments.length === 0) return;
 
   try {
