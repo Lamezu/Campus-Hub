@@ -66,7 +66,6 @@ html,body{margin:0;padding:0;min-height:100%;background:${bg}}
 #ed td,#ed th{border:1px solid ${border};padding:7px 10px;min-width:60px;vertical-align:top;white-space:nowrap;-webkit-user-select:none;user-select:none;}
 #ed th{font-weight:700;background:${border}22;text-align:left}
 ::selection{background:rgba(0,122,255,0.25)}
-/* Context menu */
 #ctx{
   display:none;position:absolute;min-width:210px;
   background:#1c1c1e;border:1px solid rgba(255,255,255,0.14);
@@ -80,7 +79,6 @@ html,body{margin:0;padding:0;min-height:100%;background:${bg}}
 }
 .ctx-item:last-child{border-bottom:none}
 .ctx-item.danger{color:#FF3B30}
-/* Mode bar */
 #mbar{
   display:none;position:fixed;top:0;left:0;right:0;
   background:#1c1c1e;padding:10px 14px;z-index:600;

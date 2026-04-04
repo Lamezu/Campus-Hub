@@ -75,12 +75,12 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
             <View style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={[styles.header, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-                        <ThemedText style={{ color: colors.primary }}>{t('common.cancel') || 'Cancelar'}</ThemedText>
+                        <ThemedText style={{ color: colors.primary }}>{t('common.cancel') || 'Cancel'}</ThemedText>
                     </TouchableOpacity>
-                    <ThemedText style={styles.title}>{t('dm.poll_create') || 'Crear Encuesta'}</ThemedText>
+                    <ThemedText style={styles.title}>{t('dm.poll_create') || 'Poll Create'}</ThemedText>
                     <TouchableOpacity onPress={handleSend} style={styles.headerBtn} disabled={!question.trim() || options.filter(o => o.trim()).length < 2}>
                         <ThemedText style={[styles.sendBtn, { color: colors.primary, opacity: (!question.trim() || options.filter(o => o.trim()).length < 2) ? 0.5 : 1 }]}>
-                            {t('common.send') || 'Enviar'}
+                            {t('common.send') || 'Send'}
                         </ThemedText>
                     </TouchableOpacity>
                 </View>
@@ -90,10 +90,10 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                     contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
                 >
                     <View style={styles.section}>
-                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_question_label') || 'PREGUNTA'}</ThemedText>
+                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_question_label') || 'Poll Question Label'}</ThemedText>
                         <TextInput
                             style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                            placeholder={t('dm.poll_question_placeholder') || 'Escribe tu pregunta...'}
+                            placeholder={t('dm.poll_question_placeholder') || 'Poll Question Placeholder'}
                             placeholderTextColor={colors.textSecondary + '80'}
                             value={question}
                             onChangeText={setQuestion}
@@ -102,7 +102,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                     </View>
 
                     <View style={styles.section}>
-                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_options_label') || 'OPCIONES'}</ThemedText>
+                        <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('dm.poll_options_label') || 'Poll Options Label'}</ThemedText>
                         {options.map((opt, index) => (
                             <View key={index} style={styles.optionRow}>
                                 <TextInput
@@ -123,14 +123,14 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                         {options.length < 10 && (
                             <TouchableOpacity onPress={addOption} style={styles.addBtn}>
                                 <Plus size={20} color={colors.primary} />
-                                <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('dm.poll_add_option') || 'Añadir opción'}</ThemedText>
+                                <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('dm.poll_add_option') || 'Poll Add Option'}</ThemedText>
                             </TouchableOpacity>
                         )}
                     </View>
 
                     <View style={[styles.settings, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <View style={styles.settingItem}>
-                            <ThemedText style={styles.settingLabel}>{t('dm.poll_multiple') || 'Permitir varias respuestas'}</ThemedText>
+                            <ThemedText style={styles.settingLabel}>{t('dm.poll_multiple') || 'Poll Multiple'}</ThemedText>
                             <Switch
                                 value={multipleAnswers}
                                 onValueChange={setMultipleAnswers}

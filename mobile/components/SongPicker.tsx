@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { Music, Search } from 'lucide-react-native';
 import { searchTracks } from '@/config/jamendo';
+import { EmptyState } from './EmptyState';
 import { ThemedText } from './themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -102,9 +104,9 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <ThemedText style={[styles.title, { color: colors.text }]}>{t('post.song_picker.title') || 'Elegir canción'}</ThemedText>
+            <ThemedText style={[styles.title, { color: colors.text }]}>{t('post.song_picker.title') || 'Title'}</ThemedText>
             <TouchableOpacity onPress={handleClose}>
-              <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('post.song_picker.close') || 'Cerrar'}</ThemedText>
+              <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('post.song_picker.close') || 'Close'}</ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -112,7 +114,7 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
             <Ionicons name="search" size={18} color={colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder={t('post.song_picker.placeholder') || "Buscar canción o artista..."}
+              placeholder={t('post.song_picker.placeholder') || "Placeholder"}
               placeholderTextColor={colors.textSecondary}
               value={query}
               onChangeText={setQuery}
@@ -175,9 +177,10 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
                 );
               }}
               ListEmptyComponent={
-                <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {query.trim() ? (t('post.song_picker.no_results') || 'No se encontraron canciones') : (t('post.song_picker.empty') || 'Busca una canción para añadir a tu post')}
-                </ThemedText>
+                <EmptyState
+                  icon={query.trim() ? Search : Music}
+                  title={query.trim() ? (t('post.song_picker.no_results') || 'No Results') : (t('post.song_picker.empty') || 'Empty')}
+                />
               }
             />
           )}
@@ -253,11 +256,5 @@ const styles = StyleSheet.create({
   },
   previewBtn: {
     padding: spacing.xs,
-  },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: typography.sizes.sm,
-    padding: spacing.xl,
-    lineHeight: 22,
   },
 });

@@ -177,7 +177,7 @@ export function RichTextViewer({ html, searchQuery, onSearchCount }: RichTextVie
           const data = JSON.parse(e.nativeEvent.data);
           if (data.type === 'height') setWebViewHeight(data.value + 32);
           else if (data.type === 'searchCount') onSearchCount?.(data.count);
-        } catch { /* ignore */ }
+        } catch { }
       }}
     />
   );
