@@ -1,8 +1,9 @@
 import { incrementUserMessageCount } from './userService';
-import type { DirectMessage, DMConversation, ReplyPreview } from '@/types';
+import type { DirectMessage, DMConversation, ReplyPreview, MuteDuration } from '@/types';
 import { notificationService } from './notificationService';
 import { getDirectMessageService as sharedGetDirectMessageService } from './shared';
 import { getUser } from './userService';
+import { getContactSettings, updateContactSettings } from './contactSettingsService';
 
 function tsToISO(val: unknown): string {
   if (val && typeof (val as any).toDate === 'function') return (val as any).toDate().toISOString();
@@ -40,13 +41,13 @@ export function subscribeToMessages(
         replyTo: data.replyTo ?? null,
         deletedForUsers: data.deletedForUsers ?? [],
         forwarded: data.forwarded ?? false,
-        status: data.status ?? 'sent',
+        status: data.read === true ? 'read' : (data.status ?? 'sent'),
         type: data.type ?? 'text',
         poll: data.poll ?? null,
       } as DirectMessage))
       .filter(m => !(m.deletedForUsers ?? []).includes(meId));
     callback(messages);
-  });
+  }, onError);
 }
 
 export async function sendMessage(
@@ -68,12 +69,20 @@ export async function sendMessage(
     if (conv) {
       const otherUserId = (conv.participants as string[])?.find(id => id !== meId);
       if (otherUserId) {
-        notificationService.addNotification(otherUserId, {
-          category: 'dm',
-          title: senderName,
-          body: text || (attachments && attachments.length > 0 ? 'Archivo adjunto' : ''),
-          meta: { participantId: meId, conversationId }
-        });
+        const recipientSettings = await getContactSettings(otherUserId, meId);
+        const now = new Date();
+        const isMuted = recipientSettings.mute !== 'off' && (
+          recipientSettings.mute === 'always' ||
+          (recipientSettings.mutedUntil ? new Date(recipientSettings.mutedUntil) > now : true)
+        );
+        if (!isMuted) {
+          notificationService.addNotification(otherUserId, {
+            category: 'dm',
+            title: senderName,
+            body: text || (attachments && attachments.length > 0 ? 'Archivo adjunto' : ''),
+            meta: { participantId: meId, conversationId }
+          });
+        }
       }
     }
   } catch (error) {
@@ -170,15 +179,13 @@ export async function votePoll(
   await (sharedGetDirectMessageService() as any).votePoll(conversationId, messageId, optionId, meId);
 }
 
-export function subscribeToConversations(
-  meId: string,
-  callback: (conversations: DMConversation[]) => void,
-  onError?: (error: any) => void
-): () => void {
-  return (sharedGetDirectMessageService() as any).subscribeToConversations(meId, async (rawConvs: any[]) => {
-    const convs = await Promise.all(
-      rawConvs.map(async (conv: any) => {
+export async function fetchConversationsOnce(meId: string): Promise<DMConversation[]> {
+  const rawConvs: any[] = await (sharedGetDirectMessageService() as any).getUserConversations(meId);
+  const results = await Promise.all(
+    rawConvs.map(async (conv: any) => {
+      try {
         const participantId = (conv.participants as string[])?.find(id => id !== meId) || '';
+        if (!participantId) return null;
         const user = await getUser(participantId);
         return {
           id: conv.id,
@@ -201,8 +208,88 @@ export function subscribeToConversations(
             alertTone: 'Predeterminado',
           },
         } as DMConversation;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return results.filter(Boolean) as DMConversation[];
+}
+
+export function subscribeToConversations(
+  meId: string,
+  callback: (conversations: DMConversation[]) => void,
+  onError?: (error: any) => void
+): () => void {
+  // Guards against two categories of bugs:
+  // 1. Race condition: multiple onSnapshot events fire quickly; an older async
+  //    callback resolving after a newer one would overwrite fresh results.
+  // 2. Stale callback: the subscription was cancelled (screen navigated away)
+  //    but an in-flight async callback still tries to call setConversations.
+  let latestSeq = 0;
+  let cancelled = false;
+
+  const firestoreUnsub = (sharedGetDirectMessageService() as any).subscribeToConversations(meId, async (rawConvs: any[]) => {
+    if (cancelled) return;
+    const seq = ++latestSeq;
+
+    const results = await Promise.all(
+      rawConvs.map(async (conv: any) => {
+        try {
+          const participantId = (conv.participants as string[])?.find(id => id !== meId) || '';
+          if (!participantId) return null;
+          const user = await getUser(participantId);
+          return {
+            id: conv.id,
+            participantId,
+            participantName: user?.displayName || conv.participantName || 'Usuario',
+            participantPhoto: user?.photoURL || conv.participantPhoto || null,
+            participantRole: user?.role || conv.participantRole || 'student',
+            lastMessage: conv.lastMessage || '',
+            lastMessageAt: tsToISO(conv.lastMessageAt),
+            lastMessageSenderId: conv.lastMessageSenderId || '',
+            unreadCount: conv.unreadCount?.[meId] ?? 0,
+            isOnline: false,
+            isFriend: false,
+            isBestFriend: false,
+            friendRequestStatus: 'none',
+            contactSettings: {
+              mute: 'off',
+              mutedUntil: null,
+              saveToPhotos: 'default',
+              alertTone: 'Predeterminado',
+            },
+          } as DMConversation;
+        } catch {
+          return null;
+        }
       })
     );
-    callback(convs);
+
+    if (cancelled || seq !== latestSeq) return;
+
+    callback(results.filter(Boolean) as DMConversation[]);
   }, onError);
+
+  return () => {
+    cancelled = true;
+    firestoreUnsub();
+  };
+}
+
+export async function archiveConversation(meId: string, otherId: string, archived: boolean): Promise<void> {
+  await updateContactSettings(meId, otherId, { archived });
+}
+
+export async function deleteConversation(meId: string, otherId: string): Promise<void> {
+  await updateContactSettings(meId, otherId, { deleted: true } as any);
+}
+
+export async function muteConversation(meId: string, otherId: string, duration: MuteDuration): Promise<void> {
+  const mutedUntil = duration === '8h'
+    ? new Date(Date.now() + 8 * 3600 * 1000).toISOString()
+    : duration === '1w'
+    ? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+    : null;
+  await updateContactSettings(meId, otherId, { mute: duration, mutedUntil });
 }

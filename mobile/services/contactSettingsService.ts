@@ -7,18 +7,23 @@ import { db } from '@/config/firebase';
 import type { ContactSettings, MutualGroup, SaveToPhotosPreference, MuteDuration, SharedMedia } from '@/types';
 import { sendFriendRequest as fsSendRequest, acceptFriendRequest as fsAcceptRequest, areFriends, getFriendRequest } from './friendsService';
 
-const defaultSettings = (): ContactSettings & { isBestFriend: boolean } => ({
+type ExtendedSettings = ContactSettings & { isBestFriend: boolean; archived: boolean; deleted: boolean };
+
+const defaultSettings = (): ExtendedSettings => ({
   mute: 'off',
   mutedUntil: null,
   saveToPhotos: 'default',
   alertTone: 'Predeterminado',
   isBestFriend: false,
+  archived: false,
+  deleted: false,
 });
 
 export const getContactSettings = async (
   meId: string,
   otherId: string
-): Promise<ContactSettings & { isBestFriend: boolean }> => {
+): Promise<ExtendedSettings> => {
+  if (!meId || !otherId) return defaultSettings();
   const snap = await getDoc(doc(db, 'users', meId, 'contactSettings', otherId));
   if (!snap.exists()) return defaultSettings();
   const data = snap.data();
@@ -28,14 +33,17 @@ export const getContactSettings = async (
     saveToPhotos: data.saveToPhotos ?? 'default',
     alertTone: data.alertTone ?? 'Predeterminado',
     isBestFriend: data.isBestFriend ?? false,
+    archived: data.archived ?? false,
+    deleted: data.deleted ?? false,
   };
 };
 
 export const updateContactSettings = async (
   meId: string,
   otherId: string,
-  partial: Partial<ContactSettings & { isBestFriend: boolean }>
+  partial: Partial<ExtendedSettings>
 ): Promise<void> => {
+  if (!meId || !otherId) return;
   const ref = doc(db, 'users', meId, 'contactSettings', otherId);
   await setDoc(ref, { ...partial, updatedAt: serverTimestamp() }, { merge: true });
 };
@@ -137,7 +145,6 @@ export const getSharedMedia = async (conversationId: string, maxItems = 100): Pr
     const data = d.data();
     const createdAt = data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString();
 
-    // Attachments
     if (Array.isArray(data.attachments)) {
       data.attachments.forEach((a: any) => {
         media.push({
@@ -152,7 +159,6 @@ export const getSharedMedia = async (conversationId: string, maxItems = 100): Pr
       });
     }
 
-    // Links in text
     if (data.text) {
       const matches = data.text.match(urlRegex);
       if (matches) {

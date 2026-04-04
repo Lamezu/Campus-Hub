@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Share, Clipboard, Alert } from 'react-native';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Clipboard, Alert, Linking, Keyboard } from 'react-native';
+import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
@@ -13,11 +13,15 @@ import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import type { Message, ReplyPreview } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown } from 'lucide-react-native';
+import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown, ChevronUp, Bookmark, MessageCircle, Search, Lock, X } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
+import { saveMessage } from '@/services/savedItemsService';
 import { notificationService } from '@/services/notificationService';
 import { markChannelRead } from '@/services/channelReadService';
 import { useCurrentUser } from '@/contexts/UserContext';
+import { SupportChannel } from '@/components/SupportChannel';
 import { ChatSettingsSheet } from '@/components/chat/ChatSettingsSheet';
+import { UserPreviewSheet } from '@/components/UserPreviewSheet';
 
 const MESSAGES_PER_PAGE = 50;
 const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -33,6 +37,7 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [previewUserId, setPreviewUserId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<ReplyPreview | null>(null);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [isSwipingMessage, setIsSwipingMessage] = useState(false);
@@ -50,7 +55,8 @@ export default function ChatScreen() {
   const realId = isSG ? (id?.replace('sg_', '') ?? '') : (id ?? '');
   const currentUser = auth.currentUser;
   const fallbackName = realId.charAt(0).toUpperCase() + realId.slice(1).replace(/_/g, ' ');
-  const channelName = channelDetails?.name || channel?.name || fallbackName;
+  const rawChannelName = channelDetails?.name || channel?.name || fallbackName;
+  const channelName = (!isSG && id && t(`predefined_channels.${id}.name`)) || rawChannelName;
 
   useEffect(() => {
     if (!id) return;
@@ -118,7 +124,7 @@ export default function ChatScreen() {
             id: doc.id,
             text: data.text || '',
             senderId: data.senderId || '',
-            senderName: data.senderName || t('chat.unknown_user') || 'Desconocido',
+            senderName: data.senderName || t('chat.unknown_user') || 'Unknown User',
             senderPhoto: data.senderPhoto || null,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             edited: data.edited || false,
@@ -162,7 +168,7 @@ export default function ChatScreen() {
             id: doc.id,
             text: data.text || '',
             senderId: data.senderId || '',
-            senderName: data.senderName || t('chat.unknown_user') || 'Desconocido',
+            senderName: data.senderName || t('chat.unknown_user') || 'Unknown User',
             senderPhoto: data.senderPhoto || null,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
             edited: data.edited || false,
@@ -191,7 +197,7 @@ export default function ChatScreen() {
 
   const buildMessageBase = () => ({
     senderId: currentUser!.uid,
-    senderName: userProfile?.displayName || currentUser!.displayName || t('chat.unknown_user') || 'Usuario',
+    senderName: userProfile?.displayName || currentUser!.displayName || t('chat.unknown_user') || 'Unknown User',
     senderPhoto: userProfile?.photoURL || currentUser!.photoURL || null,
     createdAt: serverTimestamp(),
     edited: false,
@@ -215,7 +221,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert(t('dm.send_error') || 'Error al enviar el mensaje.');
+      alert(t('dm.send_error') || 'Send Error');
     } finally {
       setSending(false);
     }
@@ -235,7 +241,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert(t('dm.audio_error') || 'Error al guardar el audio.');
+      alert(t('dm.audio_error') || 'Audio Error');
     }
   };
 
@@ -253,7 +259,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert(t('dm.image_error') || 'Error al guardar la imagen.');
+      alert(t('dm.image_error') || 'Image Error');
     }
   };
 
@@ -271,7 +277,7 @@ export default function ChatScreen() {
       });
     } catch (error) {
       console.error(error);
-      alert(t('dm.file_error') || 'Error al guardar el archivo.');
+      alert(t('dm.file_error') || 'File Error');
     }
   };
 
@@ -453,6 +459,38 @@ export default function ChatScreen() {
     }
   }, [menuMessage]);
 
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  const searchMatches = React.useMemo(() => {
+    if (!showSearch || !searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return messages
+      .map((m, index) => ({ id: m.id, index }))
+      .filter(({ index }) => !!messages[index].text?.toLowerCase().includes(q));
+  }, [messages, searchQuery, showSearch]);
+
+  const currentSearchMatchId = searchMatches[currentMatchIndex]?.id ?? null;
+
+  const goToSearchMatch = (newIndex: number) => {
+    if (searchMatches.length === 0) return;
+    const wrapped = ((newIndex % searchMatches.length) + searchMatches.length) % searchMatches.length;
+    setCurrentMatchIndex(wrapped);
+    try {
+      flatListRef.current?.scrollToIndex({ index: searchMatches[wrapped].index, animated: true, viewPosition: 0.5 });
+    } catch {}
+  };
+
+  React.useEffect(() => {
+    setCurrentMatchIndex(0);
+    if (searchMatches.length > 0) {
+      try {
+        flatListRef.current?.scrollToIndex({ index: searchMatches[0].index, animated: true, viewPosition: 0.5 });
+      } catch {}
+    }
+  }, [searchMatches]);
+
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
   const [showEmojiInput, setShowEmojiInput] = useState(false);
   const [customEmoji, setCustomEmoji] = useState('');
@@ -507,6 +545,14 @@ export default function ChatScreen() {
     });
   };
 
+  const handleSaveMessage = async (message: Message) => {
+    setMenuMessage(null);
+    if (!currentUser || !realId) return;
+    try {
+      await saveMessage(currentUser.uid, message, 'channel', realId);
+    } catch { }
+  };
+
   const handleCopy = (message: Message) => {
     setMenuMessage(null);
     if (message.text) Clipboard.setString(message.text);
@@ -549,7 +595,14 @@ export default function ChatScreen() {
     : [];
   const pillEmojis = [...PRESET_REACTIONS, ...userCustomEmojis];
 
-  const headerHeight = useHeaderHeight();
+
+  if (id === '4') {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SupportChannel />
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -557,7 +610,7 @@ export default function ChatScreen() {
         <Stack.Screen options={{ title: channelName, headerShown: true }} />
         <ThemedView style={[styles.container, styles.centerContent]}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText style={styles.loadingText}>{t('chat.loading') || 'Cargando mensajes...'}</ThemedText>
+          <ThemedText style={styles.loadingText}>{t('chat.loading') || 'Loading'}</ThemedText>
         </ThemedView>
       </View>
     );
@@ -593,12 +646,20 @@ export default function ChatScreen() {
           </TouchableOpacity>
         ),
         headerRight: () => (
-          <TouchableOpacity
-            onPress={() => setShowSettings(true)}
-            style={{ padding: 4, marginRight: spacing.xs }}
-          >
-            <Settings size={22} color={colors.text} strokeWidth={1.8} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: spacing.xs }}>
+            <TouchableOpacity
+              onPress={() => { setShowSearch(s => !s); setSearchQuery(''); }}
+              style={{ padding: 4 }}
+            >
+              <Search size={20} color={colors.text} strokeWidth={1.8} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowSettings(true)}
+              style={{ padding: 4 }}
+            >
+              <Settings size={22} color={colors.text} strokeWidth={1.8} />
+            </TouchableOpacity>
+          </View>
         )
       }} />
 
@@ -619,12 +680,39 @@ export default function ChatScreen() {
             resizeMode="cover"
           />
         )}
-        <KeyboardAvoidingView
-          style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
-        >
+        <KeyboardAwareView>
           <View style={[styles.container, colors.chat.backgroundImage && { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
+            {showSearch && (
+              <View style={[styles.searchBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                <Search size={16} color={colors.textSecondary} strokeWidth={2} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder={t('chat.search_in_chat_placeholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                  onSubmitEditing={() => { goToSearchMatch(currentMatchIndex + 1); setShowSearch(false); setSearchQuery(''); }}
+                  autoFocus
+                />
+                {searchQuery.trim().length > 0 && (
+                  <>
+                    <ThemedText style={[styles.searchCount, { color: colors.textSecondary }]}>
+                      {searchMatches.length > 0 ? `${currentMatchIndex + 1}/${searchMatches.length}` : '0/0'}
+                    </ThemedText>
+                    <TouchableOpacity onPress={() => goToSearchMatch(currentMatchIndex - 1)} disabled={searchMatches.length === 0}>
+                      <ChevronUp size={18} color={searchMatches.length > 0 ? colors.text : colors.border} strokeWidth={2} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => goToSearchMatch(currentMatchIndex + 1)} disabled={searchMatches.length === 0}>
+                      <ChevronDown size={18} color={searchMatches.length > 0 ? colors.text : colors.border} strokeWidth={2} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <X size={18} color={colors.textSecondary} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -641,11 +729,13 @@ export default function ChatScreen() {
                   onSwipeEnd={onMessageSwipeEnd}
                   onQuickAudioReply={handleQuickAudioReply}
                   onReplyPreviewPress={handleReplyPreviewPress}
-                  highlighted={highlightedMessageId === item.id}
+                  onSenderPress={setPreviewUserId}
+                  highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
                   onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                  onFilePress={(url, name) => {
-                    Share.share({ url, message: t('chat.file_share_msg', { channel: channelName, name }) || `Archivo de ${channelName}: ${name}` });
+                  onFilePress={(url, _name) => {
+                    Linking.openURL(url);
                   }}
+                  searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
                 />
               )}
               contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
@@ -654,7 +744,7 @@ export default function ChatScreen() {
               scrollEnabled={!isSwipingMessage}
               onScrollToIndexFailed={() => { }}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
-              ListEmptyComponent={<View style={styles.emptyContainer}><ThemedText style={styles.emptyText}>{t('chat.no_messages') || 'No hay mensajes aún.'}</ThemedText></View>}
+              ListEmptyComponent={<View style={{ flex: 1, transform: [{ scaleY: -1 }] }}><EmptyState icon={MessageCircle} title={t('chat.no_messages')} fill /></View>}
               inverted
               onScroll={handleListScroll}
               scrollEventThrottle={100}
@@ -667,19 +757,43 @@ export default function ChatScreen() {
                 <ChevronDown size={26} color={colors.text} strokeWidth={2.5} />
               </Pressable>
             </Animated.View>
-            <MessageInput
-              ref={messageInputRef}
-              onSend={handleSendMessage}
-              onSendAudio={handleSendAudio}
-              onSendImage={handleSendImage}
-              onSendFile={handleSendFile}
-              onSendPoll={handleSendPoll}
-              replyTo={replyingTo}
-              onCancelReply={() => setReplyingTo(null)}
-              disabled={sending}
-            />
+            {(() => {
+              const role = userProfile?.role;
+              const subrole = userProfile?.subrole;
+              const canPost =
+                id === '2'
+                  ? role === 'admin' || (role === 'teacher' && subrole === 'coordinator')
+                  : id === '3'
+                  ? role === 'admin' || role === 'teacher'
+                  : true;
+              if (canPost) {
+                return (
+                  <MessageInput
+                    ref={messageInputRef}
+                    onSend={handleSendMessage}
+                    onSendAudio={handleSendAudio}
+                    onSendImage={handleSendImage}
+                    onSendFile={handleSendFile}
+                    onSendPoll={handleSendPoll}
+                    replyTo={replyingTo}
+                    onCancelReply={() => setReplyingTo(null)}
+                    disabled={sending}
+                  />
+                );
+              }
+              return (
+                <View style={[styles.readOnlyBanner, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                  <Lock size={14} color={colors.textSecondary} strokeWidth={2} />
+                  <ThemedText style={[styles.readOnlyText, { color: colors.textSecondary }]}>
+                    {id === '2'
+                      ? t('chat.read_only_announcement') || 'Read Only Announcement'
+                      : t('chat.read_only_events') || 'Read Only Events'}
+                  </ThemedText>
+                </View>
+              );
+            })()}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAwareView>
       </View>
 
       <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
@@ -737,6 +851,11 @@ export default function ChatScreen() {
                 </>
               )}
               <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleSaveMessage(menuMessage)}>
+                <Bookmark size={20} color={colors.text} strokeWidth={2} />
+                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.save')}</ThemedText>
+              </TouchableOpacity>
+              <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
               <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleMenuDelete(menuMessage)}>
                 <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
                 <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>{t('chat.delete')}</ThemedText>
@@ -769,7 +888,7 @@ export default function ChatScreen() {
           >
             <View style={[styles.emojiInputBox, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
               <ThemedText style={[styles.emojiInputLabel, { color: colors.textSecondary }]}>
-                {t('chat.emoji_picker_title') || 'Selecciona un emoji del teclado'}
+                {t('chat.emoji_picker_title') || 'Emoji Picker Title'}
               </ThemedText>
               <TextInput
                 autoFocus
@@ -800,6 +919,8 @@ export default function ChatScreen() {
         showClearChat={true}
       />
 
+      <UserPreviewSheet userId={previewUserId} onClose={() => setPreviewUserId(null)} />
+
       <Modal
         visible={!!deleteConfirmMsg}
         animationType="fade"
@@ -814,12 +935,12 @@ export default function ChatScreen() {
           <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
             <View style={styles.deleteDialogHeader}>
               <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
-                {t('chat.delete_message') || 'Eliminar mensaje'}
+                {t('chat.delete_message') || 'Delete Message'}
               </ThemedText>
               <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
-                {deleteConfirmMsg?.senderId === currentUser?.uid
-                  ? (t('chat.delete_confirm_msg') || '¿Cómo quieres eliminarlo?')
-                  : (t('chat.delete_for_me_only') || 'Solo se eliminará para ti.')}
+                {(deleteConfirmMsg?.senderId === currentUser?.uid || isAdmin)
+                  ? (t('chat.delete_confirm_msg') || 'Delete Confirm Msg')
+                  : (t('chat.delete_for_me_only') || 'Delete For Me Only')}
               </ThemedText>
             </View>
             <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
@@ -832,10 +953,10 @@ export default function ChatScreen() {
               }}
             >
               <ThemedText style={[styles.deleteDialogBtnText, { color: colors.text }]}>
-                {t('chat.delete_for_me') || 'Eliminar para mí'}
+                {t('chat.delete_for_me') || 'Delete For Me'}
               </ThemedText>
             </TouchableOpacity>
-            {deleteConfirmMsg?.senderId === currentUser?.uid && (
+            {(deleteConfirmMsg?.senderId === currentUser?.uid || isAdmin) && (
               <>
                 <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
                 <TouchableOpacity
@@ -847,7 +968,7 @@ export default function ChatScreen() {
                   }}
                 >
                   <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>
-                    {t('chat.delete_for_all') || 'Eliminar para todos'}
+                    {t('chat.delete_for_all') || 'Delete For All'}
                   </ThemedText>
                 </TouchableOpacity>
               </>
@@ -858,7 +979,7 @@ export default function ChatScreen() {
               onPress={() => setDeleteConfirmMsg(null)}
             >
               <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
-                {t('common.cancel') || 'Cancelar'}
+                {t('common.cancel') || 'Cancel'}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -872,8 +993,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   messageList: { padding: spacing.md, flexGrow: 1 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xl * 2 },
-  emptyText: { opacity: 0.5, textAlign: 'center' },
   loadingText: { marginTop: spacing.md, opacity: 0.6 },
   loadingMoreContainer: { paddingVertical: spacing.md, alignItems: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
@@ -995,5 +1114,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 6,
     elevation: 6,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  searchCount: {
+    fontSize: 13,
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  readOnlyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  readOnlyText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

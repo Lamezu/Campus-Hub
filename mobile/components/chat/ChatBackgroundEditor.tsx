@@ -21,9 +21,9 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
     const { colors } = useTheme();
     const { t } = useTranslation();
 
-    // Estados para animación y persistencia
     const scale = useRef(new Animated.Value(1)).current;
     const pan = useRef(new Animated.ValueXY()).current;
+    const scaleValue = useRef(1);
 
     const [currentScale, setCurrentScale] = useState(1);
     const [currentOffset, setCurrentOffset] = useState({ x: 0, y: 0 });
@@ -40,21 +40,18 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
             onMoveShouldSetPanResponder: () => true,
             onPanResponderGrant: (e) => {
                 const { touches } = e.nativeEvent;
-                // Si es un inicio de 2 dedos, guardamos distancia para zoom
                 if (touches.length === 2) {
                     initialDist.current = calcDistance(
                         touches[0].pageX, touches[0].pageY,
                         touches[1].pageX, touches[1].pageY
                     );
                 }
-                // Siempre permitir Pan
                 pan.setOffset({ x: currentOffset.x, y: currentOffset.y });
                 pan.setValue({ x: 0, y: 0 });
             },
             onPanResponderMove: (e, gesture) => {
                 const { touches } = e.nativeEvent;
 
-                // 1. Manejo de Pinch-to-Zoom (SOLO si hay 2 dedos)
                 if (touches.length === 2 && initialDist.current) {
                     const currentDist = calcDistance(
                         touches[0].pageX, touches[0].pageY,
@@ -62,22 +59,19 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
                     );
                     const ratio = currentDist / initialDist.current;
                     const nextScale = Math.max(1, Math.min(currentScale * ratio, 4));
+                    scaleValue.current = nextScale;
                     scale.setValue(nextScale);
                 }
-                // 2. Manejo de Pan (Movimiento libre)
-                // Se permite siempre, incluso con pinch, pero lo optimizamos para 1 dedo según pide el usuario
                 else if (touches.length === 1) {
                     pan.x.setValue(gesture.dx);
                     pan.y.setValue(gesture.dy);
                 }
             },
-            onPanResponderRelease: (e, gesture) => {
+            onPanResponderRelease: (_e, gesture) => {
                 pan.flattenOffset();
                 initialDist.current = null;
 
-                // Sincronizar estados finales de escala y offset
-                // Usamos una pequeña pausa o verificación para asegurar que capturamos el valor final de la animación
-                const finalScale = (scale as any)._value || currentScale;
+                const finalScale = scaleValue.current || currentScale;
                 const finalX = gesture.dx + currentOffset.x;
                 const finalY = gesture.dy + currentOffset.y;
 
@@ -101,7 +95,6 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
 
     const handleSave = () => {
         const themeId = `custom_${Date.now()}`;
-        // Guardamos las coordenadas finales
         onSave(themeId, currentOffset.x, currentOffset.y, currentScale);
     };
 
@@ -110,7 +103,6 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
     return (
         <Modal visible={visible} animationType="fade" transparent={false}>
             <View style={[styles.container, { backgroundColor: '#000' }]}>
-                {/* Fondo ajustable */}
                 <Animated.View
                     {...panResponder.panHandlers}
                     style={[
@@ -127,7 +119,6 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
                     <Image source={{ uri: imageUri }} style={styles.backgroundImage} resizeMode="cover" />
                 </Animated.View>
 
-                {/* Superposición de Previsualización */}
                 <View style={styles.previewOverlay} pointerEvents="none">
                     <View style={styles.headerSpacer} />
                     <View style={[styles.bubble, styles.bubbleOther, { backgroundColor: colors.backgroundSecondary + 'CC' }]}>
@@ -138,7 +129,6 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
                     </View>
                 </View>
 
-                {/* Controles de Zoom Flotantes */}
                 <View style={styles.zoomControls}>
                     <TouchableOpacity style={[styles.zoomButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} onPress={handleZoomIn}>
                         <Search color="#FFF" size={20} />
@@ -150,7 +140,6 @@ export function ChatBackgroundEditor({ visible, imageUri, onClose, onSave }: Cha
                     </TouchableOpacity>
                 </View>
 
-                {/* Controles Inferiores */}
                 <View style={styles.controls}>
                     <View style={styles.controlsHeader}>
                         <ThemedText style={styles.title}>{t('dm.settings.edit_bg')}</ThemedText>

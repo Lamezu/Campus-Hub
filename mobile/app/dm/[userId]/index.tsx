@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image,
     ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView,
-    StatusBar, Animated, TextInput, Share, Clipboard, Alert
+    StatusBar, Animated, TextInput, Clipboard, Alert, Linking
 } from 'react-native';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -18,9 +18,14 @@ import { auth, db } from '@/config/firebase';
 import type { DirectMessage, ReplyPreview, User } from '@/types';
 import {
     Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus,
-    ChevronDown, Phone, Video
+    ChevronDown, ChevronUp, Phone, Video, Bookmark, MessageCircle, Search, X, Star
 } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
+import { saveMessage } from '@/services/savedItemsService';
+import { starMessage, unstarMessage, getStarredIdsForConversation } from '@/services/starredMessagesService';
 import * as dmService from '@/services/dmService';
+import { updateContactSettings } from '@/services/contactSettingsService';
+import { notificationService } from '@/services/notificationService';
 import { ChatSettingsSheet } from '@/components/chat/ChatSettingsSheet';
 
 const MESSAGES_PER_PAGE = 50;
@@ -57,27 +62,64 @@ export default function DMChatScreen() {
     const [showScrollDown, setShowScrollDown] = useState(false);
     const scrollDownAnim = useRef(new Animated.Value(0)).current;
 
-    const headerHeight = useHeaderHeight();
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+    const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+
+    const searchMatches = React.useMemo(() => {
+        if (!showSearch || !searchQuery.trim()) return [];
+        const q = searchQuery.toLowerCase();
+        return messages
+            .map((m, index) => ({ id: m.id, index }))
+            .filter(({ index }) => !!messages[index].text?.toLowerCase().includes(q));
+    }, [messages, searchQuery, showSearch]);
+
+    const currentSearchMatchId = searchMatches[currentMatchIndex]?.id ?? null;
+
+    const goToSearchMatch = (newIndex: number) => {
+        if (searchMatches.length === 0) return;
+        const wrapped = ((newIndex % searchMatches.length) + searchMatches.length) % searchMatches.length;
+        setCurrentMatchIndex(wrapped);
+        try {
+            flatListRef.current?.scrollToIndex({ index: searchMatches[wrapped].index, animated: true, viewPosition: 0.5 });
+        } catch {}
+    };
+
+    React.useEffect(() => {
+        setCurrentMatchIndex(0);
+        if (searchMatches.length > 0) {
+            try {
+                flatListRef.current?.scrollToIndex({ index: searchMatches[0].index, animated: true, viewPosition: 0.5 });
+            } catch {}
+        }
+    }, [searchMatches]);
+
+
+    useEffect(() => {
+        if (!userId) return;
+        notificationService.markChatRead('dm', userId);
+        notificationService.setCurrentView({ type: 'dm', id: userId });
+        return () => { notificationService.setCurrentView(null); };
+    }, [userId]);
 
     useEffect(() => {
         if (!userId || !currentUser) return;
 
-        const init = async () => {
-            try {
-                const userRef = doc(db, 'users', userId);
-                const userDoc = await getDoc(userRef);
-                if (userDoc.exists()) {
-                    setParticipant({ uid: userDoc.id, ...userDoc.data() } as User);
-                }
+        const userRef = doc(db, 'users', userId);
+        const unsubParticipant = onSnapshot(userRef, (snap) => {
+            if (snap.exists()) setParticipant({ uid: snap.id, ...snap.data() } as User);
+        });
 
-                const convId = await dmService.getOrCreateConversation(currentUser.uid, userId);
-                setConversationId(convId);
-            } catch (error) {
-                console.error('Error initializing DM chat:', error);
-            }
-        };
+        dmService.getOrCreateConversation(currentUser.uid, userId)
+            .then(setConversationId)
+            .catch((error) => console.error('Error initializing DM chat:', error));
 
-        init();
+        // Si el usuario había "eliminado" este chat (deleted: true en contactSettings),
+        // al abrirlo de nuevo lo restauramos para que vuelva a aparecer en la lista.
+        updateContactSettings(currentUser.uid, userId, { deleted: false } as any).catch(() => {});
+
+        return () => unsubParticipant();
     }, [userId, currentUser]);
 
     useEffect(() => {
@@ -93,7 +135,7 @@ export default function DMChatScreen() {
             (err) => {
                 console.error('DM subscription error:', err);
                 if (err.code === 'failed-precondition') {
-                    setError(t('dm.db_index_error') || 'Falta un índice en la base de datos para este chat.');
+                    setError(t('dm.db_index_error') || 'Db Index Error');
                 }
                 setLoading(false);
             }
@@ -102,12 +144,19 @@ export default function DMChatScreen() {
         dmService.markAsRead(conversationId, currentUser.uid).catch(err => {
             console.error('Mark as read error:', err);
             if (err.code === 'failed-precondition') {
-                setError(t('dm.db_index_error') || 'Falta un índice en la base de datos para marcar como leído.');
+                setError(t('dm.db_index_error') || 'Db Index Error');
             }
         });
 
         return () => unsubscribe();
     }, [conversationId, currentUser]);
+
+    useEffect(() => {
+        if (!conversationId || !currentUser) return;
+        getStarredIdsForConversation(currentUser.uid, conversationId)
+            .then(ids => setStarredIds(ids))
+            .catch(() => {});
+    }, [conversationId, currentUser?.uid]);
 
     const handleReaction = async (emoji: string, targetMsg?: DirectMessage) => {
         const msg = targetMsg || menuMessage;
@@ -124,12 +173,75 @@ export default function DMChatScreen() {
     };
 
     const handleReply = (message: DirectMessage) => {
+        let type: ReplyPreview['type'] = 'text';
+        let isAudio = false;
+        let audioDuration: number | undefined;
+        let attachmentName: string | undefined;
+        let text = message.text || '';
+
+        if (message.poll) {
+            type = 'poll';
+            text = message.poll.question;
+        } else if (message.type === 'event') {
+            type = 'text';
+            text = message.metadata?.title || 'Evento';
+        } else if (message.attachments && message.attachments.length > 0) {
+            const audio = message.attachments.find(a => (a as any).type === 'audio');
+            const image = message.attachments.find(a => (a as any).type === 'image');
+            const file = message.attachments.find(a => (a as any).type === 'file');
+            if (audio) {
+                type = 'audio';
+                isAudio = true;
+                audioDuration = audio.duration;
+            } else if (image) {
+                type = 'image';
+            } else if (file) {
+                type = 'file';
+                attachmentName = file.name;
+            }
+        }
+
         setReplyingTo({
             id: message.id,
-            text: message.text || (message.attachments?.find(a => a.type === 'audio') ? t('chat.voice_msg_preview') : t('common.file')),
-            senderName: message.senderId === currentUser?.uid ? t('common.you') : (participant?.displayName || t('common.user')),
+            text,
+            senderName: message.senderId === currentUser?.uid ? (t('common.you') || 'You') : (participant?.displayName || t('common.user') || 'User'),
+            type,
+            isAudio,
+            audioDuration,
+            attachmentName
         });
         messageInputRef.current?.focus();
+    };
+
+    const handleSaveMessage = async (message: DirectMessage) => {
+        setMenuMessage(null);
+        if (!currentUser || !conversationId) return;
+        try {
+            await saveMessage(currentUser.uid, message as any, 'dm', conversationId, userId);
+        } catch (err) {
+            console.error('Error saving message:', err);
+        }
+    };
+
+    const handleStarToggle = async (message: DirectMessage) => {
+        setMenuMessage(null);
+        if (!currentUser || !conversationId) return;
+        const isStarred = starredIds.has(message.id);
+        if (isStarred) {
+            setStarredIds(prev => { const s = new Set(prev); s.delete(message.id); return s; });
+            await unstarMessage(currentUser.uid, message.id).catch(err => {
+                console.error('Error unstarring:', err);
+                Alert.alert('Error', 'No se pudo quitar el destacado.');
+                setStarredIds(prev => new Set(prev).add(message.id));
+            });
+        } else {
+            setStarredIds(prev => new Set(prev).add(message.id));
+            await starMessage(currentUser.uid, message as any, 'dm', conversationId).catch(err => {
+                console.error('Error starring:', err);
+                Alert.alert('Error', 'No se pudo destacar el mensaje.');
+                setStarredIds(prev => { const s = new Set(prev); s.delete(message.id); return s; });
+            });
+        }
     };
 
     const handleCopy = (message: DirectMessage) => {
@@ -185,14 +297,14 @@ export default function DMChatScreen() {
             await dmService.sendMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || t('chat.info.you') || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 text,
                 replyData || undefined
             );
         } catch (error) {
             console.error('Error sending DM:', error);
-            Alert.alert(t('common.error') || 'Error', t('dm.send_error') || 'No se pudo enviar el mensaje.');
+            Alert.alert(t('common.error') || 'Error', t('dm.send_error') || 'Send Error');
         } finally {
             setSending(false);
         }
@@ -204,7 +316,7 @@ export default function DMChatScreen() {
             await dmService.sendImageMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || t('chat.info.you') || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 url,
                 width,
@@ -221,7 +333,7 @@ export default function DMChatScreen() {
             await dmService.sendPollMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || t('chat.info.you') || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 poll
             );
@@ -236,7 +348,7 @@ export default function DMChatScreen() {
             await dmService.sendFileMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || t('chat.info.you') || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 url,
                 name,
@@ -254,14 +366,14 @@ export default function DMChatScreen() {
             await dmService.sendAudioMessage(
                 conversationId,
                 currentUser.uid,
-                currentUser.displayName || t('chat.info.you') || 'Usuario',
+                currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 url,
                 duration
             );
         } catch (error) {
             console.error('Error sending audio DM:', error);
-            Alert.alert(t('common.error') || 'Error', t('dm.audio_error') || 'No se pudo enviar el audio.');
+            Alert.alert(t('common.error') || 'Error', t('dm.audio_error') || 'Audio Error');
         }
     };
 
@@ -282,9 +394,9 @@ export default function DMChatScreen() {
 
     const handleClearChat = async () => {
         if (!conversationId) return;
-        Alert.alert(t('chat.settings.clear_chat') || 'Vaciar chat', t('chat.settings.clear_chat_msg') || '¿Seguro que quieres borrar todos tus mensajes de este chat?', [
+        Alert.alert(t('chat.settings.clear_chat') || 'Clear Chat', t('chat.settings.clear_chat_msg') || 'Clear Chat Msg', [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('common.delete'), style: 'destructive', onPress: () => { /* No expuesto en dmService wrapper */ } }
+            { text: t('common.delete'), style: 'destructive', onPress: () => { /* not exposed in dmService */ } }
         ]);
     };
 
@@ -367,7 +479,7 @@ export default function DMChatScreen() {
                     ⚠️ {error}
                 </ThemedText>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-                    <ThemedText style={{ color: colors.primary }}>{t('common.back') || 'Volver atrás'}</ThemedText>
+                    <ThemedText style={{ color: colors.primary }}>{t('common.back') || 'Back'}</ThemedText>
                 </TouchableOpacity>
             </ThemedView>
         );
@@ -377,7 +489,7 @@ export default function DMChatScreen() {
         return (
             <ThemedView style={[styles.container, styles.centerContent]}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <ThemedText style={styles.loadingText}>{t('dm.loading_chat') || 'Cargando chat...'}</ThemedText>
+                <ThemedText style={styles.loadingText}>{t('dm.loading_chat') || 'Loading Chat'}</ThemedText>
             </ThemedView>
         );
     }
@@ -412,7 +524,7 @@ export default function DMChatScreen() {
                         )}
                         <View style={styles.headerNameWrapper}>
                             <ThemedText style={styles.headerName}>{headerName}</ThemedText>
-                            <ThemedText style={styles.headerStatus}>{participant?.role === 'teacher' ? t('roles.teacher') : t('roles.student')}</ThemedText>
+                            <ThemedText style={styles.headerStatus}>{participant?.role ? (t(`roles.${participant.role}`) || participant.role) : ''}</ThemedText>
                         </View>
                     </TouchableOpacity>
                 ),
@@ -428,6 +540,9 @@ export default function DMChatScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => router.push(`/dm/${userId}/call?type=video` as any)} style={styles.headerBtn}>
                             <Video size={20} color={colors.text} strokeWidth={2} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setShowSearch(s => !s); setSearchQuery(''); }} style={styles.headerBtn}>
+                            <Search size={20} color={colors.text} strokeWidth={2} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.headerBtn}>
                             <Settings size={20} color={colors.text} strokeWidth={2} />
@@ -453,16 +568,44 @@ export default function DMChatScreen() {
                         resizeMode="cover"
                     />
                 )}
-                <KeyboardAvoidingView
-                    style={styles.container}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
-                >
+                <KeyboardAwareView>
                     <View style={[styles.container, colors.chat.backgroundImage ? { backgroundColor: 'rgba(0,0,0,0.08)' } : undefined]}>
+                        {showSearch && (
+                            <View style={[styles.searchBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                                <Search size={16} color={colors.textSecondary} strokeWidth={2} />
+                                <TextInput
+                                    style={[styles.searchInput, { color: colors.text }]}
+                                    placeholder={t('dm.search_in_chat_placeholder')}
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    returnKeyType="search"
+                                    onSubmitEditing={() => { goToSearchMatch(currentMatchIndex + 1); setShowSearch(false); setSearchQuery(''); }}
+                                    autoFocus
+                                />
+                                {searchQuery.trim().length > 0 && (
+                                    <>
+                                        <ThemedText style={[styles.searchCount, { color: colors.textSecondary }]}>
+                                            {searchMatches.length > 0 ? `${currentMatchIndex + 1}/${searchMatches.length}` : '0/0'}
+                                        </ThemedText>
+                                        <TouchableOpacity onPress={() => goToSearchMatch(currentMatchIndex - 1)} disabled={searchMatches.length === 0}>
+                                            <ChevronUp size={18} color={searchMatches.length > 0 ? colors.text : colors.border} strokeWidth={2} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => goToSearchMatch(currentMatchIndex + 1)} disabled={searchMatches.length === 0}>
+                                            <ChevronDown size={18} color={searchMatches.length > 0 ? colors.text : colors.border} strokeWidth={2} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                            <X size={18} color={colors.textSecondary} strokeWidth={2} />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                        )}
                         <FlatList
                             ref={flatListRef}
                             data={messages}
                             keyExtractor={item => item.id}
+                            scrollEnabled={!isSwipingMessage}
                             renderItem={({ item }) => (
                                 <MessageBubble
                                     message={item}
@@ -478,11 +621,14 @@ export default function DMChatScreen() {
                                         setTimeout(() => messageInputRef.current?.startRecordingLocked(), 150);
                                     }}
                                     onReplyPreviewPress={handleReplyPreviewPress}
-                                    highlighted={highlightedMessageId === item.id}
+                                    highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
+                                    isStarred={starredIds.has(item.id)}
+                                    showReadReceipt
                                     onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                                    onFilePress={(url, name) => {
-                                        Share.share({ url, message: `${t('common.image_file') || 'Archivo'}: ${name}` });
+                                    onFilePress={(url, _name) => {
+                                        Linking.openURL(url);
                                     }}
+                                    searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
                                 />
                             )}
                             contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
@@ -490,9 +636,7 @@ export default function DMChatScreen() {
                             scrollEventThrottle={100}
                             inverted
                             ListEmptyComponent={
-                                <View style={styles.emptyContainer}>
-                                    <ThemedText style={styles.emptyText}>{t('dm.no_messages_yet') || 'No hay mensajes aún. Di hola!'}</ThemedText>
-                                </View>
+                                <View style={{ flex: 1, transform: [{ scaleY: -1 }] }}><EmptyState icon={MessageCircle} title={t('dm.no_messages_yet')} fill /></View>
                             }
                         />
 
@@ -517,7 +661,7 @@ export default function DMChatScreen() {
                             disabled={sending}
                         />
                     </View>
-                </KeyboardAvoidingView>
+                </KeyboardAwareView>
             </View>
 
             <Modal visible={!!menuMessage} animationType="fade" transparent={true} statusBarTranslucent onRequestClose={() => setMenuMessage(null)}>
@@ -575,6 +719,18 @@ export default function DMChatScreen() {
                                 </>
                             )}
                             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleStarToggle(menuMessage)}>
+                                <Star size={20} color={menuMessage && starredIds.has(menuMessage.id) ? '#FFD60A' : colors.text} strokeWidth={2} fill={menuMessage && starredIds.has(menuMessage.id) ? '#FFD60A' : 'none'} />
+                                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>
+                                    {menuMessage && starredIds.has(menuMessage.id) ? (t('chat.unstar') || 'Unstar') : (t('chat.star') || 'Star')}
+                                </ThemedText>
+                            </TouchableOpacity>
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleSaveMessage(menuMessage)}>
+                                <Bookmark size={20} color={colors.text} strokeWidth={2} />
+                                <ThemedText style={[styles.menuItemText, { color: colors.text }]}>{t('chat.save')}</ThemedText>
+                            </TouchableOpacity>
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.menuItem} onPress={() => menuMessage && handleMenuDelete(menuMessage)}>
                                 <Trash2 size={20} color="#FF3B30" strokeWidth={2} />
                                 <ThemedText style={[styles.menuItemText, { color: '#FF3B30' }]}>{t('chat.delete')}</ThemedText>
@@ -607,7 +763,7 @@ export default function DMChatScreen() {
                     >
                         <View style={[styles.emojiInputBox, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
                             <ThemedText style={[styles.emojiInputLabel, { color: colors.textSecondary }]}>
-                                {t('chat.emoji_picker_title') || 'Selecciona un emoji del teclado'}
+                                {t('chat.emoji_picker_title') || 'Emoji Picker Title'}
                             </ThemedText>
                             <TextInput
                                 autoFocus
@@ -645,12 +801,12 @@ export default function DMChatScreen() {
                     <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
                         <View style={styles.deleteDialogHeader}>
                             <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
-                                {t('chat.delete_message') || 'Eliminar mensaje'}
+                                {t('chat.delete_message') || 'Delete Message'}
                             </ThemedText>
                             <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
                                 {deleteConfirmMsg?.senderId === currentUser?.uid
-                                    ? (t('chat.delete_confirm_msg') || '¿Cómo quieres eliminarlo?')
-                                    : (t('chat.delete_for_me_only') || 'Solo se eliminará para ti.')}
+                                    ? (t('chat.delete_confirm_msg') || 'Delete Confirm Msg')
+                                    : (t('chat.delete_for_me_only') || 'Delete For Me Only')}
                             </ThemedText>
                         </View>
                         <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
@@ -663,7 +819,7 @@ export default function DMChatScreen() {
                             }}
                         >
                             <ThemedText style={[styles.deleteDialogBtnText, { color: colors.text }]}>
-                                {t('chat.delete_for_me') || 'Eliminar para mí'}
+                                {t('chat.delete_for_me') || 'Delete For Me'}
                             </ThemedText>
                         </TouchableOpacity>
                         {deleteConfirmMsg?.senderId === currentUser?.uid && (
@@ -678,7 +834,7 @@ export default function DMChatScreen() {
                                     }}
                                 >
                                     <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>
-                                        {t('chat.delete_for_all') || 'Eliminar para todos'}
+                                        {t('chat.delete_for_all') || 'Delete For All'}
                                     </ThemedText>
                                 </TouchableOpacity>
                             </>
@@ -689,7 +845,7 @@ export default function DMChatScreen() {
                             onPress={() => setDeleteConfirmMsg(null)}
                         >
                             <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
-                                {t('common.cancel') || 'Cancelar'}
+                                {t('common.cancel') || 'Cancel'}
                             </ThemedText>
                         </TouchableOpacity>
                     </View>
@@ -719,8 +875,6 @@ const styles = StyleSheet.create({
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     headerBtn: { padding: 8 },
     messageList: { padding: spacing.md, flexGrow: 1 },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 100 },
-    emptyText: { opacity: 0.5, textAlign: 'center' },
     scrollDownBtn: { position: 'absolute', bottom: 100, alignSelf: 'center', zIndex: 10 },
     scrollDownBtnInner: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
     menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
@@ -750,4 +904,22 @@ const styles = StyleSheet.create({
     deleteDialogBtn: { padding: 16, alignItems: 'center' },
     deleteDialogBtnText: { fontSize: 16, fontWeight: '500' },
     errorText: { fontSize: 14, fontWeight: '700', textAlign: 'center', paddingHorizontal: 40 },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        gap: spacing.sm,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        paddingVertical: 0,
+    },
+    searchCount: {
+        fontSize: 13,
+        minWidth: 36,
+        textAlign: 'center',
+    },
 });

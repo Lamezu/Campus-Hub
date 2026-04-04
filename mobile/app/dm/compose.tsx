@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, TextInput, FlatList,
-  ActivityIndicator, Image, Platform,
+  ActivityIndicator, Image, ScrollView, Platform, Keyboard,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { ChevronLeft, Search, User as UserIcon, Filter, ChevronRight, ChevronLeft as ChevronLeftIcon, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight } from 'lucide-react-native';
-import { collection, query, where, orderBy, limit, getDocs, onSnapshot, startAfter, QueryConstraint, endBefore, limitToLast } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, User as UserIcon, X } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '@/config/firebase';
+import { getOrCreateConversation } from '@/services/dmService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -22,49 +24,49 @@ export default function NewDMScreen() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const searchRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    setLoading(true);
     const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-      setAllUsers(fetchedUsers);
+      setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User)));
       setLoading(false);
-      setError(null);
     }, (error) => {
-      if (error.code !== 'permission-denied') {
-        console.error('DM Compose Snapshot error:', error);
-        setError(t('common.error') || 'Error al cargar usuarios');
-      }
+      if (error.code !== 'permission-denied') console.error('DM Compose error:', error);
       setLoading(false);
     });
     return unsubscribe;
   }, []);
 
+  useEffect(() => { setPage(1); }, [searchText, selectedRole]);
+
   const filteredUsers = useMemo(() => {
     const search = searchText.toLowerCase().trim();
     return allUsers.filter(u => {
-      const userRole = u.role || 'student';
-      const matchesRole = selectedRole === 'all' || userRole === selectedRole;
-      const matchesSearch = !search || u.displayName.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
+      const matchesRole = selectedRole === 'all' || (u.role || 'student') === selectedRole;
+      const matchesSearch = !search ||
+        u.displayName.toLowerCase().includes(search) ||
+        u.email.toLowerCase().includes(search);
       return matchesRole && matchesSearch;
     });
   }, [allUsers, selectedRole, searchText]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return filteredUsers.slice(start, start + PAGE_SIZE);
   }, [filteredUsers, page]);
 
-  const hasMore = filteredUsers.length > page * PAGE_SIZE;
-
   const renderUserItem = ({ item }: { item: User }) => (
     <TouchableOpacity
       style={[styles.userItem, { borderBottomColor: colors.border }]}
-      onPress={() => router.push(`/dm/${item.uid}` as never)}
+      onPress={async () => {
+        const meId = auth.currentUser?.uid;
+        if (meId) await getOrCreateConversation(meId, item.uid).catch(() => {});
+        router.push(`/dm/${item.uid}` as never);
+      }}
     >
       <View style={[styles.avatar, { backgroundColor: colors.primary + '20' }]}>
         {item.photoURL ? (
@@ -75,7 +77,7 @@ export default function NewDMScreen() {
       </View>
       <View style={styles.userInfo}>
         <ThemedText style={styles.userName}>{item.displayName}</ThemedText>
-        <ThemedText style={[styles.userEmail, { color: colors.textSecondary }]}>
+        <ThemedText style={[styles.userRole, { color: colors.textSecondary }]}>
           {t(`roles.${item.role || 'student'}`) || (item.role === 'teacher' ? 'Profesor/a' : item.role === 'admin' ? 'Admin' : 'Alumno/a')}
           {item.department ? ` • ${item.department}` : ''}
         </ThemedText>
@@ -98,7 +100,7 @@ export default function NewDMScreen() {
               <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
             </TouchableOpacity>
           ),
-          headerTitle: t('dm.new_message_title') || 'Nuevo mensaje',
+          headerTitle: t('dm.new_message_title') || 'New Message Title',
         }}
       />
 
@@ -106,31 +108,32 @@ export default function NewDMScreen() {
         <View style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary }]}>
           <Search size={18} color={colors.textSecondary} />
           <TextInput
+            ref={searchRef}
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder={t('dm.search_by_name') || 'Buscar por nombre...'}
+            placeholder={t('dm.search_by_name') || 'Search By Name'}
             placeholderTextColor={colors.textSecondary}
             value={searchText}
             onChangeText={setSearchText}
+            autoFocus
           />
+          {!!searchText && (
+            <TouchableOpacity
+              onPress={() => { setSearchText(''); searchRef.current?.blur(); Keyboard.dismiss(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {(['all', 'teacher', 'student', 'admin'] as const).map(role => (
             <TouchableOpacity
               key={role}
-              style={[
-                styles.filterChip,
-                { backgroundColor: selectedRole === role ? colors.primary : colors.backgroundSecondary },
-              ]}
-              onPress={() => {
-                setSelectedRole(role);
-                setPage(1);
-              }}
+              style={[styles.filterChip, { backgroundColor: selectedRole === role ? colors.primary : colors.backgroundSecondary }]}
+              onPress={() => setSelectedRole(role)}
             >
-              <ThemedText style={[
-                styles.filterText,
-                { color: selectedRole === role ? '#fff' : colors.textSecondary }
-              ]}>
+              <ThemedText style={[styles.filterText, { color: selectedRole === role ? '#fff' : colors.textSecondary }]}>
                 {t(`dm.filter.${role}`) || (role === 'all' ? 'Todos' : role === 'teacher' ? 'Profesores' : role === 'student' ? 'Alumnos' : 'Admin')}
               </ThemedText>
             </TouchableOpacity>
@@ -138,22 +141,25 @@ export default function NewDMScreen() {
         </ScrollView>
       </View>
 
-      <FlatList
-        data={paginatedUsers}
-        keyExtractor={item => item.uid}
-        renderItem={renderUserItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <ThemedText style={{ color: colors.textSecondary }}>
-              {searchText ? (t('dm.no_users_found') || 'No se encontraron usuarios') : (t('dm.loading_directory') || 'Cargando directorio...')}
-            </ThemedText>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={paginatedUsers}
+          keyExtractor={item => item.uid}
+          renderItem={renderUserItem}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <EmptyState icon={UserIcon} title={t('dm.no_users_found')} />
+          }
+        />
+      )}
 
-      <View style={[styles.pagination, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
-        <View style={styles.paginationContent}>
+      {!loading && filteredUsers.length > 0 && (
+        <View style={[styles.pagination, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
           <TouchableOpacity
             disabled={page === 1}
             onPress={() => setPage(1)}
@@ -171,27 +177,34 @@ export default function NewDMScreen() {
           </TouchableOpacity>
 
           <View style={[styles.pageIndicator, { backgroundColor: colors.primary + '15' }]}>
-            <ThemedText style={[styles.pageText, { color: colors.primary }]}>{t('dm.page_num', { num: page }) || `Página ${page}`}</ThemedText>
+            <ThemedText style={[styles.pageText, { color: colors.primary }]}>
+              {page} / {totalPages}
+            </ThemedText>
+            <ThemedText style={[styles.pageCount, { color: colors.primary }]}>
+              {'· ' + filteredUsers.length + ' ' + (t('dm.users_total') || 'usuarios')}
+            </ThemedText>
           </View>
 
           <TouchableOpacity
-            disabled={!hasMore}
+            disabled={page >= totalPages}
             onPress={() => setPage(p => p + 1)}
-            style={[styles.pagerBtn, { opacity: !hasMore ? 0.3 : 1 }]}
+            style={[styles.pagerBtn, { opacity: page >= totalPages ? 0.3 : 1 }]}
           >
             <ChevronRight size={20} color={colors.primary} />
           </TouchableOpacity>
 
-          <View style={[styles.pagerBtn, { opacity: 0 }]}>
+          <TouchableOpacity
+            disabled={page >= totalPages}
+            onPress={() => setPage(totalPages)}
+            style={[styles.pagerBtn, { opacity: page >= totalPages ? 0.3 : 1 }]}
+          >
             <ChevronsRight size={20} color={colors.primary} />
-          </View>
+          </TouchableOpacity>
         </View>
-      </View>
+      )}
     </ThemedView>
   );
 }
-
-import { ScrollView } from 'react-native-gesture-handler';
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -226,9 +239,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     fontWeight: '600',
   },
-  list: {
-    paddingBottom: 100,
-  },
+  list: { paddingBottom: 80 },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,31 +255,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
-  avatarImg: {
-    width: 48,
-    height: 48,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-  },
-  userEmail: {
-    fontSize: typography.sizes.xs,
-    marginTop: 2,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  empty: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
+  avatarImg: { width: 48, height: 48 },
+  userInfo: { flex: 1 },
+  userName: { fontSize: typography.sizes.md, fontWeight: '600' },
+  userRole: { fontSize: typography.sizes.xs, marginTop: 2 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   pagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
     paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -277,25 +273,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  paginationContent: {
+  pagerBtn: { padding: 10, borderRadius: 10 },
+  pageIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  pagerBtn: {
-    padding: 10,
-    borderRadius: 10,
-  },
-  pageIndicator: {
-    paddingHorizontal: 16,
+    gap: 6,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    minWidth: 100,
-    alignItems: 'center',
   },
-  pageText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: '700',
-  },
+  pageText: { fontSize: typography.sizes.sm, fontWeight: '700' },
+  pageCount: { fontSize: typography.sizes.xs, opacity: 0.8 },
 });
