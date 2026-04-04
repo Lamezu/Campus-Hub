@@ -1,32 +1,59 @@
-# User Guide - CampusHub
+# 📖 CampusHub: The Ultimate User Guide
 
-Welcome to **CampusHub**, your university command center. This guide will help you make the most of all the social and academic features of the application.
-
-## 1. Getting Started & Profile
-Upon opening the app, you'll see your **Main Feed**. Here, posts from your classmates appear.
-- **Edit Profile**: Go to your profile and tap the settings button to change your photo, bio, or interests.
-- **Themes**: CampusHub supports Light, Dark, and a special Ivory theme. Change it in Settings.
-
-## 2. Campus Tab
-Here you'll find tools for your daily life:
-- **Announcement Board**: Check official university news, events, and important notices.
-- **Study Groups**: Join or create groups for specific subjects. You can filter by your major.
-- **Calendar**: Sync your assignments and exams.
-
-## 3. Explore Tab
-Discover what's happening on campus:
-- **Social Posts**: Share photos, videos, or music. Double-tap to "like"!
-- **Search**: Find friends, groups, or posts by keywords.
-
-## 4. Messaging & Calls
-Connect with other students in real-time:
-- **Direct Chats**: Send private messages to any classmate.
-- **Calls**: Tap the phone icon in a chat to start high-quality voice or video calls.
-- **Polls**: Create quick polls in chats to make group decisions.
-
-## 5. Notifications
-Stay updated on everything:
-- You'll receive alerts when someone comments on your post, sends you a message, or there's an urgent announcement on campus.
+Welcome to **CampusHub**, the definitive platform for your university experience. This guide will help you master all the social and institutional tools of the platform.
 
 ---
-*If you find any errors or have suggestions, please contact the university technical support.*
+
+## 🚀 1. Getting Started
+
+### **Profile Configuration**
+- **Personalization**: Visit your **Profile** tab to update your photo, bio, and interests.
+- **Language**: CampusHub support both **English** and **Spanish**. The app will automatically detect your system language, but you can override it in Settings.
+- **Theming**: Toggle between **Ivory**, **Dark**, and **Dynamic** themes in the Settings menu.
+
+> [!TIP]
+> Use the **Ivory** theme for the best balance of readability and battery efficiency during long study sessions.
+
+---
+
+## 🏛️ 2. Institutional Campus & Forums
+
+The **Campus** tab is your institutional mission control.
+- **Announcement Board**: Find official news, emergency notices, and institutional events. 
+- **Study Groups**: Search or filter groups by your degree and campus location. 
+- **Academic Calendar**: View and sync all exams, assignment deadlines, and university activities.
+
+---
+
+## 📸 3. The Social Experience
+
+The **Explore** tab is where the community comes alive.
+- **Multimedia Feed**: Share your photos, videos, and music clips directly to the campus wall.
+- **Interactions**:
+  - **Double-Tap**: Quickly like any post by double-tapping the content.
+  - **Safe Interaction**: Block or report problematic content via the three-dot menu.
+- **Saved Items**: Bookmark any interesting post or message by tapping the **Bookmark** icon. These will appear in your "Saved" section.
+
+---
+
+## 💬 4. Advanced Messaging & RTC
+
+CampusHub features a state-of-the-art messaging system.
+- **Direct & Group Chats**: High-speed messaging powered by Firestore for instant delivery.
+- **Multimedia Sharing**: Send voice notes, photos, videos, and polls within any conversation.
+- **Voice & Video Calls**: Tap the **Phone/Video** icon to initiate high-quality P2P calls using WebRTC technology.
+
+> [!IMPORTANT]
+> To use calls and media sharing, ensure you have granted **Camera** and **Microphone** permissions in your device settings.
+
+---
+
+## 🛠️ 5. Support & Troubleshooting
+
+If you encounter any issues:
+- **Connection**: If files are not loading, check your Wi-Fi or mobile data.
+- **Media**: If you're on a web browser, some media uploads may behave differently than native mobile apps.
+- **Help**: Contact the **University IT Service** or the technical team through the "Bug Report" section in your profile.
+
+---
+*Created by A&S Technologies for CIFP Villa de Agüimes.*

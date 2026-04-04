@@ -1,63 +1,99 @@
-# Guía del Desarrollador - CampusHub
+# 🛠️ CampusHub Developer Guide
 
-Esta guía proporciona instrucciones para configurar el entorno de desarrollo y colaborar en **CampusHub**.
+Welcome to the **CampusHub** development ecosystem. This guide provides the technical foundation for collaborating, testing, and deploying all aspects of the platform.
 
-## Prerrequisitos
+---
 
-- **Node.js**: v18 o superior.
-- **npm** o **yarn**.
-- **Expo CLI**: `npm install -g expo-cli`.
-- **Firebase Project**: Una instancia configurada de Firebase (Auth, Firestore, Storage).
-- **Cloudinary**: Cuenta para la gestión de medios.
+## 🏗️ Prerequisites
 
-## Configuración Local
+Ensure your development environment meets the following specifications:
 
-1.  **Clonar el repositorio**:
-    ```bash
-    git clone https://github.com/Lamezu/Campus-Hub.git
-    cd Campus-Hub
-    ```
+- **Node.js**: v18.x or higher (LTS recommended).
+- **Package Manager**: `npm` (preferred) or `yarn`.
+- **Expo Ecosystem**: `npm i -g expo-cli eas-cli`.
+- **Operating System**: macOS (for iOS development) or Windows/Linux (for Android).
 
-2.  **Instalar dependencias**:
-    ```bash
-    # En la raíz
-    npm install
-    
-    # En la carpeta mobile
-    cd mobile
-    npm install
-    ```
+---
 
-3.  **Variables de Entorno**:
-    Crea un archivo `.env` en `/mobile` con las siguientes claves:
-    ```env
-    EXPO_PUBLIC_FIREBASE_API_KEY=your_key
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-    EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_id
-    EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
-    EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_preset
-    ```
+## 🛠️ Environment Configuration
 
-## Comandos Útiles
+### 1. Repository Setup
+Clone the repository and install dependencies at the root and mobile levels:
+```bash
+git clone https://github.com/Lamezu/Campus-Hub.git
+cd Campus-Hub
+npm install
+cd mobile && npm install
+```
 
-### App Móvil (`/mobile`)
-- `npx expo start`: Inicia el servidor de desarrollo de Expo.
-- `npx expo run:android`: Ejecuta en emulador Android.
-- `npx expo run:ios`: Ejecuta en simulador iOS.
-- `npm run lint`: Ejecuta el linter de TypeScript.
+### 2. Environment Variables (`.env`)
+Create an `.env` file in the `/mobile` directory with these specific keys:
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=campushub.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=campushub-52343
+EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME=your_name
+EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_preset
+```
 
-### Dashboard (`/dashboard`)
-- `npm run dev`: Inicia el servidor de Vite.
-- `npm run build`: Genera el bundle de producción.
+---
 
-## Estándares de Código
+## 🚀 Development Workflow
 
-- **TypeScript**: Obligatorio para todos los archivos nuevos.
-- **Componentes**: Usar componentes funcionales con Hooks.
-- **Estilos**: Usar `StyleSheet` de React Native con constantes definidas en `@/constants/styles`.
-- **Traducciones**: Todo texto visible debe pasar por el hook `useTranslation`.
+### 📱 Mobile Experience (`/mobile`)
+- **Interactive Server**: `npx expo start` (Press 'w' for web, 'a' for Android, 'i' for iOS).
+- **Standalone Build**: `eas build --platform android|ios --profile development`.
+- **Linting**: `npm run lint` (ESLint + TypeScript checks).
 
-## Despliegue
+### 🖥️ Admin Dashboard (`/dashboard`)
+- **Preview**: `npm run dev` (Vite dev server).
+- **Build**: `npm run build` (Optimized production bundle).
 
-- **Mobile**: Utilizar **EAS Build** para generar los binarios (.apk / .ipa).
-- **Web**: Despliegue recomendado en **Vercel** o **Firebase Hosting**.
+---
+
+## 📐 Coding & Contribution Standards
+
+To maintain a professional, high-quality codebase for this TFG, strictly adhere to these rules:
+
+### 1. Language Policy
+> [!IMPORTANT]
+> **Strict English-First Policy**: All code, variable names, function declarations, logic comments, and fallback strings (`|| 'Fallback'`) must be written in **English**.
+> - **Prohibited**: `t('key') || 'Borrar'`
+> - **Mandatory**: `t('key') || 'Delete'`
+
+### 2. Localization (i18n)
+Never hardcode visible text. Use the `useTranslation` hook:
+```tsx
+const { t } = useTranslation();
+// In Jsx
+<Text>{t('common.save') || 'Save'}</Text>
+```
+
+### 3. State & Styling
+- **Shared Logic**: Always favor the `/shared` services layer over local implementations.
+- **Style Tokens**: Use the design system defined in `@/constants/styles`. Do not use "magic numbers" for padding/colors.
+- **Component Pattern**: Prefer functional components with decoupled logic (custom hooks).
+
+---
+
+## 🧪 Testing and QA
+
+### **Cross-Platform Validation**
+Before making a pull request, ensure features are tested on:
+- **iOS Simulator** (Native feel).
+- **Android Emulator** (Performance & touch response).
+- **Expo Web** (Specifically for Cloudinary media bridge validation).
+
+### **Functional Audit**
+A full functional audit must be performed before major releases, covering:
+- **Authentication Flow**: Login, Signup, Password reset.
+- **Real-time Messaging**: Push notifications and group chat persistence.
+- **Media Uploads**: Verifying 1:1 and group media separation.
+
+---
+
+## 📦 Deployment & Release
+
+- **Mobile Distribution**: All releases must go through **EAS Build** with production profiles.
+- **Firebase Deployment**: Update rules via `firebase deploy --only firestore:rules`.
+- **Staging**: Always test on a staging branch before merging to `main`.

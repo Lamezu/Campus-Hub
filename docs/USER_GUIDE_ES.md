@@ -1,32 +1,59 @@
-# Guía de Usuario - CampusHub
+# 📖 CampusHub: Guía Completa de Usuario
 
-Bienvenido a **CampusHub**, tu centro de mando universitario. Esta guía te ayudará a sacar el máximo provecho de todas las funciones sociales y académicas de la aplicación.
-
-## 1. Inicio y Perfil
-Al abrir la app, verás tu **Feed Principal**. Aquí aparecen las publicaciones de tus compañeros.
-- **Editar Perfil**: Ve a tu perfil y pulsa el botón de configuración para cambiar tu foto, biografía o intereses.
-- **Temas**: CampusHub soporta modo Claro, Oscuro y un tema especial Ivory. Cámbialo en Ajustes.
-
-## 2. Pestaña Campus
-Aquí encontrarás herramientas para tu día a día:
-- **Tablón de Anuncios**: Consulta noticias oficiales de la universidad, eventos y avisos importantes.
-- **Grupos de Estudio**: Únete o crea grupos para asignaturas específicas. Puedes filtrar por tu carrera.
-- **Calendario**: Sincroniza tus entregas y exámenes.
-
-## 3. Pestaña Explorar
-Descubre qué está pasando en el campus:
-- **Posts Sociales**: Comparte fotos, videos o música. ¡Dale doble toque para dar "me gusta"!
-- **Búsqueda**: Encuentra amigos, grupos o publicaciones por palabras clave.
-
-## 4. Mensajería y Llamadas
-Conecta con otros estudiantes en tiempo real:
-- **Chats Directos**: Envía mensajes privados a cualquier compañero.
-- **Llamadas**: Pulsa el icono del teléfono en un chat para iniciar una llamada de voz o video de alta calidad.
-- **Encuestas**: Crea encuestas rápidas en los chats para tomar decisiones en grupo.
-
-## 5. Notificaciones
-Mantente al tanto de todo:
-- Recibirás alertas cuando alguien comente tu post, te envíe un mensaje o haya un anuncio urgente en el campus.
+Bienvenido/a a **CampusHub**, la plataforma definitiva para tu experiencia universitaria. Esta guía te ayudará a dominar todas las herramientas sociales e institucionales de la plataforma.
 
 ---
-*Si encuentras algún error o tienes sugerencias, contacta con el soporte técnico de la universidad.*
+
+## 🚀 1. Primeros Pasos
+
+### **Configuración del Perfil**
+- **Personalización**: Visita tu pestaña de **Perfil** para actualizar tu foto, biografía e intereses.
+- **Idioma**: CampusHub soporta tanto **Inglés** como **Español**. La aplicación detectará automáticamente tu idioma del sistema, pero puedes cambiarlo en Configuración.
+- **Temas**: Cambia entre los temas **Ivory** (Marfil), **Dark** (Oscuro) y **Dinámico** desde el menú de Configuración.
+
+> [!TIP]
+> Utiliza el tema **Ivory** para obtener el mejor equilibrio de legibilidad y ahorro de batería durante las sesiones largas de estudio.
+
+---
+
+## 🏛️ 2. Campus Institucional y Foros
+
+La pestaña de **Campus** es tu centro de control institucional.
+- **Tablón de Anuncios**: Consulta noticias oficiales, avisos de emergencia y eventos institucionales.
+- **Grupos de Estudio**: Busca o filtra grupos por tu carrera y ubicación del campus.
+- **Calendario Académico**: Visualiza y sincroniza todos tus exámenes, fechas límite de tareas y actividades universitarias.
+
+---
+
+## 📸 3. La Experiencia Social
+
+La pestaña de **Explorar** es donde la comunidad cobra vida.
+- **Feed Multimedia**: Comparte tus fotos, vídeos y fragmentos de música directamente en el muro del campus.
+- **Interacciones**:
+  - **Doble Toque**: Da "me gusta" rápidamente a cualquier post haciendo doble toque en el contenido.
+  - **Interacción Segura**: Bloquea o denuncia contenido problemático mediante el menú de tres puntos.
+- **Elementos Guardados**: Marcador cualquier post o mensaje interesante tocando el icono de **Marcador**. Estos aparecerán en tu sección "Guardado".
+
+---
+
+## 💬 4. Mensajería Avanzada y Llamadas
+
+CampusHub cuenta con un sistema de mensajería de última generación.
+- **Chats Directos y de Grupo**: Mensajería de alta velocidad impulsada por Firestore para una entrega instantánea.
+- **Compartición Multimedia**: Envía notas de voz, fotos, vídeos y encuestas dentro de cualquier conversación.
+- **Llamadas de Voz y Vídeo**: Toca el icono de **Teléfono/Vídeo** para iniciar llamadas P2P de alta calidad utilizando tecnología WebRTC.
+
+> [!IMPORTANT]
+> Para usar llamadas y compartir contenido multimedia, asegúrate de haber concedido permisos de **Cámara** y **Micrófono** en los ajustes de tu dispositivo.
+
+---
+
+## 🛠️ 5. Soporte y Resolución de Problemas
+
+Si encuentras algún problema:
+- **Conexión**: Si los archivos no cargan, comprueba tu Wi-Fi o datos móviles.
+- **Multimedia**: Si estás en un navegador web, algunas subidas multimedia pueden comportarse de forma distinta a las aplicaciones móviles nativas.
+- **Ayuda**: Contacto con el **Servicio IT de la Universidad** o el equipo técnico a través de la sección "Reportar Error" en tu perfil.
+
+---
+*Creado por A&S Technologies para CIFP Villa de Agüimes.*

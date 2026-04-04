@@ -1,56 +1,75 @@
 # 🎓 CampusHub
 
-[![Expo](https://img.shields.io/badge/Expo-4630EB?style=flat&logo=expo&logoColor=white)](https://expo.dev/)
-[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat&logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=flat&logo=react&logoColor=black)](https://reactnative.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Expo](https://img.shields.io/badge/Expo-4630EB?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)](https://cloudinary.com/)
 
-**CampusHub** es una plataforma integral de comunicación y bienestar diseñada para centros educativos. Combina herramientas académicas con una red social segura para mejorar la experiencia universitaria.
+**CampusHub** is a premium, high-performance communication and well-being platform designed specifically for educational centers. It seamlessly blends institutional academic tools with a modern social networking experience, creating a singular point of interaction for students and faculty.
 
-## 🏗️ Estructura del Proyecto
+---
+
+## 🏗️ Project Architecture
+
 ```
 Campus-Hub/
-├── mobile/          # Aplicación Móvil (Expo + React Native)
-├── dashboard/       # Panel de Administración (Vite + React)
-├── web/             # Landing Page informativa
-├── shared/          # Lógica de negocio y tipos compartidos
-├── docs/            # Documentación técnica y guías
-└── firebase/        # Configuración de Backend y Reglas
+├── mobile/          # Cross-platform Mobile & Web App (Expo + React Native)
+├── dashboard/       # Administrative Control Panel (Vite + React)
+├── web/             # Informative Landing Page
+├── shared/          # Unified Business Logic & TypeScript Definitions
+├── docs/            # Technical Specifications & Manuals
+└── firebase/        # Backend Configuration & Security Rules
 ```
 
-## ✨ Funcionalidades Clave
+## ✨ Key Features
 
-- **Campus Digital**: Tablón de anuncios oficiales, grupos de estudio por carrera y calendario de eventos.
-- **Red Social**: Feed de noticias, compartición de multimedia (foto/video/música) e interacción con "me gusta" y comentarios.
-- **Mensajería Avanzada**: Chats en tiempo real, encuestas dinámicas y llamadas de voz/video vía WebRTC.
-- **Personalización**: Temas Ivory, Dark y Dinámico, soporte multilingüe (ES/EN) y perfiles detallados.
+- **Institutional Campus**: 
+  - Official announcement boards with push notifications.
+  - Study groups organized by degree and subject.
+  - Integrated academic event calendar.
+- **Dynamic Social Feed**: 
+  - Real-time media sharing (Photos, Videos, Audio).
+  - Advanced interactions: Double-tap likes, nested comments, and item saving.
+  - High-performance image loading with progressive blur.
+- **Next-Gen Messaging**: 
+  - Instant direct and group messaging via Firestore.
+  - Rich media previews (Audio waves, Polls, File attachments).
+  - P2P Video and Audio calls integrated with WebRTC.
+- **Universal Experience**: 
+  - **I18n**: Full English/Spanish support with English-first coding standards.
+  - **Theming**: Premium Ivory, Dark, and Dynamic system themes.
+  - **Cross-Platform**: Tested and optimized for iOS, Android, and Web browsers.
 
-## 🚀 Tecnologías
+## 🚀 Technology Stack
 
-- **Frontend**: React Native (Expo), React (Vite).
-- **Backend**: Firebase (Auth, Firestore, Cloud Messaging, Storage).
-- **Media**: Cloudinary for optimized image and video delivery.
-- **Comunicación**: WebRTC para llamadas P2P integradas.
+- **Frontend Core**: React Native (Expo SDK 52+), React (Vite).
+- **Backend Services**: Firebase (Authentication, Cloud Firestore, Cloud Messaging, Storage).
+- **Media Optimization**: Cloudinary CDN for optimized on-the-fly image and video transformations.
+- **Communication**: WebRTC for integrated P2P calls.
+- **Localization**: `i18next` for seamless language switching.
 
-## 📝 Documentación Detallada
+## 📝 Technical Documentation
 
-Para más información, consulta los siguientes documentos en la carpeta `/docs`:
+Explore our detailed documentation in the `/docs` directory:
 
-- 🏗️ [**Arquitectura**](docs/ARCHITECTURE.md) - Visión técnica y flujo de datos.
-- 🛠️ [**Guía del Desarrollador**](docs/DEVELOPER_GUIDE.md) - Configuración del entorno y estándares.
-- 📖 [**Guía de Usuario (ES)**](docs/USER_GUIDE_ES.md) - Manual de uso en español.
+- 🏗️ [**Architecture**](docs/ARCHITECTURE.md) - Technical vision, data flow, and diagrams.
+- 🛠️ [**Developer Guide**](docs/DEVELOPER_GUIDE.md) - Environment setup, standards, and deployment.
+- 📖 [**User Guide (ES)**](docs/USER_GUIDE_ES.md) - Manual de uso en español.
 - 📖 [**User Guide (EN)**](docs/USER_GUIDE_EN.md) - English user manual.
 
-## 👥 Equipo: A&S Technologies
+## 👥 Development Team: A&S Technologies
 
-- **Alejandro Mejías Ramírez** - UI/UX Mobile & Frontend
-- **Samuel Morán Hernández** - Backend & Firebase Speciality
-- **Sara Alonso Perdomo** - QA Testing & Admin Panel Management
+- **Alejandro Mejías Ramírez** - Lead UI/UX Mobile & Frontend Engineer
+- **Samuel Morán Hernández** - Backend Architect & Firebase Specialist
+- **Sara Alonso Perdomo** - QA Engineering & Admin Panel Lead
 
-**CIFP Villa de Agüimes** | *Proyecto de Fin de Grado 2025-2026*
+**CIFP Villa de Agüimes** | *Senior Graduation Project 2025-2026*
 
-## 🔗 Enlaces de Interés
+---
 
-- [Trello Board](https://trello.com/b/JoQyXFej/campushub)
+## 🔗 Quick Links
+
+- [Github Board](https://github.com/users/Zyroks0906/projects/1)
 - [Firebase Console](https://console.firebase.google.com/project/campushub-52343/overview)
-- [Repositorio GitHub](https://github.com/Lamezu/Campus-Hub)
+- [GitHub Repository](https://github.com/Lamezu/Campus-Hub)
