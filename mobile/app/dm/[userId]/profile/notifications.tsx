@@ -13,10 +13,10 @@ import { auth } from '@/config/firebase';
 import type { MuteDuration } from '@/types';
 
 const getMuteOptions = (t: any): { value: MuteDuration; label: string; description: string }[] => [
-  { value: '8h', label: t('dm.profile.notifications_settings.mute_options.8h.label') || '8 horas', description: t('dm.profile.notifications_settings.mute_options.8h.desc') || 'Silenciar durante 8 horas' },
-  { value: '1w', label: t('dm.profile.notifications_settings.mute_options.1w.label') || '1 semana', description: t('dm.profile.notifications_settings.mute_options.1w.desc') || 'Silenciar durante 7 días' },
-  { value: 'always', label: t('dm.profile.notifications_settings.mute_options.always.label') || 'Siempre', description: t('dm.profile.notifications_settings.mute_options.always.desc') || 'Silenciar indefinidamente' },
-  { value: 'off', label: t('dm.profile.notifications_settings.mute_options.off.label') || 'No silenciar', description: t('dm.profile.notifications_settings.mute_options.off.desc') || 'Recibir todas las notificaciones' },
+  { value: '8h', label: t('dm.profile.notifications_settings.mute_options.8h.label') || 'Label', description: t('dm.profile.notifications_settings.mute_options.8h.desc') || 'Desc' },
+  { value: '1w', label: t('dm.profile.notifications_settings.mute_options.1w.label') || 'Label', description: t('dm.profile.notifications_settings.mute_options.1w.desc') || 'Desc' },
+  { value: 'always', label: t('dm.profile.notifications_settings.mute_options.always.label') || 'Label', description: t('dm.profile.notifications_settings.mute_options.always.desc') || 'Desc' },
+  { value: 'off', label: t('dm.profile.notifications_settings.mute_options.off.label') || 'Label', description: t('dm.profile.notifications_settings.mute_options.off.desc') || 'Desc' },
 ];
 
 const ALERT_TONES = [
@@ -76,7 +76,7 @@ export default function DMNotificationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.notifications_settings.title') || 'Notificaciones'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.notifications_settings.title') || 'Title'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -86,7 +86,7 @@ export default function DMNotificationsScreen() {
       >
         <View style={styles.sectionHeaderWrapper}>
           <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            {t('dm.profile.notifications_settings.mute_title') || 'SILENCIAR NOTIFICACIONES'}
+            {t('dm.profile.notifications_settings.mute_title') || 'Mute Title'}
           </ThemedText>
         </View>
         <View style={[styles.sectionBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -115,7 +115,7 @@ export default function DMNotificationsScreen() {
 
         <View style={styles.sectionHeaderWrapper}>
           <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            {t('dm.profile.notifications_settings.tone_title') || 'TONO DE ALERTA'}
+            {t('dm.profile.notifications_settings.tone_title') || 'Tone Title'}
           </ThemedText>
         </View>
         <View style={[styles.sectionBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -140,7 +140,7 @@ export default function DMNotificationsScreen() {
           ))}
         </View>
         <ThemedText style={[styles.toneNote, { color: colors.textSecondary }]}>
-          {t('dm.profile.notifications_settings.tone_preview_note') || 'Toca un tono para escuchar una previsualización.'}
+          {t('dm.profile.notifications_settings.tone_preview_note') || 'Tone Preview Note'}
         </ThemedText>
       </ScrollView>
     </SafeAreaView>

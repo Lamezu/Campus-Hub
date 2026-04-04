@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Plus, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Plus, ChevronRight, Users } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
@@ -20,7 +21,7 @@ export default function DMGroupsScreen() {
   const { t } = useTranslation();
 
   const [groups, setGroups] = useState<MutualGroup[]>([]);
-  const [participantFirstName, setParticipantFirstName] = useState(t('post.someone') || 'este usuario');
+  const [participantFirstName, setParticipantFirstName] = useState(t('post.someone') || 'Someone');
 
   const meId = auth.currentUser?.uid ?? '';
 
@@ -30,7 +31,7 @@ export default function DMGroupsScreen() {
     getDoc(doc(db, 'users', userId)).then(snap => {
       if (snap.exists()) {
         const name = (snap.data().displayName as string) ?? '';
-        setParticipantFirstName(name.split(' ')[0] || (t('post.someone') || 'este usuario'));
+        setParticipantFirstName(name.split(' ')[0] || (t('post.someone') || 'Someone'));
       }
     }).catch(() => { });
   }, [meId, userId]);
@@ -47,7 +48,7 @@ export default function DMGroupsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.mutual_groups.title') || 'Grupos en común'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.mutual_groups.title') || 'Title'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -57,7 +58,7 @@ export default function DMGroupsScreen() {
         ListHeaderComponent={
           <TouchableOpacity
             style={[styles.createRow, { borderBottomColor: colors.border }]}
-            onPress={() => Alert.alert(t('common.loading') || 'Próximamente', t('common.loading') || 'Crear grupos estará disponible próximamente')}
+            onPress={() => Alert.alert(t('common.loading') || 'Loading', t('common.loading') || 'Loading')}
             activeOpacity={0.7}
           >
             <View style={[styles.groupIcon, { backgroundColor: colors.backgroundSecondary }]}>
@@ -77,7 +78,7 @@ export default function DMGroupsScreen() {
               preview += t('dm.profile.mutual_groups.and_more', { count: item.memberCount - (names.length + 2) }) || ` y más`;
             }
           } else {
-            preview = t('dm.profile.mutual_groups.you_and_contact') || 'Tú y este contacto';
+            preview = t('dm.profile.mutual_groups.you_and_contact') || 'You And Contact';
           }
 
           return (
@@ -102,11 +103,7 @@ export default function DMGroupsScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {t('dm.profile.mutual_groups.other', { count: 0 }) || 'No hay grupos en común'}
-            </ThemedText>
-          </View>
+          <EmptyState icon={Users} title={t('dm.profile.mutual_groups.other', { count: 0 })} />
         }
       />
     </SafeAreaView>
@@ -175,13 +172,5 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     lineHeight: 16,
     marginTop: 2,
-  },
-  emptyContainer: {
-    paddingTop: 80,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    lineHeight: 20,
   },
 });

@@ -5,7 +5,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Image as ImageIcon, Film, File, Mic, Link as LinkIcon } from 'lucide-react-native';
+import { ChevronLeft, Image as ImageIcon, Film, File, Mic, Link as LinkIcon, PlayCircle } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { EmptyState } from '@/components/EmptyState';
+
+type TabKey = 'image' | 'video' | 'file' | 'audio' | 'link';
+const TAB_ICONS: Record<TabKey, React.ComponentType<{ size: number; color: string; strokeWidth: number }>> = {
+  image: ImageIcon,
+  video: Film,
+  file: File,
+  audio: Mic,
+  link: LinkIcon,
+};
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
@@ -18,11 +29,11 @@ import type { SharedMedia } from '@/types';
 type Tab = 'image' | 'video' | 'file' | 'audio' | 'link';
 
 const getTabs = (t: any): { key: Tab; label: string; icon: React.ReactNode }[] => [
-  { key: 'image', label: t('dm.profile.media_tabs.image') || 'Imágenes', icon: null },
-  { key: 'video', label: t('dm.profile.media_tabs.video') || 'Vídeos', icon: null },
-  { key: 'file', label: t('dm.profile.media_tabs.file') || 'Archivos', icon: null },
+  { key: 'image', label: t('dm.profile.media_tabs.image') || 'Image', icon: null },
+  { key: 'video', label: t('dm.profile.media_tabs.video') || 'Video', icon: null },
+  { key: 'file', label: t('dm.profile.media_tabs.file') || 'File', icon: null },
   { key: 'audio', label: t('dm.profile.media_tabs.audio') || 'Audio', icon: null },
-  { key: 'link', label: t('dm.profile.media_tabs.link') || 'Enlaces', icon: null },
+  { key: 'link', label: t('dm.profile.media_tabs.link') || 'Link', icon: null },
 ];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -40,16 +51,25 @@ function formatDate(iso: string, locale: string = 'es-ES'): string {
 }
 
 function GridItem({ item, colors, userId }: { item: SharedMedia; colors: any; userId: string }) {
+  const isVideo = item.type === 'video';
+  const sourceUrl = item.thumbnail || item.url;
   return (
     <TouchableOpacity
-      style={[styles.gridItem, { backgroundColor: colors.backgroundSecondary, width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE }]}
+      style={[styles.gridItem, { backgroundColor: colors.backgroundSecondary, width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE, padding: 0 }]}
       activeOpacity={0.7}
       onPress={() => router.push({ pathname: `/dm/${userId}`, params: { highlightId: item.id } } as any)}
     >
-      <ImageIcon size={28} color={colors.textSecondary} strokeWidth={1.5} />
-      <ThemedText style={[styles.gridLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-        {item.name}
-      </ThemedText>
+      <Image 
+        source={{ uri: sourceUrl }} 
+        style={{ width: '100%', height: '100%', borderRadius: 8 }} 
+        contentFit="cover" 
+        transition={200}
+      />
+      {isVideo && (
+        <View style={{ position: 'absolute', backgroundColor: 'rgba(0,0,0,0.3)', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
+          <PlayCircle size={28} color="#fff" strokeWidth={2} />
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -118,7 +138,7 @@ export default function DMMediaScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.media_links') || 'Archivos'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.media_links') || 'Media Links'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -150,18 +170,14 @@ export default function DMMediaScreen() {
       </View>
 
       {filtered.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          {activeTab === 'image' && <ImageIcon size={48} color={colors.textSecondary} strokeWidth={1.5} />}
-          {activeTab === 'video' && <Film size={48} color={colors.textSecondary} strokeWidth={1.5} />}
-          {activeTab === 'file' && <File size={48} color={colors.textSecondary} strokeWidth={1.5} />}
-          {activeTab === 'audio' && <Mic size={48} color={colors.textSecondary} strokeWidth={1.5} />}
-          {activeTab === 'link' && <LinkIcon size={48} color={colors.textSecondary} strokeWidth={1.5} />}
-          <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {t('dm.profile.empty_media', { type: TABS.find(t => t.key === activeTab)?.label.toLowerCase() ?? (t('dm.profile.media_tabs.file') || 'archivos').toLowerCase() }) || `No hay ${TABS.find(t => t.key === activeTab)?.label.toLowerCase() ?? 'archivos'}`}
-          </ThemedText>
-        </View>
+        <EmptyState
+          icon={TAB_ICONS[activeTab as TabKey] ?? File}
+          title={t('dm.profile.empty_media', { type: TABS.find(tab => tab.key === activeTab)?.label.toLowerCase() ?? '' })}
+          fill
+        />
       ) : isGrid ? (
         <FlatList
+          key="grid"
           data={filtered}
           keyExtractor={item => item.id}
           numColumns={3}
@@ -172,6 +188,7 @@ export default function DMMediaScreen() {
         />
       ) : (
         <FlatList
+          key="list"
           data={filtered}
           keyExtractor={item => item.id}
           contentContainerStyle={{ paddingTop: spacing.sm }}
@@ -261,15 +278,5 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     lineHeight: 16,
     marginTop: 2,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.sizes.md,
-    lineHeight: 20,
   },
 });

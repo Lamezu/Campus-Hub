@@ -8,7 +8,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft, MessageSquare, Phone, Video, Image as ImageIcon,
   Star, Bell, ImagePlus, Plus, ChevronRight, Share2,
-  UserPlus, UserCheck, Heart, Trash2, Shield, AlertTriangle,
+  UserPlus, UserCheck, UserMinus, Heart, Trash2, Shield, AlertTriangle, Users,
 } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,7 +20,6 @@ import { getConversationId } from '@/services/dmService';
 import {
   getContactSettings,
   updateContactSettings,
-  toggleBestFriend,
   blockUser,
   reportUser,
   clearChat,
@@ -31,6 +30,7 @@ import {
   acceptFriendRequest,
   sendFriendRequest,
 } from '@/services/contactSettingsService';
+import { toggleBestFriend, removeFriend, areFriendsBestFriends } from '@/services/friendsService';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { SaveToPhotosSheet } from '@/components/dm/SaveToPhotosSheet';
 import { BlockSheet } from '@/components/dm/BlockSheet';
@@ -38,9 +38,9 @@ import { ReportSheet } from '@/components/dm/ReportSheet';
 import type { SaveToPhotosPreference, MuteDuration, MutualGroup } from '@/types';
 
 function roleBadgeLabel(role: string, t: any): string {
-  if (role === 'teacher') return t('roles.teacher') || 'Profesor/a';
+  if (role === 'teacher') return t('roles.teacher') || 'Teacher';
   if (role === 'admin') return t('roles.admin') || 'Admin';
-  return t('roles.student') || 'Alumno/a';
+  return t('roles.student') || 'Student';
 }
 
 function roleBadgeColor(role: string): string {
@@ -50,16 +50,16 @@ function roleBadgeColor(role: string): string {
 }
 
 const getSaveToPhotosLabel = (t: any): Record<SaveToPhotosPreference, string> => ({
-  default: t('dm.profile.save_options.default') || 'Por defecto',
-  always: t('dm.profile.save_options.always') || 'Siempre',
-  never: t('dm.profile.save_options.never') || 'Nunca',
+  default: t('dm.profile.save_options.default') || 'Save Options default',
+  always: t('dm.profile.save_options.always') || 'Always',
+  never: t('dm.profile.save_options.never') || 'Never',
 });
 
 const getMuteDurationLabel = (t: any): Record<MuteDuration, string> => ({
-  off: t('dm.profile.mute_options.off') || 'Activas',
-  '8h': t('dm.profile.mute_options.8h') || 'Silenciadas 8h',
-  '1w': t('dm.profile.mute_options.1w') || 'Silenciadas 1 sem.',
-  always: t('dm.profile.mute_options.always') || 'Silenciadas',
+  off: t('dm.profile.mute_options.off') || 'Off',
+  '8h': t('dm.profile.mute_options.8h') || '8h',
+  '1w': t('dm.profile.mute_options.1w') || '1w',
+  always: t('dm.profile.mute_options.always') || 'Always',
 });
 
 export default function DMContactProfileScreen() {
@@ -81,7 +81,6 @@ export default function DMContactProfileScreen() {
   const [friendRequestStatus, setFriendRequestStatus] = useState<'none' | 'sent' | 'received'>('none');
   const [sharedMediaCount, setSharedMediaCount] = useState(0);
   const [mutualGroups, setMutualGroups] = useState<MutualGroup[]>([]);
-  const [showAllGroups, setShowAllGroups] = useState(false);
 
   const saveToPhotosLabel = getSaveToPhotosLabel(t);
   const muteDurationLabel = getMuteDurationLabel(t);
@@ -108,13 +107,15 @@ export default function DMContactProfileScreen() {
     getContactSettings(meId, userId).then(s => {
       setMute(s.mute);
       setSaveToPhotos(s.saveToPhotos);
-      setIsBestFriend(s.isBestFriend);
     }).catch(() => { });
 
     getFriendStatus(meId, userId).then(s => {
       setIsFriend(s.isFriend);
       setFriendRequestStatus(s.friendRequestStatus);
     }).catch(() => { });
+
+    // isBestFriend comes from friends collection, not contactSettings
+    areFriendsBestFriends(meId, userId).then(setIsBestFriend).catch(() => {});
 
     getSharedMedia(conversationId).then(media => {
       setSharedMediaCount(media.length);
@@ -132,7 +133,7 @@ export default function DMContactProfileScreen() {
     .join('')
     .toUpperCase();
 
-  const displayedGroups = showAllGroups ? mutualGroups : mutualGroups.slice(0, 3);
+  const displayedGroups = mutualGroups.slice(0, 3);
 
   const handleFriendAction = useCallback(async () => {
     if (!meId || !userId) return;
@@ -148,36 +149,57 @@ export default function DMContactProfileScreen() {
         currentUser?.photoURL ?? null
       );
       setFriendRequestStatus('sent');
-      Alert.alert(t('dm.profile.friend_request_sent') || 'Solicitud enviada', t('dm.profile.friend_request_success', { name: participantName }) || `Se envió una solicitud de amistad a ${participantName}`);
+      Alert.alert(t('dm.profile.friend_request_sent') || 'Friend Request Sent', t('dm.profile.friend_request_success', { name: participantName }) || `Se envió una solicitud de amistad a ${participantName}`);
     } else if (isFriend) {
       const next = await toggleBestFriend(meId, userId);
       setIsBestFriend(next);
     }
   }, [friendRequestStatus, isFriend, meId, userId, participantName]);
 
+  const handleRemoveFriend = useCallback(() => {
+    if (!meId || !userId) return;
+    Alert.alert(
+      t('dm.profile.remove_friend_title') || 'Remove Friend Title',
+      t('dm.profile.remove_friend_confirm', { name: participantName }) || `¿Eliminar a ${participantName} de tus amigos?`,
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: t('dm.profile.remove_friend_action') || 'Remove Friend Action',
+          style: 'destructive',
+          onPress: async () => {
+            await removeFriend(meId, userId);
+            setIsFriend(false);
+            setIsBestFriend(false);
+            setFriendRequestStatus('none');
+          },
+        },
+      ]
+    );
+  }, [meId, userId, participantName, t]);
+
   const handleClearChat = () => {
     const buttons: any[] = [
-      { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
       {
-        text: t('chat.delete_for_me') || 'Eliminar para mí',
+        text: t('chat.delete_for_me') || 'Delete For Me',
         onPress: async () => {
           await clearChat(conversationId, meId);
-          Alert.alert(t('chat.chat_cleared') || 'Chat vaciado', t('chat.chat_cleared_msg') || 'Los mensajes ya no son visibles para ti');
+          Alert.alert(t('chat.chat_cleared') || 'Chat Cleared', t('chat.chat_cleared_msg') || 'Chat Cleared Msg');
         },
       },
     ];
     if (isAdmin) {
       buttons.push({
-        text: t('chat.delete_for_all') || 'Eliminar para todos',
+        text: t('chat.delete_for_all') || 'Delete For All',
         style: 'destructive',
         onPress: async () => {
           await clearChatForAll(conversationId);
-          Alert.alert(t('chat.chat_deleted') || 'Chat eliminado', t('chat.chat_deleted_msg') || 'Se eliminaron todos los mensajes');
+          Alert.alert(t('chat.chat_deleted') || 'Chat Deleted', t('chat.chat_deleted_msg') || 'Chat Deleted Msg');
         },
       });
     }
     Alert.alert(
-      t('dm.profile.clear_chat') || 'Vaciar chat',
+      t('dm.profile.clear_chat') || 'Clear Chat',
       t('chat.clear_chat_msg') || `¿Cómo quieres vaciar el chat con ${participantName}?`,
       buttons
     );
@@ -186,7 +208,7 @@ export default function DMContactProfileScreen() {
   const handleBlock = useCallback(async () => {
     if (!meId || !userId) return;
     await blockUser(meId, userId);
-    Alert.alert(t('dm.profile.user_blocked') || 'Usuario bloqueado', t('dm.profile.user_blocked_msg', { name: participantName }) || `Has bloqueado a ${participantName}`, [
+    Alert.alert(t('dm.profile.user_blocked') || 'User Blocked', t('dm.profile.user_blocked_msg', { name: participantName }) || `Has bloqueado a ${participantName}`, [
       { text: 'OK', onPress: () => router.back() },
     ]);
   }, [meId, userId, participantName]);
@@ -194,13 +216,13 @@ export default function DMContactProfileScreen() {
   const handleReport = useCallback(async () => {
     if (!meId || !userId) return;
     await reportUser(meId, userId);
-    Alert.alert(t('dm.profile.report_sent') || 'Reporte enviado', t('dm.profile.report_sent_msg') || 'Tu reporte ha sido enviado al equipo de Campus Hub');
+    Alert.alert(t('dm.profile.report_sent') || 'Report Sent', t('dm.profile.report_sent_msg') || 'Report Sent Msg');
   }, [meId, userId]);
 
   const handleBlockAndReport = useCallback(async () => {
     if (!meId || !userId) return;
     await Promise.all([blockUser(meId, userId), reportUser(meId, userId)]);
-    Alert.alert(t('dm.profile.blocked_and_reported') || 'Bloqueado y reportado', t('dm.profile.blocked_and_reported_msg', { name: participantName }) || `Has bloqueado y reportado a ${participantName}`, [
+    Alert.alert(t('dm.profile.blocked_and_reported') || 'Blocked And Reported', t('dm.profile.blocked_and_reported_msg', { name: participantName }) || `Has bloqueado y reportado a ${participantName}`, [
       { text: 'OK', onPress: () => router.back() },
     ]);
   }, [meId, userId, participantName]);
@@ -217,7 +239,7 @@ export default function DMContactProfileScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.title') || 'Info. del contacto'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.title') || 'Title'}</ThemedText>
         <View style={{ width: 32 }} />
       </View>
 
@@ -253,7 +275,7 @@ export default function DMContactProfileScreen() {
               activeOpacity={0.7}
             >
               <MessageSquare size={22} color={colors.primary} strokeWidth={1.8} />
-              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.message') || 'Mensaje'}</ThemedText>
+              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.message') || 'Message'}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
@@ -261,7 +283,7 @@ export default function DMContactProfileScreen() {
               activeOpacity={0.7}
             >
               <Phone size={22} color={colors.primary} strokeWidth={1.8} />
-              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.call') || 'Llamar'}</ThemedText>
+              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.call') || 'Call'}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
@@ -270,6 +292,14 @@ export default function DMContactProfileScreen() {
             >
               <Video size={22} color={colors.primary} strokeWidth={1.8} />
               <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.video') || 'Video'}</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
+              onPress={() => router.push({ pathname: '/dm/group/select', params: { preselectedId: userId } } as any)}
+              activeOpacity={0.7}
+            >
+              <Users size={22} color={colors.primary} strokeWidth={1.8} />
+              <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.create_group') || 'Create Group'}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -281,17 +311,17 @@ export default function DMContactProfileScreen() {
             activeOpacity={0.7}
           >
             <ImageIcon size={20} color={colors.textSecondary} strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.media_links') || 'Archivos, enlaces y docs'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.media_links') || 'Media Links'}</ThemedText>
             <ThemedText style={[styles.rowValue, { color: colors.textSecondary }]}>{sharedMediaCount}</ThemedText>
             <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.row}
-            onPress={() => router.push(`/dm/${userId}/profile/media?tab=starred` as never)}
+            onPress={() => router.push(`/dm/${userId}/starred` as never)}
             activeOpacity={0.7}
           >
             <Star size={20} color={colors.textSecondary} strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.starred') || 'Destacados'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.starred') || 'Starred'}</ThemedText>
             <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
@@ -303,7 +333,7 @@ export default function DMContactProfileScreen() {
             activeOpacity={0.7}
           >
             <Bell size={20} color={colors.textSecondary} strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.notifications') || 'Notificaciones'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.notifications') || 'Notifications'}</ThemedText>
             <ThemedText style={[styles.rowValue, { color: colors.textSecondary }]}>
               {muteDurationLabel[mute]}
             </ThemedText>
@@ -311,7 +341,7 @@ export default function DMContactProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.row} onPress={() => setShowSaveSheet(true)} activeOpacity={0.7}>
             <ImagePlus size={20} color={colors.textSecondary} strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.save_to_photos') || 'Guardar en Fotos'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.save_to_photos') || 'Save To Photos'}</ThemedText>
             <ThemedText style={[styles.rowValue, { color: colors.textSecondary }]}>
               {saveToPhotosLabel[saveToPhotos]}
             </ThemedText>
@@ -322,12 +352,12 @@ export default function DMContactProfileScreen() {
         <View style={[styles.section, { borderBottomColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
-              {t('dm.profile.mutual_groups.title') || (mutualGroups.length === 1 ? '1 grupo en común' : `${mutualGroups.length} grupos en común`)}
+              {t(mutualGroups.length === 1 ? 'dm.profile.mutual_groups.title.one' : 'dm.profile.mutual_groups.title.other', { count: mutualGroups.length }) || (mutualGroups.length === 1 ? '1 Group in common' : `${mutualGroups.length} Groups in common`)}
             </ThemedText>
           </View>
           <TouchableOpacity
             style={[styles.row, { borderBottomColor: colors.border }]}
-            onPress={() => router.push(`/chat/create?userId=${userId}&userName=${encodeURIComponent(participantName)}` as any)}
+            onPress={() => router.push(`/dm/group/select?preselectedId=${encodeURIComponent(userId)}` as any)}
             activeOpacity={0.7}
           >
             <View style={[styles.groupIcon, { backgroundColor: colors.backgroundSecondary }]}>
@@ -381,7 +411,7 @@ export default function DMContactProfileScreen() {
             activeOpacity={0.7}
           >
             <Share2 size={20} color="#34C759" strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: '#34C759' }]}>{t('dm.profile.share_user') || 'Compartir usuario'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: '#34C759' }]}>{t('dm.profile.share_user') || 'Share User'}</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.row, { borderBottomColor: colors.border }]}
@@ -406,15 +436,23 @@ export default function DMContactProfileScreen() {
                     : colors.primary,
             }]}>
               {isFriend
-                ? isBestFriend ? (t('dm.profile.best_friend_remove') || 'Quitar de mejores amigos') : (t('dm.profile.best_friend_add') || 'Añadir a mejores amigos')
-                : friendRequestStatus === 'received' ? (t('dm.profile.friend_request_accept') || 'Aceptar solicitud de amistad')
-                  : friendRequestStatus === 'sent' ? (t('dm.profile.friend_request_sent') || 'Solicitud enviada')
-                    : (t('dm.profile.friend_request_send') || 'Enviar solicitud de amistad')}
+                ? isBestFriend ? (t('dm.profile.best_friend_remove') || 'Best Friend Remove') : (t('dm.profile.best_friend_add') || 'Best Friend Add')
+                : friendRequestStatus === 'received' ? (t('dm.profile.friend_request_accept') || 'Friend Request Accept')
+                  : friendRequestStatus === 'sent' ? (t('dm.profile.friend_request_sent') || 'Friend Request Sent')
+                    : (t('dm.profile.friend_request_send') || 'Friend Request Send')}
             </ThemedText>
           </TouchableOpacity>
+          {isFriend && (
+            <TouchableOpacity style={[styles.row, { borderBottomColor: colors.border }]} onPress={handleRemoveFriend} activeOpacity={0.7}>
+              <UserMinus size={20} color={colors.danger ?? '#FF3B30'} strokeWidth={1.8} />
+              <ThemedText style={[styles.rowLabel, { color: colors.danger ?? '#FF3B30' }]}>
+                {t('dm.profile.remove_friend') || 'Remove Friend'}
+              </ThemedText>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.row} onPress={handleClearChat} activeOpacity={0.7}>
             <Trash2 size={20} color="#FF9500" strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: '#FF9500' }]}>{t('dm.profile.clear_chat') || 'Vaciar chat'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: '#FF9500' }]}>{t('dm.profile.clear_chat') || 'Clear Chat'}</ThemedText>
           </TouchableOpacity>
         </View>
 

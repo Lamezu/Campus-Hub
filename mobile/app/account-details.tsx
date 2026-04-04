@@ -56,28 +56,28 @@ export default function AccountDetails() {
         const code = generateOtpCode();
         setPasswordRevealExpected(code);
         setIsVerifyingPasswordReveal(true);
-        Alert.alert(t('account_details.email_simulation') || 'Simulación de Correo', (t('account_details.code_sent') || `Código de verificación enviado: `) + code);
+        Alert.alert(t('account_details.email_simulation') || 'Email Simulation', (t('account_details.code_sent') || `Code Sent`) + code);
     };
 
     const confirmPasswordReveal = () => {
         if (passwordRevealCode.toUpperCase() !== passwordRevealExpected) {
-            Alert.alert(t('common.error') || 'Error', t('account_details.invalid_code') || 'Código de verificación incorrecto');
+            Alert.alert(t('common.error') || 'Error', t('account_details.invalid_code') || 'Invalid Code');
             return;
         }
         setShowPassword(true);
         setIsVerifyingPasswordReveal(false);
         setPasswordRevealCode('');
-        Alert.alert(t('account_details.verified_title') || 'Verificado', t('account_details.verified_msg') || 'Por seguridad, las contraseñas están encriptadas y no se pueden mostrar en texto plano. Ahora tienes acceso para cambiarla si lo deseas.');
+        Alert.alert(t('account_details.verified_title') || 'Verified Title', t('account_details.verified_msg') || 'Verified Msg');
     };
 
     const handleUpdatePassword = async () => {
         if (!currentUser || !oldPassword || !newPass || !confirmPass) {
-            Alert.alert(t('common.error') || 'Error', t('roles.errors.all_fields') || 'Completa todos los campos');
+            Alert.alert(t('common.error') || 'Error', t('roles.errors.all_fields') || 'All Fields');
             return;
         }
 
         if (newPass !== confirmPass) {
-            Alert.alert(t('common.error') || 'Error', t('roles.errors.passwords_dont_match') || 'Las contraseñas nuevas no coinciden');
+            Alert.alert(t('common.error') || 'Error', t('roles.errors.passwords_dont_match') || 'Passwords Dont Match');
             return;
         }
 
@@ -86,13 +86,13 @@ export default function AccountDetails() {
             const credential = EmailAuthProvider.credential(currentUser.email!, oldPassword);
             await reauthenticateWithCredential(currentUser, credential);
             await updatePassword(currentUser, newPass);
-            Alert.alert(t('common.success') || 'Éxito', t('account_details.password_updated') || 'Contraseña actualizada correctamente');
+            Alert.alert(t('common.success') || 'Success', t('account_details.password_updated') || 'Password Updated');
             setIsEditingPassword(false);
             setOldPassword('');
             setNewPass('');
             setConfirmPass('');
         } catch (error: any) {
-            Alert.alert(t('common.error') || 'Error', t('account_details.wrong_password') || 'Contraseña antigua incorrecta o nueva muy débil');
+            Alert.alert(t('common.error') || 'Error', t('account_details.wrong_old_password') || 'Wrong Old Password');
         } finally {
             setLoading(false);
         }
@@ -106,7 +106,7 @@ export default function AccountDetails() {
             <Stack.Screen
                 options={{
                     headerShown: true,
-                    headerTitle: t('account_details.header_title') || 'Datos de la Cuenta',
+                    headerTitle: t('account_details.header_title') || 'Header Title',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
                             <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -117,12 +117,12 @@ export default function AccountDetails() {
 
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.section}>
-                    <ThemedText style={styles.sectionTitle}>{t('account_details.security') || 'Seguridad'}</ThemedText>
+                    <ThemedText style={styles.sectionTitle}>{t('account_details.security') || 'Security'}</ThemedText>
 
                     <View style={[styles.infoCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
                         <View style={styles.infoRow}>
                             <View>
-                                <ThemedText style={styles.label}>{t('common.password') || 'Contraseña'}</ThemedText>
+                                <ThemedText style={styles.label}>{t('common.password') || 'Password'}</ThemedText>
                                 <ThemedText style={styles.value}>
                                     {showPassword ? 'sha256:7b5e...3a1f' : '••••••••••••'}
                                 </ThemedText>
@@ -132,7 +132,7 @@ export default function AccountDetails() {
                                     <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.primary} style={{ marginRight: 15 }} />
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={() => setIsEditingPassword(true)}>
-                                    <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{t('common.change') || 'Cambiar'}</ThemedText>
+                                    <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{t('common.change') || 'Change'}</ThemedText>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -145,25 +145,25 @@ export default function AccountDetails() {
                         style={styles.modalOverlay}
                     >
                         <ThemedView style={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>{t('account_details.new_password') || 'Nueva Contraseña'}</ThemedText>
+                            <ThemedText style={styles.modalTitle}>{t('account_details.new_password') || 'New Password'}</ThemedText>
 
                             <TextInput
                                 style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                                placeholder="Contraseña Antigua"
+                                placeholder={t('account_details.old_password')}
                                 secureTextEntry
                                 value={oldPassword}
                                 onChangeText={setOldPassword}
                             />
                             <TextInput
                                 style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                                placeholder="Nueva Contraseña"
+                                placeholder={t('account_details.new_password')}
                                 secureTextEntry
                                 value={newPass}
                                 onChangeText={setNewPass}
                             />
                             <TextInput
                                 style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                                placeholder="Confirmar Nueva"
+                                placeholder={t('account_details.confirm_password')}
                                 secureTextEntry
                                 value={confirmPass}
                                 onChangeText={setConfirmPass}
@@ -171,10 +171,10 @@ export default function AccountDetails() {
 
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity style={styles.modalBtn} onPress={() => setIsEditingPassword(false)}>
-                                    <ThemedText style={{ opacity: 0.6 }}>{t('common.cancel') || 'Cancelar'}</ThemedText>
+                                    <ThemedText style={{ opacity: 0.6 }}>{t('common.cancel') || 'Cancel'}</ThemedText>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.modalBtn, styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={handleUpdatePassword}>
-                                    {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff' }}>{t('common.update') || 'Actualizar'}</ThemedText>}
+                                    {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff' }}>{t('common.update') || 'Update'}</ThemedText>}
                                 </TouchableOpacity>
                             </View>
                         </ThemedView>
@@ -188,8 +188,8 @@ export default function AccountDetails() {
                     >
                         <ThemedView style={styles.modalContent}>
                             <Ionicons name="mail-open" size={40} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 15 }} />
-                            <ThemedText style={styles.modalTitle}>{t('account_details.security') || 'Seguridad'}</ThemedText>
-                            <ThemedText style={styles.modalSub}>{t('account_details.otp_tip') || 'Introduce el código de 5 caracteres enviado a tu correo para acceder a estos datos.'}</ThemedText>
+                            <ThemedText style={styles.modalTitle}>{t('account_details.security') || 'Security'}</ThemedText>
+                            <ThemedText style={styles.modalSub}>{t('account_details.otp_tip') || 'Otp Tip'}</ThemedText>
 
                             <TextInput
                                 style={[styles.input, styles.otpInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.primary }]}
@@ -202,10 +202,10 @@ export default function AccountDetails() {
 
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity style={styles.modalBtn} onPress={() => setIsVerifyingPasswordReveal(false)}>
-                                    <ThemedText style={{ opacity: 0.6 }}>Cancelar</ThemedText>
+                                    <ThemedText style={{ opacity: 0.6 }}>{t('common.cancel')}</ThemedText>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.modalBtn, styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={confirmPasswordReveal}>
-                                    <ThemedText style={{ color: '#fff' }}>Verificar</ThemedText>
+                                    <ThemedText style={{ color: '#fff' }}>{t('account_details.verify')}</ThemedText>
                                 </TouchableOpacity>
                             </View>
                         </ThemedView>

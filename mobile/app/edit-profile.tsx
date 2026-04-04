@@ -16,7 +16,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, signOut } from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -60,7 +60,7 @@ export default function EditProfileScreen() {
             }
         } catch (error) {
             console.error('Error loading profile:', error);
-            Alert.alert(t('common.error') || 'Error', t('profile.loading_error') || 'No se pudo cargar el perfil');
+            Alert.alert(t('common.error') || 'Error', t('profile.loading_error') || 'Loading Error');
         } finally {
             setLoading(false);
         }
@@ -69,7 +69,7 @@ export default function EditProfileScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para cambiar la foto.');
+            Alert.alert(t('common.permission_denied') || 'Permission Denied', t('explore.gallery_permission_msg') || 'Gallery Permission Msg');
             return;
         }
 
@@ -109,25 +109,46 @@ export default function EditProfileScreen() {
                 updatedAt: serverTimestamp()
             });
 
-            Alert.alert(t('common.success') || 'Éxito', t('profile.save_success') || 'Perfil actualizado correctamente');
+            Alert.alert(t('common.success') || 'Success', t('profile.save_success') || 'Save Success');
             router.back();
         } catch (error: any) {
             console.error('Error saving profile:', error);
 
             if (error.code === 'auth/requires-recent-login') {
-                Alert.alert(t('common.error') || 'Error', t('auth.recent_login_required') || 'Por favor, cierra sesión e inicia de nuevo para cambiar el email.');
+                Alert.alert(t('common.error') || 'Error', t('auth.recent_login_required') || 'Recent Login Required');
             } else if (error.code === 'auth/email-already-in-use') {
-                Alert.alert(t('common.error') || 'Error', t('auth.email_already_in_use') || 'Este correo ya está en uso por otra cuenta.');
+                Alert.alert(t('common.error') || 'Error', t('auth.email_already_in_use') || 'Email Already In Use');
             } else if (error.code === 'auth/wrong-password') {
-                Alert.alert(t('common.error') || 'Error', t('auth.wrong_password') || 'Contraseña incorrecta.');
+                Alert.alert(t('common.error') || 'Error', t('auth.wrong_password') || 'Wrong Password');
             } else if (error.code === 'auth/invalid-email') {
-                Alert.alert(t('common.error') || 'Error', t('auth.invalid_email') || 'Formato de email inválido.');
+                Alert.alert(t('common.error') || 'Error', t('auth.invalid_email') || 'Invalid Email');
             } else {
-                Alert.alert(t('common.error') || 'Error', t('profile.save_error') || 'No se pudieron guardar los cambios');
+                Alert.alert(t('common.error') || 'Error', t('profile.save_error') || 'Save Error');
             }
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleLogout = () => {
+        Alert.alert(
+            t('common.logout') || 'Logout',
+            t('common.logout_confirm') || 'Logout Confirm',
+            [
+                { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                {
+                    text: t('common.logout') || 'Logout',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await signOut(auth);
+                        } catch {
+                            Alert.alert(t('common.error') || 'Error', t('settings.logout_error') || 'Logout Error');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const headerHeight = useHeaderHeight();
@@ -147,19 +168,10 @@ export default function EditProfileScreen() {
             <Stack.Screen
                 options={{
                     headerShown: true,
-                    headerTitle: t('profile.edit_profile') || 'Editar Perfil',
+                    headerTitle: t('profile.edit_profile') || 'Edit Profile',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
                             <Ionicons name="chevron-back" size={24} color={colors.text} />
-                        </TouchableOpacity>
-                    ),
-                    headerRight: () => (
-                        <TouchableOpacity onPress={handleSave} disabled={saving} style={{ marginRight: spacing.sm, padding: 4 }}>
-                            {saving ? (
-                                <ActivityIndicator size="small" color={colors.primary} />
-                            ) : (
-                                <ThemedText style={[styles.saveButtonText, { color: colors.primary }]}>{t('common.save') || 'Guardar'}</ThemedText>
-                            )}
                         </TouchableOpacity>
                     ),
                 }}
@@ -184,28 +196,28 @@ export default function EditProfileScreen() {
                                 </View>
                             )}
                         </TouchableOpacity>
-                        <ThemedText style={styles.changePhotoText}>{t('profile.change_photo') || 'Cambiar foto'}</ThemedText>
+                        <ThemedText style={styles.changePhotoText}>{t('profile.change_photo') || 'Change Photo'}</ThemedText>
                     </View>
 
                     <View style={styles.formSection}>
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>{t('profile.username_label') || 'Nombre de usuario'}</ThemedText>
+                            <ThemedText style={styles.label}>{t('profile.username_label') || 'Username Label'}</ThemedText>
                             <TextInput
                                 style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
                                 value={displayName}
                                 onChangeText={setDisplayName}
-                                placeholder={t('profile.bio_placeholder') || 'Tu nombre'}
+                                placeholder={t('profile.bio_placeholder') || 'Bio Placeholder'}
                                 placeholderTextColor={colors.textSecondary}
                             />
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>{t('profile.bio_label') || 'Biografía'}</ThemedText>
+                            <ThemedText style={styles.label}>{t('profile.bio_label') || 'Bio Label'}</ThemedText>
                             <TextInput
                                 style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
                                 value={bio}
                                 onChangeText={setBio}
-                                placeholder={t('profile.describe_yourself') || 'Cuéntanos sobre ti...'}
+                                placeholder={t('profile.describe_yourself') || 'Describe Yourself'}
                                 placeholderTextColor={colors.textSecondary}
                                 multiline
                                 numberOfLines={4}
@@ -222,7 +234,7 @@ export default function EditProfileScreen() {
                         {saving ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <ThemedText style={styles.primarySaveButtonText}>{t('profile.save_changes') || 'Guardar Cambios'}</ThemedText>
+                            <ThemedText style={styles.primarySaveButtonText}>{t('profile.save_changes') || 'Save Changes'}</ThemedText>
                         )}
                     </TouchableOpacity>
 
@@ -230,7 +242,7 @@ export default function EditProfileScreen() {
                         <ThemedText style={styles.sectionTitle}>{t('settings.change_language')}</ThemedText>
                         <View style={styles.languageContainer}>
                             {[
-                                { id: 'es', label: t('common.spanish') || 'Español', flag: '🇪🇸' },
+                                { id: 'es', label: t('common.spanish') || 'Spanish', flag: '🇪🇸' },
                                 { id: 'en', label: t('common.english') || 'English', flag: '🇺🇸' }
                             ].map((item) => {
                                 const isSelected = language === item.id;
@@ -256,24 +268,50 @@ export default function EditProfileScreen() {
                     </View>
 
                     <View style={styles.dangerZone}>
-                        <ThemedText style={styles.sectionTitle}>{t('profile.account_privacy') || 'Cuenta y Privacidad'}</ThemedText>
-                        <ThemedText style={styles.sectionDescription}>{t('profile.manage_account_desc') || 'Gestiona tu correo electrónico y seguridad desde una sección protegida.'}</ThemedText>
+                        <ThemedText style={styles.sectionTitle}>{t('profile.account_privacy') || 'Account Privacy'}</ThemedText>
+                        <ThemedText style={styles.sectionDescription}>{t('profile.manage_account_desc') || 'Manage Account Desc'}</ThemedText>
 
                         <TouchableOpacity
                             style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
                             onPress={() => router.push('/account-details' as any)}
                         >
                             <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-                            <ThemedText style={styles.manageAccountText}>{t('profile.account_data') || 'Datos de la cuenta'}</ThemedText>
+                            <ThemedText style={styles.manageAccountText}>{t('profile.account_data') || 'Account Data'}</ThemedText>
                             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                            onPress={() => router.push('/accounts' as any)}
+                        >
+                            <Ionicons name="people-outline" size={20} color={colors.primary} />
+                            <ThemedText style={styles.manageAccountText}>{t('settings.manage_accounts') || 'Manage Accounts'}</ThemedText>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.manageAccountButton, { backgroundColor: '#FF3B3010', borderColor: '#FF3B30' }]}
+                            onPress={() => router.push('/delete-account' as any)}
+                        >
+                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                            <ThemedText style={[styles.manageAccountText, { color: '#FF3B30' }]}>{t('settings.delete_account') || 'Delete Account'}</ThemedText>
+                            <Ionicons name="chevron-forward" size={20} color="#FF3B30" />
                         </TouchableOpacity>
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.cancelButton, { borderColor: colors.danger }]}
+                        style={[styles.logoutButton, { borderColor: colors.danger }]}
+                        onPress={handleLogout}
+                    >
+                        <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+                        <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>{t('common.logout') || 'Logout'}</ThemedText>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.cancelButton, { borderColor: colors.border }]}
                         onPress={() => router.back()}
                     >
-                        <ThemedText style={{ color: colors.danger, fontWeight: '600' }}>{t('profile.discard_changes') || 'Descartar Cambios'}</ThemedText>
+                        <ThemedText style={{ color: colors.textSecondary, fontWeight: '600' }}>{t('profile.discard_changes') || 'Discard Changes'}</ThemedText>
                     </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -345,10 +383,6 @@ const styles = StyleSheet.create({
         minHeight: 100,
         paddingTop: spacing.md,
     },
-    saveButtonText: {
-        fontSize: typography.sizes.md,
-        fontWeight: 'bold',
-    },
     primarySaveButton: {
         height: 56,
         borderRadius: 16,
@@ -398,6 +432,16 @@ const styles = StyleSheet.create({
         marginLeft: spacing.sm,
         fontSize: typography.sizes.sm,
         fontWeight: '600',
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        padding: spacing.md,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: spacing.sm,
     },
     cancelButton: {
         padding: spacing.md,
