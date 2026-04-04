@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Stack, router } from 'expo-router';
 import { collection, onSnapshot, doc, updateDoc, setDoc, getDoc, orderBy, query } from 'firebase/firestore';
-import { Check, ChevronLeft, Search, X } from 'lucide-react-native';
+import { Check, ChevronLeft, Search, X, Users } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrentUser } from '@/contexts/UserContext';
@@ -99,7 +100,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
       await onSave(user.uid, selectedRole, selectedSubrole);
       onClose();
     } catch {
-      Alert.alert(t('common.error') || 'Error', t('admin.update_error') || 'No se pudo actualizar el rol');
+      Alert.alert(t('common.error') || 'Error', t('admin.update_error') || 'Update Error');
     } finally {
       setSaving(false);
     }
@@ -324,9 +325,7 @@ export default function AdminUsersScreen() {
             keyExtractor={u => u.uid}
             renderItem={renderUser}
             ListEmptyComponent={
-              <ThemedText style={[styles.empty, { color: colors.textSecondary }]}>
-                {search ? t('dm.no_results') : t('admin.no_users')}
-              </ThemedText>
+              <EmptyState icon={Users} title={search ? t('dm.no_results') : t('admin.no_users')} />
             }
             contentContainerStyle={{ paddingBottom: 40 }}
           />
@@ -360,7 +359,6 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1 },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  empty: { textAlign: 'center', marginTop: 40 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, paddingBottom: spacing.xl + 8 },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: spacing.md },

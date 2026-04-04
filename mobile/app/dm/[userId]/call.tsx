@@ -4,6 +4,7 @@ import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { Mic, MicOff, Volume2, VolumeX, Video, VideoOff, MonitorUp, PhoneOff, Camera } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTheme } from '@/contexts/ThemeContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import type { CallStatus, CallType, ActiveCall } from '@/types';
@@ -17,6 +18,7 @@ import {
   webRTCAvailable,
 } from '@/utils/webrtc';
 import * as callService from '@/services/callService';
+import { avatarColor } from '@/utils/avatarColor';
 import { Audio } from 'expo-av';
 
 const SOUNDS = {
@@ -57,20 +59,31 @@ function ControlBtn({ icon, label, onPress, active }: ControlBtnProps) {
 }
 
 export default function CallScreen() {
+  const { t } = useTranslation();
+
   if (!webRTCAvailable) {
     return (
-      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center', gap: 16, padding: 32 }]}>
+      <View style={styles.screen}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <Stack.Screen options={{ headerShown: false }} />
-        <PhoneOff size={48} color="rgba(255,255,255,0.4)" strokeWidth={1.5} />
-        <ThemedText style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
-          Llamadas no disponibles
-        </ThemedText>
-        <ThemedText style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-          Esta función requiere un Development Build. No es compatible con Expo Go.
-        </ThemedText>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
-          <ThemedText style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Volver</ThemedText>
-        </TouchableOpacity>
+        <SafeAreaView style={[styles.safeArea, { justifyContent: 'center' }]}>
+          <View style={{ alignItems: 'center', gap: 32, paddingHorizontal: 32 }}>
+            <View style={styles.unavailIconRing}>
+              <PhoneOff size={36} color="#FF6B6B" strokeWidth={2} />
+            </View>
+            <View style={{ alignItems: 'center', gap: 12 }}>
+              <ThemedText style={styles.unavailTitle}>
+                {t('dm.call.not_available_title') || 'Not Available Title'}
+              </ThemedText>
+              <ThemedText style={styles.unavailDesc}>
+                {t('dm.call.build_required') || 'Build Required'}
+              </ThemedText>
+            </View>
+            <TouchableOpacity onPress={() => router.back()} style={styles.unavailBackBtn} activeOpacity={0.8}>
+              <ThemedText style={styles.unavailBackText}>{t('common.back') || 'Back'}</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
@@ -79,6 +92,7 @@ export default function CallScreen() {
 
 function CallScreenInner() {
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const { userId, type, callId: initialCallId, isReceiver } = useLocalSearchParams<{
     userId: string;
     type: string;
@@ -236,14 +250,6 @@ function CallScreenInner() {
       } catch (err) {
         console.warn('Call initialization failed (Expected on mobile):', err);
         setCallStatus('error');
-        // Mantener el mensaje de error unos segundos antes de volver
-        setTimeout(() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/messages');
-          }
-        }, 3500);
       }
     };
 
@@ -362,17 +368,11 @@ function CallScreenInner() {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {callType === 'video' && (
+      {callType === 'video' && callStatus !== 'error' && (
         <View style={styles.videoArea}>
           {remoteStream && (remoteStream as any).toURL ? (
             <RTCView streamURL={(remoteStream as any).toURL()} style={styles.remoteVideo} objectFit="cover" />
-          ) : (
-            <View style={styles.videoPlaceholder}>
-              <Camera size={56} color="rgba(255,255,255,0.25)" strokeWidth={1.5} />
-              <ThemedText style={styles.videoPlaceholderText}>{t('dm.call.waiting_video') || 'Esperando video remoto...'}</ThemedText>
-            </View>
-          )}
-
+          ) : null}
           {localStream && (localStream as any).toURL && !isVideoOff && (
             <View style={styles.localVideoContainer}>
               <RTCView streamURL={(localStream as any).toURL()} style={styles.localVideo} objectFit="cover" zOrder={1} />
@@ -381,6 +381,11 @@ function CallScreenInner() {
         </View>
       )}
 
+      {participantPhoto && (
+        <Image source={{ uri: participantPhoto }} style={styles.bgPhoto} blurRadius={50} />
+      )}
+      <View style={styles.bgOverlay} />
+
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topSection}>
           <View style={styles.avatarWrapper}>
@@ -388,56 +393,85 @@ function CallScreenInner() {
             {participantPhoto ? (
               <Image source={{ uri: participantPhoto }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarFallback}>
+              <View style={[styles.avatarFallback, { backgroundColor: avatarColor(userId as string) }]}>
                 <ThemedText style={styles.avatarInitials}>{initials}</ThemedText>
               </View>
             )}
           </View>
 
           <ThemedText style={styles.participantName}>{participantName}</ThemedText>
-          <ThemedText style={styles.statusText}>
-            {callStatus === 'error' ? (t('dm.call.not_available_desc') || 'Las llamadas no están disponibles en móvil.') :
-              callStatus === 'ringing' ? (isIncoming ? (t('dm.call.incoming') || 'Llamada entrante...') : (t('dm.call.calling') || 'Llamando...')) : formatDuration(duration)}
-          </ThemedText>
+          {callStatus !== 'error' && (
+            <ThemedText style={styles.statusText}>
+              {callStatus === 'ringing'
+                ? (isIncoming ? (t('dm.call.incoming') || 'Incoming') : (t('dm.call.calling') || 'Calling'))
+                : formatDuration(duration)}
+            </ThemedText>
+          )}
         </View>
+
+        {callStatus === 'error' && (
+          <View style={styles.errorCard}>
+            <View style={styles.errorIconRing}>
+              <PhoneOff size={26} color="#FF6B6B" strokeWidth={2} />
+            </View>
+            <ThemedText style={styles.errorCardTitle}>
+              {t('dm.call.not_available_title') || 'Not Available Title'}
+            </ThemedText>
+            <ThemedText style={styles.errorCardDesc}>
+              {t('dm.call.not_available_desc') || 'Not Available Desc'}
+            </ThemedText>
+            <View style={styles.platformRow}>
+              <View style={styles.platformBadge}>
+                <ThemedText style={styles.platformBadgeText}>🌐 Web</ThemedText>
+              </View>
+              <View style={styles.platformBadge}>
+                <ThemedText style={styles.platformBadgeText}>🖥 Desktop</ThemedText>
+              </View>
+            </View>
+          </View>
+        )}
 
         <View style={styles.bottomSection}>
           {callStatus === 'active' && (
             <View style={styles.controlsGrid}>
               <ControlBtn
                 icon={isMuted ? <MicOff size={24} color="#fff" strokeWidth={2} /> : <Mic size={24} color="#fff" strokeWidth={2} />}
-                label={isMuted ? (t('dm.call.unmute') || 'Activar mic') : (t('dm.call.mute') || 'Silenciar')}
+                label={isMuted ? (t('dm.call.unmute') || 'Unmute') : (t('dm.call.mute') || 'Mute')}
                 onPress={toggleMute}
                 active={isMuted}
               />
               <ControlBtn
                 icon={isDeaf ? <VolumeX size={24} color="#fff" strokeWidth={2} /> : <Volume2 size={24} color="#fff" strokeWidth={2} />}
-                label={isDeaf ? (t('dm.call.listen') || 'Escuchar') : (t('dm.call.deafen') || 'Ensordecer')}
+                label={isDeaf ? (t('dm.call.listen') || 'Listen') : (t('dm.call.deafen') || 'Deafen')}
                 onPress={() => setIsDeaf(v => !v)}
                 active={isDeaf}
               />
               {callType === 'video' && (
                 <ControlBtn
                   icon={isVideoOff ? <VideoOff size={24} color="#fff" strokeWidth={2} /> : <Video size={24} color="#fff" strokeWidth={2} />}
-                  label={isVideoOff ? (t('dm.call.video_on') || 'Activar cám.') : (t('dm.call.video_off') || 'Cámara')}
+                  label={isVideoOff ? (t('dm.call.video_on') || 'Video On') : (t('dm.call.video_off') || 'Video Off')}
                   onPress={toggleVideo}
                   active={isVideoOff}
                 />
               )}
               <ControlBtn
                 icon={<MonitorUp size={24} color="#fff" strokeWidth={2} />}
-                label={t('dm.call.screen_share') || "Pantalla"}
-                onPress={() => Alert.alert(t('common.coming_soon') || 'Próximamente', t('dm.call.screen_share_soon') || 'Compartir pantalla estará disponible próximamente.')}
+                label={t('dm.call.screen_share') || 'Screen Share'}
+                onPress={() => Alert.alert(t('common.coming_soon') || 'Coming Soon', t('dm.call.screen_share_soon') || 'Screen Share Soon')}
               />
             </View>
           )}
 
           <View style={styles.hangUpWrapper}>
-            <TouchableOpacity style={styles.hangUpBtn} onPress={() => handleHangUp()} activeOpacity={0.85}>
+            <TouchableOpacity style={[styles.hangUpBtn, { backgroundColor: colors.danger, shadowColor: colors.danger }]} onPress={() => handleHangUp()} activeOpacity={0.85}>
               <PhoneOff size={28} color="#fff" strokeWidth={2} />
             </TouchableOpacity>
             <ThemedText style={styles.hangUpLabel}>
-              {callStatus === 'ringing' ? (t('common.cancel') || 'Cancelar') : (t('dm.call.hang_up') || 'Colgar')}
+              {callStatus === 'error'
+                ? (t('common.back') || 'Back')
+                : callStatus === 'ringing'
+                  ? (t('common.cancel') || 'Cancel')
+                  : (t('dm.call.hang_up') || 'Hang Up')}
             </ThemedText>
           </View>
         </View>
@@ -448,21 +482,76 @@ function CallScreenInner() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0a0a1a' },
+  bgPhoto: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.3 },
+  bgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0a0a1e', opacity: 0.75 },
   videoArea: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
   remoteVideo: { flex: 1 },
   localVideoContainer: { position: 'absolute', top: 50, right: 20, width: 120, height: 160, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)' },
   localVideo: { flex: 1 },
   videoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
   videoPlaceholderText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
-  safeArea: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40 },
+  safeArea: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 48 },
   topSection: { alignItems: 'center', gap: 14 },
   avatarWrapper: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center' },
   pulseBg: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#fff' },
   avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },
-  avatarFallback: { width: 110, height: 110, borderRadius: 55, backgroundColor: '#0A84FF', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },
-  avatarInitials: { fontSize: 40, fontWeight: 'bold', color: '#fff' },
+  avatarFallback: { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)', overflow: 'hidden' },
+  avatarInitials: { fontSize: 36, fontWeight: '700', color: '#fff', textAlign: 'center', lineHeight: 44 },
   participantName: { fontSize: 28, fontWeight: '700', color: '#fff', textAlign: 'center' },
   statusText: { fontSize: 16, color: 'rgba(255,255,255,0.6)', fontVariant: ['tabular-nums'] },
+  errorCard: {
+    marginHorizontal: 8,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    padding: 28,
+    alignItems: 'center',
+    gap: 14,
+  },
+  errorIconRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,107,107,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorCardTitle: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  errorCardDesc: { fontSize: 14, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 22 },
+  platformRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  platformBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  platformBadgeText: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  unavailIconRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(255,107,107,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,107,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unavailTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  unavailDesc: { fontSize: 15, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 24 },
+  unavailBackBtn: {
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  unavailBackText: { fontSize: 15, fontWeight: '600', color: '#fff' },
   bottomSection: { gap: 40, alignItems: 'center' },
   controlsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 24, width: '100%' },
   controlWrapper: { alignItems: 'center', gap: 10, width: 72 },
@@ -470,6 +559,6 @@ const styles = StyleSheet.create({
   controlCircleActive: { backgroundColor: 'rgba(255,255,255,0.35)' },
   controlLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
   hangUpWrapper: { alignItems: 'center', gap: 10 },
-  hangUpBtn: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10 },
+  hangUpBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10 },
   hangUpLabel: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
 });
