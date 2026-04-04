@@ -60,10 +60,10 @@ export default function GroupInfoScreen() {
     return unsub;
   }, [groupId]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!meId || !groupId) return;
     getContactSettings(meId, `group_${groupId}`).then(s => setMute(s.mute)).catch(() => {});
-  }, [meId, groupId]);
+  }, [meId, groupId]));
 
   const handleSaveName = async () => {
     if (!groupId) return;
@@ -233,29 +233,25 @@ export default function GroupInfoScreen() {
         {/* Quick action buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
-            onPress={handleMuteToggle} activeOpacity={0.7}>
-            <Bell size={22} color={colors.primary} strokeWidth={1.8} />
-            <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.profile.notifications') || 'Notifications'}</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
             onPress={() => router.push(`/dm/group/select?groupId=${groupId}` as any)} activeOpacity={0.7}>
             <UserPlus size={22} color={colors.primary} strokeWidth={1.8} />
-            <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.add_members') || 'Add Members'}</ThemedText>
+            <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.add_members') || 'Añadir miembros'}</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
             onPress={handleMuteToggle} activeOpacity={0.7}>
             <Bell size={22} color={mute === 'always' ? colors.textSecondary : colors.primary} strokeWidth={1.8} />
             <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>
-              {mute === 'always' ? (t('dm.unmute') || 'Unmute') : (t('dm.mute') || 'Mute')}
+              {mute === 'always' ? (t('dm.unmute') || 'Activar') : (t('dm.mute') || 'Silenciar')}
             </ThemedText>
           </TouchableOpacity>
         </View>
 
         {/* Settings section */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <TouchableOpacity style={[styles.row, { borderBottomColor: colors.border }]} activeOpacity={0.7} onPress={handleMuteToggle}>
+          <TouchableOpacity style={[styles.row, { borderBottomColor: colors.border }]} activeOpacity={0.7}
+            onPress={() => router.push(`/dm/group/${groupId}/notifications` as any)}>
             <Bell size={20} color={colors.textSecondary} strokeWidth={1.8} />
-            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.notifications') || 'Notifications'}</ThemedText>
+            <ThemedText style={[styles.rowLabel, { color: colors.text }]}>{t('dm.profile.notifications') || 'Notificaciones'}</ThemedText>
             <ThemedText style={[styles.rowValue, { color: colors.textSecondary }]}>{muteDurationLabel[mute]}</ThemedText>
             <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
           </TouchableOpacity>
