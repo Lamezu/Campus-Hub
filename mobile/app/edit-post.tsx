@@ -56,13 +56,13 @@ export default function EditPostScreen() {
     if (!id) return;
     getDoc(doc(db, 'posts', id)).then((snap) => {
       if (!snap.exists()) {
-        Alert.alert(t('common.error') || 'Error', t('post.not_found') || 'Post no encontrado.');
+        Alert.alert(t('common.error') || 'Error', t('post.not_found') || 'Not Found');
         router.back();
         return;
       }
       const d = snap.data();
       if (d.authorId !== auth.currentUser?.uid) {
-        Alert.alert(t('common.error') || 'Error', t('post.no_permission') || 'No tienes permiso para editar este post.');
+        Alert.alert(t('common.error') || 'Error', t('post.no_permission') || 'No Permission');
         router.back();
         return;
       }
@@ -79,7 +79,7 @@ export default function EditPostScreen() {
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para subir archivos.');
+      Alert.alert(t('common.permission_denied') || 'Permission Denied', t('explore.gallery_permission_msg') || 'Gallery Permission Msg');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -94,11 +94,11 @@ export default function EditPostScreen() {
       setNewMedia({ uri: asset.uri, type: 'video' });
       setMediaRemoved(false);
       Alert.alert(
-        t('explore.video_audio_title') || 'Audio del vídeo',
-        t('explore.video_audio_msg') || '¿Quieres conservar el audio original del vídeo?',
+        t('explore.video_audio_title') || 'Video Audio Title',
+        t('explore.video_audio_msg') || 'Video Audio Msg',
         [
-          { text: t('explore.remove_audio') || 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
-          { text: t('explore.keep_audio') || 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+          { text: t('explore.remove_audio') || 'Remove Audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: t('explore.keep_audio') || 'Keep Audio', onPress: () => setMuteOriginalAudio(false) },
         ]
       );
     } else {
@@ -145,7 +145,7 @@ export default function EditPostScreen() {
 
       router.back();
     } catch {
-      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'No se pudo guardar el post. Inténtalo de nuevo.');
+      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'Publish Error');
     } finally {
       setSaving(false);
     }
@@ -175,7 +175,7 @@ export default function EditPostScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('post.edit_title') || 'Editar Post'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('post.edit_title') || 'Edit Title'}</ThemedText>
         <TouchableOpacity
           style={[styles.saveBtn, { backgroundColor: colors.primary }, !canSave && styles.saveBtnDisabled]}
           onPress={handleSave}
@@ -184,7 +184,7 @@ export default function EditPostScreen() {
           {saving ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
-            <ThemedText style={styles.saveBtnText}>{t('common.save') || 'Guardar'}</ThemedText>
+            <ThemedText style={styles.saveBtnText}>{t('common.save') || 'Save'}</ThemedText>
           )}
         </TouchableOpacity>
       </View>
@@ -195,7 +195,7 @@ export default function EditPostScreen() {
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
             <TextInput
               style={[styles.titleInput, { color: colors.text }]}
-              placeholder={t('explore.social_placeholders.post_title') || 'Título del post'}
+              placeholder={t('explore.social_placeholders.post_title') || 'Post Title'}
               placeholderTextColor={colors.textSecondary}
               value={title}
               onChangeText={(t) => setTitle(t.slice(0, TITLE_MAX))}
@@ -210,7 +210,7 @@ export default function EditPostScreen() {
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: spacing.md }]}>
             <TextInput
               style={[styles.contentInput, { color: colors.text }]}
-              placeholder={t('explore.social_placeholders.post_content') || 'Escribe tu post aquí...'}
+              placeholder={t('explore.social_placeholders.post_content') || 'Post Content'}
               placeholderTextColor={colors.textSecondary}
               value={content}
               onChangeText={(t) => setContent(t.slice(0, CONTENT_MAX))}
@@ -233,23 +233,23 @@ export default function EditPostScreen() {
                   <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                     <Ionicons name="videocam" size={32} color={colors.textSecondary} />
                     <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>
-                      {newMedia ? (t('explore.video_selected') || 'Vídeo seleccionado') : (t('explore.video_current') || 'Vídeo actual')}
+                      {newMedia ? (t('explore.video_selected') || 'Video Selected') : (t('explore.video_current') || 'Video Current')}
                     </ThemedText>
                     <TouchableOpacity
                       style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
                       onPress={() => setMuteOriginalAudio(prev => !prev)}
                     >
                       <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
-                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Sin audio') : (t('explore.unmute') || 'Con audio')}</ThemedText>
+                      <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Mute') : (t('explore.unmute') || 'Unmute')}</ThemedText>
                     </TouchableOpacity>
                   </View>
                 )}
                 <View style={styles.mediaActions}>
                   <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: colors.primary }]} onPress={pickMedia}>
-                    <ThemedText style={styles.mediaActionText}>{t('common.change') || 'Cambiar'}</ThemedText>
+                    <ThemedText style={styles.mediaActionText}>{t('common.change') || 'Change'}</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.mediaActionBtn, { backgroundColor: '#FF3B30' }]} onPress={removeMedia}>
-                    <ThemedText style={styles.mediaActionText}>{t('common.delete') || 'Eliminar'}</ThemedText>
+                    <ThemedText style={styles.mediaActionText}>{t('common.delete') || 'Delete'}</ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -257,7 +257,7 @@ export default function EditPostScreen() {
               <View style={styles.mediaEmpty}>
                 <Ionicons name="images-outline" size={28} color={colors.textSecondary} />
                 <ThemedText style={[styles.mediaEmptyText, { color: colors.textSecondary }]}>
-                  {t('explore.add_media') || 'Añadir foto o vídeo'}
+                  {t('explore.add_media') || 'Add Media'}
                 </ThemedText>
               </View>
             )}
@@ -289,7 +289,7 @@ export default function EditPostScreen() {
               ) : (
                 <View style={styles.songEmpty}>
                   <Ionicons name="musical-notes-outline" size={22} color={colors.textSecondary} />
-                  <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Añadir canción'}</ThemedText>
+                  <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Add Song'}</ThemedText>
                 </View>
               )}
             </TouchableOpacity>

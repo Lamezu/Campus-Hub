@@ -42,9 +42,9 @@ const EVENT_TYPES: CalendarEventType[] = ['event', 'exam', 'deadline', 'class', 
 function getPinExpiryText(pinnedUntil: string | null | undefined, t: (k: string, o?: any) => string): string | null {
   if (!pinnedUntil) return null;
   const remaining = new Date(pinnedUntil).getTime() - Date.now();
-  if (remaining <= 0) return t('explore.pin_expiry.expired') || 'Fijado (expirado)';
+  if (remaining <= 0) return t('explore.pin_expiry.expired') || 'Expired';
   const days = Math.ceil(remaining / 86400000);
-  if (days < 2) return t('explore.pin_expiry.today') || 'Fijado · expira hoy';
+  if (days < 2) return t('explore.pin_expiry.today') || 'Today';
   if (days < 8) return t('explore.pin_expiry.days', { days }) || `Fijado · expira en ${days}d`;
   return t('explore.pin_expiry.weeks', { weeks: Math.ceil(days / 7) }) || `Fijado · expira en ${Math.ceil(days / 7)}sem`;
 }
@@ -150,10 +150,10 @@ export default function AnnouncementDetailScreen() {
   const canLinkEvent = canManage && (can('createAcademicEvent') || can('createGeneralEvent'));
 
   const handleDelete = () => {
-    Alert.alert(t('explore.delete_confirm') || 'Eliminar anuncio', t('explore.delete_confirm_msg') || '¿Seguro que quieres eliminar este anuncio?', [
-      { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+    Alert.alert(t('explore.delete_confirm') || 'Delete Confirm', t('explore.delete_confirm_msg') || 'Delete Confirm Msg', [
+      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
       {
-        text: t('common.delete') || 'Eliminar', style: 'destructive', onPress: async () => {
+        text: t('common.delete') || 'Delete', style: 'destructive', onPress: async () => {
           await deleteDoc(doc(db, 'posts', id!));
           router.back();
         }
@@ -190,10 +190,10 @@ export default function AnnouncementDetailScreen() {
 
   const handlePublishSocial = async () => {
     if (!currentUser || !announcement) return;
-    Alert.alert(t('explore.publish_social') || 'Publicar como post', t('explore.social_confirm') || 'Se publicará este anuncio como post en el feed social.', [
-      { text: t('common.cancel') || 'Cancelar', style: 'cancel' },
+    Alert.alert(t('explore.publish_social') || 'Publish Social', t('explore.social_confirm') || 'Social Confirm', [
+      { text: t('common.cancel') || 'Cancel', style: 'cancel' },
       {
-        text: t('explore.publish') || 'Publicar', onPress: async () => {
+        text: t('explore.publish') || 'Publish', onPress: async () => {
           const docRef = await addDoc(collection(db, 'posts'), {
             title: announcement.title, content: announcement.content,
             authorId: announcement.authorId, authorName: announcement.authorName,
@@ -251,7 +251,7 @@ export default function AnnouncementDetailScreen() {
     return (
       <ThemedView style={styles.centered}>
         <Stack.Screen options={{ headerShown: false }} />
-        <ThemedText style={{ color: colors.textSecondary }}>{t('explore.announcement_not_found') || 'Anuncio no encontrado.'}</ThemedText>
+        <ThemedText style={{ color: colors.textSecondary }}>{t('explore.announcement_not_found') || 'Announcement Not Found'}</ThemedText>
       </ThemedView>
     );
   }
@@ -266,7 +266,7 @@ export default function AnnouncementDetailScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
-          <ThemedText style={[styles.backText, { color: colors.primary }]}>{t('explore.bulletin_board') || 'Tablón'}</ThemedText>
+          <ThemedText style={[styles.backText, { color: colors.primary }]}>{t('explore.bulletin_board') || 'Bulletin Board'}</ThemedText>
         </TouchableOpacity>
         {canManage && (
           <View style={styles.headerActions}>
@@ -284,7 +284,7 @@ export default function AnnouncementDetailScreen() {
 
         <View style={[styles.metaStrip, { borderBottomColor: colors.border }]}>
           <ThemedText style={[styles.metaStripText, { color: colors.textSecondary }]}>
-            {(t('explore.administration') || 'Administración') + ' · '}
+            {(t('explore.administration') || 'Administration') + ' · '}
             {new Date(announcement.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
           </ThemedText>
         </View>
@@ -308,7 +308,7 @@ export default function AnnouncementDetailScreen() {
               <View style={[styles.badge, { backgroundColor: colors.primary + '12' }]}>
                 <Pin size={10} color={colors.primary} strokeWidth={2} />
                 <ThemedText style={[styles.badgeText, { color: colors.primary }]}>
-                  {pinExpiry ?? (t('explore.pinned') || 'FIJADO')}
+                  {pinExpiry ?? (t('explore.pinned') || 'Pinned')}
                 </ThemedText>
               </View>
             )}
@@ -348,7 +348,7 @@ export default function AnnouncementDetailScreen() {
               activeOpacity={0.8}
             >
               <CalendarDays size={16} color={colors.primary} strokeWidth={2} />
-              <ThemedText style={[styles.linkEventBtnText, { color: colors.primary }]}>{t('explore.link_event') || 'Vincular evento al calendario'}</ThemedText>
+              <ThemedText style={[styles.linkEventBtnText, { color: colors.primary }]}>{t('explore.link_event') || 'Link Event'}</ThemedText>
             </TouchableOpacity>
           ) : null}
 
@@ -361,9 +361,9 @@ export default function AnnouncementDetailScreen() {
               <FileText size={18} color={colors.primary} strokeWidth={1.8} />
             </View>
             <View style={{ flex: 1 }}>
-              <ThemedText style={[styles.docsLabel, { color: colors.text }]}>{t('explore.documentation.title') || 'Documentación'}</ThemedText>
+              <ThemedText style={[styles.docsLabel, { color: colors.text }]}>{t('explore.documentation.title') || 'Title'}</ThemedText>
               <ThemedText style={[styles.docsSub, { color: colors.textSecondary }]}>
-                {announcement.docsContent ? (t('explore.with_docs') || 'Con documentación adjunta') : (t('explore.no_docs') || 'Sin contenido aún')}
+                {announcement.docsContent ? (t('explore.with_docs') || 'With Docs') : (t('explore.no_docs') || 'No Docs')}
               </ThemedText>
             </View>
             <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
@@ -373,12 +373,12 @@ export default function AnnouncementDetailScreen() {
             announcement.socialId ? (
               <View style={[styles.sharedBadge, { backgroundColor: '#FF950012', borderColor: '#FF950040' }]}>
                 <Megaphone size={13} color="#FF9500" strokeWidth={2} />
-                <ThemedText style={[styles.sharedBadgeText, { color: '#FF9500' }]}>{t('explore.already_published') || 'Ya publicado como post'}</ThemedText>
+                <ThemedText style={[styles.sharedBadgeText, { color: '#FF9500' }]}>{t('explore.already_published') || 'Already Published'}</ThemedText>
               </View>
             ) : (
               <TouchableOpacity style={[styles.shareBtn, { backgroundColor: colors.primary }]} onPress={handlePublishSocial} activeOpacity={0.85}>
                 <Megaphone size={16} color="#fff" strokeWidth={2} />
-                <ThemedText style={styles.shareBtnText}>{t('explore.publish_social') || 'Publicar como post'}</ThemedText>
+                <ThemedText style={styles.shareBtnText}>{t('explore.publish_social') || 'Publish Social'}</ThemedText>
               </TouchableOpacity>
             )
           )}
@@ -392,12 +392,12 @@ export default function AnnouncementDetailScreen() {
           <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? insets.top : 0 }}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <TouchableOpacity onPress={() => setShowEdit(false)}><X size={22} color={colors.text} strokeWidth={2} /></TouchableOpacity>
-              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.edit_announcement') || 'Editar anuncio'}</ThemedText>
+              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.edit_announcement') || 'Edit Announcement'}</ThemedText>
               <TouchableOpacity onPress={handleSaveEdit} disabled={!editForm.title.trim() || !editForm.content.trim() || uploadingEditImage}>
                 {uploadingEditImage
                   ? <ActivityIndicator size="small" color={colors.primary} />
                   : <ThemedText style={[styles.modalAction, { color: editForm.title.trim() && editForm.content.trim() ? colors.primary : colors.textSecondary }]}>
-                    {t('common.save') || 'Guardar'}
+                    {t('common.save') || 'Save'}
                   </ThemedText>
                 }
               </TouchableOpacity>
@@ -429,7 +429,7 @@ export default function AnnouncementDetailScreen() {
                 >
                   <ImagePlus size={22} color={colors.textSecondary} strokeWidth={1.5} />
                   <ThemedText style={[styles.imagePickerLabel, { color: colors.textSecondary }]}>
-                    {t('explore.image_picker_label') || 'Imagen de portada (opcional)'}
+                    {t('explore.image_picker_label') || 'Image Picker Label'}
                   </ThemedText>
                 </TouchableOpacity>
               )}
@@ -452,19 +452,19 @@ export default function AnnouncementDetailScreen() {
               </ScrollView>
               <TextInput
                 style={[styles.modalTitleInput, { color: colors.text, borderBottomColor: colors.border }]}
-                placeholder={t('explore.title_placeholder') || 'Título'} placeholderTextColor={colors.textSecondary}
+                placeholder={t('explore.title_placeholder') || 'Title Placeholder'} placeholderTextColor={colors.textSecondary}
                 value={editForm.title} onChangeText={t => setEditForm(f => ({ ...f, title: t }))}
               />
               <TextInput
                 style={[styles.modalContentInput, { color: colors.text }]}
-                placeholder={t('explore.content_placeholder') || 'Contenido...'} placeholderTextColor={colors.textSecondary}
+                placeholder={t('explore.content_placeholder') || 'Content Placeholder'} placeholderTextColor={colors.textSecondary}
                 value={editForm.content} onChangeText={t => setEditForm(f => ({ ...f, content: t }))}
                 multiline textAlignVertical="top"
               />
               <View style={[styles.formRow, { borderTopColor: colors.border }]}>
                 <View style={styles.formRowLeft}>
                   <Pin size={16} color={colors.text} strokeWidth={2} />
-                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Fijar anuncio'}</ThemedText>
+                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Pin Announcement'}</ThemedText>
                 </View>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: editForm.pinned ? colors.primary : colors.border }]}
@@ -500,18 +500,18 @@ export default function AnnouncementDetailScreen() {
         <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.background }]} edges={['top']}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowCreateEvent(false)}><X size={22} color={colors.text} strokeWidth={2} /></TouchableOpacity>
-            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.link_event_title') || 'Vincular evento'}</ThemedText>
+            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('explore.link_event_title') || 'Link Event Title'}</ThemedText>
             <TouchableOpacity onPress={handleCreateEvent} disabled={!eventForm.title.trim() || savingEvent}>
               {savingEvent
                 ? <ActivityIndicator size="small" color={colors.primary} />
-                : <ThemedText style={[styles.modalAction, { color: eventForm.title.trim() ? colors.primary : colors.textSecondary }]}>{t('common.create') || 'Crear'}</ThemedText>
+                : <ThemedText style={[styles.modalAction, { color: eventForm.title.trim() ? colors.primary : colors.textSecondary }]}>{t('common.create') || 'Create'}</ThemedText>
               }
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
             <TextInput
               style={[styles.modalTitleInput, { color: colors.text, borderBottomColor: colors.border }]}
-              placeholder={t('explore.event_name') || 'Nombre del evento'}
+              placeholder={t('explore.event_name') || 'Event Name'}
               placeholderTextColor={colors.textSecondary}
               value={eventForm.title}
               onChangeText={t => setEventForm(f => ({ ...f, title: t }))}
@@ -519,9 +519,9 @@ export default function AnnouncementDetailScreen() {
 
             <View style={styles.dateTimeRow}>
               <View style={{ flex: 1 }}>
-                <MiniDatePicker value={eventDate} onChange={setEventDate} label={t('common.date') || 'Fecha'} />
+                <MiniDatePicker value={eventDate} onChange={setEventDate} label={t('common.date') || 'Date'} />
               </View>
-              <TimePicker value={eventTime} onChange={setEventTime} label={t('common.time') || 'Hora'} />
+              <TimePicker value={eventTime} onChange={setEventTime} label={t('common.time') || 'Time'} />
             </View>
 
             <ThemedText style={[styles.formLabel, { color: colors.textSecondary }]}>Tipo</ThemedText>

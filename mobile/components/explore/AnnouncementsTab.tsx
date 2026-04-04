@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, FlatList, TouchableOpacity, Modal, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, X, Pin, ImagePlus } from 'lucide-react-native';
+import { Plus, X, Pin, ImagePlus, Megaphone, Search } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAnnouncements } from '../../hooks/explore/useAnnouncements';
@@ -54,6 +55,21 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
       }
     }
   }, [highlightId, announcements]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const filteredAnnouncements = React.useMemo(() => {
+    let result = announcements;
+    if (activeCategory) result = result.filter(a => a.category === activeCategory);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(a =>
+        a.title?.toLowerCase().includes(q) || a.content?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [announcements, activeCategory, searchQuery]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -154,12 +170,63 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
           }}
         >
           <Plus size={18} color="#fff" strokeWidth={2.5} />
-          <ThemedText style={styles.createBtnText}>{t('explore.new_announcement') || 'Nuevo anuncio'}</ThemedText>
+          <ThemedText style={styles.createBtnText}>{t('explore.new_announcement') || 'New Announcement'}</ThemedText>
         </TouchableOpacity>
       )}
+
+      {/* Barra de búsqueda */}
+      <View style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary }]}>
+        <Search size={15} color={colors.textSecondary} strokeWidth={2} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder={t('explore.search_announcements') || 'Search Announcements'}
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <X size={15} color={colors.textSecondary} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filtros por categoría */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryFiltersScroll}
+        contentContainerStyle={styles.categoryFilters}
+      >
+        <TouchableOpacity
+          style={[styles.filterChip, { backgroundColor: activeCategory === null ? colors.primary : colors.backgroundSecondary }]}
+          onPress={() => setActiveCategory(null)}
+        >
+          <ThemedText numberOfLines={1} style={[styles.filterChipText, { color: activeCategory === null ? '#fff' : colors.textSecondary }]}>
+            {t('explore.all_categories') || 'All Categories'}
+          </ThemedText>
+        </TouchableOpacity>
+        {ANNOUNCEMENT_CATEGORIES.map(cat => {
+          const active = activeCategory === cat.id;
+          return (
+            <TouchableOpacity
+              key={cat.id}
+              style={[styles.filterChip, { backgroundColor: active ? cat.color : colors.backgroundSecondary }]}
+              onPress={() => setActiveCategory(active ? null : cat.id)}
+            >
+              <ThemedText numberOfLines={1} style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
+                {t(`explore.categories.${cat.id}`) || cat.label}
+              </ThemedText>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       <FlatList
         ref={listRef}
-        data={announcements}
+        style={{ flex: 1 }}
+        data={filteredAnnouncements}
         keyExtractor={item => item.id}
         onScrollToIndexFailed={() => { }}
         renderItem={({ item }) => (
@@ -183,11 +250,10 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
         removeClippedSubviews={true}
         ListEmptyComponent={
           !loading ? (
-            <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {canCreateAnnouncement
-                ? (t('explore.create_first') || 'Crea el primer anuncio.')
-                : (t('explore.no_announcements') || 'No hay anuncios aún.')}
-            </ThemedText>
+            <EmptyState
+              icon={Megaphone}
+              title={canCreateAnnouncement ? t('explore.create_first') : t('explore.no_announcements')}
+            />
           ) : (
             <ActivityIndicator style={{ marginTop: 50 }} color={colors.primary} />
           )
@@ -202,13 +268,13 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                 <X size={22} color={colors.text} strokeWidth={2} />
               </TouchableOpacity>
               <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-                {editingPostId ? (t('explore.edit_announcement') || 'Editar anuncio') : (t('explore.new_announcement') || 'Nuevo anuncio')}
+                {editingPostId ? (t('explore.edit_announcement') || 'Edit Announcement') : (t('explore.new_announcement') || 'New Announcement')}
               </ThemedText>
               <TouchableOpacity onPress={handleSave} disabled={!form.title.trim() || !form.content.trim() || uploadingImage}>
                 {uploadingImage
                   ? <ActivityIndicator size="small" color={colors.primary} />
                   : <ThemedText style={[styles.modalAction, { color: form.title.trim() && form.content.trim() ? colors.primary : colors.textSecondary }]}>
-                    {editingPostId ? (t('common.save') || 'Guardar') : (t('explore.publish') || 'Publicar')}
+                    {editingPostId ? (t('common.save') || 'Save') : (t('explore.publish') || 'Publish')}
                   </ThemedText>
                 }
               </TouchableOpacity>
@@ -241,12 +307,12 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                 >
                   <ImagePlus size={22} color={colors.textSecondary} strokeWidth={1.5} />
                   <ThemedText style={[styles.imagePickerLabel, { color: colors.textSecondary }]}>
-                    {t('explore.add_cover') || 'Añadir imagen de portada (opcional)'}
+                    {t('explore.add_cover') || 'Add Cover'}
                   </ThemedText>
                 </TouchableOpacity>
               )}
 
-              <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('explore.category') || 'Categoría'}</ThemedText>
+              <ThemedText style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('explore.category') || 'Category'}</ThemedText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
                 {ANNOUNCEMENT_CATEGORIES.map(cat => (
                   <TouchableOpacity
@@ -269,14 +335,14 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
 
               <TextInput
                 style={[styles.titleInput, { color: colors.text, borderBottomColor: colors.border }]}
-                placeholder={t('explore.title_placeholder') || 'Título del anuncio'}
+                placeholder={t('explore.title_placeholder') || 'Title Placeholder'}
                 placeholderTextColor={colors.textSecondary}
                 value={form.title}
                 onChangeText={t => setForm(f => ({ ...f, title: t }))}
               />
               <TextInput
                 style={[styles.contentInput, { color: colors.text }]}
-                placeholder={t('explore.content_placeholder') || 'Escribe el contenido del anuncio...'}
+                placeholder={t('explore.content_placeholder') || 'Content Placeholder'}
                 placeholderTextColor={colors.textSecondary}
                 value={form.content}
                 onChangeText={t => setForm(f => ({ ...f, content: t }))}
@@ -287,7 +353,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
               <View style={[styles.formRow, { borderTopColor: colors.border }]}>
                 <View style={styles.formRowLeft}>
                   <Pin size={16} color={colors.text} strokeWidth={2} />
-                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Fijar anuncio'}</ThemedText>
+                  <ThemedText style={[styles.formRowLabel, { color: colors.text }]}>{t('explore.pin_announcement') || 'Pin Announcement'}</ThemedText>
                 </View>
                 <TouchableOpacity
                   style={[styles.toggle, { backgroundColor: form.pinned ? colors.primary : colors.border }]}
@@ -327,7 +393,6 @@ const styles = StyleSheet.create({
   createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, margin: spacing.md, marginBottom: 0, paddingVertical: spacing.sm + 2, borderRadius: 10 },
   createBtnText: { color: '#fff', fontWeight: '600', fontSize: typography.sizes.sm },
   listPad: { padding: spacing.md, paddingBottom: 100, gap: spacing.sm },
-  emptyText: { textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizes.sm },
   modalSafe: { flex: 1 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4, borderBottomWidth: StyleSheet.hairlineWidth },
   modalTitle: { fontSize: typography.sizes.md, fontWeight: '700' },
@@ -350,4 +415,46 @@ const styles = StyleSheet.create({
   pinDurationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   durationChip: { alignItems: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 8, borderWidth: 1 },
   durationChipText: { fontSize: typography.sizes.xs, fontWeight: '600' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: typography.sizes.sm,
+    paddingVertical: 0,
+  },
+  categoryFiltersScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  categoryFilters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderRadius: 20,
+    flexShrink: 0,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: typography.sizes.xs + 2,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
 });

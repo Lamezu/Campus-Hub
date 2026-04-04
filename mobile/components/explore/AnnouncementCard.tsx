@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Modal, Pressable, StyleSheet } from 'react-native';
 import { imageOffsetStyle } from '../ImagePanPicker';
 import { MoreVertical, Pin, CalendarDays } from 'lucide-react-native';
 import { LazyImage } from '../LazyImage';
@@ -31,22 +31,48 @@ export const AnnouncementCard = React.memo(({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const hasOptions = !!(onEdit || onPin || onDelete);
+  const [showOptions, setShowOptions] = React.useState(false);
 
   const category = React.useMemo(() => getCategoryConfig(post.category), [post.category]);
   const dateLabel = React.useMemo(() => getDateLabel(post.createdAt), [post.createdAt]);
 
   const handleOptions = (e: any) => {
     e.stopPropagation();
-    const options: any[] = [];
-    if (onEdit) options.push({ text: t('explore.calendar.options.edit') || 'Editar anuncio', onPress: onEdit });
-    if (onPin) options.push({ text: post.pinned ? (t('explore.calendar.options.unpin') || 'Desfijar') : (t('explore.calendar.options.pin') || 'Fijar en el tablón'), onPress: onPin });
-    if (onPublishSocial && !post.socialId) options.push({ text: t('explore.publish_social') || 'Publicar como post', onPress: onPublishSocial });
-    if (onDelete) options.push({ text: t('explore.calendar.options.delete') || 'Eliminar anuncio', style: 'destructive', onPress: onDelete });
-    options.push({ text: t('common.cancel') || 'Cancelar', style: 'cancel' });
-    Alert.alert(t('common.options') || 'Opciones', undefined, options);
+    setShowOptions(true);
   };
 
+  const optionItems = React.useMemo(() => {
+    const items: { label: string; onPress: () => void; destructive?: boolean }[] = [];
+    if (onEdit) items.push({ label: t('explore.calendar.options.edit') || 'Edit', onPress: onEdit });
+    if (onPin) items.push({ label: post.pinned ? (t('explore.calendar.options.unpin') || 'Unpin') : (t('explore.calendar.options.pin') || 'Pin'), onPress: onPin });
+    if (onPublishSocial && !post.socialId) items.push({ label: t('explore.publish_social') || 'Publish Social', onPress: onPublishSocial });
+    if (onDelete) items.push({ label: t('explore.calendar.options.delete') || 'Delete', onPress: onDelete, destructive: true });
+    return items;
+  }, [onEdit, onPin, onDelete, onPublishSocial, post.pinned, post.socialId, t]);
+
   return (
+    <>
+    <Modal visible={showOptions} transparent animationType="fade" onRequestClose={() => setShowOptions(false)}>
+      <Pressable style={styles.modalBackdrop} onPress={() => setShowOptions(false)}>
+        <Pressable style={[styles.optionsSheet, { backgroundColor: colors.card }]} onPress={() => {}}>
+          {optionItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.optionRow, i < optionItems.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+              onPress={() => { setShowOptions(false); item.onPress(); }}
+            >
+              <ThemedText style={[styles.optionText, item.destructive && { color: '#ef4444' }]}>{item.label}</ThemedText>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.optionRow, styles.cancelRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+            onPress={() => setShowOptions(false)}
+          >
+            <ThemedText style={[styles.optionText, { color: colors.textSecondary }]}>{t('common.cancel') || 'Cancel'}</ThemedText>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
     <TouchableOpacity
       style={[
         styles.card,
@@ -111,6 +137,7 @@ export const AnnouncementCard = React.memo(({
         </View>
       </View>
     </TouchableOpacity>
+    </>
   );
 }, (prev, next) => {
   return prev.highlighted === next.highlighted &&
@@ -190,5 +217,25 @@ const styles = StyleSheet.create({
   },
   author: {
     fontSize: typography.sizes.xs,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  optionsSheet: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  optionRow: {
+    paddingVertical: 15,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  cancelRow: {},
+  optionText: {
+    fontSize: typography.sizes.md,
+    fontWeight: '500',
   },
 });

@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useLocalSearchParams, Stack, router, useFocusEffect } from 'expo-router';
 import { Audio, Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
-import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2, Bookmark, CornerDownRight, X, Pin, Megaphone } from 'lucide-react-native';
+import { ChevronLeft, Heart, Music2, Volume2, VolumeX, ChartNoAxesColumn, MessageCircle, Pencil, Trash2, Bookmark, CornerDownRight, X, Pin, Megaphone, Share2 } from 'lucide-react-native';
 import { auth } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -32,12 +32,12 @@ import { LazyImage } from '@/components/LazyImage';
 
 function getTimeAgo(dateString: string, t: any, language: string): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return t('time_ago.now') || 'Ahora';
+  if (isNaN(date.getTime())) return t('time_ago.now') || 'Now';
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return t('time_ago.now') || 'Ahora';
+  if (minutes < 1) return t('time_ago.now') || 'Now';
   if (minutes < 60) return t('time_ago.minutes', { count: minutes }) || `${minutes}m`;
   if (hours < 24) return t('time_ago.hours', { count: hours }) || `${hours}h`;
   if (days < 30) return t('time_ago.days', { count: days }) || `${days}d`;
@@ -91,7 +91,7 @@ const CommentItem = React.memo(({
             <ThemedText style={[styles.commentTime, { color: colors.textSecondary }]}>{getTimeAgo(comment.createdAt, t, language)}</ThemedText>
             <TouchableOpacity onPress={onReply} style={styles.commentReplyBtn}>
               <CornerDownRight size={12} color={colors.textSecondary} strokeWidth={2} />
-              <ThemedText style={[styles.commentReplyText, { color: colors.textSecondary }]}>{t('post.reply') || 'Responder'}</ThemedText>
+              <ThemedText style={[styles.commentReplyText, { color: colors.textSecondary }]}>{t('post.reply') || 'Reply'}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity onPress={onLike} style={styles.commentLikeBtn} activeOpacity={0.7}>
               <Heart size={14} color={isLiked ? '#FF3B30' : colors.textSecondary} fill={isLiked ? '#FF3B30' : 'transparent'} strokeWidth={1.8} />
@@ -314,12 +314,12 @@ export default function PostDetailScreen() {
       await forumService.toggleLike(post.id, currentUser.uid);
 
       if (!isLiked && post.authorId !== currentUser.uid) {
-        const myName = currentUser.displayName || t('post.someone') || 'Alguien';
+        const myName = currentUser.displayName || t('post.someone') || 'Someone';
         notificationService.addNotification(post.authorId, {
           category: 'social',
-          title: t('post.new_like') || 'Nuevo "me gusta"',
+          title: t('post.new_like') || 'New Like',
           body: t('post.liked_your_post', { name: myName }) || `A ${myName} le gustó tu publicación`,
-          meta: { postId: post.id, userId: currentUser.uid }
+          meta: { postId: post.id, userId: currentUser.uid, userName: myName }
         });
 
         // We still need to get the tag for push notification, 
@@ -343,12 +343,12 @@ export default function PostDetailScreen() {
   const getLikeText = () => {
     const count = post?.likesCount ?? 0;
     if (isLiked) {
-      if (count <= 1) return t('post.likes.you_like') || 'Te gusta esto';
-      if (count === 2) return t('post.likes.you_and_one') || 'Tú y 1 persona más';
+      if (count <= 1) return t('post.likes.you_like') || 'You Like';
+      if (count === 2) return t('post.likes.you_and_one') || 'You And One';
       return t('post.likes.you_and_others', { count: count - 1 }) || `Tú y ${count - 1} personas más`;
     }
     if (count === 0) return '';
-    if (count === 1) return t('post.likes.one_likes') || 'A 1 persona le gusta';
+    if (count === 1) return t('post.likes.one_likes') || 'One Likes';
     return t('post.likes.others_like', { count }) || `${count} personas les gusta`;
   };
 
@@ -384,12 +384,12 @@ export default function PostDetailScreen() {
       // Need to find the comment author for notification
       const comment = comments.find(c => c.id === commentId);
       if (comment && comment.authorId !== currentUser.uid) {
-        const myName = currentUser.displayName || t('post.someone') || 'Alguien';
+        const myName = currentUser.displayName || t('post.someone') || 'Someone';
         notificationService.addNotification(comment.authorId, {
           category: 'social',
-          title: t('post.like_on_comment') || 'Me gusta en tu comentario',
+          title: t('post.like_on_comment') || 'Like On Comment',
           body: t('post.reacted_to_comment', { name: myName }) || `${myName} reaccionó a tu comentario`,
-          meta: { postId: id, commentId }
+          meta: { postId: id, commentId, userId: currentUser.uid, userName: myName }
         });
       }
     }
@@ -403,15 +403,26 @@ export default function PostDetailScreen() {
 
     // Manual subcollection update for savedBy as it's not in forumService yet
     // I'll use Import for now to keep the hook clean
-    import('firebase/firestore').then(async ({ doc, updateDoc, arrayUnion, arrayRemove }) => {
+    import('firebase/firestore').then(async ({ doc, updateDoc, arrayUnion, arrayRemove, deleteField }) => {
       const { db } = await import('@/config/firebase');
       const postRef = doc(db, 'posts', post.id);
       if (isCurrentlySaved) {
-        await updateDoc(postRef, { savedBy: arrayRemove(currentUser.uid) });
+        await updateDoc(postRef, {
+          savedBy: arrayRemove(currentUser.uid),
+          [`savedByTimestamps.${currentUser.uid}`]: deleteField(),
+        });
       } else {
-        await updateDoc(postRef, { savedBy: arrayUnion(currentUser.uid) });
+        await updateDoc(postRef, {
+          savedBy: arrayUnion(currentUser.uid),
+          [`savedByTimestamps.${currentUser.uid}`]: new Date().toISOString(),
+        });
       }
     });
+  };
+
+  const handleShare = () => {
+    if (!post) return;
+    router.push(`/forward?postId=${encodeURIComponent(post.id)}&postTitle=${encodeURIComponent(post.title ?? '')}&postContent=${encodeURIComponent(post.content ?? '')}&postImageUrl=${encodeURIComponent(post.mediaType === 'image' ? (post.mediaUrl ?? '') : '')}&postAuthorName=${encodeURIComponent(post.authorName ?? '')}&postAuthorPhoto=${encodeURIComponent(post.authorPhoto ?? '')}` as never);
   };
 
   const addComment = async () => {
@@ -430,12 +441,12 @@ export default function PostDetailScreen() {
       await forumService.addComment(post.id, commentData, currentUser.uid);
 
       if (post.authorId !== currentUser.uid) {
-        const myName = currentUser.displayName || t('post.someone') || 'Alguien';
+        const myName = currentUser.displayName || t('post.someone') || 'Someone';
         notificationService.addNotification(post.authorId, {
           category: 'social',
-          title: t('post.new_comment') || 'Nuevo comentario',
+          title: t('post.new_comment') || 'New Comment',
           body: t('post.commented_on_post', { name: myName, text: text.substring(0, 40) + (text.length > 40 ? '...' : '') }) || `${myName} comentó en tu publicación: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`,
-          meta: { postId: post.id }
+          meta: { postId: post.id, userId: currentUser.uid, userName: myName }
         });
 
         import('firebase/firestore').then(async ({ doc, getDoc }) => {
@@ -443,7 +454,7 @@ export default function PostDetailScreen() {
           const uSnap = await getDoc(doc(db, 'users', post.authorId));
           const token = uSnap.data()?.fcmToken;
           if (token) {
-            sendPushNotification(token, t('post.new_comment') || 'Nuevo comentario', t('post.commented', { name: myName, text: text.substring(0, 60) }) || `${myName} comentó: ${text.substring(0, 60)}`, { postId: post.id });
+            sendPushNotification(token, t('post.new_comment') || 'New Comment', t('post.commented', { name: myName, text: text.substring(0, 60) }) || `${myName} comentó: ${text.substring(0, 60)}`, { postId: post.id });
           }
         });
       }
@@ -472,7 +483,7 @@ export default function PostDetailScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.centered}>
-          <ThemedText style={{ color: colors.textSecondary }}>{t('post.not_found') || 'Post no encontrado.'}</ThemedText>
+          <ThemedText style={{ color: colors.textSecondary }}>{t('post.not_found') || 'Not Found'}</ThemedText>
         </View>
       </SafeAreaView>
     );
@@ -489,9 +500,12 @@ export default function PostDetailScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={colors.primary} strokeWidth={2} />
-          <ThemedText style={[styles.backText, { color: colors.primary }]}>{t('common.back') || 'Volver'}</ThemedText>
+          <ThemedText style={[styles.backText, { color: colors.primary }]}>{t('common.back') || 'Back'}</ThemedText>
         </TouchableOpacity>
         <View style={styles.headerActions}>
+          <TouchableOpacity onPress={handleShare} style={styles.editBtn}>
+            <Share2 size={20} color={colors.textSecondary} strokeWidth={1.8} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={toggleSave} style={styles.editBtn}>
             <Bookmark
               size={20}
@@ -534,7 +548,7 @@ export default function PostDetailScreen() {
               {post.postType === 'announcement' && (
                 <View style={[styles.announcementBadge, { backgroundColor: colors.primary + '15' }]}>
                   <Pin size={12} color={colors.primary} />
-                  <ThemedText style={[styles.announcementBadgeText, { color: colors.primary }]}>{t('post.announcement') || 'Anuncio'}</ThemedText>
+                  <ThemedText style={[styles.announcementBadgeText, { color: colors.primary }]}>{t('post.announcement') || 'Announcement'}</ThemedText>
                 </View>
               )}
               {post.tags?.includes('anuncio') && (
@@ -543,7 +557,7 @@ export default function PostDetailScreen() {
                   onPress={() => router.push({ pathname: '/explore', params: { revealHighlight: post.id } } as any)}
                 >
                   <Megaphone size={12} color="#FF9500" />
-                  <ThemedText style={[styles.announcementBadgeText, { color: '#FF9500' }]}>{t('post.view_on_board') || 'Ver en Tablón'}</ThemedText>
+                  <ThemedText style={[styles.announcementBadgeText, { color: '#FF9500' }]}>{t('post.view_on_board') || 'View On Board'}</ThemedText>
                 </TouchableOpacity>
               )}
             </View>
@@ -622,6 +636,10 @@ export default function PostDetailScreen() {
                 <ChartNoAxesColumn size={18} color={colors.textSecondary} strokeWidth={1.8} />
                 <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.viewsCount ?? 0}</ThemedText>
               </View>
+              <TouchableOpacity style={[styles.statChip, { borderColor: colors.border }]} onPress={handleShare} activeOpacity={0.7}>
+                <Share2 size={18} color={colors.textSecondary} strokeWidth={1.8} />
+                <ThemedText style={[styles.statCount, { color: colors.textSecondary }]}>{post.sharesCount ?? 0}</ThemedText>
+              </TouchableOpacity>
             </View>
 
             {getLikeText() !== '' && (
@@ -639,7 +657,7 @@ export default function PostDetailScreen() {
 
           {comments.length === 0 ? (
             <ThemedText style={[styles.noComments, { color: colors.textSecondary }]}>
-              {t('post.no_comments') || 'No hay comentarios aún. ¡Sé el primero!'}
+              {t('post.no_comments') || 'No Comments'}
             </ThemedText>
           ) : (
             comments
@@ -671,7 +689,7 @@ export default function PostDetailScreen() {
             <CornerDownRight size={14} color={colors.primary} strokeWidth={2} />
             <View style={styles.replyBannerTextRow}>
               <ThemedText style={[styles.replyBannerLabel, { color: colors.textSecondary }]}>
-                {t('post.replying_to') || 'Respondiendo a '}
+                {t('post.replying_to') || 'Replying To'}
               </ThemedText>
               <ThemedText style={[styles.replyBannerName, { color: colors.text }]} numberOfLines={1}>
                 {replyingToComment.authorName}
@@ -685,7 +703,7 @@ export default function PostDetailScreen() {
         <View style={[styles.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
           <TextInput
             style={[styles.commentInput, { backgroundColor: colors.backgroundSecondary, color: colors.text }]}
-            placeholder={t('post.add_comment') || "Añadir un comentario..."}
+            placeholder={t('post.add_comment') || "Add Comment"}
             placeholderTextColor={colors.textSecondary}
             value={commentText}
             onChangeText={setCommentText}
@@ -726,10 +744,10 @@ export default function PostDetailScreen() {
           <View style={[styles.deleteDialog, { backgroundColor: colors.card }]}>
             <View style={styles.deleteDialogHeader}>
               <ThemedText style={[styles.deleteDialogTitle, { color: colors.text }]}>
-                {t('post.delete_title') || 'Eliminar post'}
+                {t('post.delete_title') || 'Delete Title'}
               </ThemedText>
               <ThemedText style={[styles.deleteDialogSubtitle, { color: colors.textSecondary }]}>
-                {t('post.delete_subtitle') || 'Esta acción no se puede deshacer.'}
+                {t('post.delete_subtitle') || 'Delete Subtitle'}
               </ThemedText>
             </View>
             <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
@@ -740,7 +758,7 @@ export default function PostDetailScreen() {
             >
               {deletingPost
                 ? <ActivityIndicator color="#FF3B30" size="small" />
-                : <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>{t('common.delete') || 'Eliminar'}</ThemedText>
+                : <ThemedText style={[styles.deleteDialogBtnText, { color: '#FF3B30' }]}>{t('common.delete') || 'Delete'}</ThemedText>
               }
             </TouchableOpacity>
             <View style={[styles.deleteDialogDivider, { backgroundColor: colors.border }]} />
@@ -749,7 +767,7 @@ export default function PostDetailScreen() {
               onPress={() => setShowDeleteConfirm(false)}
             >
               <ThemedText style={[styles.deleteDialogBtnText, { color: colors.primary, fontWeight: '600' }]}>
-                {t('common.cancel') || 'Cancelar'}
+                {t('common.cancel') || 'Cancel'}
               </ThemedText>
             </TouchableOpacity>
           </View>

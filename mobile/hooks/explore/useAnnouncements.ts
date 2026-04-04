@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { forumService } from '../../services/shared';
 import { auth } from '../../config/firebase';
+import { useCurrentUser } from '../../contexts/UserContext';
 import type { Post } from '../../types';
 import { Alert } from 'react-native';
 
@@ -16,78 +17,39 @@ interface AnnouncementForm {
 }
 
 export function useAnnouncements() {
+  const { firebaseUser } = useCurrentUser();
   const currentUser = auth.currentUser;
   const { t } = useTranslation();
   const [pinnedAnnouncements, setPinnedAnnouncements] = useState<Post[]>([]);
   const [normalAnnouncements, setNormalAnnouncements] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [lastDoc, setLastDoc] = useState<any>(null);
-  const [hasMore, setHasMore] = useState(true);
 
-  // Suscripción para anuncios fijados
   useEffect(() => {
+    if (!firebaseUser) {
+      setLoading(false);
+      return;
+    }
     try {
-      const unsubscribe = forumService.subscribeToPinnedAnnouncements((pinned: any[]) => {
-        setPinnedAnnouncements(pinned.map((p: any) => ({
+      const unsubscribe = (forumService as any).subscribeToAnnouncements((all: any[]) => {
+        const mapped = all.map((p: any) => ({
           ...p,
           createdAt: p.createdAt?.toDate?.()?.toISOString() ?? p.createdAt ?? new Date().toISOString(),
-        })));
+        }));
+        setPinnedAnnouncements(mapped.filter((p: any) => p.pinned));
+        setNormalAnnouncements(mapped.filter((p: any) => !p.pinned));
+        setLoading(false);
       });
       return unsubscribe;
     } catch (error) {
-      console.error('Error subscribing to pinned announcements:', error);
+      console.error('Error subscribing to announcements:', error);
+      setLoading(false);
       return () => { };
     }
-  }, []);
+  }, [firebaseUser?.uid]);
 
-  // Carga inicial de anuncios normales
-  useEffect(() => {
-    fetchInitial();
-  }, []);
-
-  const fetchInitial = async () => {
-    setLoading(true);
-    try {
-      const result = await forumService.getPosts(null, 10, null, 'announcement');
-      const filtered = result.docs.filter((p: any) => !p.pinned);
-      setNormalAnnouncements(filtered.map((p: any) => ({
-        ...p,
-        createdAt: p.createdAt?.toDate?.()?.toISOString() ?? p.createdAt ?? new Date().toISOString(),
-      })));
-      setLastDoc(result.lastDoc);
-      setHasMore(result.docs.length === 10);
-    } catch (e: any) {
-      console.error('Error fetching announcements:', e);
-      if (e.message?.includes('index')) {
-        console.warn('Falta un índice en Firestore:', e.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMore = async () => {
-    if (loadingMore || !hasMore || !lastDoc) return;
-    setLoadingMore(true);
-    try {
-      const result = await forumService.getPosts(null, 10, lastDoc, 'announcement');
-      const filtered = result.docs.filter((p: any) => !p.pinned);
-      setNormalAnnouncements(prev => [
-        ...prev,
-        ...filtered.map((p: any) => ({
-          ...p,
-          createdAt: p.createdAt?.toDate?.()?.toISOString() ?? p.createdAt ?? new Date().toISOString(),
-        }))
-      ]);
-      setLastDoc(result.lastDoc);
-      setHasMore(result.docs.length === 10);
-    } catch (e) {
-      console.error('Error loading more announcements:', e);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  const loadMore = () => { };
+  const loadingMore = false;
+  const hasMore = false;
 
   const allAnnouncements = useMemo(() => {
     return [...pinnedAnnouncements, ...normalAnnouncements];

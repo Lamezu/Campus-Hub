@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
-import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark } from 'lucide-react-native';
+import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark, Share2 } from 'lucide-react-native';
+import { avatarColor } from '@/utils/avatarColor';
 import { ThemedText } from './themed-text';
 import { FloatingHeart } from './FloatingHeart';
 import { spacing, typography } from '@/constants/styles';
@@ -15,16 +16,17 @@ interface PostCardProps {
   onDoubleTap?: () => void;
   currentUserId?: string;
   onSave?: () => void;
+  onShare?: () => void;
 }
 
 function getTimeAgo(dateString: string, t: (key: string) => string): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return t('common.now') || 'Ahora';
+  if (isNaN(date.getTime())) return t('common.now') || 'Now';
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return t('common.now') || 'Ahora';
+  if (minutes < 1) return t('common.now') || 'Now';
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   if (days < 30) return `${days}d`;
@@ -41,7 +43,7 @@ function getVideoThumbnail(url: string | null | undefined): string | null {
   } catch { return null; }
 }
 
-export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId, onSave }: PostCardProps) => {
+export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId, onSave, onShare }: PostCardProps) => {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
@@ -95,7 +97,7 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
             <LazyImage
               source={post.authorPhoto ? { uri: post.authorPhoto } : undefined}
               style={styles.avatar}
-              placeholderColor={colors.primary}
+              placeholderColor={avatarColor(post.authorId)}
               showLoader={false}
             />
             <View style={styles.authorMeta}>
@@ -112,43 +114,6 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
             <ThemedText style={[styles.content, { color: colors.textSecondary }]} numberOfLines={2}>
               {post.content}
             </ThemedText>
-          </View>
-
-          <View style={styles.footer}>
-            <View style={styles.stat}>
-              <Heart
-                size={14}
-                color={isLiked ? '#FF3B30' : colors.textSecondary}
-                fill={isLiked ? '#FF3B30' : 'transparent'}
-                strokeWidth={1.8}
-              />
-              <ThemedText style={[styles.statText, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
-                {post.likesCount}
-              </ThemedText>
-            </View>
-            <View style={styles.stat}>
-              <MessageCircle size={14} color={colors.textSecondary} strokeWidth={1.8} />
-              <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.commentsCount}</ThemedText>
-            </View>
-            <View style={styles.stat}>
-              <ChartNoAxesColumn size={14} color={colors.textSecondary} strokeWidth={1.8} />
-              <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.viewsCount ?? 0}</ThemedText>
-            </View>
-            {hasSong && (
-              <View style={styles.stat}>
-                <Music2 size={14} color={colors.primary} strokeWidth={1.8} />
-              </View>
-            )}
-            {onSave && (
-              <TouchableOpacity onPress={onSave} style={styles.saveBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Bookmark
-                  size={14}
-                  color={isSaved ? colors.primary : colors.textSecondary}
-                  fill={isSaved ? colors.primary : 'transparent'}
-                  strokeWidth={1.8}
-                />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -178,6 +143,53 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
         )}
       </View>
 
+      <View style={styles.footer}>
+        <View style={styles.stat}>
+          <Heart
+            size={14}
+            color={isLiked ? '#FF3B30' : colors.textSecondary}
+            fill={isLiked ? '#FF3B30' : 'transparent'}
+            strokeWidth={1.8}
+          />
+          <ThemedText style={[styles.statText, { color: isLiked ? '#FF3B30' : colors.textSecondary }]}>
+            {post.likesCount}
+          </ThemedText>
+        </View>
+        <View style={styles.stat}>
+          <MessageCircle size={14} color={colors.textSecondary} strokeWidth={1.8} />
+          <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.commentsCount}</ThemedText>
+        </View>
+        <View style={styles.stat}>
+          <ChartNoAxesColumn size={14} color={colors.textSecondary} strokeWidth={1.8} />
+          <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.viewsCount ?? 0}</ThemedText>
+        </View>
+        {hasSong && (
+          <View style={styles.stat}>
+            <Music2 size={14} color={colors.primary} strokeWidth={1.8} />
+          </View>
+        )}
+        <View style={styles.footerRight}>
+          {onSave && (
+            <TouchableOpacity onPress={onSave} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Bookmark
+                size={14}
+                color={isSaved ? colors.primary : colors.textSecondary}
+                fill={isSaved ? colors.primary : 'transparent'}
+                strokeWidth={1.8}
+              />
+            </TouchableOpacity>
+          )}
+          {onShare && (
+            <TouchableOpacity onPress={onShare} style={styles.stat} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Share2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
+              {(post.sharesCount ?? 0) > 0 && (
+                <ThemedText style={[styles.statText, { color: colors.textSecondary }]}>{post.sharesCount}</ThemedText>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       {hearts.map((heart) => (
         <FloatingHeart key={heart.id} x={heart.x} y={heart.y} onDone={() => removeHeart(heart.id)} />
       ))}
@@ -189,7 +201,8 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
     prev.post.commentsCount === next.post.commentsCount &&
     prev.post.viewsCount === next.post.viewsCount &&
     prev.post.likes?.length === next.post.likes?.length &&
-    prev.post.savedBy?.length === next.post.savedBy?.length;
+    prev.post.savedBy?.length === next.post.savedBy?.length &&
+    prev.post.sharesCount === next.post.sharesCount;
 });
 
 const styles = StyleSheet.create({
@@ -216,8 +229,8 @@ const styles = StyleSheet.create({
   timeAgo: { fontSize: typography.sizes.xs, marginTop: 1 },
   title: { fontSize: typography.sizes.md, fontWeight: 'bold', marginBottom: spacing.xs },
   content: { fontSize: typography.sizes.sm, lineHeight: 20, marginBottom: spacing.sm },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  saveBtn: { marginLeft: 'auto' },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  footerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statText: { fontSize: typography.sizes.sm },
   thumbnail: { width: 80, height: 80, borderRadius: 10, flexShrink: 0 },
