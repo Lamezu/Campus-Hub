@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, memoryLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -17,13 +17,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// On native: persist session with AsyncStorage; on web: default browser persistence
 export const auth = Platform.OS === 'web'
   ? getAuth(app)
   : initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  localCache: Platform.OS === 'web' ? persistentLocalCache() : memoryLocalCache(),
+});
 export const storage = getStorage(app);
 
 export default app;

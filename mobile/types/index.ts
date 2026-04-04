@@ -100,7 +100,7 @@ export interface Attachment {
   type: 'image' | 'file' | 'audio' | 'location' | 'contact';
   name: string;
   size: number;
-  duration?: number; // seconds, for audio
+  duration?: number;
   imageWidth?: number;
   imageHeight?: number;
 }
@@ -133,6 +133,8 @@ export interface Post {
   viewsCount?: number;
   views?: string[];
   savedBy?: string[];
+  sharesCount?: number;
+  sharedBy?: string[];
   postType?: 'post' | 'announcement';
   pinned?: boolean;
   pinnedUntil?: string | null;
@@ -182,6 +184,7 @@ export interface StudyGroup {
   name: string;
   description: string;
   subject: string;
+  subjects?: string[];
   createdBy: string;
   createdByName: string;
   memberIds: string[];
@@ -202,8 +205,6 @@ export interface PinnedMessage {
   pinnedAt: string;
   pinnedBy: string;
 }
-
-// ─── DM / Contact types ───────────────────────────────────────────────────────
 
 export type SaveToPhotosPreference = 'default' | 'always' | 'never';
 export type MuteDuration = '8h' | '1w' | 'always' | 'off';
@@ -232,6 +233,24 @@ export interface DMConversation {
   isBestFriend: boolean;
   friendRequestStatus: 'none' | 'sent' | 'received';
   contactSettings: ContactSettings;
+  archived?: boolean;
+}
+
+export interface GroupConversation {
+  id: string;
+  name: string;
+  photoURL: string | null;
+  createdBy: string;
+  createdAt: string;
+  members: string[];
+  memberNames: Record<string, string>;
+  memberPhotos: Record<string, string | null>;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  lastMessageSenderId: string | null;
+  lastMessageSenderName: string | null;
+  unreadCount: number;
+  isGroup: true;
 }
 
 export interface DirectMessage extends Message { }
@@ -284,6 +303,31 @@ export interface NotificationItem {
   createdAt: string;
   read: boolean;
   meta?: Record<string, string>;
+}
+
+export type TicketStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string | null;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  createdAt: string;
+  updatedAt: string;
+  repliesCount?: number;
+}
+
+export interface TicketReply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto: string | null;
+  text: string;
+  createdAt: string;
+  isStaff: boolean;
 }
 
 export interface FriendRequest {
