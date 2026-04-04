@@ -3,8 +3,8 @@
         "welcome": "Welcome to CampusHub!",
         "login": "Login",
         "signup": "Sign Up",
-        "logout": "Log Out",
-        "logout_confirm": "Are you sure you want to log out?",
+        "logout": "Logout",
+        "logout_confirm": "Are you sure you want to logout?",
         "save": "Save",
         "cancel": "Cancel",
         "back": "Back",
@@ -19,6 +19,8 @@
         "spanish": "Spanish",
         "english": "English",
         "create": "Create",
+        "edit": "Edit",
+        "delete": "Delete",
         "done": "Done",
         "locale_code": "en-US",
         "permission_denied": "Permission denied",
@@ -33,8 +35,6 @@
         "groups": "Groups",
         "options": "Options",
         "confirm": "Confirm",
-        "delete": "Delete",
-        "edit": "Edit",
         "change": "Change",
         "pin": "Pin",
         "unpin": "Unpin",
@@ -43,10 +43,11 @@
         "added": "added",
         "accept": "Accept",
         "reject": "Reject",
+        "info": "Info.",
         "success": "Success!",
         "error": "Error",
         "loading": "Loading...",
-        "coming_soon": "Coming Soon",
+        "coming_soon": "Coming soon",
         "password": "Password",
         "update": "Update",
         "date": "Date",
@@ -54,28 +55,44 @@
         "you": "You",
         "user": "User",
         "next": "Next",
-        "ok": "OK"
+        "ok": "OK",
+        "file": "File",
+        "leave": "Leave",
+        "more": "More",
+        "all": "All",
+        "yesterday": "Yesterday",
+        "group": "Group"
+    },
+    "events": {
+        "title": "Events & Activities",
+        "empty_title": "No events",
+        "empty_body": "There are no upcoming events for you",
+        "department_only": "Your department",
+        "view_in_calendar": "View in calendar",
+        "going": "going",
+        "rsvp_going": "Going",
+        "rsvp_not_going": "Not going"
     },
     "roles": {
         "student": "Student",
         "teacher": "Teacher",
-        "admin": "Administration",
+        "admin": "Admin",
         "delegate": "Delegate",
         "coordinator": "Coordinator",
         "none": "None",
         "labels": {
             "student": "Student",
             "teacher": "Teacher",
-            "admin": "Administration",
+            "admin": "Admin",
             "delegate": "Delegate",
             "coordinator": "Coordinator"
         },
         "errors": {
-            "all_fields": "Please fill in all fields",
-            "passwords_dont_match": "Passwords do not match",
+            "all_fields": "Please complete all fields",
+            "passwords_dont_match": "Passwords don't match",
             "password_too_short": "Password must be at least 6 characters",
             "email_exists": "This email is already registered",
-            "create_failed": "Could not create account",
+            "create_failed": "Account creation failed",
             "service_unavailable": "Service unavailable",
             "connection_error": "Connection error",
             "unexpected": "Unexpected error",
@@ -84,7 +101,7 @@
             "sync_error": "Sync error"
         },
         "success": {
-            "account_created": "Account created successfully"
+            "account_created": "Account created correctly"
         }
     },
     "tabs": {
@@ -97,19 +114,19 @@
     "auth": {
         "email": "Email address",
         "password": "Password",
-        "forgot_password": "Forgot your password?",
+        "forgot_password": "Forgot password?",
         "dont_have_account": "Don't have an account? Sign up",
-        "wrong_password": "Incorrect password.",
-        "invalid_email": "Invalid email format.",
-        "email_already_in_use": "This email is already in use by another account.",
-        "recent_login_required": "Please log out and log in again to change your email.",
         "login_sub": "For Students and Teachers",
         "or_continue_with": "Or continue with",
-        "login_with_google": "Log in with Google",
+        "login_with_google": "Login with Google",
         "no_account": "Don't have an account?",
         "signup_sub": "Join CampusHub",
         "confirm_password": "Confirm password",
-        "already_have_account": "Already have an account?"
+        "already_have_account": "Already have an account?",
+        "email_already_in_use": "This email is already in use by another account.",
+        "invalid_email": "Invalid email format.",
+        "recent_login_required": "Please sign out and sign back in to change your email.",
+        "wrong_password": "Incorrect password."
     },
     "settings": {
         "title": "Settings",
@@ -121,7 +138,9 @@
         "mute_description": "Mute all app notifications.",
         "global_alert_tone": "Global alert tone.",
         "account": "Account",
-        "logout_error": "Could not log out",
+        "logout_error": "Logout failed",
+        "delete_account": "Delete account",
+        "manage_accounts": "Manage accounts",
         "mute_options": {
             "8h": "8 hours",
             "1w": "1 week",
@@ -157,24 +176,24 @@
         "unmute": "Unmute",
         "add_song": "Add song",
         "publish_btn": "Publish",
-        "publish_error": "Could not publish post. Try again.",
-        "gallery_permission_msg": "We need access to your gallery to upload files.",
+        "publish_error": "Failed to publish post. Try again.",
+        "gallery_permission_msg": "Gallery permission is required to upload files.",
         "title": "Explore",
         "video_audio_title": "Video Audio",
-        "video_audio_msg": "Do you want to keep the original audio of the video?",
+        "video_audio_msg": "Do you want to keep the original audio?",
         "social_placeholders": {
-            "post_title": "Post Title",
+            "post_title": "Post title",
             "post_content": "Write your post here..."
         },
-        "new_announcement": "New Announcement",
+        "new_announcement": "New announcement",
         "no_announcements": "No announcements yet.",
         "create_first": "Create the first announcement.",
-        "edit_announcement": "Edit Announcement",
+        "edit_announcement": "Edit announcement",
         "add_cover": "Add cover image (optional)",
         "category": "Category",
-        "title_placeholder": "Announcement Title",
+        "title_placeholder": "Announcement title",
         "content_placeholder": "Write the announcement content...",
-        "pin_announcement": "Pin Announcement",
+        "pin_announcement": "Pin announcement",
         "pin_durations": {
             "1d": "1 day",
             "3d": "3 days",
@@ -193,6 +212,9 @@
             "days": "Pinned · expires in {{days}}d",
             "weeks": "Pinned · expires in {{weeks}}w"
         },
+        "delete_confirm_msg": "Are you sure you want to delete this announcement?",
+        "image_picker_label": "Cover image (optional)",
+        "video_current": "Current video",
         "announcement_not_found": "Announcement not found.",
         "bulletin_board": "Bulletin Board",
         "administration": "Administration",
@@ -201,8 +223,8 @@
             "title": "Documentation",
             "empty": {
                 "title": "No documentation",
-                "body_admin": "Add additional information, instructions, resources or any relevant detail for this announcement.",
-                "body_user": "The author has not yet added documentation to this announcement."
+                "body_admin": "Add additional information, instructions, resources, or any relevant details for this announcement.",
+                "body_user": "The author has not added documentation to this announcement yet."
             },
             "add_btn": "Add documentation",
             "search_placeholder": "Search in document...",
@@ -211,12 +233,17 @@
             "menu": {
                 "edit": "Edit",
                 "search": "Search",
-                "clear": "Delete content"
+                "clear": "Clear content"
             },
             "editor_placeholder": "Write the announcement documentation here...",
+            "header": {
+                "announcement": "Announcement",
+                "cancel": "Cancel",
+                "save": "Save"
+            },
             "alerts": {
-                "clear_title": "Delete content",
-                "clear_msg": "Delete all documentation for this announcement?"
+                "clear_title": "Clear content",
+                "clear_msg": "Remove all documentation from this announcement?"
             }
         },
         "with_docs": "With attached documentation",
@@ -232,14 +259,16 @@
             "class": "Class"
         },
         "publish_social": "Publish as post",
+        "search_announcements": "Search announcements...",
+        "all_categories": "All",
         "announcements": {
             "alerts": {
                 "delete_title": "Delete announcement",
-                "delete_subtitle": "Are you sure you want to delete this announcement?",
+                "delete_subtitle": "Are you sure you want to delete this?",
                 "published_title": "Published",
                 "published_subtitle": "The announcement is now on the social feed.",
                 "error_title": "Error",
-                "error_subtitle": "Could not publish."
+                "error_subtitle": "Failed to publish."
             }
         },
         "categories": {
@@ -247,7 +276,7 @@
             "erasmus": "Erasmus+",
             "matricula": "Enrollment",
             "eventos": "Events",
-            "fct": "FCT Internships",
+            "fct": "Internship (FCT)",
             "becas": "Scholarships",
             "evaluacion": "Evaluation"
         },
@@ -261,7 +290,7 @@
                 "leave_title": "Leave group",
                 "leave_subtitle": "Are you sure you want to leave?",
                 "delete_title": "Delete group",
-                "delete_subtitle": "Are you sure you want to delete this group?"
+                "delete_subtitle": "Are you sure you want to delete this?"
             },
             "notifications": {
                 "new_member_title": "New member in your group",
@@ -270,7 +299,7 @@
                 "added_body": "{{name}} added you to \"{{groupName}}\""
             },
             "tabs": {
-                "info": "Information",
+                "info": "Info",
                 "members": "Members"
             },
             "steps": {
@@ -280,19 +309,21 @@
                 "access": "Access",
                 "invite": "Invite"
             },
+            "placeholders": {
+                "name": "Group name (e.g., Algebra Review)",
+                "name_hint": "Write a clear name so other students can identify it.",
+                "desc": "Description (optional)",
+                "search_users": "Search by name or email..."
+            },
+            "subject_category": "Subject / Category",
+            "group_color": "ID Color",
             "who_can_join": "Who can join?",
             "member_count": "Members",
-            "subject_category": "Subject / Category",
-            "group_color": "Group Color",
             "categories": {
                 "subjects": "Subjects",
                 "departments": "Departments",
-                "cycles": "Cycles"
-            },
-            "placeholders": {
-                "name": "Group name (e.g. Algebra Review)",
-                "desc": "Description (optional)",
-                "search_users": "Search by name or email..."
+                "cfgm": "Vocational",
+                "cfgs": "Higher Vocational"
             },
             "roles": {
                 "everyone": "Everyone",
@@ -302,7 +333,7 @@
                 "students_only": "Students only",
                 "students_only_desc": "Students and delegates",
                 "admins_only": "Admins only",
-                "admins_only_desc": "Administration team"
+                "admins_only_desc": "Management team"
             },
             "actions": {
                 "add": "Add",
@@ -340,64 +371,37 @@
                 "fol": "Labor Guidance",
                 "counseling": "Counseling",
                 "innovation": "Innovation and Quality",
-                "asir": "Network Admin (ASIR)",
-                "dam": "App Development (DAM)",
-                "daw": "Web Development (DAW)",
-                "smr": "Micro (SMR)",
-                "tseas": "Sports (TSEAS)",
-                "tcae": "Nursing (TCAE)",
-                "emergencies": "Medical Emergencies",
-                "hygiene": "Oral Hygiene",
-                "childhood_ed": "Early Childhood Ed",
-                "social_care": "Social Care (TAPSD)",
-                "admin_mgmt_cycle": "Admin Management",
-                "finance_insurance": "Finance and Insurance",
-                "tourist_guide": "Tourist Guide and Assistance",
+                "asir": "IT Systems Admin. (ASIR)",
+                "dam": "Multiplatform App Dev. (DAM)",
+                "daw": "Web App Development (DAW)",
+                "smr": "IT Systems & Networks (SMR)",
+                "tseas": "Sport & Recreation (TSEAS)",
+                "tcae": "Auxiliary Nursing Care (TCAE)",
+                "emergencies": "Emergency Coordination",
+                "hygiene": "Oral Hygiene (Dental)",
+                "childhood_ed": "Childhood Education",
+                "social_care": "Social Integration",
+                "admin_mgmt_cycle": "Administrative Management",
+                "finance_insurance": "Finance & Administration",
+                "tourist_guide": "Tourism Guide & Assistance",
                 "other": "Other",
-                "Asignaturas": "Subjects",
-                "Departamentos": "Departments",
-                "Ciclos": "Cycles",
-                "Matemáticas": "Mathematics",
-                "Física": "Physics",
-                "Química": "Chemistry",
-                "Historia": "History",
-                "Inglés": "English",
-                "Francés": "French",
-                "Filosofía": "Philosophy",
-                "Economía": "Economics",
-                "Tecnología": "Technology",
-                "Programación": "Programming",
-                "Hostelería y Turismo": "Hospitality and Tourism",
-                "Sanidad": "Health",
-                "Informática y Comunicaciones": "IT and Communications",
-                "Actividades Físicas y Deportivas": "Physical Activities and Sports",
-                "Administración y Gestión": "Administration and Management",
-                "Servicios Socioculturales": "Sociocultural Services",
-                "Energía y Agua": "Energy and Water",
-                "Madera, Mueble y Corcho": "Wood, Furniture and Cork",
-                "Seguridad y Medio Ambiente": "Security and Environment",
-                "Idiomas": "Languages",
-                "FOL": "Labor Guidance",
-                "Orientación": "Counseling",
-                "Innovación y Calidad": "Innovation and Quality",
-                "ASIR": "Network Admin (ASIR)",
-                "DAM": "App Development (DAM)",
-                "DAW": "Web Development (DAW)",
-                "SMR": "Micro (SMR)",
-                "TSEAS": "Sports (TSEAS)",
-                "TCAE": "Nursing (TCAE)",
-                "Emergencias Sanitarias": "Medical Emergencies",
-                "Higiene Bucodental": "Oral Hygiene",
-                "Educación Infantil": "Early Childhood Ed",
-                "TAPSD": "Social Care (TAPSD)",
-                "Gestión Administrativa": "Admin Management",
-                "Finanzas y Seguros": "Finance and Insurance",
-                "Guía, Información y Asistencias Turísticas": "Tourist Guide and Assistance"
+                "cooking": "Cooking and Gastronomy",
+                "restaurant_services": "Restaurant Services",
+                "pharmacy": "Pharmacy and Parapharmacy",
+                "fitness": "Physical Conditioning",
+                "management_assistance": "Management Assistance",
+                "energy_efficiency": "Energy Efficiency",
+                "water_management": "Water Management",
+                "kitchen_management": "Kitchen Management",
+                "restaurant_management": "Restaurant Management",
+                "hotel_management": "Tourist Accommodation Management",
+                "dietetics": "Dietetics"
             },
             "access_public": "Public",
             "access_private": "Private",
-            "access_public_desc": "Any user meeting the role requirements can view and join.",
-            "access_private_desc": "Only invited users can view and access this group."
+            "access_public_desc": "Any user meeting role requirements can see and join.",
+            "access_private_desc": "Only invited users can see and access this group.",
+            "group_label": "Study Group"
         },
         "calendar": {
             "months": [
@@ -436,16 +440,18 @@
             "edit_event": "Edit event",
             "new_event": "New event",
             "upcoming_events": "Upcoming events",
-            "day_events": "Events of the day",
-            "date_time": "Date & Time",
+            "day_events": "Day events",
+            "date_time": "Date and Time",
             "date": "Date",
             "time": "Time",
             "visible_for": "Visible for",
+            "department_visibility": "Department visibility",
+            "dept_auto_assigned": "Automatically assigned to your department",
             "placeholders": {
                 "title": "Event title",
                 "desc": "Additional notes (optional)"
             },
-            "related_announcement": "See related announcement",
+            "related_announcement": "View related announcement",
             "options": {
                 "edit": "Edit announcement",
                 "delete": "Delete announcement",
@@ -456,11 +462,15 @@
             "no_desc": "No description",
             "all_day": "All day",
             "delete_title": "Delete event",
-            "delete_subtitle": "Are you sure you want to delete this event?",
-            "publish_title": "Publish to Channel",
+            "delete_subtitle": "Are you sure you want to delete this?",
+            "publish_title": "Publish in Channel",
             "publish_subtitle": "Do you want to announce this event in the institutional channel?",
             "publish_button": "Publish",
-            "notified": "ANNOUNCED"
+            "notified": "NOTIFIED"
+        },
+        "tabs": {
+            "announcements": "Announcements",
+            "events": "Events"
         }
     },
     "friends": {
@@ -471,8 +481,8 @@
         },
         "search_placeholder": "Search friends...",
         "empty": {
-            "no_friends": "You don't have friends yet",
-            "no_best": "You don't have best friends",
+            "no_friends": "No friends yet",
+            "no_best": "No best friends yet",
             "start_connecting": "Start connecting with other students!",
             "add_best_desc": "Add your closest connections as best friends"
         }
@@ -484,8 +494,11 @@
             "posts": "Posts"
         },
         "saved_at": "Saved on {{date}}",
-        "no_items": "No saved items",
-        "no_items_desc": "Items you save will appear here"
+        "no_items": "No items saved",
+        "no_items_desc": "Saved items will appear here",
+        "search_placeholder": "Search by name, text...",
+        "no_results": "No results",
+        "no_results_desc": "Try a different search term or filter"
     },
     "admin": {
         "user_mgmt_title": "User Management",
@@ -502,21 +515,24 @@
             "subrole_label": "Subrole"
         },
         "update_success": "Role updated successfully",
-        "update_error": "Could not update role",
+        "update_error": "Failed to update role",
         "no_users": "No users found."
     },
     "dm": {
         "title": "Direct Messages",
         "new_message_title": "New Message",
-        "new_message": "New Message",
+        "new_message": "New message",
         "search_by_name": "Search by name...",
         "type_message": "Type a message...",
         "sent_read_receipt": "Read",
         "no_messages": "No messages yet.",
         "no_messages_yet": "No messages yet. Say hi!",
+        "search_in_chat_placeholder": "Search messages...",
+        "search_in_chat_no_results": "No messages match your search.",
         "loading_chat": "Loading chat...",
         "loading_directory": "Loading directory...",
         "no_users_found": "No users found",
+        "users_total": "users",
         "page_num": "Page {{num}}",
         "filter": {
             "all": "All",
@@ -527,7 +543,7 @@
         "search_placeholder": "Search chats...",
         "start_conversation": "Start conversation",
         "search_conversations": "Search conversation...",
-        "db_index_error": "Missing an index in the database to load conversations.",
+        "db_index_error": "A database index is missing to load conversations.",
         "db_index_help": "Please check the Firebase console to create the necessary index.",
         "no_results": "No results",
         "no_messages_title": "No messages",
@@ -539,8 +555,8 @@
         "poll": "Poll",
         "cancel": "Cancel",
         "sending": "Sending...",
-        "mic_perm_error": "Microphone permissions are needed to send audio.",
-        "camera_perm_error": "Camera permissions are needed",
+        "mic_perm_error": "Microphone permission is required to send audio.",
+        "camera_perm_error": "Camera permission is required",
         "audio_error": "Error sending audio.",
         "image_error": "Error sending image",
         "file_error": "Error uploading file",
@@ -551,7 +567,7 @@
         "file_msg": "File: {{name}}",
         "poll_create": "Create Poll",
         "poll_question_label": "QUESTION",
-        "poll_question_placeholder": "Type your question...",
+        "poll_question_placeholder": "Write your question...",
         "poll_options_label": "OPTIONS",
         "poll_option_placeholder": "Option {{index}}",
         "poll_add_option": "Add option",
@@ -566,7 +582,9 @@
             "audio": "Voice message",
             "image": "Image",
             "poll": "Poll",
-            "file": "File"
+            "file": "File",
+            "event": "Event",
+            "contact": "Contact"
         },
         "send_error": "Error sending message",
         "conversations": {
@@ -575,6 +593,34 @@
                 "archive": "Archive"
             }
         },
+        "mute_title": "Mute notifications",
+        "unmute": "Unmute",
+        "mute_picker": {
+            "8h": "Mute 8h",
+            "1w": "Mute 1 week",
+            "always": "Always"
+        },
+        "archived_title": "Archived",
+        "archived_count": "{{count}} archived",
+        "unarchive": "Unarchive",
+        "no_archived": "No archived conversations",
+        "mute": "Mute",
+        "contact_info": "Contact Info",
+        "add_best_friend": "Add to Best Friends",
+        "remove_best_friend": "Remove from Best Friends",
+        "add_friend": "Add Friend",
+        "clear_chat": "Clear Chat",
+        "clear_chat_title": "Clear Chat",
+        "clear_chat_confirm": "Clear chat with {{name}}?",
+        "clear_chat_action": "Clear",
+        "block_title": "Block {{name}}?",
+        "block_confirm": "They won't be able to message you or see your profile.",
+        "block_action": "Block",
+        "block_user": "Block {{name}}",
+        "delete_chat": "Delete Chat",
+        "delete_chat_title": "Delete Chat",
+        "delete_chat_confirm": "Delete chat with {{name}}?",
+        "delete_chat_action": "Delete",
         "save_to_photos_sheet": {
             "title": "Save to Photos",
             "options": {
@@ -594,21 +640,21 @@
         },
         "block_sheet": {
             "title": "Block {{name}}?",
-            "desc": "Blocked contacts will not be able to call you or send you messages.",
+            "desc": "Blocked contacts cannot call or message you.",
             "block_only": "Block",
-            "block_and_report": "Block and Report"
+            "block_and_report": "Block and report"
         },
         "report_sheet": {
             "title": "Report {{name}}?",
-            "desc": "A copy of the last messages will be sent to Campus Hub. The contact will not be notified.",
+            "desc": "A copy of recent messages will be sent to Campus Hub. The contact won't be notified.",
             "report_only": "Report",
-            "report_and_block": "Report and Block"
+            "report_and_block": "Report and block"
         },
         "settings": {
             "title": "Customize Chat",
             "themes": "Chat Themes",
             "add_custom": "Add background",
-            "custom_bg_name": "My Background",
+            "custom_bg_name": "My background",
             "edit_bg": "Adjust Background",
             "edit_bg_desc": "Drag to move • Buttons for Zoom",
             "font_size": "Font Size",
@@ -626,11 +672,11 @@
             "notifications": "Notifications",
             "save_to_photos": "Save to Photos",
             "mutual_groups": {
-                "title": "Mutual Groups",
-                "none": "No mutual groups",
+                "title": "Groups in common",
+                "none": "No groups in common",
                 "other": {
-                    "one": "1 mutual group",
-                    "other": "{{count}} mutual groups"
+                    "one": "1 group in common",
+                    "other": "{{count}} groups in common"
                 },
                 "and_more": " and {{count}} more",
                 "you_and_contact": "You and this contact"
@@ -640,28 +686,29 @@
             "share_user": "Share user",
             "best_friend_add": "Add to best friends",
             "best_friend_remove": "Remove from best friends",
+            "remove_friend": "Remove friend",
+            "remove_friend_title": "Remove friend",
+            "remove_friend_confirm": "Remove {{name}} from your friends?",
+            "remove_friend_action": "Remove",
             "friend_request_accept": "Accept friend request",
             "friend_request_sent": "Request sent",
             "friend_request_send": "Send friend request",
-            "friend_request_success": "Friend request sent to {{name}}",
-            "chat": {
-                "delete_message": "Delete message",
-                "delete_confirm_msg": "How do you want to delete it?",
-                "delete_for_me_only": "It will only be deleted for you.",
-                "delete_for_me": "Delete for me",
-                "delete_for_all": "Delete for all"
-            },
+            "friend_request_success": "Request sent to {{name}}",
             "clear_chat": "Clear chat",
             "block_user": "Block {{name}}",
             "report_user": "Report {{name}}",
             "user_blocked": "User blocked",
-            "user_blocked_msg": "You have blocked {{name}}",
+            "user_blocked_msg": "You blocked {{name}}",
             "report_sent": "Report sent",
-            "report_sent_msg": "Your report has been sent to the Campus Hub team",
+            "report_sent_msg": "Your report was sent to Campus Hub team",
             "blocked_and_reported": "Blocked and reported",
-            "blocked_and_reported_msg": "You have blocked and reported {{name}}",
+            "blocked_and_reported_msg": "You blocked and reported {{name}}",
+            "report_group": "Report group",
+            "report_confirm": "Do you want to report this group?",
+            "report_action": "Report",
+            "group_update_error": "Could not update the group name.",
             "mute_options": {
-                "off": "On",
+                "off": "Active",
                 "8h": "Muted 8h",
                 "1w": "Muted 1 week",
                 "always": "Muted"
@@ -678,7 +725,7 @@
                 "audio": "Audio",
                 "link": "Links"
             },
-            "empty_media": "No {{type}} found",
+            "empty_media": "No {{type}} yet",
             "notifications_settings": {
                 "title": "Notifications",
                 "mute_title": "MUTE NOTIFICATIONS",
@@ -698,7 +745,7 @@
                         "desc": "Mute indefinitely"
                     },
                     "off": {
-                        "label": "Off",
+                        "label": "Don't mute",
                         "desc": "Receive all notifications"
                     }
                 },
@@ -709,28 +756,48 @@
                     "Melody": "Melody",
                     "Bell": "Bell",
                     "Pulse": "Pulse",
-                    "None": "None"
+                    "None": "No tone"
                 }
             }
         },
         "call": {
-            "connection_failed": "Could not initiate call connection.",
+            "connection_failed": "Failed to start call connection.",
             "waiting_video": "Waiting for remote video...",
             "incoming": "Incoming call...",
             "calling": "Calling...",
             "screen_share": "Screen",
-            "screen_share_soon": "Screen sharing will be available soon.",
+            "screen_share_soon": "Screen share will be available soon.",
             "hang_up": "Hang up",
-            "no_calls": "Calls unavailable",
-            "build_required": "This feature requires a Development Build. It is not compatible with Expo Go.",
-            "not_available_title": "Call functionality not available",
-            "not_available_desc": "Calls are not included in the mobile version yet. Please use the Web or Desktop version to call.",
+            "no_calls": "Calls not available",
+            "build_required": "This feature requires a Development Build. Not compatible with Expo Go.",
+            "not_available_title": "Feature not available",
+            "not_available_desc": "Calls are not included in the mobile version yet. Use Web or Desktop version.",
             "mute": "Mute",
             "unmute": "Unmute",
             "listen": "Listen",
             "deafen": "Deafen",
             "video_on": "Video On",
-            "video_off": "Video Off"
+            "video_off": "Camera"
+        },
+        "group": {
+            "leave_group": "Leave Group",
+            "leave_confirm": "Leave Confirm",
+            "new_group": "New Group",
+            "info_title": "Info Title",
+            "error_min_members": "Error Min Members",
+            "create": "Create",
+            "group_name_placeholder": "Group Name Placeholder",
+            "frequent_contacts": "Frequent Contacts",
+            "add_members": "Add Members",
+            "add": "Add",
+            "next": "Next",
+            "search_placeholder": "Search Placeholder",
+            "starred": "Starred",
+            "members_short": "Members Short",
+            "you_prefix": "You Prefix",
+            "admin": "Admin",
+            "created_by_you": "Created By You",
+            "create_group": "Create Group"
         }
     },
     "profile": {
@@ -756,28 +823,62 @@
         "best_friends": "Best Friends",
         "close_connections": "Your closest connections",
         "administration": "Administration",
-        "user_management": "User management",
+        "user_management": "User Management",
         "assign_roles": "Assign roles and subroles",
         "username_label": "Username",
         "bio_placeholder": "Your name",
-        "describe_yourself": "Tell us about yourself...",
+        "describe_yourself": "Describe yourself...",
         "account_privacy": "Account & Privacy",
         "manage_account_desc": "Manage your email and security from a protected section.",
-        "account_data": "Account data",
-        "discard_changes": "Discard Changes"
+        "account_data": "Account Data",
+        "discard_changes": "Discard Changes",
+        "loading_error": "Could not load the profile.",
+        "save_error": "Could not save the changes."
     },
     "account_details": {
         "header_title": "Account Data",
         "email_simulation": "Email Simulation",
         "code_sent": "Verification code sent: ",
         "verified_title": "Verified",
-        "verified_msg": "For security, passwords are encrypted and cannot be displayed in plain text. You now have access to change it if you wish.",
-        "invalid_code": "Incorrect verification code",
+        "verified_msg": "For security, passwords are encrypted and cannot be displayed. You now have access to change it.",
+        "invalid_code": "Invalid verification code",
         "password_updated": "Password updated successfully",
-        "wrong_password": "Incorrect old password or new password too weak",
+        "wrong_old_password": "Wrong old password or new one too weak",
         "security": "Security",
         "new_password": "New Password",
+        "old_password": "Old Password",
+        "confirm_password": "Confirm New",
+        "verify": "Verify",
         "otp_tip": "Enter the 5-character code sent to your email to access this data."
+    },
+    "accounts": {
+        "title": "Manage accounts",
+        "add_account": "Add account",
+        "switch_to": "Switch to this account",
+        "active": "Active",
+        "remove": "Remove",
+        "remove_confirm_title": "Remove saved account?",
+        "remove_confirm_msg": "This will remove it from the list. It will not delete the CampusHub account.",
+        "switching": "Switching account...",
+        "error_switch": "Could not switch account",
+        "error_already_active": "This is your currently active account",
+        "error_already_added": "This account has already been added",
+        "no_accounts": "No other saved accounts",
+        "add_account_title": "Add another account",
+        "add_account_hint": "Sign in with another CampusHub account"
+    },
+    "delete_account": {
+        "title": "Delete account",
+        "warning": "This action is permanent and irreversible. All your data, posts and messages will be deleted.",
+        "password_label": "Current password",
+        "password_placeholder": "Enter your password",
+        "checkbox": "I understand this action is irreversible",
+        "confirm_btn": "Delete my account",
+        "success": "Account deleted successfully",
+        "error_wrong_password": "Wrong password",
+        "error_generic": "Could not delete account. Please try again.",
+        "deleting": "Deleting account...",
+        "section_danger": "Danger zone"
     },
     "chat": {
         "channel_label": "Campus Channel",
@@ -793,72 +894,144 @@
             "italic": "Italic",
             "category_name": "Chat",
             "clear_chat": "Clear chat",
-            "clear_chat_title": "Clear chat",
-            "clear_chat_message": "Are you sure you want to clear the chat? This action cannot be undone.",
+            "clear_chat_title": "Clear Chat",
+            "clear_chat_message": "Are you sure you want to clear this chat? This action cannot be undone.",
             "clear_chat_confirm": "Clear",
             "clear_chat_cancel": "Cancel",
-            "custom_bg_name": "My BG"
+            "clear_chat_msg": "Are you sure you want to clear this chat? This action cannot be undone.",
+            "custom_bg_name": "My background"
         },
         "voice_msg_preview": "Voice message",
         "reply": "Reply",
         "forward": "Forward",
         "copy": "Copy",
+        "save": "Save message",
+        "saved_ok": "Message saved",
+        "star": "Star",
+        "unstar": "Remove star",
+        "no_starred": "No starred messages",
+        "no_starred_body": "Long-press a message and tap \"Star\" to see it here.",
         "delete": "Delete",
         "delete_message": "Delete message",
-        "delete_confirm_msg": "How do you want to delete it?",
-        "delete_for_me_only": "It will only be deleted for you.",
-        "clear_chat": "Clear chat",
-        "clear_chat_msg": "How do you want to clear the chat?",
         "delete_for_me": "Delete for me",
-        "delete_for_all": "Delete for all",
-        "chat_cleared": "Chat cleared",
-        "chat_cleared_msg": "Messages are no longer visible to you",
-        "chat_deleted": "Chat deleted",
-        "chat_deleted_msg": "All messages were deleted",
-        "clear_error": "Could not clear chat",
-        "delete_error": "Could not delete chat",
+        "delete_for_everyone": "Delete for everyone",
+        "react": "React",
+        "typing": "typing...",
+        "online": "online",
+        "last_seen": "last seen {{time}}",
+        "no_access": "You have no access to this chat.",
+        "is_not_member": "You are no longer a member of this group.",
+        "channel_type": "Campus Channel",
+        "post_type": "Social Post",
+        "dm_type": "Direct Message",
+        "clear_chat": "Clear chat",
         "loading": "Loading messages...",
-        "no_messages": "No messages yet.",
-        "unknown_user": "Unknown user",
+        "no_messages": "No messages yet. Say hi!",
+        "search_in_chat_placeholder": "Search messages...",
+        "search_in_chat_no_results": "No messages match your search.",
+        "clear_chat_msg": "Are you sure you want to clear this chat? This action cannot be undone.",
+        "chat_cleared": "Chat cleared",
+        "chat_cleared_msg": "Messages are no longer visible to you.",
+        "chat_deleted": "Chat deleted",
+        "chat_deleted_msg": "All messages have been deleted.",
+        "clear_error": "Failed to clear the chat.",
+        "delete_error": "Failed to delete the chat.",
+        "delete_for_all": "Delete for everyone",
+        "delete_confirm_msg": "How do you want to delete it?",
+        "delete_for_me_only": "This will only be deleted for you.",
         "emoji_picker_title": "Select an emoji from the keyboard",
-        "file_share_msg": "File from {{channel}}: {{name}}",
+        "unknown_user": "Unknown user",
         "info": {
-            "title": "Channel Information",
-            "members_title": "Members",
             "add_members": "Add members",
-            "search_placeholder": "Search by name...",
-            "no_results": "No results found",
-            "search_hint": "Search people to add",
+            "admin": "Admin.",
+            "campus_channel": "Channel",
+            "created_at": "Created on {{date}}.",
+            "created_by": "Created by {{name}}.",
+            "created_by_you": "Created by you.",
+            "creator": "Creator",
+            "image_error": "Could not upload the image.",
+            "leave_btn": "Leave",
+            "leave_confirm": "Are you sure you want to leave this group?",
+            "leave_group": "Leave group",
+            "member_count": "{{count}} members",
+            "miembro": "member",
+            "miembros": "members",
             "mute_notifications": "Mute notifications",
-            "unmute_notifications": "Unmute",
             "mute_options": {
                 "8h": "8 hours",
                 "1w": "1 week",
                 "always": "Always"
             },
-            "muted_until": "Muted until {{date}}",
             "muted_indefinite": "Muted indefinitely",
-            "creator": "Creator",
-            "admin": "Admin.",
-            "what_to_do": "What do you want to do?",
+            "muted_until": "Muted until {{date}}",
+            "no_results": "No results found",
             "remove_member": "Remove from group",
+            "search_hint": "Search people to add",
+            "search_placeholder": "Search by name...",
+            "study_group": "Group",
+            "unmute_notifications": "Unmute",
+            "what_to_do": "What do you want to do?",
+            "you": "You"
+        },
+        "group": {
+            "new_group": "New group",
+            "add_members": "Add members",
+            "next": "Next",
+            "create": "Create",
+            "create_group": "Create group",
+            "group_name_placeholder": "Group name (optional)",
+            "members_label": "MEMBERS: {{count}} OF {{total}}",
+            "members_short": "members",
+            "search_placeholder": "Search a name or number",
+            "frequent_contacts": "Frequent contacts",
+            "no_users_found": "No users found",
+            "member_count": "{{count}} members",
             "leave_group": "Leave group",
-            "leave_confirm": "Are you sure you want to leave this group?",
-            "leave_btn": "Leave",
-            "study_group": "Study Group",
-            "campus_channel": "Campus Channel",
-            "member_count_one": "1 member",
-            "member_count_other": "{{count}} members",
-            "member_label": "member",
-            "members_label": "members",
-            "created_by": "Created by {{name}}",
-            "created_by_you": "you",
-            "created_at": "Created on {{date}}",
-            "miembro": "MEMBER",
-            "miembros": "MEMBERS",
-            "muted": "Muted",
-            "you": "You",
-            "image_error": "Could not upload image"
+            "leave_confirm": "Do you want to leave this group?",
+            "you_prefix": "You",
+            "group_created": "Group created",
+            "error_min_members": "Select at least one contact",
+            "info_title": "Group Info",
+            "admin": "Admin",
+            "created_by": "Created by {{name}}.",
+            "created_by_you": "Created by you.",
+            "created_at": "Created on {{date}}.",
+            "starred": "Starred",
+            "media_links": "Media, links and docs"
+        },
+        "read_only_announcement": "Read Only Announcement",
+        "read_only_events": "Read Only Events"
+    },
+    "time_ago": {
+        "now": "Now",
+        "minutes": "{{count}}m",
+        "hours": "{{count}}h",
+        "days": "{{count}}d"
+    },
+    "notifications": {
+        "title": "Notifications",
+        "social": "Social activity",
+        "dm": "Messages",
+        "campus": "Campus",
+        "friend": "Friends",
+        "mark_all_read": "Read all",
+        "no_notifications": "No notifications",
+        "new_notifications": "{{count}} new notifications",
+        "friend_request": {
+            "title": "Friend request",
+            "body": "{{name}} wants to be your friend."
+        },
+        "friend_accepted": {
+            "title": "Friend request accepted",
+            "body": "{{name}} accepted your friend request."
+        },
+        "groups": {
+            "friend_request": "New friend requests",
+            "friend_accepted": "Accepted requests",
+            "dm": "Messages",
+            "social_like": "Likes",
+            "social_comment": "Comments",
+            "campus": "Campus"
         }
     },
     "post": {
@@ -870,51 +1043,89 @@
         "new_comment": "New comment",
         "commented_on_post": "{{name}} commented on your post: \"{{text}}\"",
         "commented": "{{name}} commented: {{text}}",
+        "likes": {
+            "you_like": "You like this",
+            "you_and_one": "You and 1 other",
+            "you_and_others": "You and {{count}} others",
+            "one_likes": "1 person likes this",
+            "others_like": "{{count}} people like this"
+        },
+        "comments_count": "Comments ({{count}})",
+        "no_comments": "No comments yet. Be the first!",
+        "add_comment": "Add a comment...",
         "not_found": "Post not found.",
         "announcement": "Announcement",
         "view_on_board": "View on Board",
+        "replying_to": "Replying to ",
+        "delete_title": "Delete post",
+        "delete_subtitle": "Are you sure you want to delete this post?",
         "edit_title": "Edit Post",
         "no_permission": "You don't have permission to edit this post.",
-        "comments_count": "Comments ({{count}})",
-        "no_comments": "No comments yet. Be the first!",
+        "reply": "Reply",
         "song_picker": {
-            "title": "Choose song",
+            "title": "Pick a song",
             "close": "Close",
             "placeholder": "Search song or artist...",
             "no_results": "No songs found",
             "empty": "Search for a song to add to your post"
+        }
+    },
+    "support": {
+        "title": "Help & Support",
+        "subtitle": "Create a ticket and our team will help you.",
+        "new_ticket": "New ticket",
+        "my_tickets": "My tickets",
+        "all_tickets": "All tickets",
+        "no_tickets": "No tickets yet",
+        "no_tickets_sub": "Tap the button below to create one.",
+        "no_tickets_staff": "No tickets to manage.",
+        "ticket_title": "Subject",
+        "ticket_title_placeholder": "Brief summary of your issue",
+        "ticket_description": "Description",
+        "ticket_description_placeholder": "Describe your issue in detail...",
+        "submit": "Send ticket",
+        "status_open": "Open",
+        "status_in_progress": "In progress",
+        "status_resolved": "Resolved",
+        "filter_all": "All",
+        "filter_open": "Open",
+        "filter_in_progress": "In progress",
+        "filter_resolved": "Resolved",
+        "reply_placeholder": "Write a reply...",
+        "send_reply": "Send",
+        "mark_in_progress": "Mark as in progress",
+        "mark_resolved": "Mark as resolved",
+        "mark_open": "Reopen",
+        "created_by": "Created by",
+        "ticket_detail": "Ticket detail",
+        "reply_count": "{{count}} replies",
+        "reply_count_one": "1 reply",
+        "no_replies": "No replies yet.",
+        "your_description": "Your description",
+        "close": "Close",
+        "channel_info": "Channel info",
+        "change_photo": "Change photo",
+        "uploading_photo": "Uploading...",
+        "all_members": "All registered users",
+        "channel_description": "Description"
+    },
+    "predefined_channels": {
+        "1": {
+            "name": "General",
+            "description": "General channel for all school members"
         },
-        "reply": "Reply",
-        "replying_to": "Replying to ",
-        "add_comment": "Add a comment...",
-        "delete_title": "Delete post",
-        "delete_subtitle": "This action cannot be undone.",
-        "likes": {
-            "you_like": "You like this",
-            "you_and_others": "You and {{count}} others",
-            "you_and_one": "You and 1 other",
-            "others_like": "{{count}} people like this",
-            "one_likes": "1 person likes this"
+        "2": {
+            "name": "Official Announcements",
+            "description": "Communications from the management team"
+        },
+        "3": {
+            "name": "Events & Activities",
+            "description": "Trips, hackathons and school activities"
+        },
+        "4": {
+            "name": "Help & Support",
+            "description": "General questions and assistance"
         }
     },
-    "time_ago": {
-        "now": "Now",
-        "minutes": "{{count}}m",
-        "hours": "{{count}}h",
-        "days": "{{count}}d"
-    },
-    "notifications": {
-        "title": "Notifications",
-        "social": "Social Notifications",
-        "dm": "Messages",
-        "campus": "Campus",
-        "friend": "Friends",
-        "mark_all_read": "Read all",
-        "no_notifications": "No notifications",
-        "new_notifications": "{{count}} new notifications",
-        "friend_request": {
-            "title": "Friend Request",
-            "body": "{{name}} wants to be your friend."
-        }
-    }
+    "Error": "Error"
 }
