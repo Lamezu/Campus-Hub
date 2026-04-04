@@ -39,28 +39,28 @@ export function ReportSheet({ visible, userName, onReportOnly, onReportAndBlock,
           {t('dm.report_sheet.title', { name: userName }) || `Reportar a ${userName}`}
         </ThemedText>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-          {t('dm.report_sheet.desc') || 'Tu reporte será revisado por el equipo de Campus Hub. Puedes reportar y bloquear al usuario simultáneamente.'}
+          {t('dm.report_sheet.desc') || 'Desc'}
         </ThemedText>
         <TouchableOpacity
           style={[styles.option, styles.destructive]}
           onPress={() => { onReportAndBlock(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveText}>{t('dm.report_sheet.report_and_block') || 'Reportar y bloquear'}</ThemedText>
+          <ThemedText style={styles.destructiveText}>{t('dm.report_sheet.report_and_block') || 'Report And Block'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, styles.destructiveSoft]}
           onPress={() => { onReportOnly(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveSoftText}>{t('dm.report_sheet.report_only') || 'Solo reportar'}</ThemedText>
+          <ThemedText style={styles.destructiveSoftText}>{t('dm.report_sheet.report_only') || 'Report Only'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, { backgroundColor: colors.backgroundSecondary }]}
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancel'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

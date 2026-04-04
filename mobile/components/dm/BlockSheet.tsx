@@ -39,28 +39,28 @@ export function BlockSheet({ visible, userName, onBlockOnly, onBlockAndReport, o
           {t('dm.block_sheet.title', { name: userName }) || `Bloquear a ${userName}`}
         </ThemedText>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-          {t('dm.block_sheet.desc') || 'No podrá enviarte mensajes ni ver tu perfil. Puedes desbloquear en cualquier momento.'}
+          {t('dm.block_sheet.desc') || 'Desc'}
         </ThemedText>
         <TouchableOpacity
           style={[styles.option, styles.destructive]}
           onPress={() => { onBlockAndReport(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveText}>{t('dm.block_sheet.block_and_report') || 'Bloquear y reportar'}</ThemedText>
+          <ThemedText style={styles.destructiveText}>{t('dm.block_sheet.block_and_report') || 'Block And Report'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, styles.destructiveSoft]}
           onPress={() => { onBlockOnly(); onClose(); }}
           activeOpacity={0.8}
         >
-          <ThemedText style={styles.destructiveSoftText}>{t('dm.block_sheet.block_only') || 'Solo bloquear'}</ThemedText>
+          <ThemedText style={styles.destructiveSoftText}>{t('dm.block_sheet.block_only') || 'Block Only'}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.option, { backgroundColor: colors.backgroundSecondary }]}
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancel'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>

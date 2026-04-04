@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, Image, Animated } from 'react-native';
 import { Phone, PhoneOff, Video } from 'lucide-react-native';
+import { avatarColor } from '@/utils/avatarColor';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ActiveCall } from '@/types';
@@ -40,7 +41,7 @@ export function IncomingCallModal({ visible, call, onAccept, onReject }: Incomin
                         {call.callerPhoto ? (
                             <Image source={{ uri: call.callerPhoto }} style={styles.avatar} />
                         ) : (
-                            <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
+                            <View style={[styles.avatarFallback, { backgroundColor: avatarColor(call.callerId) }]}>
                                 <ThemedText style={styles.avatarText}>{call.callerName[0].toUpperCase()}</ThemedText>
                             </View>
                         )}
@@ -53,7 +54,7 @@ export function IncomingCallModal({ visible, call, onAccept, onReject }: Incomin
 
                     <View style={styles.actions}>
                         <TouchableOpacity
-                            style={[styles.btn, { backgroundColor: '#FF3B30' }]}
+                            style={[styles.btn, { backgroundColor: colors.danger }]}
                             onPress={onReject}
                         >
                             <PhoneOff size={32} color="#fff" />
@@ -61,7 +62,7 @@ export function IncomingCallModal({ visible, call, onAccept, onReject }: Incomin
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.btn, { backgroundColor: '#34C759' }]}
+                            style={[styles.btn, { backgroundColor: colors.success }]}
                             onPress={onAccept}
                         >
                             {call.type === 'video' ? (

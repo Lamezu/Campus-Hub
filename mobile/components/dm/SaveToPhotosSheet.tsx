@@ -15,9 +15,9 @@ interface SaveToPhotosSheetProps {
 }
 
 const getOptions = (t: any): { value: SaveToPhotosPreference; label: string; description: string }[] => [
-  { value: 'default', label: t('dm.save_to_photos_sheet.options.default.label') || 'Por defecto (Sí)', description: t('dm.save_to_photos_sheet.options.default.desc') || 'Guardar automáticamente según configuración global' },
-  { value: 'always', label: t('dm.save_to_photos_sheet.options.always.label') || 'Siempre', description: t('dm.save_to_photos_sheet.options.always.desc') || 'Guardar siempre en la galería' },
-  { value: 'never', label: t('dm.save_to_photos_sheet.options.never.label') || 'Nunca', description: t('dm.save_to_photos_sheet.options.never.desc') || 'No guardar nunca en la galería' },
+  { value: 'default', label: t('dm.save_to_photos_sheet.options.default.label') || 'Label', description: t('dm.save_to_photos_sheet.options.default.desc') || 'Desc' },
+  { value: 'always', label: t('dm.save_to_photos_sheet.options.always.label') || 'Label', description: t('dm.save_to_photos_sheet.options.always.desc') || 'Desc' },
+  { value: 'never', label: t('dm.save_to_photos_sheet.options.never.label') || 'Label', description: t('dm.save_to_photos_sheet.options.never.desc') || 'Desc' },
 ];
 
 export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveToPhotosSheetProps) {
@@ -57,7 +57,7 @@ export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveT
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
         <ThemedText style={[styles.sheetTitle, { color: colors.text }]}>
-          {t('dm.save_to_photos_sheet.title') || 'Guardar en Fotos'}
+          {t('dm.save_to_photos_sheet.title') || 'Title'}
         </ThemedText>
         {OPTIONS.map(opt => (
           <TouchableOpacity
@@ -80,7 +80,7 @@ export function SaveToPhotosSheet({ visible, current, onSelect, onClose }: SaveT
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancelar'}</ThemedText>
+          <ThemedText style={[styles.cancelText, { color: colors.text }]}>{t('common.cancel') || 'Cancel'}</ThemedText>
         </TouchableOpacity>
       </Animated.View>
     </Modal>
