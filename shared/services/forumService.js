@@ -161,6 +161,20 @@ export class ForumService {
     });
   }
 
+  async trackShare(postId, userId) {
+    const postRef = this.fs.doc(this.db, 'posts', postId);
+    await this.fs.runTransaction(this.db, async (transaction) => {
+      const snap = await transaction.get(postRef);
+      if (!snap.exists()) return;
+      const sharedBy = snap.data().sharedBy || [];
+      if (sharedBy.includes(userId)) return;
+      transaction.update(postRef, {
+        sharedBy: [...sharedBy, userId],
+        sharesCount: (snap.data().sharesCount || 0) + 1
+      });
+    });
+  }
+
   async toggleCommentLike(postId, commentId, userId) {
     const commentRef = this.fs.doc(this.db, 'posts', postId, 'comments', commentId);
     await this.fs.runTransaction(this.db, async (transaction) => {
@@ -224,6 +238,25 @@ export class ForumService {
       }));
       callback(comments);
     });
+  }
+
+  subscribeToAnnouncements(callback) {
+    try {
+      const q = this.fs.query(
+        this.fs.collection(this.db, 'posts'),
+        this.fs.where('postType', '==', 'announcement'),
+        this.fs.orderBy('createdAt', 'desc'),
+        this.fs.limit(50)
+      );
+      return this.fs.onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.error('Error in subscribeToAnnouncements:', error);
+      });
+    } catch (error) {
+      console.error('Error in subscribeToAnnouncements:', error);
+      return () => { };
+    }
   }
 
   subscribeToPinnedAnnouncements(callback) {

@@ -34,8 +34,22 @@ export const notificationService = {
     isInitialLoad = true;
 
     unsubscribe = (sharedGetNotificationService() as any).subscribeToNotifications(userId, (items: any[]) => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // On first load: purge stale notifications (older than 7 days) from Firestore
+      if (isInitialLoad) {
+        const stale = items.filter((item: any) => new Date(item.createdAt) < sevenDaysAgo);
+        for (const old of stale) {
+          (sharedGetNotificationService() as any).deleteNotification(userId, old.id);
+        }
+      }
+
+      const fresh = (items as NotificationItem[]).filter(
+        item => new Date(item.createdAt) >= sevenDaysAgo
+      );
+
       if (!isInitialLoad) {
-        const newUnread = items.filter(item => {
+        const newUnread = fresh.filter(item => {
           const isKnown = notifications.some(existing => existing.id === item.id);
           return !isKnown && !item.read;
         });
@@ -54,7 +68,7 @@ export const notificationService = {
       }
 
       isInitialLoad = false;
-      notifications = items as NotificationItem[];
+      notifications = fresh;
       emit();
     });
   },
@@ -79,6 +93,8 @@ export const notificationService = {
   async markRead(id: string): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
+    notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    emit();
     await (sharedGetNotificationService() as any).markAsRead(userId, id);
   },
 
@@ -87,6 +103,11 @@ export const notificationService = {
     if (!userId) return;
     try {
       const toMark = notifications.filter(n => (!category || n.category === category) && !n.read);
+      if (toMark.length > 0) {
+        const ids = new Set(toMark.map(n => n.id));
+        notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
+        emit();
+      }
       for (const n of toMark) {
         await (sharedGetNotificationService() as any).markAsRead(userId, n.id);
       }
@@ -106,6 +127,12 @@ export const notificationService = {
         return false;
       });
 
+      if (toMark.length > 0) {
+        const ids = new Set(toMark.map(n => n.id));
+        notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
+        emit();
+      }
+
       for (const n of toMark) {
         await (sharedGetNotificationService() as any).markAsRead(userId, n.id);
       }
@@ -116,5 +143,23 @@ export const notificationService = {
 
   async addNotification(userId: string, notification: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>): Promise<void> {
     await (sharedGetNotificationService() as any).addNotification(userId, notification);
+  },
+
+  async deleteNotification(id: string): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    notifications = notifications.filter(n => n.id !== id);
+    emit();
+    await (sharedGetNotificationService() as any).deleteNotification(userId, id);
+  },
+
+  stop() {
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+    notifications = [];
+    isInitialLoad = true;
+    emit();
   }
 };

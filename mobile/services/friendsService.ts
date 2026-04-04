@@ -1,5 +1,7 @@
 import type { FriendRequest } from '@/types';
 import { getFriendsService as sharedGetFriendsService } from './shared';
+import { db } from '@/config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 function tsToISO(val: unknown): string {
   if (val && typeof (val as any).toDate === 'function') return (val as any).toDate().toISOString();
@@ -76,4 +78,9 @@ export function subscribeToBestFriends(
 
 export async function toggleBestFriend(userId: string, friendId: string): Promise<boolean> {
   return (sharedGetFriendsService() as any).toggleBestFriend(userId, friendId);
+}
+
+export async function areFriendsBestFriends(userId: string, friendId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'users', userId, 'friends', friendId));
+  return snap.exists() ? (snap.data().isBestFriend === true) : false;
 }

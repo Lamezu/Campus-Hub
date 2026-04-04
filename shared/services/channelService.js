@@ -96,7 +96,7 @@ export class ChannelService {
     return membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 
-  subscribeToChannels(category, callback) {
+  subscribeToChannels(category, callback, onError) {
     let q;
     if (category) {
       q = this.fs.query(
@@ -113,20 +113,35 @@ export class ChannelService {
 
     return this.fs.onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channels subscription error:", error);
+      }
     });
   }
 
-  subscribeToChannel(channelId, callback) {
+  subscribeToChannel(channelId, callback, onError) {
     const channelRef = this.fs.doc(this.db, 'channels', channelId);
     return this.fs.onSnapshot(channelRef, (snapshot) => {
       callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channel subscription error:", error);
+      }
     });
   }
 
-  subscribeToChannelMembers(channelId, callback) {
+  subscribeToChannelMembers(channelId, callback, onError) {
     const q = this.fs.collection(this.db, 'channels', channelId, 'members');
     return this.fs.onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channel members subscription error:", error);
+      }
     });
   }
 }

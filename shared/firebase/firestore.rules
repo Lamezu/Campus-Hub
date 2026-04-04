@@ -2,182 +2,185 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
+
     function hasRole(role) {
-      return isSignedIn() && 
+      return isSignedIn() &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
-    
+
+    function hasSubrole(subrole) {
+      return isSignedIn() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.subrole == subrole;
+    }
+
+    function isAdmin() { return hasRole('admin'); }
+    function isCoordinator() { return hasSubrole('coordinator'); }
+    function isStaff() { return isAdmin() || isCoordinator(); }
+
     function isChannelMember(channelId) {
       return exists(/databases/$(database)/documents/channels/$(channelId)/members/$(request.auth.uid));
     }
-    
+
     function isChannelModerator(channelId) {
       let path = /databases/$(database)/documents/channels/$(channelId)/members/$(request.auth.uid);
-      return exists(path) && get(path).data.role in ['moderator', 'admin'];
+      return exists(path) && (get(path).data.role in ['moderator', 'admin']);
     }
 
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || hasRole('admin');
-      allow delete: if hasRole('admin');
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
 
       match /savedMessages/{messageId} {
         allow read, write: if isSignedIn() && isOwner(userId);
       }
 
-      match /contactSettings/{otherId} {
+      match /starredMessages/{messageId} {
         allow read, write: if isSignedIn() && isOwner(userId);
       }
+
+      match /contactSettings/{otherId} {
+        allow read: if isSignedIn() && (isOwner(userId) || isOwner(otherId));
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+
+      match /friends/{friendId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (isOwner(userId) || isOwner(friendId));
+      }
     }
-    
+
     match /roles/{roleId} {
       allow read: if isSignedIn();
-      allow write: if hasRole('admin');
+      allow write: if isAdmin();
     }
 
     match /subroles/{subroleId} {
       allow read: if isSignedIn();
-      allow write: if hasRole('admin');
+      allow write: if isAdmin();
     }
-    
+
     match /channels/{channelId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && hasRole('teacher') || hasRole('admin');
-      allow update: if isChannelModerator(channelId) || hasRole('admin') ||
+      allow create: if isSignedIn() && (hasRole('teacher') || isStaff());
+      allow update: if isChannelModerator(channelId) || isStaff() ||
                     (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberCount']));
-      allow delete: if hasRole('admin');
-      
+      allow delete: if isAdmin();
+
       match /members/{userId} {
         allow read: if isSignedIn();
-        allow create: if isOwner(userId) || isChannelModerator(channelId);
-        allow update: if isChannelModerator(channelId);
-        allow delete: if isOwner(userId) || isChannelModerator(channelId);
+        allow create: if isOwner(userId) || isChannelModerator(channelId) || isStaff();
+        allow update: if isOwner(userId) || isChannelModerator(channelId) || isStaff();
+        allow delete: if isOwner(userId) || isChannelModerator(channelId) || isStaff();
       }
-      
+
       match /messages/{messageId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn();
         allow update: if request.auth.uid == resource.data.senderId ||
-                      (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers']));
+                      (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
         allow delete: if request.auth.uid == resource.data.senderId ||
-                        isChannelModerator(channelId) ||
-                        hasRole('admin');
+                      isChannelModerator(channelId) ||
+                      isAdmin();
       }
     }
-    
+
     match /conversations/{conversationId} {
       function isParticipant() {
         return resource != null && request.auth.uid in resource.data.participants;
       }
 
-      function isCreatingWithSelf() {
-        return request.auth.uid in request.resource.data.participants;
+      function isConvParticipant(cId) {
+        return isSignedIn() &&
+               request.auth.uid in get(/databases/$(database)/documents/conversations/$(cId)).data.participants;
       }
 
-      function isConvParticipant() {
-        let convDoc = get(/databases/$(database)/documents/conversations/$(conversationId));
-        return convDoc != null && request.auth.uid in convDoc.data.participants;
-      }
-
-      allow read: if isSignedIn() && (resource == null || isParticipant());
-      allow create: if isSignedIn() && isCreatingWithSelf();
-      allow update: if isSignedIn() && isParticipant();
+      allow read: if isSignedIn() && (resource == null || isParticipant() || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.participants);
+      allow update: if isSignedIn() && (isParticipant() || isAdmin());
 
       match /messages/{messageId} {
-        allow read: if isSignedIn() && (isConvParticipant() || hasRole('admin'));
-        allow create: if isSignedIn() && isConvParticipant();
+        allow read: if isSignedIn() && (isConvParticipant(conversationId) || isAdmin());
+        allow create: if isSignedIn() && isConvParticipant(conversationId);
         allow update: if isSignedIn() && (
           request.auth.uid == resource.data.senderId ||
-          (isConvParticipant() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers']))
+          (isConvParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'read', 'readAt', 'status']))
         );
         allow delete: if isSignedIn() && (
-          request.auth.uid == resource.data.senderId || hasRole('admin')
+          request.auth.uid == resource.data.senderId || isAdmin()
         );
       }
     }
 
     match /calls/{callId} {
       function isCallParticipant() {
-        return request.auth.uid == resource.data.callerId || 
+        return request.auth.uid == resource.data.callerId ||
                request.auth.uid == resource.data.receiverId;
       }
-      
-      function isCreatingAsCallerId() {
-        return request.auth.uid == request.resource.data.callerId;
-      }
-      
+
       allow read: if isSignedIn() && isCallParticipant();
-      allow create: if isSignedIn() && isCreatingAsCallerId();
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.callerId;
       allow update: if isSignedIn() && isCallParticipant();
       allow delete: if isSignedIn() && isCallParticipant();
-      
+
       match /callerCandidates/{candidateId} {
-        allow read: if isSignedIn() && isCallParticipant();
-        allow create: if isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.callerId;
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+          get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid;
       }
-      
+
       match /receiverCandidates/{candidateId} {
-        allow read: if isSignedIn() && isCallParticipant();
-        allow create: if isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.receiverId;
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+          get(/databases/$(database)/documents/calls/$(callId)).data.receiverId == request.auth.uid;
       }
     }
-    
+
     match /friendRequests/{requestId} {
-      function isInvolved() {
-        return request.auth.uid == resource.data.fromUserId || 
-               request.auth.uid == resource.data.toUserId;
-      }
-      
-      allow read: if isSignedIn() && isInvolved();
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.fromUserId || request.auth.uid == resource.data.toUserId);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.fromUserId;
       allow update: if isSignedIn() && request.auth.uid == resource.data.toUserId;
-      allow delete: if isSignedIn() && isInvolved();
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.fromUserId || request.auth.uid == resource.data.toUserId);
     }
-    
+
     match /friendships/{friendshipId} {
-      allow read: if isSignedIn() && 
-                    (request.auth.uid == resource.data.userId || 
-                     request.auth.uid == resource.data.friendId);
-      allow create: if isSignedIn();
-      allow delete: if isSignedIn() && 
-                      (request.auth.uid == resource.data.userId || 
-                       request.auth.uid == resource.data.friendId);
+      allow read, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.friendId == request.auth.uid);
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.friendId == request.auth.uid
+      );
     }
-    
+
     match /events/{eventId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && 
-                      (request.auth.uid == resource.data.creatorId || hasRole('admin'));
-      allow delete: if isSignedIn() && 
-                      (request.auth.uid == resource.data.creatorId || hasRole('admin'));
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff());
     }
-    
+
     match /rsvps/{rsvpId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
       allow update: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
-    
+
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if resource.data.authorId == request.auth.uid ||
+      allow update: if resource.data.authorId == request.auth.uid || isStaff() ||
                     (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys()
-                      .hasOnly(['likes', 'likesCount', 'savedBy', 'commentsCount']));
-      allow delete: if resource.data.authorId == request.auth.uid || hasRole('admin');
-      
+                      .hasOnly(['likes', 'likesCount', 'savedBy', 'savedByTimestamps', 'commentsCount', 'sharesCount', 'sharedBy']));
+      allow delete: if resource.data.authorId == request.auth.uid || isStaff();
+
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn();
@@ -185,23 +188,23 @@ service cloud.firestore {
           resource.data.authorId == request.auth.uid ||
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likesCount'])
         );
-        allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || hasRole('admin'));
-        
+        allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isStaff());
+
         match /likes/{userId} {
           allow read: if isSignedIn();
           allow write: if isOwner(userId);
         }
       }
-      
+
       match /likes/{userId} {
         allow read: if isSignedIn();
         allow write: if isOwner(userId);
       }
     }
-    
+
     match /notifications/{userId} {
       allow read: if isSignedIn() && isOwner(userId);
-      allow write: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && (isOwner(userId) || isStaff());
 
       match /items/{itemId} {
         allow read: if isSignedIn() && isOwner(userId);
@@ -217,20 +220,81 @@ service cloud.firestore {
 
     match /reports/{reportId} {
       allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
-      allow read, update, delete: if hasRole('admin');
+      allow read, update, delete: if isStaff();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isStaff() || hasRole('teacher'));
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.userId || isStaff() || hasRole('teacher'));
+      allow delete: if isStaff();
+
+      match /replies/{replyId} {
+        function isTicketParticipant() {
+          return request.auth.uid == get(/databases/$(database)/documents/tickets/$(ticketId)).data.userId
+              || isStaff()
+              || hasRole('teacher');
+        }
+
+        allow read: if isSignedIn() && isTicketParticipant();
+        allow create: if isSignedIn() && isTicketParticipant()
+                      && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn() && request.auth.uid == resource.data.authorId;
+        allow delete: if isStaff();
+      }
     }
 
     match /studyGroups/{groupId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        request.auth.uid in resource.data.memberIds ||
-        hasRole('admin') ||
+        request.auth.uid in resource.data.memberIds || isStaff() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberCount'])
       );
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.createdBy || hasRole('admin')
-      );
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.createdBy || isStaff());
+
+      match /members/{userId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(userId) || isStaff() ||
+                       (exists(/databases/$(database)/documents/studyGroups/$(groupId)) &&
+                        request.auth.uid == get(/databases/$(database)/documents/studyGroups/$(groupId)).data.createdBy);
+        allow update: if isOwner(userId) || isStaff() ||
+                       (exists(/databases/$(database)/documents/studyGroups/$(groupId)) &&
+                        request.auth.uid == get(/databases/$(database)/documents/studyGroups/$(groupId)).data.createdBy);
+        allow delete: if isOwner(userId) || isStaff() ||
+                       (exists(/databases/$(database)/documents/studyGroups/$(groupId)) &&
+                        request.auth.uid == get(/databases/$(database)/documents/studyGroups/$(groupId)).data.createdBy);
+      }
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid)) ||
+          isStaff()
+        );
+        allow create: if isSignedIn() &&
+          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid));
+        allow update: if request.auth.uid == resource.data.senderId ||
+                      (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
+        allow delete: if request.auth.uid == resource.data.senderId || isStaff();
+      }
+    }
+
+    match /groupConversations/{groupId} {
+      allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.members);
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.members;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.members;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/groupConversations/$(groupId)).data.members;
+        allow create: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/groupConversations/$(groupId)).data.members;
+        allow update: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/groupConversations/$(groupId)).data.members;
+        allow delete: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/groupConversations/$(groupId)).data.members;
+      }
     }
   }
 }

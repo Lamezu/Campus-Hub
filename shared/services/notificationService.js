@@ -1,3 +1,11 @@
+function tsToISO(ts) {
+  if (!ts) return new Date().toISOString();
+  if (typeof ts === 'string') return ts;
+  if (ts.toDate) return ts.toDate().toISOString();
+  if (ts.seconds) return new Date(ts.seconds * 1000).toISOString();
+  return new Date(ts).toISOString();
+}
+
 export class NotificationService {
   constructor(db, firestore) {
     this.db = db;
@@ -104,10 +112,14 @@ export class NotificationService {
     );
 
     return this.fs.onSnapshot(q, (snapshot) => {
-      const notifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const notifications = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: tsToISO(data.createdAt),
+        };
+      });
       callback(notifications);
     });
   }
@@ -120,6 +132,11 @@ export class NotificationService {
       read: false,
       createdAt: this.fs.serverTimestamp()
     });
+  }
+
+  async deleteNotification(userId, notificationId) {
+    const notificationRef = this.fs.doc(this.db, 'notifications', userId, 'items', notificationId);
+    await this.fs.deleteDoc(notificationRef);
   }
 }
 

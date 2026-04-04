@@ -131,7 +131,8 @@ export class DirectMessageService {
       if (msg.senderId !== userId) {
         batch.update(doc.ref, {
           read: true,
-          readAt: this.fs.serverTimestamp()
+          readAt: this.fs.serverTimestamp(),
+          status: 'read',
         });
       }
     });
@@ -262,7 +263,12 @@ export class DirectMessageService {
       }));
 
       callback(messages);
-    }, onError);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Messages snapshot error:", error);
+      }
+    });
   }
 
   subscribeToConversations(userId, callback, onError) {
@@ -279,7 +285,12 @@ export class DirectMessageService {
       }));
 
       callback(conversations);
-    }, onError);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Conversations snapshot error:", error);
+      }
+    });
   }
 }
 export default DirectMessageService;

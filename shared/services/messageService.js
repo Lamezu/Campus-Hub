@@ -18,7 +18,8 @@ export class MessageService {
       reactions: {},
       replyTo,
       forwarded,
-      type: arguments[8] || 'text',
+      attachments: attachments ?? null,
+      type: arguments[8] || (attachments?.length ? attachments[0].type : 'text') || 'text',
       metadata: arguments[9] || null
     });
 
