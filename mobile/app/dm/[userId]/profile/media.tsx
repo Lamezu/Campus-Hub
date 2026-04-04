@@ -169,37 +169,29 @@ export default function DMMediaScreen() {
         />
       </View>
 
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={TAB_ICONS[activeTab as TabKey] ?? File}
-          title={t('dm.profile.empty_media', { type: TABS.find(tab => tab.key === activeTab)?.label.toLowerCase() ?? '' })}
-          fill
-        />
-      ) : isGrid ? (
-        <FlatList
-          key="grid"
+      <FlatList
+          key={isGrid ? 'grid' : 'list'}
           data={filtered}
           keyExtractor={item => item.id}
-          numColumns={3}
-          contentContainerStyle={styles.gridContainer}
-          columnWrapperStyle={{ gap: spacing.xs }}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
-          renderItem={({ item }) => <GridItem item={item} colors={colors} userId={userId} />}
-        />
-      ) : (
-        <FlatList
-          key="list"
-          data={filtered}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ paddingTop: spacing.sm }}
+          numColumns={isGrid ? 3 : 1}
+          contentContainerStyle={isGrid ? styles.gridContainer : { paddingTop: spacing.sm, flexGrow: 1 }}
+          columnWrapperStyle={isGrid ? { gap: spacing.xs } : undefined}
+          ItemSeparatorComponent={isGrid ? () => <View style={{ height: spacing.xs }} /> : undefined}
+          ListEmptyComponent={
+            <EmptyState
+              icon={TAB_ICONS[activeTab as TabKey] ?? File}
+              title={t('dm.profile.empty_media', { type: TABS.find(tab => tab.key === activeTab)?.label.toLowerCase() ?? '' })}
+              fill
+            />
+          }
           renderItem={({ item }) => {
+            if (isGrid) return <GridItem item={item} colors={colors} userId={userId} />;
             let icon: React.ReactNode = <File size={20} color={colors.primary} strokeWidth={1.8} />;
             if (item.type === 'audio') icon = <Mic size={20} color={colors.primary} strokeWidth={1.8} />;
             if (item.type === 'link') icon = <LinkIcon size={20} color={colors.primary} strokeWidth={1.8} />;
             return <ListItem item={item} colors={colors} icon={icon} userId={userId} language={language} />;
           }}
         />
-      )}
     </SafeAreaView>
   );
 }
