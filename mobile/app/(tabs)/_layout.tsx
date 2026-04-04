@@ -14,14 +14,14 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [counts, setCounts] = useState({ channel: 0, dm: 0, total: 0 });
+  const [counts, setCounts] = useState({ dm: 0, campus: 0, friend: 0 });
 
   useEffect(() => {
     const update = () => {
       setCounts({
-        channel: notificationService.getUnreadCount('channel'),
         dm: notificationService.getUnreadCount('dm'),
-        total: notificationService.getUnreadCount()
+        campus: notificationService.getUnreadCount('campus') + notificationService.getUnreadCount('social'),
+        friend: notificationService.getUnreadCount('friend'),
       });
     };
     update();
@@ -55,12 +55,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tabs.home') || 'Inicio',
+          title: t('tabs.home') || 'Home',
           tabBarIcon: ({ color }) => (
             <House size={26} color={color} strokeWidth={2} />
           ),
-          tabBarBadge: counts.channel > 0 ? counts.channel : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
       <Tabs.Screen
@@ -70,12 +68,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <GraduationCap size={26} color={color} strokeWidth={2} />
           ),
+          tabBarBadge: counts.campus > 0 ? counts.campus : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: t('tabs.explore') || 'Explorar',
+          title: t('tabs.explore') || 'Explore',
           tabBarIcon: ({ color }) => (
             <Compass size={26} color={color} strokeWidth={2} />
           ),
@@ -84,7 +84,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: t('tabs.messages') || 'Mensajes',
+          title: t('tabs.messages') || 'Messages',
           tabBarIcon: ({ color }) => (
             <MessagesSquare size={26} color={color} strokeWidth={2} />
           ),
@@ -95,11 +95,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t('tabs.profile') || 'Perfil',
+          title: t('tabs.profile') || 'Profile',
           tabBarIcon: ({ color }) => (
             <UserRound size={26} color={color} strokeWidth={2} />
           ),
-          tabBarBadge: (counts.total - counts.channel - counts.dm) > 0 ? (counts.total - counts.channel - counts.dm) : undefined,
+          tabBarBadge: counts.friend > 0 ? counts.friend : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />

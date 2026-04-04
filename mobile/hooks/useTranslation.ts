@@ -19,11 +19,10 @@ export const useTranslation = () => {
             if (result && result[key] !== undefined) {
                 result = result[key];
             } else {
-                // Fallback to Spanish
                 let fallback: any = translations_obj['es'];
                 for (const fkey of keys) {
                     if (fallback && fallback[fkey] !== undefined) fallback = fallback[fkey];
-                    else return path;
+                    else return '';
                 }
                 result = fallback;
                 break;

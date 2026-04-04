@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { UserProvider, useCurrentUser } from '@/contexts/UserContext';
 import { CallProvider } from '@/contexts/CallContext';
+import { AccountsProvider, useAccounts } from '@/contexts/AccountsContext';
 import { notificationService } from '@/services/notificationService';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import Constants from 'expo-constants';
@@ -15,6 +17,12 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
+
+if (!__DEV__) {
+  console.log = () => { };
+  console.warn = () => { };
+  console.error = () => { };
+}
 
 export const unstable_settings = {
   initialRouteName: 'index',
@@ -25,16 +33,19 @@ const IS_EXPO_GO = Constants.executionEnvironment === 'storeClient';
 function RootLayoutNav() {
   const { theme } = useTheme();
   const { userData, firebaseUser } = useCurrentUser();
+  const { switching } = useAccounts();
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
 
   useEffect(() => {
-    if (firebaseUser?.uid) {
-      import('@/utils/notifications').then(({ registerForPushNotifications }) => {
-        registerForPushNotifications(firebaseUser.uid);
-      });
-      notificationService.init(firebaseUser.uid);
+    if (!firebaseUser?.uid) {
+      notificationService.stop();
+      return;
     }
+    import('@/utils/notifications').then(({ registerForPushNotifications }) => {
+      registerForPushNotifications(firebaseUser.uid);
+    });
+    notificationService.init(firebaseUser.uid);
   }, [firebaseUser?.uid]);
 
   useEffect(() => {
@@ -72,21 +83,38 @@ function RootLayoutNav() {
       responseListener.current?.remove();
       notificationService.onNewNotification(() => { });
     };
-  }, [userData?.settings]);
+  }, [userData?.settings?.globalMute, userData?.settings?.globalTone]);
+
+  const overlayBg = theme === 'dark' ? '#000' : '#fff';
 
   return (
     <NavigationThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>
       <CallProvider>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack screenOptions={{ headerShown: false, headerBackTitle: '', headerBackButtonDisplayMode: 'minimal' }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="events/index" />
           <Stack.Screen name="dm/[userId]/call" options={{ presentation: 'fullScreenModal' }} />
         </Stack>
       </CallProvider>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      {switching && (
+        <View style={[styles.switchOverlay, { backgroundColor: overlayBg }]}>
+          <ActivityIndicator size="large" color={theme === 'dark' ? '#fff' : '#000'} />
+        </View>
+      )}
     </NavigationThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  switchOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+});
 
 export default function RootLayout() {
   const [loaded, error] = Font.useFonts({
@@ -112,9 +140,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <UserProvider>
-          <LanguageProvider>
-            <RootLayoutNav />
-          </LanguageProvider>
+          <AccountsProvider>
+            <LanguageProvider>
+              <RootLayoutNav />
+            </LanguageProvider>
+          </AccountsProvider>
         </UserProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
