@@ -20,12 +20,12 @@ export default function CampusScreen() {
   const { colors, theme } = useTheme();
   const { t } = useTranslation();
   const { can, role, subrole } = useCurrentUser();
-  const { revealHighlight, tab, highlightDay } = useLocalSearchParams<{ revealHighlight: string; tab: string; highlightDay: string }>();
+  const { revealHighlight, tab, highlightDay, eventId } = useLocalSearchParams<{ revealHighlight: string; tab: string; highlightDay: string; eventId: string }>();
 
   const SUBTABS = [
-    { id: 'bulletin', label: t('common.bulletin_board') || 'Tablón' },
-    { id: 'calendar', label: t('common.calendar') || 'Calendario' },
-    { id: 'groups', label: t('common.groups') || 'Grupos' }
+    { id: 'bulletin', label: t('common.bulletin_board') || 'Bulletin Board' },
+    { id: 'calendar', label: t('common.calendar') || 'Calendar' },
+    { id: 'groups', label: t('common.groups') || 'Groups' }
   ] as const;
 
   const [activeTab, setActiveTab] = useState<typeof SUBTABS[number]['id']>('bulletin');
@@ -84,7 +84,7 @@ export default function CampusScreen() {
         <AnnouncementsTab canCreateAnnouncement={can('createAnnouncement')} highlightId={revealHighlight} />
       </View>
       <View style={{ flex: 1, display: activeTab === 'calendar' ? 'flex' : 'none' }}>
-        <CalendarTab eventTypes={eventTypes} highlightDay={highlightDay} />
+        <CalendarTab eventTypes={eventTypes} highlightDay={highlightDay} highlightEventId={eventId} />
       </View>
       <View style={{ flex: 1, display: activeTab === 'groups' ? 'flex' : 'none' }}>
         <GroupsTab canCreate={can('createStudyGroup')} />
@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderBottomWidth: StyleSheet.hairlineWidth },
   headerTitle: { fontSize: typography.sizes.xl, fontWeight: 'bold' },
   subtabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
-  subtab: { flex: 1, alignItems: 'center', paddingTop: spacing.sm },
-  subtabInner: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: spacing.sm },
+  subtab: { flex: 1, alignItems: 'center', paddingTop: spacing.md },
+  subtabInner: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: spacing.md },
   subtabText: { fontSize: typography.sizes.sm, fontWeight: '600' },
   subtabUnderline: { height: 3, width: '60%', borderRadius: 1.5, marginTop: -1.5 },
 });

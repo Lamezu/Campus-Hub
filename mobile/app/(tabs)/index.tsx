@@ -12,7 +12,8 @@ import { ChannelCard } from '@/components/ChannelCard';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { NotificationBell } from '@/components/NotificationBell';
-import { Settings } from 'lucide-react-native';
+import { Settings, Hash } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { CHANNELS } from '@/constants/channelData';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,13 +21,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { subscribeToChannelUnread } from '@/services/channelReadService';
 import { useTranslation } from '@/hooks/useTranslation';
+import esLocale from '@/locales/es.json';
 import type { Channel, StudyGroup } from '@/types';
 
-function studyGroupToChannel(g: StudyGroup, unreadCount = 0): Channel {
+const SUBJECT_ES_TO_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries((esLocale as any).explore.groups.subjects_list).map(([k, v]) => [v as string, k])
+);
+
+function resolveSubject(subject: string, t: (key: string) => string): string {
+  const byKey = t(`explore.groups.subjects_list.${subject}`);
+  if (byKey) return byKey;
+  const key = SUBJECT_ES_TO_KEY[subject];
+  return key ? (t(`explore.groups.subjects_list.${key}`) || subject) : subject;
+}
+
+function studyGroupToChannel(g: StudyGroup, t: (key: string, params?: any) => string, unreadCount = 0): Channel {
   return {
     id: `sg_${g.id}`,
     name: g.name,
-    description: `${g.subject} · ${g.memberCount} miembro${g.memberCount !== 1 ? 's' : ''}`,
+    description: `${resolveSubject(g.subject, t)} · ${t('chat.info.member_count', { count: g.memberCount })}`,
     type: g.isPrivate ? 'private' : 'public',
     createdBy: g.createdBy,
     createdAt: g.createdAt,
@@ -202,7 +215,7 @@ export default function HomeScreen() {
 
   const sections: Section[] = useMemo(() => {
     const channelSection: Section = {
-      title: t('common.channels') || 'Canales',
+      title: t('common.channels') || 'Channels',
       data: realChannels.map(ch => ({
         channel: { ...ch, unreadCount: unreadCounts[ch.id] ?? 0 },
         realId: ch.id,
@@ -210,9 +223,9 @@ export default function HomeScreen() {
     };
     if (myGroups.length === 0) return [channelSection];
     const groupSection: Section = {
-      title: t('common.my_groups') || 'Mis grupos',
+      title: t('common.my_groups') || 'My Groups',
       data: myGroups.map(g => ({
-        channel: studyGroupToChannel(g, unreadCounts[g.id] ?? 0),
+        channel: studyGroupToChannel(g, t, unreadCounts[g.id] ?? 0),
         color: g.color,
         realId: g.id,
       })),
@@ -221,6 +234,10 @@ export default function HomeScreen() {
   }, [myGroups, unreadCounts, realChannels, t]);
 
   const handlePress = (item: Section['data'][number]) => {
+    if (item.realId === '3') {
+      router.push('/events' as never);
+      return;
+    }
     router.push({ pathname: '/chat/[id]', params: { id: item.channel.id } });
   };
 
@@ -265,11 +282,10 @@ export default function HomeScreen() {
           contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.xl + (Platform.OS === 'ios' ? 0 : spacing.md) }}
           stickySectionHeadersEnabled={false}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {t('home.no_channels') || 'No hay canales disponibles.'}
-              </ThemedText>
-            </View>
+            <EmptyState
+              icon={Hash}
+              title={t('home.no_channels') || 'No Channels'}
+            />
           }
         />
       )}
@@ -301,5 +317,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: typography.sizes.sm, textAlign: 'center' },
 });

@@ -11,13 +11,15 @@ import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection, query, orderBy, onSnapshot, limit,
   doc, updateDoc, arrayUnion, arrayRemove, addDoc, serverTimestamp, getDoc,
-  increment, runTransaction,
+  increment, runTransaction, deleteField,
 } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { Newspaper } from 'lucide-react-native';
 import { uploadPostMedia } from '@/config/cloudinary';
+import { EmptyState } from '@/components/EmptyState';
 import { PostCard } from '@/components/PostCard';
 import { ThemedText } from '@/components/themed-text';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -112,13 +114,14 @@ export default function ExplorarScreen() {
     const hasSaved = post.savedBy?.includes(user.uid);
     await updateDoc(doc(db, 'posts', postId), {
       savedBy: hasSaved ? arrayRemove(user.uid) : arrayUnion(user.uid),
+      [`savedByTimestamps.${user.uid}`]: hasSaved ? deleteField() : new Date().toISOString(),
     });
   }, [user, posts]);
 
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('common.permission_denied') || 'Permiso denegado', t('explore.gallery_permission_msg') || 'Necesitamos acceso a tu galería para subir archivos.');
+      Alert.alert(t('common.permission_denied') || 'Permission Denied', t('explore.gallery_permission_msg') || 'Gallery Permission Msg');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -132,11 +135,11 @@ export default function ExplorarScreen() {
     if (asset.type === 'video') {
       setMedia({ uri: asset.uri, type: 'video' });
       Alert.alert(
-        t('explore.video_audio_title') || 'Audio del vídeo',
-        t('explore.video_audio_msg') || '¿Quieres conservar el audio original del vídeo?',
+        t('explore.video_audio_title') || 'Video Audio Title',
+        t('explore.video_audio_msg') || 'Video Audio Msg',
         [
-          { text: t('explore.remove_audio') || 'Quitar audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
-          { text: t('explore.keep_audio') || 'Mantener audio', onPress: () => setMuteOriginalAudio(false) },
+          { text: t('explore.remove_audio') || 'Remove Audio', style: 'destructive', onPress: () => setMuteOriginalAudio(true) },
+          { text: t('explore.keep_audio') || 'Keep Audio', onPress: () => setMuteOriginalAudio(false) },
         ]
       );
     } else {
@@ -185,7 +188,7 @@ export default function ExplorarScreen() {
       setSong(null);
       setSubTab('descubrir');
     } catch {
-      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'No se pudo publicar el post. Inténtalo de nuevo.');
+      Alert.alert(t('common.error') || 'Error', t('explore.publish_error') || 'Publish Error');
     } finally {
       setPublishing(false);
     }
@@ -196,7 +199,7 @@ export default function ExplorarScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.title') || 'Explorar'}</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.title') || 'Title'}</ThemedText>
         <NotificationBell category="social" />
       </View>
 
@@ -209,7 +212,7 @@ export default function ExplorarScreen() {
             activeOpacity={0.7}
           >
             <ThemedText style={[styles.tabLabel, { color: subTab === tab ? colors.primary : colors.textSecondary }]}>
-              {tab === 'descubrir' ? (t('explore.discover') || 'Descubrir') : (t('explore.publish_tab') || 'Publicar')}
+              {tab === 'descubrir' ? (t('explore.discover') || 'Discover') : (t('explore.publish_tab') || 'Publish Tab')}
             </ThemedText>
           </TouchableOpacity>
         ))}
@@ -231,15 +234,15 @@ export default function ExplorarScreen() {
                 onPress={() => router.push(`/post/${item.id}` as never)}
                 onDoubleTap={() => handleLike(item.id)}
                 onSave={() => handleSave(item.id)}
+                onShare={() => router.push(`/forward?postId=${encodeURIComponent(item.id)}&postTitle=${encodeURIComponent(item.title ?? '')}&postContent=${encodeURIComponent(item.content ?? '')}&postImageUrl=${encodeURIComponent(item.mediaType === 'image' ? (item.mediaUrl ?? '') : '')}&postAuthorName=${encodeURIComponent(item.authorName ?? '')}&postAuthorPhoto=${encodeURIComponent(item.authorPhoto ?? '')}` as never)}
               />
             )}
             contentContainerStyle={{ paddingBottom: insets.bottom + spacing.md }}
             ListEmptyComponent={
-              <View style={styles.center}>
-                <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {t('explore.no_posts') || 'No hay publicaciones aún.'}
-                </ThemedText>
-              </View>
+              <EmptyState
+                icon={Newspaper}
+                title={t('explore.no_posts') || 'No Posts'}
+              />
             }
           />
         )
@@ -252,7 +255,7 @@ export default function ExplorarScreen() {
             <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <TextInput
                 style={[styles.titleInput, { color: colors.text }]}
-                placeholder={t('explore.social_placeholders.post_title') || 'Título del post'}
+                placeholder={t('explore.social_placeholders.post_title') || 'Post Title'}
                 placeholderTextColor={colors.textSecondary}
                 value={title}
                 onChangeText={(t) => setTitle(t.slice(0, TITLE_MAX))}
@@ -267,7 +270,7 @@ export default function ExplorarScreen() {
             <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: spacing.md }]}>
               <TextInput
                 style={[styles.contentInput, { color: colors.text }]}
-                placeholder={t('explore.social_placeholders.post_content') || 'Escribe tu post aquí...'}
+                placeholder={t('explore.social_placeholders.post_content') || 'Post Content'}
                 placeholderTextColor={colors.textSecondary}
                 value={content}
                 onChangeText={(t) => setContent(t.slice(0, CONTENT_MAX))}
@@ -289,13 +292,13 @@ export default function ExplorarScreen() {
                   ) : (
                     <View style={[styles.videoPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
                       <Ionicons name="videocam" size={32} color={colors.textSecondary} />
-                      <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>{t('explore.video_selected') || 'Vídeo seleccionado'}</ThemedText>
+                      <ThemedText style={[styles.videoLabel, { color: colors.textSecondary }]}>{t('explore.video_selected') || 'Video Selected'}</ThemedText>
                       <TouchableOpacity
                         style={[styles.audioToggleBtn, { backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary }]}
                         onPress={() => setMuteOriginalAudio(prev => !prev)}
                       >
                         <Ionicons name={muteOriginalAudio ? 'volume-mute' : 'volume-medium'} size={14} color="#FFF" />
-                        <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Sin audio') : (t('explore.unmute') || 'Con audio')}</ThemedText>
+                        <ThemedText style={styles.audioToggleText}>{muteOriginalAudio ? (t('explore.mute') || 'Mute') : (t('explore.unmute') || 'Unmute')}</ThemedText>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -307,7 +310,7 @@ export default function ExplorarScreen() {
                 <View style={styles.mediaEmpty}>
                   <Ionicons name="images-outline" size={28} color={colors.textSecondary} />
                   <ThemedText style={[styles.mediaEmptyText, { color: colors.textSecondary }]}>
-                    {t('explore.add_media') || 'Añadir foto o vídeo'}
+                    {t('explore.add_media') || 'Add Media'}
                   </ThemedText>
                 </View>
               )}
@@ -339,7 +342,7 @@ export default function ExplorarScreen() {
                 ) : (
                   <View style={styles.songEmpty}>
                     <Ionicons name="musical-notes-outline" size={22} color={colors.textSecondary} />
-                    <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Añadir canción'}</ThemedText>
+                    <ThemedText style={[styles.songEmptyText, { color: colors.textSecondary }]}>{t('explore.add_song') || 'Add Song'}</ThemedText>
                   </View>
                 )}
               </TouchableOpacity>
@@ -358,7 +361,7 @@ export default function ExplorarScreen() {
               {publishing ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <ThemedText style={styles.publishButtonText}>{t('explore.publish_btn') || 'Publicar'}</ThemedText>
+                <ThemedText style={styles.publishButtonText}>{t('explore.publish_btn') || 'Publish Button'}</ThemedText>
               )}
             </TouchableOpacity>
           </View>
@@ -400,7 +403,6 @@ const styles = StyleSheet.create({
   },
   tabLabel: { fontSize: typography.sizes.sm, fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: typography.sizes.sm, textAlign: 'center' },
   scrollContent: { padding: spacing.md },
   card: { borderWidth: 1, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   titleInput: { fontSize: typography.sizes.md, fontWeight: '600', paddingVertical: spacing.xs },

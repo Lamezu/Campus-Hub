@@ -104,12 +104,12 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ThemedText>{t('profile.loading') || 'Cargando perfil...'}</ThemedText>
+        <ThemedText>{t('profile.loading') || 'Loading'}</ThemedText>
       </ThemedView>
     );
   }
 
-  const displayName = userData?.displayName || currentUser?.displayName || t('common.user') || 'Usuario';
+  const displayName = userData?.displayName || currentUser?.displayName || t('common.user') || 'User';
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -149,29 +149,29 @@ export default function ProfileScreen() {
           style={[styles.editButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/edit-profile' as any)}
         >
-          <ThemedText style={styles.editButtonText}>{t('profile.edit_profile') || 'Editar Perfil'}</ThemedText>
+          <ThemedText style={styles.editButtonText}>{t('profile.edit_profile') || 'Edit Profile'}</ThemedText>
         </TouchableOpacity>
       </View>
 
       <View style={[styles.statsContainer, { backgroundColor: colors.backgroundSecondary }]}>
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(channelsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('common.channels') || 'Canales'}</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('common.channels') || 'Channels'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(userData?.messageCount || 0)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('profile.messages') || 'Mensajes'}</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('profile.messages') || 'Messages'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
           <ThemedText style={styles.statValue}>{formatNumber(friendsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('profile.friends') || 'Amigos'}</ThemedText>
+          <ThemedText style={styles.statLabel}>{t('profile.friends') || 'Friends'}</ThemedText>
         </View>
       </View>
 
       <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>{t('profile.quick_actions') || 'Acciones Rápidas'}</ThemedText>
+        <ThemedText style={styles.sectionTitle}>{t('profile.quick_actions') || 'Quick Actions'}</ThemedText>
 
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -179,8 +179,8 @@ export default function ProfileScreen() {
         >
           <SaveAll size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>{t('profile.saved_messages') || 'Mensajes Guardados'}</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>{t('profile.view_saved') || 'Ver contenido guardado'}</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.saved_messages') || 'Saved Messages'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.view_saved') || 'View Saved'}</ThemedText>
           </View>
         </TouchableOpacity>
 
@@ -190,8 +190,8 @@ export default function ProfileScreen() {
         >
           <Users size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>{t('profile.friends') || 'Amigos'}</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>{t('profile.manage_friends') || 'Gestionar lista de amigos'}</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.friends') || 'Friends'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.manage_friends') || 'Manage Friends'}</ThemedText>
           </View>
         </TouchableOpacity>
 
@@ -201,23 +201,23 @@ export default function ProfileScreen() {
         >
           <UserStar size={20} color={colors.primary} strokeWidth={1.8} />
           <View style={styles.actionText}>
-            <ThemedText style={styles.actionTitle}>{t('profile.best_friends') || 'Mejores Amigos'}</ThemedText>
-            <ThemedText style={styles.actionSubtitle}>{t('profile.close_connections') || 'Tus conexiones más cercanas'}</ThemedText>
+            <ThemedText style={styles.actionTitle}>{t('profile.best_friends') || 'Best Friends'}</ThemedText>
+            <ThemedText style={styles.actionSubtitle}>{t('profile.close_connections') || 'Close Connections'}</ThemedText>
           </View>
         </TouchableOpacity>
       </View>
 
       {isAdmin && (
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>{t('profile.administration') || 'Administración'}</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('profile.administration') || 'Administration'}</ThemedText>
           <TouchableOpacity
             style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => router.push('/admin/users' as any)}
           >
             <ShieldCheck size={20} color={colors.primary} strokeWidth={1.8} />
             <View style={styles.actionText}>
-              <ThemedText style={styles.actionTitle}>{t('profile.user_management') || 'Gestión de usuarios'}</ThemedText>
-              <ThemedText style={styles.actionSubtitle}>{t('profile.assign_roles') || 'Asignar roles y subroles'}</ThemedText>
+              <ThemedText style={styles.actionTitle}>{t('profile.user_management') || 'User Management'}</ThemedText>
+              <ThemedText style={styles.actionSubtitle}>{t('profile.assign_roles') || 'Assign Roles'}</ThemedText>
             </View>
           </TouchableOpacity>
         </View>
