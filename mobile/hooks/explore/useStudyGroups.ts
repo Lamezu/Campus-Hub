@@ -9,21 +9,23 @@ import { Alert } from 'react-native';
 
 export function useStudyGroups() {
     const currentUser = auth.currentUser;
-    const { isAdmin } = useCurrentUser();
+    const { firebaseUser, isAdmin } = useCurrentUser();
     const { t } = useTranslation();
     const [groups, setGroups] = useState<StudyGroup[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
     useEffect(() => {
+        if (!firebaseUser) return;
+        const uid = firebaseUser.uid;
         const unsubscribe = groupsService.subscribeToGroups((newGroups: any[]) => {
-            const uid = currentUser?.uid ?? '';
             setGroups(newGroups
                 .map(data => ({
                     id: data.id,
                     name: data.name ?? '',
                     description: data.description ?? '',
                     subject: data.subject ?? '',
+                    subjects: Array.isArray(data.subjects) ? data.subjects : (data.subject ? [data.subject] : []),
                     createdBy: data.createdBy ?? '',
                     createdByName: data.createdByName ?? '',
                     memberIds: data.memberIds ?? [],
@@ -39,7 +41,7 @@ export function useStudyGroups() {
         });
 
         return typeof unsubscribe === 'function' ? unsubscribe : () => { };
-    }, [isAdmin, currentUser?.uid]);
+    }, [firebaseUser?.uid, isAdmin]);
 
     const joinGroup = async (groupId: string) => {
         if (!currentUser) return;

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, TouchableOpacity, Modal, ScrollView, TextInput, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users, Calendar, Check } from 'lucide-react-native';
+import { EmptyState } from '../EmptyState';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCurrentUser } from '../../contexts/UserContext';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -17,6 +18,12 @@ import type { CalendarEventType, CalendarEvent } from '../../types';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAY_NAMES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+const DEPT_SECTIONS: Array<{ titleKey: string; items: string[] }> = [
+  { titleKey: 'explore.groups.categories.departments', items: ['hospitality', 'health', 'it_comms', 'sports', 'admin_mgmt', 'social_services', 'energy_water', 'wood_furniture', 'security_env', 'languages', 'fol', 'counseling', 'innovation'] },
+  { titleKey: 'explore.groups.categories.cfgm', items: ['admin_mgmt_cycle', 'cooking', 'restaurant_services', 'smr', 'tcae', 'pharmacy'] },
+  { titleKey: 'explore.groups.categories.cfgs', items: ['fitness', 'tseas', 'finance_insurance', 'management_assistance', 'energy_efficiency', 'water_management', 'kitchen_management', 'restaurant_management', 'hotel_management', 'tourist_guide', 'asir', 'dam', 'daw', 'dietetics', 'hygiene', 'emergencies'] },
+];
 
 const EVENT_TYPE_CONFIG: Record<CalendarEventType, { labelKey: string; color: string }> = {
   exam: { labelKey: 'explore.calendar.event_types.exam', color: '#FF3B30' },
@@ -45,9 +52,10 @@ function EventTypeIcon({ type, size = 14, color: customColor }: { type: Calendar
 interface CalendarTabProps {
   eventTypes: CalendarEventType[];
   highlightDay?: string | null;
+  highlightEventId?: string | null;
 }
 
-export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
+export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: CalendarTabProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -76,6 +84,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
   const [ghostDay, setGhostDay] = useState<number | null>(null);
   const ghostAnim = useRef(new Animated.Value(0)).current;
   const [showCreate, setShowCreate] = useState(false);
+  const [showDeptModal, setShowDeptModal] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   const [formDate, setFormDate] = useState<Date>(today);
@@ -85,7 +94,26 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
     description: '',
     type: (eventTypes[0] ?? 'event') as CalendarEventType,
     allDay: true,
+    departmentId: null as string | null,
   });
+
+  useEffect(() => {
+    if (!highlightEventId || allEvents.length === 0) return;
+    const ev = allEvents.find(e => e.id === highlightEventId);
+    if (!ev) return;
+    const d = new Date(ev.date);
+    if (isNaN(d.getTime())) return;
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+    setSelectedDate(String(d.getDate()));
+    setGhostDay(d.getDate());
+    ghostAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(ghostAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2000),
+      Animated.timing(ghostAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start(() => setGhostDay(null));
+  }, [highlightEventId, allEvents]);
 
   useEffect(() => {
     if (!highlightDay) return;
@@ -150,10 +178,10 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
       allDay: !formTime,
       time: formTime || null,
       category: form.type,
-      departmentId: subrole === 'delegate' ? userDepartment : null,
+      departmentId: form.departmentId,
     }, editingEventId);
 
-    setForm({ title: '', description: '', type: (eventTypes[0] ?? 'event'), allDay: true });
+    setForm({ title: '', description: '', type: (eventTypes[0] ?? 'event'), allDay: true, departmentId: subrole === 'delegate' ? userDepartment : null });
     setFormDate(today);
     setFormTime('');
     setEditingEventId(null);
@@ -161,7 +189,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
   };
 
   const handleEditEvent = (ev: CalendarEvent) => {
-    setForm({ title: ev.title, description: ev.description, type: ev.type, allDay: ev.allDay });
+    setForm({ title: ev.title, description: ev.description, type: ev.type, allDay: ev.allDay, departmentId: ev.departmentId ?? null });
     setFormDate(new Date(ev.date));
     setFormTime(ev.time ?? '');
     setEditingEventId(ev.id);
@@ -174,7 +202,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
       : today;
     setFormDate(base);
     setFormTime('');
-    setForm({ title: '', description: '', type: (eventTypes[0] ?? 'event'), allDay: true });
+    setForm({ title: '', description: '', type: (eventTypes[0] ?? 'event'), allDay: true, departmentId: subrole === 'delegate' ? userDepartment : null });
     setEditingEventId(null);
     setShowCreate(true);
   };
@@ -240,17 +268,17 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
           <TouchableOpacity style={[styles.createBtn, { backgroundColor: colors.primary }]} onPress={openCreate}>
             <Plus size={18} color="#fff" strokeWidth={2.5} />
             <ThemedText style={styles.createBtnText}>
-              {subrole === 'delegate' && userDepartment ? `${t('explore.calendar.event_for') || 'Evento para'} ${userDepartment}` : (t('explore.calendar.add_event') || 'Añadir evento')}
+              {subrole === 'delegate' && userDepartment ? `${t('explore.calendar.event_for') || 'Event For'} ${userDepartment}` : (t('explore.calendar.add_event') || 'Add Event')}
             </ThemedText>
           </TouchableOpacity>
         )}
 
         <ThemedText style={[styles.calSectionTitle, { color: colors.textSecondary }]}>
-          {selectedDate ? `${t('explore.calendar.day_events') || 'Eventos del día'} ${selectedDate}` : (t('explore.calendar.upcoming_events') || 'Próximos eventos')}
+          {selectedDate ? `${t('explore.calendar.day_events') || 'Day Events'} ${selectedDate}` : (t('explore.calendar.upcoming_events') || 'Upcoming Events')}
         </ThemedText>
 
         {selectedEvents.length === 0 ? (
-          <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>{t('explore.calendar.no_events') || 'Sin eventos'}</ThemedText>
+          <EmptyState icon={Calendar} title={t('explore.calendar.no_events') || 'No Events'} />
         ) : (
           selectedEvents.map((ev: CalendarEvent) => {
             const cfg = EVENT_TYPE_CONFIG[ev.type];
@@ -281,7 +309,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                       <View style={[styles.deptBadge, { backgroundColor: '#FF3B3015' }]}>
                         <Megaphone size={10} color="#FF3B30" strokeWidth={2} />
                         <ThemedText style={[styles.deptBadgeText, { color: '#FF3B30' }]}>
-                          {t('explore.calendar.notified') || 'AVISADO'}
+                          {t('explore.calendar.notified') || 'Notified'}
                         </ThemedText>
                       </View>
                     )}
@@ -324,7 +352,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                     onPress={() => router.push(`/announcement/${ev.linkedAnnouncementId}` as never)}
                   >
                     <Megaphone size={12} color={colors.primary} strokeWidth={2} />
-                    <ThemedText style={[styles.announcementLinkText, { color: colors.primary }]}>{t('explore.calendar.related_announcement') || 'Ver anuncio relacionado'}</ThemedText>
+                    <ThemedText style={[styles.announcementLinkText, { color: colors.primary }]}>{t('explore.calendar.related_announcement') || 'Related Announcement'}</ThemedText>
                     <ChevronRight size={12} color={colors.primary} strokeWidth={2} />
                   </TouchableOpacity>
                 )}
@@ -343,11 +371,11 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                   <X size={20} color={colors.textSecondary} strokeWidth={2} />
                 </TouchableOpacity>
                 <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-                  {editingEventId ? (t('explore.calendar.edit_event') || 'Editar evento') : (t('explore.calendar.new_event') || 'Nuevo evento')}
+                  {editingEventId ? (t('explore.calendar.edit_event') || 'Edit Event') : (t('explore.calendar.new_event') || 'New Event')}
                 </ThemedText>
                 <TouchableOpacity onPress={handleSave} disabled={!form.title.trim()} style={[styles.modalHeaderAction, !form.title.trim() && { opacity: 0.5 }]}>
                   <ThemedText style={[styles.modalActionText, { color: colors.primary }]}>
-                    {editingEventId ? (t('common.save') || 'Guardar') : (t('common.create') || 'Crear')}
+                    {editingEventId ? (t('common.save') || 'Save') : (t('common.create') || 'Create')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -357,7 +385,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                   <View style={[styles.inputGroup, { backgroundColor: colors.backgroundSecondary, borderRadius: 16, padding: spacing.sm }]}>
                     <TextInput
                       style={[styles.premiumTitleInput, { color: colors.text }]}
-                      placeholder={t('explore.calendar.placeholders.title') || 'Nombre del evento...'}
+                      placeholder={t('explore.calendar.placeholders.title') || 'Title'}
                       placeholderTextColor={colors.textSecondary}
                       value={form.title}
                       onChangeText={t => setForm(f => ({ ...f, title: t }))}
@@ -366,7 +394,7 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                     <View style={[styles.inputDivider, { backgroundColor: colors.border }]} />
                     <TextInput
                       style={[styles.premiumDescInput, { color: colors.text }]}
-                      placeholder={t('explore.calendar.placeholders.desc') || 'Notas adicionales (opcional)'}
+                      placeholder={t('explore.calendar.placeholders.desc') || 'Desc'}
                       placeholderTextColor={colors.textSecondary}
                       value={form.description}
                       onChangeText={t => setForm(f => ({ ...f, description: t }))}
@@ -377,22 +405,39 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
                 </View>
 
                 <View style={styles.formSection}>
-                  <ThemedText style={[styles.premiumLabel, { color: colors.textSecondary }]}>{t('explore.calendar.date_time') || 'Fecha y hora'}</ThemedText>
+                  <ThemedText style={[styles.premiumLabel, { color: colors.textSecondary }]}>{t('explore.calendar.date_time') || 'Date Time'}</ThemedText>
                   <View style={styles.dateTimeRow}>
                     <View style={{ flex: 1 }}>
-                      <MiniDatePicker value={formDate} onChange={setFormDate} label={t('explore.calendar.date') || 'Fecha'} />
+                      <MiniDatePicker value={formDate} onChange={setFormDate} label={t('explore.calendar.date') || 'Date'} />
                     </View>
-                    <TimePicker value={formTime} onChange={setFormTime} label={t('explore.calendar.time') || 'Hora'} />
+                    <TimePicker value={formTime} onChange={setFormTime} label={t('explore.calendar.time') || 'Time'} />
                   </View>
 
-                  {subrole === 'delegate' && userDepartment && (
-                    <View style={[styles.deptInfo, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
-                      <Users size={14} color={colors.primary} strokeWidth={2} />
-                      <ThemedText style={[styles.deptInfoText, { color: colors.primary }]}>
-                        {t('explore.calendar.visible_for') || 'Visible para'}: {userDepartment}
+                  <View>
+                    <ThemedText style={[styles.premiumLabel, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+                      {t('explore.calendar.department_visibility') || 'Department Visibility'}
+                    </ThemedText>
+                    <TouchableOpacity
+                      style={[styles.deptSelector, { backgroundColor: colors.backgroundSecondary, borderColor: form.departmentId ? colors.primary : colors.border }]}
+                      onPress={() => subrole !== 'delegate' && setShowDeptModal(true)}
+                      activeOpacity={subrole === 'delegate' ? 1 : 0.7}
+                    >
+                      <Users size={14} color={form.departmentId ? colors.primary : colors.textSecondary} strokeWidth={2} />
+                      <ThemedText style={[styles.deptSelectorText, { color: form.departmentId ? colors.primary : colors.textSecondary, flex: 1 }]}>
+                        {form.departmentId
+                          ? (t(`explore.groups.subjects_list.${form.departmentId}`) || form.departmentId)
+                          : (t('common.all') || 'All')}
                       </ThemedText>
-                    </View>
-                  )}
+                      {subrole !== 'delegate' && (
+                        <ChevronRight size={14} color={colors.textSecondary} strokeWidth={2} />
+                      )}
+                    </TouchableOpacity>
+                    {subrole === 'delegate' && (
+                      <ThemedText style={[styles.deptHint, { color: colors.textSecondary }]}>
+                        {t('explore.calendar.dept_auto_assigned') || 'Dept Auto Assigned'}
+                      </ThemedText>
+                    )}
+                  </View>
 
                   <View style={styles.typeGrid}>
                     {eventTypes.map(t_id => {
@@ -420,6 +465,62 @@ export function CalendarTab({ eventTypes, highlightDay }: CalendarTabProps) {
             </View>
           </KeyboardAvoidingView>
         </View>
+
+        <Modal
+          visible={showDeptModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowDeptModal(false)}
+        >
+          <View style={styles.deptModalOverlay}>
+            <View style={[styles.deptModalSheet, { backgroundColor: colors.card }]}>
+              <View style={[styles.deptModalHeader, { borderBottomColor: colors.border }]}>
+                <ThemedText style={[styles.deptModalTitle, { color: colors.text }]}>
+                  {t('explore.calendar.department_visibility') || 'Department Visibility'}
+                </ThemedText>
+                <TouchableOpacity onPress={() => setShowDeptModal(false)} hitSlop={10}>
+                  <X size={20} color={colors.textSecondary} strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={styles.deptModalContent}>
+                <TouchableOpacity
+                  style={[styles.deptModalRow, { borderBottomColor: colors.border }]}
+                  onPress={() => { setForm(f => ({ ...f, departmentId: null })); setShowDeptModal(false); }}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={[styles.deptModalRowText, { color: !form.departmentId ? colors.primary : colors.text, fontWeight: !form.departmentId ? '700' : '500' }]}>
+                    {t('common.all') || 'All'}
+                  </ThemedText>
+                  {!form.departmentId && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                </TouchableOpacity>
+                {DEPT_SECTIONS.map(section => (
+                  <View key={section.titleKey}>
+                    <ThemedText style={[styles.deptSectionLabel, { color: colors.textSecondary }]}>
+                      {t(section.titleKey) || section.titleKey}
+                    </ThemedText>
+                    {section.items.map(dep => {
+                      const isActive = form.departmentId === dep;
+                      const label = t(`explore.groups.subjects_list.${dep}`) || dep;
+                      return (
+                        <TouchableOpacity
+                          key={dep}
+                          style={[styles.deptModalRow, { borderBottomColor: colors.border }]}
+                          onPress={() => { setForm(f => ({ ...f, departmentId: dep })); setShowDeptModal(false); }}
+                          activeOpacity={0.7}
+                        >
+                          <ThemedText style={[styles.deptModalRowText, { color: isActive ? colors.primary : colors.text, fontWeight: isActive ? '700' : '500' }]}>
+                            {label}
+                          </ThemedText>
+                          {isActive && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </Modal>
     </View>
   );
@@ -438,7 +539,6 @@ const styles = StyleSheet.create({
   createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm + 2, borderRadius: 10 },
   createBtnText: { color: '#fff', fontWeight: '600', fontSize: typography.sizes.sm },
   calSectionTitle: { fontSize: typography.sizes.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  emptyText: { textAlign: 'center', marginTop: spacing.xl, fontSize: typography.sizes.sm },
   eventCard: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderLeftWidth: 4, padding: spacing.md, gap: 4, marginBottom: spacing.sm },
   eventCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   eventCardTopLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flex: 1, flexWrap: 'wrap' },
@@ -476,4 +576,15 @@ const styles = StyleSheet.create({
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   premiumTypeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   premiumTypeLabel: { fontSize: 13, fontWeight: '600' },
+  deptHint: { fontSize: 12, marginTop: 6, opacity: 0.7 },
+  deptSelector: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm + 4, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  deptSelectorText: { fontSize: 14, fontWeight: '600' },
+  deptModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  deptModalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' },
+  deptModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
+  deptModalTitle: { fontSize: 16, fontWeight: '700' },
+  deptModalContent: { paddingBottom: spacing.xl },
+  deptSectionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  deptModalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  deptModalRowText: { fontSize: 15 },
 });

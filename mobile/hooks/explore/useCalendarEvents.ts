@@ -3,6 +3,7 @@ import { eventsService, authService } from '../../services/shared';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { auth } from '../../config/firebase';
+import { useCurrentUser } from '../../contexts/UserContext';
 import { notificationService } from '../../services/notificationService';
 import { useTranslation } from '../../hooks/useTranslation';
 import type { CalendarEvent, CalendarEventType } from '../../types';
@@ -10,11 +11,12 @@ import { Alert } from 'react-native';
 
 export function useCalendarEvents() {
   const currentUser = auth.currentUser;
+  const { firebaseUser } = useCurrentUser();
   const { t } = useTranslation();
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
 
-  // 1. Suscripción a eventos
   useEffect(() => {
+    if (!firebaseUser) return;
     const unsubscribe = eventsService.subscribeToEvents((newEvents: any[]) => {
       const mappedEvents = newEvents.map(data => ({
         id: data.id,
@@ -37,9 +39,8 @@ export function useCalendarEvents() {
     });
 
     return typeof unsubscribe === 'function' ? unsubscribe : () => { };
-  }, []);
+  }, [firebaseUser?.uid]);
 
-  // 2. Lógica de Resiliencia (Limpieza de estados huérfanos)
   const runResilienceCheck = useCallback(async (events: CalendarEvent[]) => {
     if (!currentUser?.uid || events.length === 0) return;
 
@@ -67,7 +68,6 @@ export function useCalendarEvents() {
     }
   }, [currentUser?.uid]);
 
-  // Ejecutar resiliencia cuando cambian los eventos o al montar
   useEffect(() => {
     if (allEvents.length > 0) {
       runResilienceCheck(allEvents);

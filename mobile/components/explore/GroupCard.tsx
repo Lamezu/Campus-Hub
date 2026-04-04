@@ -26,17 +26,17 @@ export function GroupCard({
 
     const handleOptions = () => {
         const options: any[] = [];
-        if (onEdit) options.push({ text: t('explore.groups.actions.edit') || 'Editar', onPress: onEdit });
-        if (onDelete) options.push({ text: t('explore.groups.actions.delete') || 'Eliminar', style: 'destructive', onPress: onDelete });
-        options.push({ text: t('explore.groups.actions.cancel') || 'Cancelar', style: 'cancel' });
+        if (onEdit) options.push({ text: t('explore.groups.actions.edit') || 'Edit', onPress: onEdit });
+        if (onDelete) options.push({ text: t('explore.groups.actions.delete') || 'Delete', style: 'destructive', onPress: onDelete });
+        options.push({ text: t('explore.groups.actions.cancel') || 'Cancel', style: 'cancel' });
         Alert.alert(group.name, undefined, options);
     };
 
     const handleMemberBtn = () => {
         Alert.alert(group.name, undefined, [
-            { text: t('explore.groups.actions.go_to_channel') || 'Ir al canal', onPress: onNavigate },
-            { text: t('explore.groups.actions.leave_group') || 'Salir del grupo', style: 'destructive', onPress: onLeave },
-            { text: t('explore.groups.actions.cancel') || 'Cancelar', style: 'cancel' },
+            { text: t('explore.groups.actions.go_to_channel') || 'Go To Channel', onPress: onNavigate },
+            { text: t('explore.groups.actions.leave_group') || 'Leave Group', style: 'destructive', onPress: onLeave },
+            { text: t('explore.groups.actions.cancel') || 'Cancel', style: 'cancel' },
         ]);
     };
 
@@ -61,15 +61,19 @@ export function GroupCard({
                         </TouchableOpacity>
                     )}
                 </View>
-                <ThemedText style={[styles.groupSubject, { color: group.color }]}>
-                    {t(`explore.groups.subjects_list.${group.subject}`) || group.subject}
+                <ThemedText style={[styles.groupSubject, { color: group.color }]} numberOfLines={1}>
+                    {(() => {
+                        const keys = (group.subjects && group.subjects.length > 0) ? group.subjects : (group.subject ? [group.subject] : []);
+                        const labels = keys.slice(0, 3).map(s => { const k = `explore.groups.subjects_list.${s}`; const r = t(k); return r === k ? s : r; });
+                        return labels.join(' · ') + (keys.length > 3 ? '...' : '');
+                    })()}
                 </ThemedText>
                 {!!group.description && (
                     <ThemedText style={[styles.groupDesc, { color: colors.textSecondary }]} numberOfLines={2}>{group.description}</ThemedText>
                 )}
                 {(group.allowedRoles?.length ?? 0) > 0 && (
                     <ThemedText style={[styles.groupDesc, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {t('explore.groups.actions.only') || 'Solo'}: {group.allowedRoles!.map(r => t(`roles.labels.${r}`) || r).join(', ')}
+                        {t('explore.groups.actions.only') || 'Only'}: {group.allowedRoles!.map(r => t(`roles.labels.${r}`) || r).join(', ')}
                     </ThemedText>
                 )}
                 <View style={styles.groupFooter}>
@@ -83,14 +87,14 @@ export function GroupCard({
                             onPress={handleMemberBtn}
                         >
                             <MessageSquare size={11} color={group.color} strokeWidth={2.5} />
-                            <ThemedText style={[styles.joinBtnText, { color: group.color }]}>{t('explore.groups.actions.go_to_channel') || 'Ir al canal'}</ThemedText>
+                            <ThemedText style={[styles.joinBtnText, { color: group.color }]}>{t('explore.groups.actions.go_to_channel') || 'Go To Channel'}</ThemedText>
                         </TouchableOpacity>
                     ) : (
                         <TouchableOpacity
                             style={[styles.joinBtn, { backgroundColor: group.color }]}
                             onPress={onJoin}
                         >
-                            <ThemedText style={[styles.joinBtnText, { color: '#fff' }]}>{t('explore.groups.actions.join') || 'Unirse'}</ThemedText>
+                            <ThemedText style={[styles.joinBtnText, { color: '#fff' }]}>{t('explore.groups.actions.join') || 'Join'}</ThemedText>
                         </TouchableOpacity>
                     )}
                 </View>

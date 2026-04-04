@@ -11,6 +11,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/hooks/useTranslation';
 import type { Channel } from '@/types';
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
@@ -44,8 +45,12 @@ interface ChannelCardProps {
 
 export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const Icon: LucideIcon = channel.icon ? (CHANNEL_ICONS[channel.icon] ?? MessagesSquare) : MessagesSquare;
   const tint = accentColor ?? colors.primary;
+
+  const displayName = t(`predefined_channels.${channel.id}.name`) || channel.name;
+  const displayDescription = t(`predefined_channels.${channel.id}.description`) || channel.description;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
@@ -59,9 +64,9 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
         </View>
 
         <View style={styles.content}>
-          <ThemedText style={[styles.name, { color: colors.text }]}>{channel.name}</ThemedText>
+          <ThemedText style={[styles.name, { color: colors.text }]}>{displayName}</ThemedText>
           <ThemedText style={[styles.description, { color: colors.textSecondary }]} numberOfLines={1}>
-            {channel.description}
+            {displayDescription}
           </ThemedText>
         </View>
 
