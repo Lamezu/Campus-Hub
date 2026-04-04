@@ -15,20 +15,20 @@ import { useTranslation } from '@/hooks/useTranslation';
 import type { MuteDuration } from '@/types';
 
 const MUTE_OPTIONS = (t: any): { value: MuteDuration; label: string }[] => [
-  { value: '8h', label: t('settings.mute_options.8h') || '8 horas' },
-  { value: '1w', label: t('settings.mute_options.1w') || '1 semana' },
-  { value: 'always', label: t('settings.mute_options.always') || 'Siempre' },
-  { value: 'off', label: t('settings.mute_options.off') || 'No silenciar' },
+  { value: '8h', label: t('settings.mute_options.8h') || '8h' },
+  { value: '1w', label: t('settings.mute_options.1w') || '1w' },
+  { value: 'always', label: t('settings.mute_options.always') || 'Always' },
+  { value: 'off', label: t('settings.mute_options.off') || 'Off' },
 ];
 
 const ALERT_TONES = (t: any) => [
-  { value: 'default', label: t('settings.alert_tones.default') || 'Predeterminado' },
-  { value: 'classic', label: t('settings.alert_tones.classic') || 'Clásico' },
-  { value: 'soft', label: t('settings.alert_tones.soft') || 'Suave' },
-  { value: 'melody', label: t('settings.alert_tones.melody') || 'Melodía' },
-  { value: 'bell', label: t('settings.alert_tones.bell') || 'Campana' },
-  { value: 'pulse', label: t('settings.alert_tones.pulse') || 'Pulso' },
-  { value: 'none', label: t('settings.alert_tones.none') || 'Sin tono' }
+  { value: 'default', label: t('settings.alert_tones.default') || 'Alert Tones default' },
+  { value: 'classic', label: t('settings.alert_tones.classic') || 'Classic' },
+  { value: 'soft', label: t('settings.alert_tones.soft') || 'Soft' },
+  { value: 'melody', label: t('settings.alert_tones.melody') || 'Melody' },
+  { value: 'bell', label: t('settings.alert_tones.bell') || 'Bell' },
+  { value: 'pulse', label: t('settings.alert_tones.pulse') || 'Pulse' },
+  { value: 'none', label: t('settings.alert_tones.none') || 'None' }
 ];
 
 const PRESET_COLORS = [
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
   const handleLogout = async () => {
     Alert.alert(
       t('common.logout'),
-      t('common.logout_confirm') || '¿Estás seguro de que quieres cerrar sesión?',
+      t('common.logout_confirm') || 'Logout Confirm',
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
               await signOut(auth);
               router.replace('/auth/login');
             } catch (error) {
-              Alert.alert(t('common.error') || 'Error', t('settings.logout_error') || 'No se pudo cerrar sesión');
+              Alert.alert(t('common.error') || 'Error', t('settings.logout_error') || 'Logout Error');
             }
           }
         }
@@ -137,7 +137,7 @@ export default function SettingsScreen() {
             <ThemedText style={styles.sectionTitle}>{t('settings.change_language')}</ThemedText>
             <View style={styles.languageContainer}>
               {[
-                { id: 'es', label: t('common.spanish') || 'Español', flag: '🇪🇸' },
+                { id: 'es', label: t('common.spanish') || 'Spanish', flag: '🇪🇸' },
                 { id: 'en', label: t('common.english') || 'English', flag: '🇺🇸' }
               ].map((item) => {
                 const isSelected = language === item.id;
@@ -165,15 +165,15 @@ export default function SettingsScreen() {
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>{t('settings.appearance')}</ThemedText>
             <View style={styles.themeGrid}>
-              <ThemeOption id="light" label={t('common.theme_light') || 'Claro'} current={theme === 'light'} />
-              <ThemeOption id="dark" label={t('common.theme_dark') || 'Oscuro'} current={theme === 'dark'} />
-              <ThemeOption id="high-contrast" label={t('common.theme_high_contrast') || 'Alto Contraste'} current={theme === 'high-contrast'} />
-              <ThemeOption id="pastel" label={t('common.theme_pastel') || 'Pastel'} current={theme === 'pastel'} />
+              <ThemeOption id="light" label={t('common.theme_light') || 'Theme Light'} current={theme === 'light'} />
+              <ThemeOption id="dark" label={t('common.theme_dark') || 'Theme Dark'} current={theme === 'dark'} />
+              <ThemeOption id="high-contrast" label={t('common.theme_high_contrast') || 'Theme High Contrast'} current={theme === 'high-contrast'} />
+              <ThemeOption id="pastel" label={t('common.theme_pastel') || 'Theme Pastel'} current={theme === 'pastel'} />
             </View>
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
-            <ThemedText style={styles.sectionTitle}>{t('settings.custom_color') || 'Color Personalizado'}</ThemedText>
-            <ThemedText style={styles.sectionDescription}>{t('settings.custom_color_desc') || 'Selecciona un color para personalizar la interfaz instantáneamente.'}</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('settings.custom_color') || 'Custom Color'}</ThemedText>
+            <ThemedText style={styles.sectionDescription}>{t('settings.custom_color_desc') || 'Custom Color Desc'}</ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll}>
               {PRESET_COLORS.map(color => (
                 <TouchableOpacity
@@ -192,7 +192,7 @@ export default function SettingsScreen() {
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>{t('common.profile')}</ThemedText>
             <View style={styles.infoRow}>
-              <ThemedText style={styles.label}>{t('common.name') || 'Nombre'}</ThemedText>
+              <ThemedText style={styles.label}>{t('common.name') || 'Name'}</ThemedText>
               <ThemedText style={styles.value}>{userData?.displayName || currentUser?.displayName || 'User'}</ThemedText>
             </View>
             <TouchableOpacity
@@ -212,7 +212,7 @@ export default function SettingsScreen() {
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>{t('settings.notifications')}</ThemedText>
-            <ThemedText style={styles.sectionDescription}>{t('settings.mute_description') || 'Silenciar todas las notificaciones de la aplicación.'}</ThemedText>
+            <ThemedText style={styles.sectionDescription}>{t('settings.mute_description') || 'Mute Description'}</ThemedText>
             <View style={styles.notifGroup}>
               {MUTE_OPTIONS(t).map(opt => (
                 <TouchableOpacity
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <ThemedText style={[styles.sectionDescription, { marginTop: spacing.md }]}>{t('settings.global_alert_tone') || 'Tono de alerta global.'}</ThemedText>
+            <ThemedText style={[styles.sectionDescription, { marginTop: spacing.md }]}>{t('settings.global_alert_tone') || 'Global Alert Tone'}</ThemedText>
             <View style={styles.notifGroup}>
               {ALERT_TONES(t).map(tone => (
                 <TouchableOpacity
@@ -241,8 +241,24 @@ export default function SettingsScreen() {
           </View>
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>{t('settings.account')}</ThemedText>
-            <TouchableOpacity style={[styles.button, { backgroundColor: colors.danger }]} onPress={handleLogout}>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => router.push('/accounts' as never)}
+            >
+              <ThemedText style={[styles.buttonText, { color: colors.text }]}>
+                {t('settings.manage_accounts')}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.danger, marginTop: spacing.sm }]} onPress={handleLogout}>
               <ThemedText style={styles.buttonText}>{t('common.logout')}</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.deleteAccountBtn]}
+              onPress={() => router.push('/delete-account' as never)}
+            >
+              <ThemedText style={[styles.buttonText, styles.deleteAccountText]}>
+                {t('settings.delete_account')}
+              </ThemedText>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -291,5 +307,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.sizes.md,
     fontWeight: typography.weights.semibold,
+  },
+  deleteAccountBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+    marginTop: spacing.sm,
+  },
+  deleteAccountText: {
+    color: '#FF3B30',
   },
 });

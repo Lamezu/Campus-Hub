@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Image, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Platform, ActivityIndicator, Image, Pressable, Alert } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Users, UserStar, Search, UserPlus, Heart, MessageCircle } from 'lucide-react-native';
+import { ChevronLeft, Users, UserStar, Search, UserPlus, UserMinus, Heart, MessageCircle } from 'lucide-react-native';
+import { EmptyState } from '@/components/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { auth, db } from '@/config/firebase';
-import { subscribeToFriends, subscribeToBestFriends, toggleBestFriend, removeFriend } from '@/services/friendsService';
+import { subscribeToFriends, toggleBestFriend, removeFriend } from '@/services/friendsService';
 import { spacing, typography } from '@/constants/styles';
 import type { User } from '@/types';
 
@@ -22,29 +23,22 @@ export default function FriendsScreen() {
 
     const [activeTab, setActiveTab] = useState<TabType>((params.tab as TabType) || 'all');
     const [allFriends, setAllFriends] = useState<User[]>([]);
-    const [bestFriends, setBestFriends] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     const currentUser = auth.currentUser;
+
+    const bestFriends = allFriends.filter((f: any) => f.isBestFriend === true);
 
     useEffect(() => {
         if (!currentUser) return;
 
         const unsubAll = subscribeToFriends(currentUser.uid, (friends) => {
             setAllFriends(friends);
-            if (activeTab === 'all') setLoading(false);
+            setLoading(false);
         });
 
-        const unsubBest = subscribeToBestFriends(currentUser.uid, (friends) => {
-            setBestFriends(friends);
-            if (activeTab === 'best') setLoading(false);
-        });
-
-        return () => {
-            unsubAll();
-            unsubBest();
-        };
+        return () => unsubAll();
     }, [currentUser]);
 
     const handleToggleBest = async (friendId: string) => {
@@ -54,6 +48,24 @@ export default function FriendsScreen() {
         } catch (error) {
             console.error(error);
         }
+    };
+
+    const handleRemoveFriend = (friendId: string, friendName: string) => {
+        Alert.alert(
+            t('dm.profile.remove_friend_title') || 'Remove Friend Title',
+            t('dm.profile.remove_friend_confirm', { name: friendName }) || `¿Eliminar a ${friendName} de tus amigos?`,
+            [
+                { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                {
+                    text: t('dm.profile.remove_friend_action') || 'Remove Friend Action',
+                    style: 'destructive',
+                    onPress: async () => {
+                        if (!currentUser) return;
+                        await removeFriend(currentUser.uid, friendId);
+                    },
+                },
+            ]
+        );
     };
 
     const filteredFriends = (activeTab === 'all' ? allFriends : bestFriends).filter(f =>
@@ -88,7 +100,7 @@ export default function FriendsScreen() {
 
                 <View style={styles.friendInfo}>
                     <ThemedText style={styles.friendName}>{item.displayName}</ThemedText>
-                    <ThemedText style={styles.friendRole}>{item.role === 'teacher' ? (t('roles.teacher') || 'Profesor') : (t('roles.student') || 'Estudiante')}</ThemedText>
+                    <ThemedText style={styles.friendRole}>{item.role === 'teacher' ? (t('roles.teacher') || 'Teacher') : (t('roles.student') || 'Student')}</ThemedText>
                 </View>
 
                 <View style={styles.friendActions}>
@@ -105,6 +117,13 @@ export default function FriendsScreen() {
                     >
                         <MessageCircle size={20} color="#fff" />
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.friendActionBtn, { backgroundColor: (colors.danger ?? '#FF3B30') + '22' }]}
+                        onPress={() => handleRemoveFriend(item.uid, item.displayName)}
+                    >
+                        <UserMinus size={20} color={colors.danger ?? '#FF3B30'} />
+                    </TouchableOpacity>
                 </View>
             </Pressable>
         );
@@ -118,7 +137,7 @@ export default function FriendsScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
                 </TouchableOpacity>
-                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('friends.title') || 'Amigos'}</ThemedText>
+                <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('friends.title') || 'Title'}</ThemedText>
                 <View style={{ width: 32 }} />
             </View>
 
@@ -130,7 +149,7 @@ export default function FriendsScreen() {
                     >
                         <Users size={18} color={activeTab === 'all' ? colors.primary : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'all' ? colors.text : colors.textSecondary }]}>
-                            {t('friends.tabs.all') || 'Todos'}
+                            {t('friends.tabs.all') || 'All'}
                         </ThemedText>
                     </TouchableOpacity>
 
@@ -140,14 +159,14 @@ export default function FriendsScreen() {
                     >
                         <UserStar size={18} color={activeTab === 'best' ? colors.warning : colors.textSecondary} />
                         <ThemedText style={[styles.tabText, { color: activeTab === 'best' ? colors.text : colors.textSecondary }]}>
-                            {t('friends.tabs.best') || 'Mejores'}
+                            {t('friends.tabs.best') || 'Best'}
                         </ThemedText>
                     </TouchableOpacity>
                 </View>
 
                 <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary }]}>
                     <Search size={20} color={colors.textSecondary} />
-                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>{t('friends.search_placeholder') || 'Buscar amigos...'}</ThemedText>
+                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>{t('friends.search_placeholder') || 'Search Placeholder'}</ThemedText>
                 </View>
             </View>
 
@@ -162,17 +181,11 @@ export default function FriendsScreen() {
                     keyExtractor={(item) => item.uid}
                     contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Users size={64} color={colors.border} strokeWidth={1} />
-                            <ThemedText style={styles.emptyTitle}>
-                                {activeTab === 'all' ? (t('friends.empty.no_friends') || 'No tienes amigos todavía') : (t('friends.empty.no_best') || 'No tienes mejores amigos')}
-                            </ThemedText>
-                            <ThemedText style={styles.emptySubtitle}>
-                                {activeTab === 'all'
-                                    ? (t('friends.empty.start_connecting') || '¡Empieza a conectar con otros estudiantes!')
-                                    : (t('friends.empty.add_best_desc') || 'Añade a tus conexiones más cercanas como mejores amigos')}
-                            </ThemedText>
-                        </View>
+                        <EmptyState
+                            icon={Users}
+                            title={activeTab === 'all' ? t('friends.empty.no_friends') : t('friends.empty.no_best')}
+                            body={activeTab === 'all' ? t('friends.empty.start_connecting') : t('friends.empty.add_best_desc')}
+                        />
                     }
                 />
             )}
@@ -208,7 +221,4 @@ const styles = StyleSheet.create({
     friendRole: { fontSize: typography.sizes.xs, opacity: 0.6, marginTop: 2 },
     friendActions: { flexDirection: 'row', gap: spacing.xs },
     friendActionBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-    emptyTitle: { fontSize: typography.sizes.lg, fontWeight: 'bold', marginTop: spacing.md, textAlign: 'center' },
-    emptySubtitle: { fontSize: typography.sizes.sm, opacity: 0.6, marginTop: spacing.xs, textAlign: 'center', paddingHorizontal: spacing.xl },
 });
