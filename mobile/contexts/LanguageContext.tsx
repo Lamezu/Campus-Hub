@@ -28,7 +28,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         const loadStoredLanguage = async () => {
             try {
-                // If user has a preference in Firestore, use it
                 if (userData?.language && (userData.language === 'es' || userData.language === 'en')) {
                     setLanguageState(userData.language as Language);
                     await AsyncStorage.setItem(STORAGE_KEY, userData.language);
