@@ -414,7 +414,9 @@ export default function NotificationsScreen() {
           {item.title}
         </ThemedText>
         <ThemedText style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>
-          {item.body}
+          {item.meta?.type === 'added_to_group'
+            ? (t('dm.group.notification_added', { name: item.meta.adderName }) || `${item.meta.adderName} te añadió al grupo`)
+            : item.body}
         </ThemedText>
       </View>
       <View style={styles.itemRight}>

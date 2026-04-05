@@ -793,6 +793,7 @@
             "next": "Next",
             "search_placeholder": "Search a name or number",
             "starred": "Starred",
+            "notification_added": "{{name}} added you to the group",
             "members_short": "members",
             "members_label": "MEMBERS: {{count}} OF {{total}}",
             "member_count": "{{count}} members",

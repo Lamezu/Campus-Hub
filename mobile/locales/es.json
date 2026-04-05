@@ -793,6 +793,7 @@
             "next": "Siguiente",
             "search_placeholder": "Buscar un nombre o número",
             "starred": "Destacados",
+            "notification_added": "{{name}} te añadió al grupo",
             "members_short": "miembros",
             "members_label": "MIEMBROS: {{count}} DE {{total}}",
             "member_count": "{{count}} miembros",

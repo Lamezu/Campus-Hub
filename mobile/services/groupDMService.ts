@@ -52,11 +52,11 @@ export async function createGroupConversation(
       .map(uid =>
         addDoc(collection(db, 'notifications', uid, 'items'), {
           category: 'dm',
-          title: displayName || 'New group',
+          title: displayName || 'Nuevo grupo',
           body: `${creatorFirstName} added you to the group`,
           createdAt: serverTimestamp(),
           read: false,
-          meta: { groupId: ref.id },
+          meta: { groupId: ref.id, type: 'added_to_group', adderName: creatorFirstName },
         }).catch(() => {})
       )
   );
@@ -514,11 +514,11 @@ export async function addMembersToGroup(
     newMembers.map(m =>
       addDoc(collection(db, 'notifications', m.id, 'items'), {
         category: 'dm',
-        title: groupName || 'Group',
+        title: groupName || 'Grupo',
         body: `${adderFirst} added you to the group`,
         createdAt: serverTimestamp(),
         read: false,
-        meta: { groupId },
+        meta: { groupId, type: 'added_to_group', adderName: adderFirst },
       }).catch(() => {})
     )
   );
