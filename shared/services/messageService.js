@@ -8,6 +8,10 @@ export class MessageService {
     const messagesRef = this.fs.collection(this.db, 'channels', channelId, 'messages');
     const messageRef = this.fs.doc(messagesRef);
 
+    const cleanReplyTo = replyTo
+      ? Object.fromEntries(Object.entries(replyTo).filter(([, v]) => v !== undefined))
+      : null;
+
     await this.fs.setDoc(messageRef, {
       text,
       senderId,
@@ -16,7 +20,7 @@ export class MessageService {
       createdAt: this.fs.serverTimestamp(),
       updatedAt: this.fs.serverTimestamp(),
       reactions: {},
-      replyTo,
+      replyTo: cleanReplyTo,
       forwarded,
       attachments: attachments ?? null,
       type: arguments[8] || (attachments?.length ? attachments[0].type : 'text') || 'text',

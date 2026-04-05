@@ -60,6 +60,10 @@ export class DirectMessageService {
       msgType = attachments[0].type || 'file';
     }
 
+    const cleanReplyTo = replyTo
+      ? Object.fromEntries(Object.entries(replyTo).filter(([, v]) => v !== undefined))
+      : null;
+
     batch.set(messageRef, {
       text,
       senderId,
@@ -69,7 +73,7 @@ export class DirectMessageService {
       read: false,
       readAt: null,
       attachments,
-      replyTo,
+      replyTo: cleanReplyTo,
       forwarded,
       reactions: {},
       type: msgType
