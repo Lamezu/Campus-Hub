@@ -12,13 +12,13 @@ const REVEAL_WIDTH = 160;
 const MUTE_WIDTH  = 80;
 const VELOCITY_THRESHOLD = 0.35;
 
-function formatTime(isoString: string): string {
+function formatTime(isoString: string, locale: string): string {
   const date = new Date(isoString);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'short' });
-  return date.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
+  if (diffDays === 0) return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  if (diffDays < 7) return date.toLocaleDateString(locale, { weekday: 'short' });
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
 }
 
 interface GroupConversationItemProps {
@@ -43,7 +43,7 @@ export function GroupConversationItem({
   myName = '',
 }: GroupConversationItemProps) {
   const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const translateX = useRef(new Animated.Value(0)).current;
   const isRevealedRef = useRef(false);
@@ -204,7 +204,7 @@ export function GroupConversationItem({
               </View>
               {!!group.lastMessageAt && (
                 <ThemedText style={[styles.time, { color: colors.textSecondary }]}>
-                  {formatTime(group.lastMessageAt)}
+                  {formatTime(group.lastMessageAt, language)}
                 </ThemedText>
               )}
             </View>

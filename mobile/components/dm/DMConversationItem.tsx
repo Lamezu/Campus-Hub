@@ -13,13 +13,13 @@ const REVEAL_WIDTH = 160;
 const MUTE_WIDTH = 80;
 const VELOCITY_THRESHOLD = 0.35;
 
-function formatTime(isoString: string): string {
+function formatTime(isoString: string, locale: string): string {
   const date = new Date(isoString);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'short' });
-  return date.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
+  if (diffDays === 0) return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  if (diffDays < 7) return date.toLocaleDateString(locale, { weekday: 'short' });
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
 }
 
 interface DMConversationItemProps {
@@ -46,7 +46,7 @@ export function DMConversationItem({
   archiveColor = '#34C759',
 }: DMConversationItemProps) {
   const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const roleColor = conversation.participantRole === 'admin' ? '#AF52DE'
     : conversation.participantRole === 'teacher' ? '#007AFF'
@@ -225,7 +225,7 @@ export function DMConversationItem({
               <View style={styles.timeRow}>
                 {isMuted && <BellOff size={12} color={colors.textSecondary} strokeWidth={2} />}
                 <ThemedText style={[styles.time, { color: colors.textSecondary }]}>
-                  {formatTime(conversation.lastMessageAt)}
+                  {formatTime(conversation.lastMessageAt, language)}
                 </ThemedText>
               </View>
             </View>

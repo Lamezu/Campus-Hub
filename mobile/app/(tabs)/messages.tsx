@@ -40,7 +40,7 @@ type ListItem = DMConversation | GroupConversation;
 
 export default function MessagesScreen() {
   const { colors, theme } = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { firebaseUser } = useCurrentUser();
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -172,11 +172,11 @@ export default function MessagesScreen() {
     const d = new Date(iso);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-    if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return t('common.yesterday') || 'Yesterday';
-    if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'short' });
-    return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
-  }, [t]);
+    if (diffDays === 0) return d.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return t('common.yesterday') || 'Ayer';
+    if (diffDays < 7) return d.toLocaleDateString(language, { weekday: 'short' });
+    return d.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
+  }, [t, language]);
 
   const allFiltered = useMemo<ListItem[]>(() => {
     const q = query.trim().toLowerCase();
