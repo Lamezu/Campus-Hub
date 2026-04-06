@@ -151,6 +151,8 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, disab
   );
 }
 
+const SUPPORT_CHANNEL_ID = '5';
+
 export default function Chat() {
   const { id } = useParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);

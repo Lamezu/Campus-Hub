@@ -5,6 +5,8 @@ import { collection, query, where, orderBy, onSnapshot, doc, getDoc, limit, Time
 import { auth, db } from '../../config/firebase';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import Layout from '../../components/Layout';
+
+const SUPPORT_CHANNEL_ID = '5';
 import { ChannelCard } from '../../components/ChannelCard';
 import type { Channel, StudyGroup } from '../../types';
 import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircleQuestion, Users, type LucideIcon } from 'lucide-react';
@@ -191,7 +193,7 @@ export default function Home() {
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Canales</div>
             {channels.map((channel) => (
-              <ChannelCard key={channel.id} channel={channel} onPress={() => navigate(`/chat/${channel.id}`)} />
+              <ChannelCard key={channel.id} channel={channel} onPress={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : navigate(`/chat/${channel.id}`)} />
             ))}
           </div>
           {myGroups.length > 0 && (
@@ -271,7 +273,7 @@ export default function Home() {
                 return (
                   <div
                     key={channel.id}
-                    onClick={() => navigate(`/chat/${channel.id}`)}
+                    onClick={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : navigate(`/chat/${channel.id}`)}
                     style={{
                       border: `1px solid ${colors.border}`,
                       borderRadius: 16,

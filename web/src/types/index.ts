@@ -184,3 +184,28 @@ export interface StudyGroup {
   allowedRoles?: string[];
   invitedUserIds?: string[];
 }
+export type TicketStatus = 'open' | 'in_progress' | 'resolved';
+
+export interface Ticket {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto: string | null;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  repliesCount: number;
+  createdAt: any;
+  updatedAt: any;
+}
+
+export interface TicketReply {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto: string | null;
+  text: string;
+  isStaff: boolean;
+  createdAt: any;
+}
