@@ -72,7 +72,7 @@ function ReplyBubble({ reply, colors }: { reply: TicketReply; colors: any }) {
             {reply.authorName}
           </div>
         )}
-        <div style={{ fontSize: 14, lineHeight: '20px', color: reply.isStaff ? '#fff' : colors.text }}>
+        <div style={{ fontSize: 14, lineHeight: '20px', color: reply.isStaff ? '#fff' : colors.text, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {reply.text}
         </div>
         <div style={{ fontSize: 11, marginTop: 4, color: reply.isStaff ? 'rgba(255,255,255,0.65)' : colors.textSecondary }}>
@@ -165,7 +165,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
           <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 6 }}>
             {ticket.userName} · {formatDate(ticket.createdAt)}
           </div>
-          <div style={{ fontSize: 14, color: colors.text, lineHeight: '22px' }}>
+          <div style={{ fontSize: 14, color: colors.text, lineHeight: '22px', wordBreak: 'break-word', overflowWrap: 'break-word', maxHeight: 200, overflowY: 'auto' }}>
             {ticket.description}
           </div>
         </div>
