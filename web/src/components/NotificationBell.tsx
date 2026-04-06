@@ -33,7 +33,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
   const navigate = useNavigate();
   const bellRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [panelRect, setPanelRect] = useState<{ top: number; right: number } | null>(null);
+  const [panelRect, setPanelRect] = useState<{ top: number; right: number; vw: number } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
 
@@ -45,7 +45,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
   const handleBellClick = () => {
     if (!open && bellRef.current) {
       const r = bellRef.current.getBoundingClientRect();
-      setPanelRect({ top: r.bottom + 8, right: window.innerWidth - r.right });
+      setPanelRect({ top: r.bottom + 8, right: window.innerWidth - r.right, vw: window.innerWidth });
     }
     setOpen(o => !o);
   };
@@ -139,6 +139,8 @@ export default function NotificationBell({ categories }: NotificationBellProps =
     setFriendRequestItem(null);
   };
 
+  const isMobilePanel = panelRect ? panelRect.vw < 500 : false;
+
   const panel = open && panelRect ? createPortal(
     <>
       <div
@@ -148,8 +150,10 @@ export default function NotificationBell({ categories }: NotificationBellProps =
       <div style={{
         position: 'fixed',
         top: panelRect.top,
-        right: panelRect.right,
-        width: '340px',
+        ...(isMobilePanel
+          ? { left: 12, right: 12, width: 'auto' }
+          : { right: panelRect.right, width: '340px' }
+        ),
         backgroundColor: 'var(--background)',
         border: '1px solid var(--border)',
         borderRadius: '18px',
