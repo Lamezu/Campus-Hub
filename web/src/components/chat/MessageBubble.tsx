@@ -429,6 +429,7 @@ export default function MessageBubble({
   return (
     <div
       data-message-id={message.id}
+      className="msg-enter"
       style={{
         display: 'flex',
         flexDirection: 'row' as const,

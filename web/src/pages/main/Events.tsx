@@ -169,6 +169,7 @@ export default function Events() {
                           <span style={{ fontSize: 12, color: colors.textSecondary }}>{ev.attendeesCount} van</span>
                         )}
                         <button
+                          className="btn-press"
                           onClick={() => rsvp(ev.id, 'going')}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 4,
@@ -183,6 +184,7 @@ export default function Events() {
                           Voy
                         </button>
                         <button
+                          className="btn-press"
                           onClick={() => rsvp(ev.id, 'not_going')}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 4,

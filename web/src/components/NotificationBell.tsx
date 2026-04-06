@@ -147,7 +147,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
         style={{ position: 'fixed', inset: 0, zIndex: 1050 }}
         onClick={() => setOpen(false)}
       />
-      <div style={{
+      <div className="animate-slide-down" style={{
         position: 'fixed',
         top: panelRect.top,
         ...(isMobilePanel

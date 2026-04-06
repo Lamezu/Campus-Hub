@@ -110,7 +110,7 @@ export default function Layout({
           </div>
         </header>
 
-        <main style={{ 
+        <main className="animate-fade-in" style={{
           flex: 1,
           backgroundColor: 'var(--background)',
           paddingBottom: isDesktop ? '0' : '80px'

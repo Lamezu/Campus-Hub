@@ -242,8 +242,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
       )}
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div className="animate-sheet" style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
               <button onClick={() => { setShowCreate(false); setEditingEventId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
                 <X size={20} color={colors.textSecondary} strokeWidth={2} />

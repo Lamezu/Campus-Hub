@@ -393,6 +393,7 @@ export default function Home() {
                 return (
                   <div
                     key={channel.id}
+                    className="card-interactive"
                     onClick={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : channel.id === EVENTS_CHANNEL_ID ? navigate('/events') : navigate(`/chat/${channel.id}`)}
                     style={{
                       border: `1px solid ${colors.border}`,
@@ -401,7 +402,7 @@ export default function Home() {
                       cursor: 'pointer',
                       backgroundColor: colors.background,
                       display: 'flex', flexDirection: 'column', gap: 12,
-                      transition: 'background-color 0.15s, border-color 0.15s',
+                      transition: 'background-color 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s',
                       position: 'relative',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.backgroundColor = colors.backgroundSecondary; e.currentTarget.style.borderColor = colors.primary + '66'; }}

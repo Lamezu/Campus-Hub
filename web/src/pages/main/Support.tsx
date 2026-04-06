@@ -3,7 +3,7 @@ import {
   addDoc, collection, doc, onSnapshot, orderBy,
   query, serverTimestamp, updateDoc, where,
 } from 'firebase/firestore';
-import { CheckCircle, Circle, Clock, Plus, Send, TicketCheck, X } from 'lucide-react';
+import { CheckCircle, ChevronsDown, Circle, Clock, Plus, Send, TicketCheck, X } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -47,7 +47,7 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 
 function ReplyBubble({ reply, colors }: { reply: TicketReply; colors: any }) {
   return (
-    <div style={{
+    <div className="msg-enter" style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: reply.isStaff ? 'flex-end' : 'flex-start',
@@ -93,8 +93,21 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
   const [replies, setReplies] = useState<TicketReply[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentUser = auth.currentUser;
+
+  const handleScroll = () => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 80);
+  };
+
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const q = query(
@@ -141,7 +154,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
       height: inline ? '100%' : undefined,
       display: 'flex', flexDirection: 'column',
       boxShadow: inline ? 'none' : '0 8px 40px rgba(0,0,0,0.18)',
-      overflow: 'hidden',
+      overflow: 'hidden', position: 'relative',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
@@ -156,7 +169,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
         <StatusBadge status={ticket.status} />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div ref={scrollAreaRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
         <div style={{
           borderRadius: 14, padding: 14,
           border: `1px solid ${colors.border}`,
@@ -209,6 +222,27 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
         <div ref={bottomRef} />
       </div>
 
+      {showScrollBtn && (
+        <button
+          onClick={scrollToBottom}
+          className="btn-press animate-scale-in"
+          style={{
+            position: 'absolute',
+            bottom: 74,
+            right: 16,
+            width: 40, height: 40,
+            borderRadius: '50%',
+            backgroundColor: colors.background,
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.14)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <ChevronsDown size={20} color={colors.text} strokeWidth={2} />
+        </button>
+      )}
+
       <div style={{
         display: 'flex', alignItems: 'flex-end', gap: 8,
         padding: '10px 12px', borderTop: `1px solid ${colors.border}`, flexShrink: 0,
@@ -245,12 +279,14 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
   if (inline) return inner;
 
   return (
-    <div style={{
+    <div className="animate-fade-in" style={{
       position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1200, padding: 24,
     }}>
-      {inner}
+      <div className="animate-scale-in" style={{ width: '100%', maxWidth: 600, maxHeight: '90vh', display: 'flex' }}>
+        {inner}
+      </div>
     </div>
   );
 }
@@ -291,12 +327,12 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
   };
 
   return (
-    <div style={{
+    <div className="animate-fade-in" style={{
       position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1200, padding: 24,
     }}>
-      <div style={{
+      <div className="animate-scale-in" style={{
         backgroundColor: colors.background, borderRadius: 18,
         width: '100%', maxWidth: 500, padding: 24,
         display: 'flex', flexDirection: 'column', gap: 16,
@@ -336,6 +372,7 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
+          className="btn-press"
           style={{
             width: '100%', padding: '14px', borderRadius: 14, border: 'none',
             backgroundColor: canSubmit ? colors.primary : colors.border,
