@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useNavigate } from 'react-router-dom';
+import { useAccounts } from '../../contexts/AccountsContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,13 +11,22 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { addAccount } = useAccounts();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const { uid, displayName, photoURL } = credential.user;
+      addAccount({
+        uid,
+        email: credential.user.email ?? email,
+        displayName: displayName ?? email,
+        photoURL: photoURL ?? null,
+        _pw: btoa(password),
+      });
       navigate('/home');
     } catch {
       setError('Email o contraseña incorrectos');

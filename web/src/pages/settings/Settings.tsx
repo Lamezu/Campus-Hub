@@ -4,8 +4,9 @@ import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, deleteField } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAccounts } from '../../contexts/AccountsContext';
 import Layout from '../../components/Layout';
-import { LogOut, Check, Upload, Play, Music, Trash2 } from 'lucide-react';
+import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMinus } from 'lucide-react';
 import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
 import { uploadCallTone } from '../../config/cloudinary';
 
@@ -29,6 +30,7 @@ const PRESET_COLORS = [
 export default function Settings() {
   const navigate = useNavigate();
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
+  const { accounts, activeUid } = useAccounts();
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
@@ -194,6 +196,51 @@ export default function Settings() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <h2 className="settings-section-title">Cuentas</h2>
+          {[
+            {
+              icon: <Users size={18} color={colors.primary} strokeWidth={1.8} />,
+              label: 'Gestionar cuentas',
+              sublabel: `${accounts.filter(a => a.uid === activeUid || !!a._pw).length} cuenta${accounts.filter(a => a.uid === activeUid || !!a._pw).length !== 1 ? 's' : ''} guardada${accounts.filter(a => a.uid === activeUid || !!a._pw).length !== 1 ? 's' : ''}`,
+              onClick: () => navigate('/settings/accounts'),
+            },
+            {
+              icon: <UserMinus size={18} color="#FF3B30" strokeWidth={1.8} />,
+              label: 'Eliminar cuenta',
+              sublabel: 'Eliminar permanentemente tu cuenta',
+              onClick: () => navigate('/settings/delete-account'),
+              danger: true,
+            },
+          ].map((item, i, arr) => (
+            <div
+              key={item.label}
+              onClick={item.onClick}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '13px 0',
+                borderBottom: i < arr.length - 1 ? `1px solid ${colors.border}` : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 9,
+                backgroundColor: item.danger ? '#FF3B3015' : `${colors.primary}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                {item.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: '600', color: item.danger ? '#FF3B30' : colors.text }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{item.sublabel}</div>
+              </div>
+              <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
+            </div>
+          ))}
         </div>
 
         <div className="settings-section">

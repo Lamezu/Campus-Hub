@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import { useAccounts } from '../../contexts/AccountsContext';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { addAccount } = useAccounts();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +56,13 @@ export default function Register() {
         fcmToken: null,
       });
 
+      addAccount({
+        uid: user.uid,
+        email: user.email ?? email,
+        displayName: name,
+        photoURL: null,
+        _pw: btoa(password),
+      });
       navigate('/home');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
@@ -61,7 +70,6 @@ export default function Register() {
       } else {
         setError('No se pudo crear la cuenta');
       }
-      console.error(error);
     } finally {
       setLoading(false);
     }

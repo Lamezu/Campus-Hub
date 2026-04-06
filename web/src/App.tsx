@@ -18,6 +18,10 @@ import DirectChat from './pages/chat/DirectChat';
 import { CallProvider, useCall } from './contexts/CallContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessageSoundProvider } from './contexts/MessageSoundContext';
+import { AccountsProvider } from './contexts/AccountsContext';
+import Accounts from './pages/settings/Accounts';
+import AddAccount from './pages/settings/AddAccount';
+import DeleteAccount from './pages/settings/DeleteAccount';
 import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
@@ -56,6 +60,7 @@ function GlobalCallOverlay() {
 
 function App() {
   return (
+    <AccountsProvider>
     <NotificationsProvider>
       <CallProvider>
         <BrowserRouter>
@@ -81,11 +86,15 @@ function App() {
             <Route path="/friends" element={<Friends />} />
             <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
             <Route path="/saved-items" element={<SavedItems />} />
+            <Route path="/settings/accounts" element={<Accounts />} />
+            <Route path="/settings/add-account" element={<AddAccount />} />
+            <Route path="/settings/delete-account" element={<DeleteAccount />} />
           </Routes>
           </MessageSoundProvider>
         </BrowserRouter>
       </CallProvider>
     </NotificationsProvider>
+    </AccountsProvider>
   );
 }
 
