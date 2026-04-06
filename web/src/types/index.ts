@@ -138,6 +138,18 @@ export interface Comment {
 export type UserRole = 'student' | 'teacher' | 'admin';
 export type UserSubrole = 'delegate' | 'coordinator' | null;
 
+export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel';
+
+export interface NotificationItem {
+  id: string;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+  meta?: Record<string, string>;
+}
+
 export type CalendarEventType = 'exam' | 'deadline' | 'holiday' | 'event' | 'class';
 
 export interface CalendarEvent {

@@ -90,7 +90,7 @@ export default function Profile() {
   );
 
   return (
-    <Layout title="Perfil" rightAction={<NotificationBell />}>
+    <Layout title="Perfil" rightAction={<NotificationBell categories={['friend']} />}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
         <div style={{
           display: 'flex',

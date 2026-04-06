@@ -9,6 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { SongPicker } from '../../components/SongPicker';
 import { PostCard } from '../../components/PostCards';
 import Layout from '../../components/Layout';
+import { notificationService } from '../../services/notificationService';
 import type { JamendoTrack, Post } from '../../types';
 
 const TITLE_MAX = 50;
@@ -85,10 +86,19 @@ export default function ExploreScreen() {
 
   const handleDoubleTap = async (postId: string) => {
     if (!currentUser) return;
+    const post = posts.find(p => p.id === postId);
     await updateDoc(doc(db, 'posts', postId), {
       likes: arrayUnion(currentUser.uid),
       likesCount: increment(1),
     });
+    if (post && post.authorId !== currentUser.uid) {
+      notificationService.write(post.authorId, {
+        category: 'social',
+        title: currentUser.displayName ?? 'Alguien',
+        body: `le dio like a tu post "${post.title}"`,
+        meta: { postId },
+      }).catch(() => {});
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,7 +269,7 @@ export default function ExploreScreen() {
   );
 
   return (
-    <Layout title="Explorar" rightAction={<NotificationBell />}>
+    <Layout title="Explorar" rightAction={<NotificationBell categories={['social']} />}>
       <div style={{ position: 'relative', minHeight: '100%' }}>
         {!showCreate ? (
           <>

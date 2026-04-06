@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { Pencil, Trash2, Bookmark, Send, Heart, CornerDownRight, X } from 'lucide-react';
 import { unsavePost, savePost } from '../../services/firebase/savedItemsService';
+import { notificationService } from '../../services/notificationService';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -92,6 +93,14 @@ export default function PostDetail() {
       likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
       likesCount: increment(isLiked ? -1 : 1),
     });
+    if (!isLiked && post.authorId !== currentUser.uid) {
+      notificationService.write(post.authorId, {
+        category: 'social',
+        title: currentUser.displayName ?? 'Alguien',
+        body: `le dio like a tu post "${post.title}"`,
+        meta: { postId: id },
+      }).catch(() => {});
+    }
   };
 
   const handleCommentLike = async (comment: Comment) => {
@@ -119,6 +128,14 @@ export default function PostDetail() {
         ...(replyingTo ? { replyTo: { authorName: replyingTo.authorName, content: replyingTo.content } } : {}),
       });
       await updateDoc(doc(db, 'posts', id), { commentsCount: increment(1) });
+      if (post?.authorId && post.authorId !== currentUser.uid) {
+        notificationService.write(post.authorId, {
+          category: 'social',
+          title: currentUser.displayName ?? 'Alguien',
+          body: `comentó en tu post "${post?.title}"`,
+          meta: { postId: id },
+        }).catch(() => {});
+      }
       setCommentText('');
       setReplyingTo(null);
     } finally {

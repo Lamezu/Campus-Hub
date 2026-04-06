@@ -20,6 +20,7 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { notificationService } from '../notificationService';
 
 export interface DMMessage {
   id: string;
@@ -209,16 +210,29 @@ export async function sendMessage(
   const convSnap = await getDoc(convRef);
   const convData = convSnap.data();
 
+  let otherUserId: string | undefined;
   if (convData) {
-    const otherUserId = convData.participants.find((id: string) => id !== senderId);
+    otherUserId = convData.participants.find((id: string) => id !== senderId);
     batch.update(convRef, {
       lastMessageAt: serverTimestamp(),
       lastMessage: text ? text.substring(0, 100) : '🎵 Audio',
+      lastMessageSenderName: senderName,
+      lastMessageSenderId: senderId,
       [`unreadCount.${otherUserId}`]: (convData.unreadCount?.[otherUserId] || 0) + 1
     });
   }
 
   await batch.commit();
+
+  if (otherUserId) {
+    notificationService.write(otherUserId, {
+      category: 'dm',
+      title: senderName,
+      body: text || (attachments?.length ? 'Archivo adjunto' : ''),
+      meta: { participantId: senderId, conversationId },
+    }).catch(() => {});
+  }
+
   return messageRef.id;
 }
 

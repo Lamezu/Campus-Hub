@@ -180,7 +180,7 @@ export default function Home() {
         title={`Bienvenido, ${displayName}!`}
         rightAction={
           <>
-            <NotificationBell />
+            <NotificationBell categories={['channel', 'campus']} />
             <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
               <Settings />
             </button>
@@ -215,7 +215,7 @@ export default function Home() {
       title="Inicio"
       rightAction={
         <>
-          <NotificationBell />
+          <NotificationBell categories={['channel', 'campus']} />
           <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
             <Settings />
           </button>

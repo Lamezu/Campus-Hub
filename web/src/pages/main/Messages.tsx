@@ -182,7 +182,7 @@ export default function Messages() {
   }
 
   return (
-    <Layout title="Mensajes" rightAction={<NotificationBell />}>
+    <Layout title="Mensajes" rightAction={<NotificationBell categories={['dm']} />}>
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '0 0 80px' }}>
         <div style={{
           display: 'flex',
