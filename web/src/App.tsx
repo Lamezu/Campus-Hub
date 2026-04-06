@@ -23,6 +23,7 @@ import Accounts from './pages/settings/Accounts';
 import AddAccount from './pages/settings/AddAccount';
 import DeleteAccount from './pages/settings/DeleteAccount';
 import Support from './pages/main/Support';
+import Events from './pages/main/Events';
 import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
@@ -91,7 +92,9 @@ function App() {
             <Route path="/settings/add-account" element={<AddAccount />} />
             <Route path="/settings/delete-account" element={<DeleteAccount />} />
             <Route path="/support" element={<Support />} />
-            <Route path="/chat/5" element={<Navigate to="/support" replace />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/chat/3" element={<Navigate to="/events" replace />} />
+            <Route path="/chat/4" element={<Navigate to="/support" replace />} />
           </Routes>
           </MessageSoundProvider>
         </BrowserRouter>
