@@ -73,6 +73,8 @@ export default function Home() {
     () => Object.fromEntries(MOCK_CHANNELS.map(ch => [ch.id, ch.unreadCount ?? 0]))
   );
   const [channelLastMessages, setChannelLastMessages] = useState<Record<string, string>>({});
+  const [sgUnreads, setSgUnreads] = useState<Record<string, number>>({});
+  const [showAllGroups, setShowAllGroups] = useState(false);
   const [department, setDepartment] = useState<string | null>(null);
   const navigate = useNavigate();
   const { colors } = useTheme();
@@ -186,6 +188,41 @@ export default function Home() {
     return () => { active = false; unsubs.forEach(u => u()); };
   }, [user?.uid]);
 
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || myGroups.length === 0) return;
+    let active = true;
+    const unsubs: (() => void)[] = [];
+
+    (async () => {
+      for (const group of myGroups) {
+        const channelId = `sg_${group.id}`;
+        const memberSnap = await getDoc(doc(db, 'channels', channelId, 'members', currentUser.uid));
+        if (!active) return;
+        const lastRead: Timestamp | null = memberSnap.exists() ? memberSnap.data().lastRead ?? null : null;
+
+        const msgsQuery = query(
+          collection(db, 'channels', channelId, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const unsub = onSnapshot(msgsQuery, snap => {
+          const count = snap.docs.filter(d => {
+            const data = d.data();
+            if (data.senderId === currentUser.uid) return false;
+            if (!lastRead) return false;
+            const createdAt = data.createdAt as Timestamp;
+            return createdAt && createdAt.seconds > lastRead.seconds;
+          }).length;
+          setSgUnreads(prev => ({ ...prev, [group.id]: count }));
+        });
+        unsubs.push(unsub);
+      }
+    })();
+
+    return () => { active = false; unsubs.forEach(u => u()); };
+  }, [user?.uid, myGroups.length]);
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -202,6 +239,9 @@ export default function Home() {
   const upcomingEvents = allEvents
     .filter(ev => new Date(ev.date) >= now)
     .slice(0, 3);
+
+  const sortedGroups = [...myGroups].sort((a, b) => (sgUnreads[b.id] ?? 0) - (sgUnreads[a.id] ?? 0));
+  const visibleGroups = showAllGroups ? sortedGroups : sortedGroups.slice(0, 4);
 
   if (!isDesktop) {
     return (
@@ -225,11 +265,24 @@ export default function Home() {
           </div>
           {myGroups.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Mis grupos</div>
-              {myGroups.map((group) => (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 4px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>Mis grupos</div>
+                {myGroups.length > 4 && (
+                  <button onClick={() => setShowAllGroups(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{showAllGroups ? 'Ver menos' : `Ver todos (${myGroups.length})`}</span>
+                    <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+                )}
+              </div>
+              {visibleGroups.map((group) => (
                 <div key={group.id} style={{ position: 'relative' }}>
                   <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
                   <ChannelCard channel={studyGroupToChannel(group)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
+                  {(sgUnreads[group.id] ?? 0) > 0 && (
+                    <div style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', backgroundColor: colors.primary, borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -384,8 +437,10 @@ export default function Home() {
 
           <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 28 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary, marginBottom: 14 }}>
-                Mis grupos
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary }}>
+                  Mis grupos
+                </div>
               </div>
               {myGroups.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 24px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 14 }}>
@@ -394,7 +449,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {myGroups.map((group) => (
+                  {visibleGroups.map((group) => (
                     <div
                       key={group.id}
                       onClick={() => navigate(`/chat/sg_${group.id}`)}
@@ -421,8 +476,22 @@ export default function Home() {
                         <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
                         <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{group.subject} · {group.memberCount} miembro{group.memberCount !== 1 ? 's' : ''}</div>
                       </div>
+                      {(sgUnreads[group.id] ?? 0) > 0 && (
+                        <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', flexShrink: 0 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
+                  {myGroups.length > 4 && (
+                    <button
+                      onClick={() => setShowAllGroups(v => !v)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px', borderRadius: 12, border: `1px solid ${colors.border}`, background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: colors.primary }}
+                    >
+                      {showAllGroups ? 'Ver menos' : `Ver ${myGroups.length - 4} más`}
+                      <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(270deg)' : 'rotate(90deg)', transition: 'transform 0.2s' }} />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
