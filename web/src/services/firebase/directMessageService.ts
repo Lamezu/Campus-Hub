@@ -305,3 +305,23 @@ export function subscribeToUserConversations(
     callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Conversation)));
   });
 }
+
+export async function setConversationArchived(
+  userId: string,
+  participantId: string,
+  archived: boolean
+): Promise<void> {
+  const ref = doc(db, 'users', userId, 'contactSettings', participantId);
+  await setDoc(ref, { archived }, { merge: true });
+}
+
+export function subscribeToContactSettings(
+  userId: string,
+  callback: (settings: Record<string, { archived: boolean }>) => void
+): Unsubscribe {
+  return onSnapshot(collection(db, 'users', userId, 'contactSettings'), (snap) => {
+    const result: Record<string, { archived: boolean }> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as { archived: boolean }; });
+    callback(result);
+  });
+}

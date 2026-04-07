@@ -5,9 +5,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
-import { subscribeToUserConversations, getOrCreateConversation, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
+import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, getOrCreateConversation, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
 import { getFriends, searchUsers, sendFriendRequest, cancelFriendRequest, type UserSearchResult } from '../../services/firebase/friendsService';
-import { MessageCircle, Search, Plus, X, Clock } from 'lucide-react';
+import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 
 interface ConversationWithUser extends Conversation {
@@ -28,6 +28,8 @@ export default function Messages() {
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [requestStates, setRequestStates] = useState<Record<string, 'sending' | 'sent' | 'cancelling'>>({});
   const [starting, setStarting] = useState(false);
+  const [contactSettings, setContactSettings] = useState<Record<string, { archived: boolean }>>({});
+  const [contextMenu, setContextMenu] = useState<{ convId: string; otherId: string; x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { colors } = useTheme();
   const userCacheRef = useRef<Record<string, ConversationUser>>({});
@@ -50,6 +52,12 @@ export default function Messages() {
     });
     return unsubscribe;
   }, [navigate]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubscribe = subscribeToContactSettings(currentUserId, setContactSettings);
+    return unsubscribe;
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -173,6 +181,18 @@ export default function Messages() {
     f.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const getOtherId = (conv: ConversationWithUser) =>
+    conv.participants.find(id => id !== currentUserId) || '';
+
+  const activeConversations = conversations.filter(c => !contactSettings[getOtherId(c)]?.archived);
+  const archivedCount = conversations.filter(c => contactSettings[getOtherId(c)]?.archived).length;
+
+  const handleArchive = async (otherId: string, currentlyArchived: boolean) => {
+    if (!currentUserId) return;
+    setContextMenu(null);
+    await setConversationArchived(currentUserId, otherId, !currentlyArchived);
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -217,7 +237,54 @@ export default function Messages() {
           </button>
         </div>
 
-        {conversations.length === 0 ? (
+        {contextMenu && (
+          <>
+            <div
+              style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+              onClick={() => setContextMenu(null)}
+            />
+            <div
+              className="animate-scale-in"
+              style={{
+                position: 'fixed',
+                top: contextMenu.y,
+                left: contextMenu.x,
+                zIndex: 999,
+                backgroundColor: 'var(--background)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                border: '1px solid var(--border)',
+                overflow: 'hidden',
+                minWidth: '180px'
+              }}
+            >
+              <button
+                onClick={() => handleArchive(contextMenu.otherId, !!contactSettings[contextMenu.otherId]?.archived)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 16px',
+                  width: '100%',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  textAlign: 'left'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Archive size={16} color="var(--text-secondary)" />
+                {contactSettings[contextMenu.otherId]?.archived ? 'Desarchivar' : 'Archivar'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeConversations.length === 0 && archivedCount === 0 ? (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -252,13 +319,59 @@ export default function Messages() {
           </div>
         ) : (
           <div>
-            {conversations.map((conv) => {
+            {archivedCount > 0 && (
+              <div
+                onClick={() => navigate('/messages/archived')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--border)',
+                  transition: 'background 0.15s'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--background-secondary)',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Archive size={22} color="var(--text-secondary)" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: '600', color: 'var(--text)', fontSize: '15px' }}>
+                    Archivados
+                  </span>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {archivedCount} {archivedCount === 1 ? 'conversación' : 'conversaciones'}
+                  </p>
+                </div>
+                <ChevronRight size={18} color="var(--text-secondary)" />
+              </div>
+            )}
+
+            {activeConversations.map((conv) => {
               const unread = conv.unreadCount?.[currentUserId!] || 0;
               const other = conv.otherUserData;
+              const otherId = getOtherId(conv);
               return (
                 <div
                   key={conv.id}
                   onClick={() => navigate(`/messages/${conv.id}`)}
+                  onContextMenu={e => {
+                    e.preventDefault();
+                    const x = Math.min(e.clientX, window.innerWidth - 200);
+                    const y = Math.min(e.clientY, window.innerHeight - 80);
+                    setContextMenu({ convId: conv.id, otherId, x, y });
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

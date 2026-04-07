@@ -80,7 +80,7 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, disab
       {showAttachMenu && (
         <>
           <div onClick={() => setShowAttachMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div style={{ position: 'absolute', bottom: '100%', left: 8, zIndex: 50, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '12px 16px', display: 'flex', gap: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.18)', marginBottom: 6 }}>
+          <div className="animate-slide-up" style={{ position: 'absolute', bottom: '100%', left: 8, zIndex: 50, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '12px 16px', display: 'flex', gap: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.18)', marginBottom: 6 }}>
             {attachItems.map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</div>
@@ -122,10 +122,10 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, disab
           <>
             <button
               onClick={() => setShowAttachMenu(v => !v)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }}
               title="Adjuntar"
             >
-              <Plus size={22} strokeWidth={2} />
+              <Plus size={22} strokeWidth={2} style={{ transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)', transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }} />
             </button>
             <textarea
               ref={textareaRef}
@@ -141,7 +141,7 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, disab
             <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Grabar audio">
               <Mic size={20} />
             </button>
-            <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button">
+            <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button btn-press">
               <div className="chat-send-icon" />
             </button>
           </>

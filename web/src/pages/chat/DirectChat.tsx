@@ -94,7 +94,7 @@ function MessageInput({
       {showAttachMenu && (
         <>
           <div onClick={() => setShowAttachMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-          <div style={{ position: 'absolute', bottom: '100%', left: 8, zIndex: 50, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '12px 16px', display: 'flex', gap: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.18)', marginBottom: 6 }}>
+          <div className="animate-slide-up" style={{ position: 'absolute', bottom: '100%', left: 8, zIndex: 50, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '12px 16px', display: 'flex', gap: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.18)', marginBottom: 6 }}>
             {attachItems.map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</div>
@@ -108,7 +108,7 @@ function MessageInput({
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'file'); e.target.value = ''; }} />
       <PollModal visible={showPoll} onClose={() => setShowPoll(false)} onSend={onSendPoll} />
       {replyingTo && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', backgroundColor: themeStyle ? themeStyle.border : colors.backgroundSecondary, borderTop: `1px solid ${themeStyle ? themeStyle.border : colors.border}`, fontSize: '13px' }}>
+        <div className="animate-slide-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', backgroundColor: themeStyle ? themeStyle.border : colors.backgroundSecondary, borderTop: `1px solid ${themeStyle ? themeStyle.border : colors.border}`, fontSize: '13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CornerDownRight size={16} color={themeStyle ? themeStyle.text : colors.primary} />
             <span>
@@ -126,14 +126,14 @@ function MessageInput({
           <AudioRecorder onSend={(blob, duration) => { onSendAudio(blob, duration); setShowRecorder(false); }} onCancel={() => setShowRecorder(false)} />
         ) : (
           <>
-            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0 }} title="Adjuntar">
-              <Plus size={22} strokeWidth={2} />
+            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }} title="Adjuntar">
+              <Plus size={22} strokeWidth={2} style={{ transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)', transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }} />
             </button>
             <textarea ref={textareaRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} placeholder={replyingTo ? `Responder a ${replyingTo.senderName}...` : 'Escribe un mensaje...'} className="chat-textarea" style={themeStyle ? { color: themeStyle.text, backgroundColor: 'transparent' } : {}} disabled={disabled} rows={1} />
             <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center' }} title="Grabar audio">
               <Mic size={20} />
             </button>
-            <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button">
+            <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button btn-press">
               <div className="chat-send-icon" />
             </button>
           </>
@@ -544,7 +544,7 @@ export default function DirectChat() {
   }
 
   return (
-    <div className="chat-loading-container" style={{ ...backgroundStyles, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="chat-loading-container animate-fade-in" style={{ ...backgroundStyles, height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {customBgOverlay}
       {headerContent}
 
@@ -638,16 +638,18 @@ export default function DirectChat() {
       />
 
       {showInfoPanel && otherUser && conversationId && (
-        <DMInfoPanel
-          otherUserId={otherUser.uid}
-          conversationId={conversationId}
-          currentUserId={currentUser?.uid ?? ''}
-          userRole={userData?.role ?? 'student'}
-          colors={colors}
-          onClose={() => setShowInfoPanel(false)}
-          onClearChat={() => setMessages([])}
-          onCall={handleStartCall}
-        />
+        <div className="animate-slide-right" style={{ position: 'absolute', inset: 0, zIndex: 300 }}>
+          <DMInfoPanel
+            otherUserId={otherUser.uid}
+            conversationId={conversationId}
+            currentUserId={currentUser?.uid ?? ''}
+            userRole={userData?.role ?? 'student'}
+            colors={colors}
+            onClose={() => setShowInfoPanel(false)}
+            onClearChat={() => setMessages([])}
+            onCall={handleStartCall}
+          />
+        </div>
       )}
 
     </div>

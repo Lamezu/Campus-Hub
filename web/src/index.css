@@ -326,7 +326,13 @@ body {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.animate-fade-in    { animation: fadeIn 0.22s ease-out both; }
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in      { animation: fadeIn 0.22s ease-out both; }
+.animate-slide-right  { animation: slideInRight 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .msg-enter          { animation: msgIn 0.14s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .animate-slide-up   { animation: slideUp 0.24s ease-out both; }
 .animate-slide-down { animation: slideDown 0.2s ease-out both; }
