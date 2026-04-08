@@ -7,7 +7,7 @@ import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { PollModal } from '../../components/chat/PollModal';
 import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
-import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Plus, Image, FileText, BarChart3, Users, LogOut, UserPlus } from 'lucide-react';
+import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Plus, Image, FileText, BarChart3, Users, LogOut, UserPlus, UserRound } from 'lucide-react';
 import type { PollData } from '../../types';
 import {
   subscribeToGroupMessages,
@@ -24,6 +24,7 @@ import {
 import { getFriends } from '../../services/firebase/friendsService';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
 import SharePostModal from '../../components/SharePostModal';
+import ContactPickerModal, { type ContactData } from '../../components/ContactPickerModal';
 
 function getLuminance(hex: string): number {
   if (!hex || !hex.startsWith('#')) return 1;
@@ -36,13 +37,14 @@ function getLuminance(hex: string): number {
 interface ThemeStyle { bg: string; border: string; text: string; }
 
 function MessageInput({
-  onSend, onSendAudio, onSendAttachment, onSendPoll,
+  onSend, onSendAudio, onSendAttachment, onSendPoll, onSendContact,
   disabled, replyingTo, onCancelReply, themeStyle, showRecorder, setShowRecorder,
 }: {
   onSend: (text: string) => void;
   onSendAudio: (blob: Blob, duration: number) => void;
   onSendAttachment: (file: File, type: 'image' | 'file') => void;
   onSendPoll: (poll: Omit<PollData, 'votes'>) => void;
+  onSendContact: (contact: ContactData) => void;
   disabled?: boolean;
   replyingTo?: any;
   onCancelReply?: () => void;
@@ -53,6 +55,7 @@ function MessageInput({
   const [text, setText] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
+  const [showContactPicker, setShowContactPicker] = useState(false);
   const { colors } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +72,7 @@ function MessageInput({
     { label: 'Fotos', icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
     { label: 'Documento', icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
     { label: 'Encuesta', icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+    { label: 'Contacto', icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
   ];
 
   return (
@@ -89,6 +93,7 @@ function MessageInput({
       <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'image'); e.target.value = ''; }} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'file'); e.target.value = ''; }} />
       <PollModal visible={showPoll} onClose={() => setShowPoll(false)} onSend={onSendPoll} />
+      <ContactPickerModal visible={showContactPicker} onClose={() => setShowContactPicker(false)} onSelect={contact => { onSendContact(contact); setShowContactPicker(false); }} />
       {replyingTo && (
         <div className="animate-slide-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', backgroundColor: themeStyle ? themeStyle.border : colors.backgroundSecondary, borderTop: `1px solid ${themeStyle ? themeStyle.border : colors.border}`, fontSize: '13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -125,7 +130,6 @@ function MessageInput({
   );
 }
 
-// --- Info Panel ---
 function GroupInfoPanel({
   group, currentUserId, colors, onClose, onLeave,
 }: {
@@ -203,7 +207,6 @@ function GroupInfoPanel({
   );
 }
 
-// --- Main Component ---
 export default function GroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
@@ -228,7 +231,6 @@ export default function GroupChat() {
 
   const currentUser = auth.currentUser;
 
-  // Load user data
   useEffect(() => {
     if (!currentUser) return;
     import('firebase/firestore').then(({ doc, getDoc }) => {
@@ -240,7 +242,6 @@ export default function GroupChat() {
     });
   }, [currentUser]);
 
-  // Subscribe to group info
   useEffect(() => {
     if (!groupId) return;
     return subscribeToGroupInfo(groupId, g => {
@@ -249,7 +250,6 @@ export default function GroupChat() {
     });
   }, [groupId, navigate]);
 
-  // Subscribe to messages
   useEffect(() => {
     if (!groupId || !currentUser) return;
     const unsub = subscribeToGroupMessages(groupId, currentUser.uid, msgs => {
@@ -325,6 +325,14 @@ export default function GroupChat() {
     } catch {} finally { setSending(false); }
   };
 
+  const handleSendContact = async (contact: ContactData) => {
+    if (!currentUser || !groupId || sending) return;
+    setSending(true);
+    try {
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, `👤 ${contact.name}`, [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }]);
+    } catch {} finally { setSending(false); }
+  };
+
   const handleReact = async (message: any, emoji: string) => {
     if (!groupId || !currentUser) return;
     await toggleGroupReaction(groupId, message.id, emoji, currentUser.uid).catch(() => {});
@@ -357,7 +365,6 @@ export default function GroupChat() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
-  // Theme helpers (same as DirectChat)
   const isCustomTheme = chatTheme.id?.startsWith('custom_');
   const isNonDefaultTheme = colors.chatSettings.themeId !== 'default';
   const useThemeStyling = isDesktop && isNonDefaultTheme;
@@ -405,7 +412,6 @@ export default function GroupChat() {
     <div className="chat-loading-container animate-fade-in" style={{ ...backgroundStyles, height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {customBgOverlay}
 
-      {/* Header */}
       <div className="chat-header" style={{ backgroundColor: desktopThemeStyle ? desktopThemeStyle.bg : 'var(--background)', borderBottom: `1px solid ${desktopThemeStyle ? desktopThemeStyle.border : 'var(--border)'}`, zIndex: 10, position: 'relative' }}>
         <button className="chat-back-button" style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}} onClick={() => navigate('/messages')}>
           <ArrowLeft size={22} />
@@ -432,7 +438,6 @@ export default function GroupChat() {
         </button>
       </div>
 
-      {/* Messages */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
@@ -469,7 +474,6 @@ export default function GroupChat() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Scroll to bottom */}
       <button
         onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
         className="btn-press"
@@ -487,13 +491,13 @@ export default function GroupChat() {
         <ChevronsDown size={22} strokeWidth={2.5} />
       </button>
 
-      {/* Input */}
       <div style={{ position: 'relative', zIndex: 2 }}>
         <MessageInput
           onSend={handleSend}
           onSendAudio={handleSendAudio}
           onSendAttachment={handleSendAttachment}
           onSendPoll={handleSendPoll}
+          onSendContact={handleSendContact}
           disabled={sending}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
@@ -503,7 +507,6 @@ export default function GroupChat() {
         />
       </div>
 
-      {/* Info Panel */}
       {showInfoPanel && group && (
         <GroupInfoPanel
           group={group}

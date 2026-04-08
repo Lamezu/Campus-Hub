@@ -78,16 +78,17 @@ export interface Message {
 
 export interface Attachment {
   url: string;
-  type: 'image' | 'file' | 'audio' | 'post';
+  type: 'image' | 'file' | 'audio' | 'post' | 'contact';
   name: string;
   size: number;
   duration?: number;
-  // Post attachment fields
   postId?: string;
   postTitle?: string;
   postContent?: string;
   postAuthorName?: string;
   postAuthorPhoto?: string;
+  userId?: string;
+  bio?: string;
 }
 
 export interface JamendoTrack {

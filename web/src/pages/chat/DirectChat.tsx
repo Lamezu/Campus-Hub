@@ -7,7 +7,7 @@ import { useWindowSize } from '../../hooks/useWindowSize';
 import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { uploadAudio } from '../../config/cloudinary';
-import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Phone, Video, Info, Plus, Image, FileText, BarChart3 } from 'lucide-react';
+import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Phone, Video, Info, Plus, Image, FileText, BarChart3, UserRound } from 'lucide-react';
 import DMInfoPanel from '../../components/chat/DMInfoPanel';
 import { PollModal } from '../../components/chat/PollModal';
 import { uploadChatImage, uploadChatFile } from '../../config/cloudinary';
@@ -32,6 +32,7 @@ import {
 } from '../../services/firebase/directMessageService';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
 import SharePostModal from '../../components/SharePostModal';
+import ContactPickerModal, { type ContactData } from '../../components/ContactPickerModal';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
 const MESSAGES_PER_PAGE = 50;
@@ -51,13 +52,14 @@ interface ThemeStyle {
 }
 
 function MessageInput({
-  onSend, onSendAudio, onSendAttachment, onSendPoll,
+  onSend, onSendAudio, onSendAttachment, onSendPoll, onSendContact,
   disabled, replyingTo, onCancelReply, themeStyle, showRecorder, setShowRecorder
 }: {
   onSend: (text: string) => void;
   onSendAudio: (blob: Blob, duration: number) => void;
   onSendAttachment: (file: File, type: 'image' | 'file') => void;
   onSendPoll: (poll: Omit<PollData, 'votes'>) => void;
+  onSendContact: (contact: ContactData) => void;
   disabled?: boolean;
   replyingTo?: any;
   onCancelReply?: () => void;
@@ -68,6 +70,7 @@ function MessageInput({
   const [text, setText] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
+  const [showContactPicker, setShowContactPicker] = useState(false);
   const { colors } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +92,7 @@ function MessageInput({
     { label: 'Fotos', icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
     { label: 'Documento', icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
     { label: 'Encuesta', icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+    { label: 'Contacto', icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
   ];
 
   return (
@@ -109,6 +113,7 @@ function MessageInput({
       <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'image'); e.target.value = ''; }} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onSendAttachment(f, 'file'); e.target.value = ''; }} />
       <PollModal visible={showPoll} onClose={() => setShowPoll(false)} onSend={onSendPoll} />
+      <ContactPickerModal visible={showContactPicker} onClose={() => setShowContactPicker(false)} onSelect={contact => { onSendContact(contact); setShowContactPicker(false); }} />
       {replyingTo && (
         <div className="animate-slide-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', backgroundColor: themeStyle ? themeStyle.border : colors.backgroundSecondary, borderTop: `1px solid ${themeStyle ? themeStyle.border : colors.border}`, fontSize: '13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -422,6 +427,18 @@ export default function DirectChat() {
     } catch { } finally { setSending(false); }
   };
 
+  const handleSendContact = async (contact: ContactData) => {
+    if (!currentUser || !conversationId || sending) return;
+    setSending(true);
+    try {
+      await sendMessage(conversationId, `👤 ${contact.name}`, currentUser.uid,
+        userData?.displayName || currentUser.displayName || 'Usuario',
+        userData?.photoURL || currentUser.photoURL || null,
+        [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }]);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch { } finally { setSending(false); }
+  };
+
   const filteredMessages = messages.filter(
     msg => !msg.deletedForUsers?.includes(currentUser?.uid || '')
   );
@@ -638,6 +655,7 @@ export default function DirectChat() {
         onSendAudio={handleSendAudio}
         onSendAttachment={handleSendAttachment}
         onSendPoll={handleSendPoll}
+        onSendContact={handleSendContact}
         disabled={sending}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}

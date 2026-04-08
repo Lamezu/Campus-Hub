@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
-import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download } from 'lucide-react';
+import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download, ChevronRight } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import AudioMessage from './AudioMessage';
 import type { Message } from '../../types';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { auth } from '../../config/firebase';
+import { getOrCreateConversation } from '../../services/firebase/directMessageService';
 
 interface MessageBubbleProps {
   message: Message;
@@ -82,11 +84,21 @@ export default function MessageBubble({
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const navigate = useNavigate();
   const audioAttachment = message.attachments?.find(a => a.type === 'audio');
   const imageAttachment = message.attachments?.find(a => a.type === 'image');
   const fileAttachment = message.attachments?.find(a => a.type === 'file');
   const postAttachment = message.attachments?.find(a => a.type === 'post');
+  const contactAttachment = message.attachments?.find(a => a.type === 'contact');
   const currentUid = auth.currentUser?.uid ?? '';
+
+  const handleContactClick = async (userId: string) => {
+    if (!currentUid || !userId || userId === currentUid) return;
+    try {
+      const convId = await getOrCreateConversation(currentUid, userId);
+      navigate('/messages/' + convId);
+    } catch {}
+  };
   const poll = (message.poll && typeof message.poll === 'object' && !Array.isArray(message.poll) && typeof message.poll.question === 'string' && Array.isArray(message.poll.options))
     ? message.poll
     : null;
@@ -560,6 +572,34 @@ export default function MessageBubble({
                   </div>
                 )}
               </div>
+            </div>
+          ) : contactAttachment ? (
+            <div
+              onClick={() => contactAttachment.userId && handleContactClick(contactAttachment.userId)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px',
+                borderRadius: 12,
+                backgroundColor: isOwnMessage ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                cursor: contactAttachment.userId ? 'pointer' : 'default',
+                width: 220,
+              }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, backgroundColor: hexToRgba(bubbleText, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {contactAttachment.url
+                  ? <img src={contactAttachment.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: 18, fontWeight: '700', color: bubbleText }}>{contactAttachment.name[0]?.toUpperCase()}</span>
+                }
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: '700', color: bubbleText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contactAttachment.name}</div>
+                <div style={{ fontSize: 12, color: hexToRgba(bubbleText, contactAttachment.bio ? 0.7 : 0.5), marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {contactAttachment.bio || 'Alumno/a'}
+                </div>
+              </div>
+              <ChevronRight size={18} color={hexToRgba(bubbleText, 0.5)} />
             </div>
           ) : poll ? (
             <div style={{ minWidth: 220 }}>
