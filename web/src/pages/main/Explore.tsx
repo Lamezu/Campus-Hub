@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, increment, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, increment, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Images, Video, Music, X, VolumeX, Volume2, Plus } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import { auth, db } from '../../config/firebase';
@@ -8,6 +8,7 @@ import { uploadPostMedia } from '../../config/cloudinary';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SongPicker } from '../../components/SongPicker';
 import { PostCard } from '../../components/PostCards';
+import SharePostModal from '../../components/SharePostModal';
 import Layout from '../../components/Layout';
 import { notificationService } from '../../services/notificationService';
 import type { JamendoTrack, Post } from '../../types';
@@ -34,6 +35,7 @@ export default function ExploreScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sharePost, setSharePost] = useState<Post | null>(null);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -87,11 +89,30 @@ export default function ExploreScreen() {
   const handleDoubleTap = async (postId: string) => {
     if (!currentUser) return;
     const post = posts.find(p => p.id === postId);
+    if (post?.likes?.includes(currentUser.uid)) return;
     await updateDoc(doc(db, 'posts', postId), {
       likes: arrayUnion(currentUser.uid),
       likesCount: increment(1),
     });
     if (post && post.authorId !== currentUser.uid) {
+      notificationService.write(post.authorId, {
+        category: 'social',
+        title: currentUser.displayName ?? 'Alguien',
+        body: `le dio like a tu post "${post.title}"`,
+        meta: { postId },
+      }).catch(() => {});
+    }
+  };
+
+  const handleLikeToggle = async (postId: string) => {
+    if (!currentUser) return;
+    const post = posts.find(p => p.id === postId);
+    const isLiked = post?.likes?.includes(currentUser.uid) ?? false;
+    await updateDoc(doc(db, 'posts', postId), {
+      likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+      likesCount: increment(isLiked ? -1 : 1),
+    });
+    if (!isLiked && post && post.authorId !== currentUser.uid) {
       notificationService.write(post.authorId, {
         category: 'social',
         title: currentUser.displayName ?? 'Alguien',
@@ -291,7 +312,7 @@ export default function ExploreScreen() {
             ) : (
               <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: '80px' }}>
                 {posts.map((post) => (
-                  <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} currentUserId={currentUser?.uid} />
+                  <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} onLikePress={() => handleLikeToggle(post.id)} onShare={() => setSharePost(post)} currentUserId={currentUser?.uid} />
                 ))}
               </div>
             )}
@@ -308,6 +329,7 @@ export default function ExploreScreen() {
 
         <SongPicker visible={showSongPicker} onClose={() => setShowSongPicker(false)} onSelect={setSong} selected={song} />
       </div>
+      <SharePostModal isOpen={!!sharePost} onClose={() => setSharePost(null)} post={sharePost} />
     </Layout>
   );
 }

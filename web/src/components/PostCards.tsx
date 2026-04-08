@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Heart, MessageCircle, Video, ChartNoAxesColumn, Play, Pause, Music2 } from 'lucide-react';
+import { Heart, MessageCircle, Video, ChartNoAxesColumn, Play, Pause, Music2, Share2 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import type { Post } from '../types/index.ts';
 
@@ -12,6 +12,8 @@ interface PostCardProps {
   post: Post;
   onPress: () => void;
   onDoubleTap?: () => void;
+  onLikePress?: () => void;
+  onShare?: () => void;
   currentUserId?: string;
   hideMedia?: boolean;
 }
@@ -47,7 +49,7 @@ function FloatingHeart({ x, y, onDone }: { x: number; y: number; onDone: () => v
   );
 }
 
-export function PostCard({ post, onPress, onDoubleTap, currentUserId, hideMedia = false }: PostCardProps) {
+export function PostCard({ post, onPress, onDoubleTap, onLikePress, onShare, currentUserId, hideMedia = false }: PostCardProps) {
   const { colors } = useTheme();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
@@ -180,7 +182,10 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, hideMedia 
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: onLikePress ? 'pointer' : 'default' }}
+                onClick={onLikePress ? (e) => { e.stopPropagation(); onLikePress(); } : undefined}
+              >
                 <Heart size={14} color={isLiked ? '#FF3B30' : colors.textSecondary}
                   fill={isLiked ? '#FF3B30' : 'transparent'} strokeWidth={1.8} />
                 <span style={{ fontSize: typography.sizes.sm, color: isLiked ? '#FF3B30' : colors.textSecondary }}>
@@ -199,6 +204,19 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, hideMedia 
                   {post.viewsCount ?? 0}
                 </span>
               </div>
+              {onShare && (
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'auto' }}
+                  onClick={e => { e.stopPropagation(); onShare(); }}
+                >
+                  <Share2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
+                  {(post.sharesCount ?? 0) > 0 && (
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                      {post.sharesCount}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

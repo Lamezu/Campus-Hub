@@ -11,6 +11,7 @@ import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { PostCard } from '../../components/PostCards';
+import SharePostModal from '../../components/SharePostModal';
 import Layout from '../../components/Layout';
 import type { Post, Comment } from '../../types';
 
@@ -48,6 +49,7 @@ export default function PostDetail() {
   const [loadingPost, setLoadingPost] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -215,6 +217,8 @@ export default function PostDetail() {
           post={post}
           onPress={() => {}}
           onDoubleTap={handleLike}
+          onLikePress={handleLike}
+          onShare={() => setShowShare(true)}
           currentUserId={currentUser?.uid}
           hideMedia
         />
@@ -405,6 +409,7 @@ export default function PostDetail() {
           })}
         </div>
       </div>
+      <SharePostModal isOpen={showShare} onClose={() => setShowShare(false)} post={post} />
     </Layout>
   );
 }
