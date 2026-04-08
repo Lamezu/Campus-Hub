@@ -28,6 +28,7 @@ import ArchivedChats from './pages/main/ArchivedChats';
 import GroupChat from './pages/chat/GroupChat';
 import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
+import AdminUsers from './pages/admin/AdminUsers';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
 
 function GlobalCallOverlay() {
@@ -95,6 +96,7 @@ function App() {
             <Route path="/settings/accounts" element={<Accounts />} />
             <Route path="/settings/add-account" element={<AddAccount />} />
             <Route path="/settings/delete-account" element={<DeleteAccount />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/support" element={<Support />} />
             <Route path="/events" element={<Events />} />
             <Route path="/chat/3" element={<Navigate to="/events" replace />} />
