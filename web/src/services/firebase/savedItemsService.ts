@@ -8,6 +8,7 @@ export interface SavedMessage {
   senderId: string;
   savedAt: string;
   originalChannelId: string;
+  chatType?: 'dm' | 'channel' | 'group';
   attachments?: Array<{ type: string; url: string }>;
 }
 

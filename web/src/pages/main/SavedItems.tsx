@@ -113,7 +113,10 @@ export default function SavedItems() {
               {savedMessages.map(msg => (
                 <div
                   key={msg.id}
-                  onClick={() => navigate(`/messages/${msg.originalChannelId}?messageId=${msg.id}`)}
+                  onClick={() => {
+                    const base = msg.chatType === 'channel' ? `/chat/${msg.originalChannelId}` : `/messages/${msg.originalChannelId}`;
+                    navigate(`${base}?messageId=${msg.id}`);
+                  }}
                   style={{
                     backgroundColor: 'var(--background)',
                     border: '1px solid var(--border)',
