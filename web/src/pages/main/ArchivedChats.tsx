@@ -6,7 +6,7 @@ import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
-import { Archive, Clock, ArchiveX } from 'lucide-react';
+import { Archive, Clock, ArchiveX, ArrowLeft, BellOff } from 'lucide-react';
 
 interface ConversationWithUser extends Conversation {
   otherUserData?: ConversationUser;
@@ -16,7 +16,7 @@ export default function ArchivedChats() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationWithUser[]>([]);
-  const [contactSettings, setContactSettings] = useState<Record<string, { archived: boolean }>>({});
+  const [contactSettings, setContactSettings] = useState<Record<string, { archived?: boolean; muted?: boolean; mute?: string }>>({});
   const [contextMenu, setContextMenu] = useState<{ convId: string; otherId: string; x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { colors } = useTheme();
@@ -106,6 +106,7 @@ export default function ArchivedChats() {
         <div style={{
           display: 'flex',
           alignItems: 'center',
+          gap: '10px',
           padding: '20px 16px 12px',
           position: 'sticky',
           top: 0,
@@ -113,6 +114,14 @@ export default function ArchivedChats() {
           zIndex: 10,
           borderBottom: '1px solid var(--border)'
         }}>
+          <button
+            onClick={() => navigate('/messages')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', color: 'var(--text)', borderRadius: '8px', flexShrink: 0 }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <ArrowLeft size={22} />
+          </button>
           <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text)', margin: 0 }}>
             Archivados
           </h1>
@@ -188,6 +197,7 @@ export default function ArchivedChats() {
               const unread = conv.unreadCount?.[currentUserId!] || 0;
               const other = conv.otherUserData;
               const otherId = getOtherId(conv);
+              const isMuted = !!(contactSettings[otherId]?.muted || (contactSettings[otherId]?.mute && contactSettings[otherId].mute !== 'off'));
               return (
                 <div
                   key={conv.id}
@@ -233,15 +243,20 @@ export default function ArchivedChats() {
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '600', color: 'var(--text)', fontSize: '15px' }}>
-                        {other?.displayName || 'Usuario'}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                        <span style={{ fontWeight: '600', color: 'var(--text)', fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {other?.displayName || 'Usuario'}
+                        </span>
+                        {isMuted && <BellOff size={13} color="var(--text-secondary)" style={{ flexShrink: 0 }} />}
                       </span>
                       <span style={{
                         fontSize: '12px',
                         color: 'var(--text-secondary)',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '4px',
+                        flexShrink: 0,
+                        marginLeft: '6px'
                       }}>
                         <Clock size={11} />
                         {formatTime(conv.lastMessageAt)}

@@ -5,10 +5,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
-import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, getOrCreateConversation, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
-import { getFriends, searchUsers, sendFriendRequest, cancelFriendRequest, type UserSearchResult } from '../../services/firebase/friendsService';
-import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight } from 'lucide-react';
+import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, muteConversation, deleteConversation, clearChatForMe, blockUser, reportUser, getOrCreateConversation, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
+import { subscribeToGroupConversations, type GroupConversation } from '../../services/firebase/groupDMService';
+import { getFriends, searchUsers, sendFriendRequest, cancelFriendRequest, areFriends, removeFriend, toggleBestFriend, getBestFriendIds, type UserSearchResult } from '../../services/firebase/friendsService';
+import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight, Bell, BellOff, Star, UserMinus, UserPlus, Eraser, Ban, Trash2, Users, PenSquare, AlertTriangle } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
+import CreateGroupModal from '../../components/messages/CreateGroupModal';
 
 interface ConversationWithUser extends Conversation {
   otherUserData?: ConversationUser;
@@ -28,8 +30,13 @@ export default function Messages() {
   const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
   const [requestStates, setRequestStates] = useState<Record<string, 'sending' | 'sent' | 'cancelling'>>({});
   const [starting, setStarting] = useState(false);
-  const [contactSettings, setContactSettings] = useState<Record<string, { archived: boolean }>>({});
-  const [contextMenu, setContextMenu] = useState<{ convId: string; otherId: string; x: number; y: number } | null>(null);
+  const [groups, setGroups] = useState<GroupConversation[]>([]);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [contactSettings, setContactSettings] = useState<Record<string, { archived?: boolean; muted?: boolean; deleted?: boolean; isBestFriend?: boolean }>>({});
+  const [ctxMenu, setCtxMenu] = useState<{ conv: ConversationWithUser; x: number; y: number } | null>(null);
+  const [moreMenu, setMoreMenu] = useState<{ conv: ConversationWithUser; x: number; y: number } | null>(null);
+  const [isFriendMap, setIsFriendMap] = useState<Record<string, boolean>>({});
+  const [isBestFriendMap, setIsBestFriendMap] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const { colors } = useTheme();
   const userCacheRef = useRef<Record<string, ConversationUser>>({});
@@ -56,6 +63,12 @@ export default function Messages() {
   useEffect(() => {
     if (!currentUserId) return;
     const unsubscribe = subscribeToContactSettings(currentUserId, setContactSettings);
+    return unsubscribe;
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubscribe = subscribeToGroupConversations(currentUserId, setGroups);
     return unsubscribe;
   }, [currentUserId]);
 
@@ -187,11 +200,133 @@ export default function Messages() {
   const activeConversations = conversations.filter(c => !contactSettings[getOtherId(c)]?.archived);
   const archivedCount = conversations.filter(c => contactSettings[getOtherId(c)]?.archived).length;
 
-  const handleArchive = async (otherId: string, currentlyArchived: boolean) => {
-    if (!currentUserId) return;
-    setContextMenu(null);
-    await setConversationArchived(currentUserId, otherId, !currentlyArchived);
+  const loadFriendInfo = async (otherId: string) => {
+    if (!currentUserId || isFriendMap[otherId] !== undefined) return;
+    const [friend, bestIds] = await Promise.all([
+      areFriends(currentUserId, otherId).catch(() => false),
+      getBestFriendIds(currentUserId).catch(() => [] as string[]),
+    ]);
+    setIsFriendMap(prev => ({ ...prev, [otherId]: friend }));
+    setIsBestFriendMap(prev => ({ ...prev, [otherId]: bestIds.includes(otherId) }));
   };
+
+  const openCtxMenu = (e: React.MouseEvent, conv: ConversationWithUser) => {
+    e.preventDefault();
+    loadFriendInfo(getOtherId(conv));
+    const x = Math.min(e.clientX, window.innerWidth - 220);
+    const y = Math.min(e.clientY, window.innerHeight - 120);
+    setCtxMenu({ conv, x, y });
+    setMoreMenu(null);
+  };
+
+  const closeAll = () => { setCtxMenu(null); setMoreMenu(null); };
+
+  const openMoreMenu = (e: React.MouseEvent, conv: ConversationWithUser) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = Math.min(rect.right, window.innerWidth - 220);
+    const y = Math.min(rect.bottom + 4, window.innerHeight - 300);
+    setMoreMenu({ conv, x, y });
+    setCtxMenu(null);
+  };
+
+  const handleArchive = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    closeAll();
+    const otherId = getOtherId(conv);
+    const isArchived = !!contactSettings[otherId]?.archived;
+    setConversationArchived(currentUserId, otherId, !isArchived);
+  };
+
+  const handleMuteToggle = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const otherId = getOtherId(conv);
+    const isMuted = !!contactSettings[otherId]?.muted;
+    setContactSettings(prev => ({ ...prev, [otherId]: { ...prev[otherId], muted: !isMuted } }));
+    closeAll();
+    muteConversation(currentUserId, otherId, !isMuted);
+  };
+
+  const handleBestFriendToggle = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const otherId = getOtherId(conv);
+    const next = !isBestFriendMap[otherId];
+    setIsBestFriendMap(prev => ({ ...prev, [otherId]: next }));
+    closeAll();
+    toggleBestFriend(currentUserId, otherId, next);
+  };
+
+  const handleRemoveFriend = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const name = conv.otherUserData?.displayName || 'Usuario';
+    if (!window.confirm(`¿Eliminar a ${name} de tus amigos?`)) return;
+    const otherId = getOtherId(conv);
+    closeAll();
+    removeFriend(currentUserId, otherId).then(() => {
+      setIsFriendMap(prev => ({ ...prev, [otherId]: false }));
+    });
+  };
+
+  const handleAddFriend = (conv: ConversationWithUser) => {
+    if (!currentUserId || !currentUserData) return;
+    closeAll();
+    sendFriendRequest(currentUserId, getOtherId(conv), currentUserData.displayName, currentUserData.photoURL).catch(() => {});
+  };
+
+  const handleClearChat = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const name = conv.otherUserData?.displayName || 'Usuario';
+    if (!window.confirm(`¿Vaciar el chat con ${name}? No se puede deshacer.`)) return;
+    closeAll();
+    clearChatForMe(conv.id, currentUserId);
+  };
+
+  const handleBlock = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const name = conv.otherUserData?.displayName || 'Usuario';
+    if (!window.confirm(`¿Bloquear a ${name}?`)) return;
+    closeAll();
+    blockUser(currentUserId, getOtherId(conv));
+  };
+
+  const handleDeleteChat = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const name = conv.otherUserData?.displayName || 'Usuario';
+    if (!window.confirm(`¿Eliminar el chat con ${name}? No aparecerá en tu lista.`)) return;
+    const otherId = getOtherId(conv);
+    setContactSettings(prev => ({ ...prev, [otherId]: { ...prev[otherId], deleted: true } }));
+    closeAll();
+    deleteConversation(currentUserId, otherId);
+  };
+
+  const handleReport = (conv: ConversationWithUser) => {
+    if (!currentUserId) return;
+    const name = conv.otherUserData?.displayName || 'Usuario';
+    if (!window.confirm(`¿Reportar a ${name}? Enviaremos tu reporte para revisión.`)) return;
+    closeAll();
+    reportUser(currentUserId, getOtherId(conv))
+      .then(() => window.alert('Reporte enviado. Gracias por ayudarnos a mantener la comunidad segura.'))
+      .catch(() => {});
+  };
+
+  const DropdownBtn = ({ icon, label, onClick, danger = false }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '10px 16px', width: '100%', background: 'none',
+        border: 'none', cursor: 'pointer',
+        color: danger ? '#FF3B30' : 'var(--text)',
+        fontSize: '14px', fontWeight: '500', textAlign: 'left',
+        transition: 'background 0.12s', whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
+      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+    >
+      <span style={{ color: danger ? '#FF3B30' : 'var(--text-secondary)', display: 'flex', flexShrink: 0 }}>{icon}</span>
+      {label}
+    </button>
+  );
 
   if (loading) {
     return (
@@ -218,73 +353,147 @@ export default function Messages() {
           <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text)', margin: 0 }}>
             Mensajes
           </h1>
-          <button
-            onClick={() => setShowNewChat(true)}
-            style={{
-              background: colors.primary,
-              border: 'none',
-              borderRadius: '50%',
-              width: '36px',
-              height: '36px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#fff'
-            }}
-          >
-            <Plus size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setShowCreateGroup(true)}
+              title="Nuevo grupo"
+              style={{ background: 'var(--background-secondary)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}
+            >
+              <Users size={18} />
+            </button>
+            <button
+              onClick={() => setShowNewChat(true)}
+              title="Nuevo mensaje"
+              style={{ background: colors.primary, border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
+            >
+              <Plus size={20} />
+            </button>
+          </div>
         </div>
 
-        {contextMenu && (
+        {/* Context menu — click derecho: Archivar + Más opciones */}
+        {ctxMenu && (
           <>
-            <div
-              style={{ position: 'fixed', inset: 0, zIndex: 998 }}
-              onClick={() => setContextMenu(null)}
-            />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAll} />
             <div
               className="animate-scale-in"
               style={{
-                position: 'fixed',
-                top: contextMenu.y,
-                left: contextMenu.x,
-                zIndex: 999,
-                backgroundColor: 'var(--background)',
-                borderRadius: '12px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                border: '1px solid var(--border)',
-                overflow: 'hidden',
-                minWidth: '180px'
+                position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 999,
+                backgroundColor: 'var(--background)', borderRadius: '12px',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)', border: '1px solid var(--border)',
+                overflow: 'hidden', minWidth: '200px',
               }}
             >
+              <DropdownBtn
+                icon={<Archive size={16} />}
+                label={contactSettings[getOtherId(ctxMenu.conv)]?.archived ? 'Desarchivar' : 'Archivar'}
+                onClick={() => handleArchive(ctxMenu.conv)}
+              />
+              <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
               <button
-                onClick={() => handleArchive(contextMenu.otherId, !!contactSettings[contextMenu.otherId]?.archived)}
+                onClick={e => openMoreMenu(e, ctxMenu.conv)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '12px 16px',
-                  width: '100%',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text)',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  textAlign: 'left'
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: '10px', padding: '10px 16px', width: '100%', background: 'none',
+                  border: 'none', cursor: 'pointer', color: 'var(--text)',
+                  fontSize: '14px', fontWeight: '500', transition: 'background 0.12s',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <Archive size={16} color="var(--text-secondary)" />
-                {contactSettings[contextMenu.otherId]?.archived ? 'Desarchivar' : 'Archivar'}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ color: 'var(--text-secondary)', display: 'flex' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                  </span>
+                  Más opciones
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             </div>
           </>
         )}
 
-        {activeConversations.length === 0 && archivedCount === 0 ? (
+        {/* More options submenu */}
+        {moreMenu && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAll} />
+            <div
+              className="animate-scale-in"
+              style={{
+                position: 'fixed', top: moreMenu.y, left: moreMenu.x, zIndex: 999,
+                backgroundColor: 'var(--background)', borderRadius: '12px',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)', border: '1px solid var(--border)',
+                overflow: 'hidden', minWidth: '220px',
+              }}
+            >
+              {(() => {
+                const conv = moreMenu.conv;
+                const otherId = getOtherId(conv);
+                const isMuted = !!contactSettings[otherId]?.muted;
+                const isFriend = !!isFriendMap[otherId];
+                const isBestFriend = !!isBestFriendMap[otherId];
+                const firstName = conv.otherUserData?.displayName?.split(' ')[0] || 'Usuario';
+                return (
+                  <>
+                    <DropdownBtn
+                      icon={isMuted ? <Bell size={16} /> : <BellOff size={16} />}
+                      label={isMuted ? 'Activar notificaciones' : 'Silenciar'}
+                      onClick={() => handleMuteToggle(conv)}
+                    />
+                    <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
+                    {isFriend ? (
+                      <>
+                        <DropdownBtn
+                          icon={<Star size={16} color={isBestFriend ? '#FFD60A' : undefined} fill={isBestFriend ? '#FFD60A' : 'none'} />}
+                          label={isBestFriend ? 'Quitar mejor amigo' : 'Añadir mejor amigo'}
+                          onClick={() => handleBestFriendToggle(conv)}
+                        />
+                        <DropdownBtn
+                          icon={<UserMinus size={16} />}
+                          label="Eliminar amigo"
+                          onClick={() => handleRemoveFriend(conv)}
+                          danger
+                        />
+                      </>
+                    ) : (
+                      <DropdownBtn
+                        icon={<UserPlus size={16} />}
+                        label="Añadir amigo"
+                        onClick={() => handleAddFriend(conv)}
+                      />
+                    )}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
+                    <DropdownBtn
+                      icon={<Eraser size={16} />}
+                      label="Vaciar chat"
+                      onClick={() => handleClearChat(conv)}
+                    />
+                    <DropdownBtn
+                      icon={<Ban size={16} />}
+                      label={`Bloquear a ${firstName}`}
+                      onClick={() => handleBlock(conv)}
+                      danger
+                    />
+                    <DropdownBtn
+                      icon={<Trash2 size={16} />}
+                      label="Eliminar chat"
+                      onClick={() => handleDeleteChat(conv)}
+                      danger
+                    />
+                    <DropdownBtn
+                      icon={<AlertTriangle size={16} />}
+                      label={`Reportar a ${firstName}`}
+                      onClick={() => handleReport(conv)}
+                      danger
+                    />
+                  </>
+                );
+              })()}
+            </div>
+          </>
+        )}
+
+        {activeConversations.length === 0 && archivedCount === 0 && groups.length === 0 ? (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -358,20 +567,56 @@ export default function Messages() {
               </div>
             )}
 
+            {groups.map(group => {
+              const totalUnread = group.unreadCount || 0;
+              return (
+                <div
+                  key={group.id}
+                  onClick={() => navigate(`/messages/group/${group.id}`)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: colors.primary, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {group.photoURL
+                      ? <img src={group.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <Users size={22} color="#fff" />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: totalUnread > 0 ? '700' : '600', color: 'var(--text)', fontSize: '15px' }}>
+                        {group.name || 'Grupo'}
+                      </span>
+                      <span style={{ fontSize: '12px', color: totalUnread > 0 ? colors.primary : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={11} />
+                        {formatTime(group.lastMessageAt ? { toDate: () => new Date(group.lastMessageAt!) } : null)}
+                      </span>
+                    </div>
+                    <p style={{ margin: '2px 0 0', fontSize: '13px', color: totalUnread > 0 ? 'var(--text)' : 'var(--text-secondary)', fontWeight: totalUnread > 0 ? '500' : '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {group.lastMessageSenderName && group.lastMessage
+                        ? `${group.lastMessageSenderName.split(' ')[0]}: ${group.lastMessage}`
+                        : group.lastMessage || `${group.members.length} miembros`}
+                    </p>
+                  </div>
+                  {totalUnread > 0 && (
+                    <div style={{ backgroundColor: colors.primary, color: '#fff', borderRadius: '12px', minWidth: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', padding: '0 6px', flexShrink: 0 }}>
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
             {activeConversations.map((conv) => {
               const unread = conv.unreadCount?.[currentUserId!] || 0;
               const other = conv.otherUserData;
               const otherId = getOtherId(conv);
+              const isMuted = !!(contactSettings[otherId]?.muted || (contactSettings[otherId]?.mute && contactSettings[otherId].mute !== 'off'));
               return (
                 <div
                   key={conv.id}
                   onClick={() => navigate(`/messages/${conv.id}`)}
-                  onContextMenu={e => {
-                    e.preventDefault();
-                    const x = Math.min(e.clientX, window.innerWidth - 200);
-                    const y = Math.min(e.clientY, window.innerHeight - 80);
-                    setContextMenu({ convId: conv.id, otherId, x, y });
-                  }}
+                  onContextMenu={e => openCtxMenu(e, conv)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -407,19 +652,25 @@ export default function Messages() {
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{
-                        fontWeight: unread > 0 ? '700' : '600',
-                        color: 'var(--text)',
-                        fontSize: '15px'
-                      }}>
-                        {other?.displayName || 'Usuario'}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                        <span style={{
+                          fontWeight: unread > 0 ? '700' : '600',
+                          color: 'var(--text)',
+                          fontSize: '15px',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                        }}>
+                          {other?.displayName || 'Usuario'}
+                        </span>
+                        {isMuted && <BellOff size={13} color="var(--text-secondary)" style={{ flexShrink: 0 }} />}
                       </span>
                       <span style={{
                         fontSize: '12px',
                         color: unread > 0 ? colors.primary : 'var(--text-secondary)',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '4px',
+                        flexShrink: 0,
+                        marginLeft: '6px'
                       }}>
                         <Clock size={11} />
                         {formatTime(conv.lastMessageAt)}
@@ -462,6 +713,13 @@ export default function Messages() {
           </div>
         )}
       </div>
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroup(false)}
+          onCreated={groupId => { setShowCreateGroup(false); navigate(`/messages/group/${groupId}`); }}
+        />
+      )}
 
       {showNewChat && (
         <div style={{

@@ -43,10 +43,11 @@ interface DMInfoPanelProps {
   colors: any;
   onClose: () => void;
   onClearChat?: () => void;
+  onDeleteChat?: () => void;
   onCall?: (type: 'audio' | 'video') => void;
 }
 
-export default function DMInfoPanel({ otherUserId, conversationId, currentUserId, userRole = 'student', colors, onClose, onClearChat, onCall }: DMInfoPanelProps) {
+export default function DMInfoPanel({ otherUserId, conversationId, currentUserId, userRole = 'student', colors, onClose, onClearChat, onDeleteChat, onCall }: DMInfoPanelProps) {
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [role, setRole] = useState('student');
@@ -159,7 +160,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
 
   const handleMute = async (val: MuteDuration) => {
     setMute(val); setShowMuteMenu(false);
-    await updateContactSetting({ mute: val });
+    await updateContactSetting({ mute: val, muted: val !== 'off' });
   };
 
   const handleToneChange = async (val: string) => {
@@ -505,6 +506,19 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
             )}
           </div>
         </div>}
+
+        {onDeleteChat && (
+          <div style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.border}` }}>
+            <button
+              onClick={() => { if (!window.confirm('¿Eliminar este chat? Dejará de aparecer en tu lista.')) return; close(); onDeleteChat(); }}
+              onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
+            >
+              <Trash2 size={18} color="#FF3B30" />
+              <span style={{ fontSize: 14, color: '#FF3B30' }}>Eliminar chat</span>
+            </button>
+          </div>
+        )}
 
         <div style={{ padding: '8px 12px' }}>
           <button onClick={handleBlock} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>

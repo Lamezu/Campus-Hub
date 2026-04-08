@@ -15,6 +15,7 @@ import {
   serverTimestamp,
   onSnapshot,
   writeBatch,
+  arrayUnion,
   Timestamp,
   Unsubscribe,
   QueryDocumentSnapshot
@@ -218,7 +219,7 @@ export async function sendMessage(
       lastMessage: text ? text.substring(0, 100) : '🎵 Audio',
       lastMessageSenderName: senderName,
       lastMessageSenderId: senderId,
-      [`unreadCount.${otherUserId}`]: (convData.unreadCount?.[otherUserId] || 0) + 1
+      [`unreadCount.${otherUserId}`]: (otherUserId ? (convData.unreadCount?.[otherUserId] || 0) : 0) + 1
     });
   }
 
@@ -306,6 +307,15 @@ export function subscribeToUserConversations(
   });
 }
 
+export interface ContactSettings {
+  archived?: boolean;
+  muted?: boolean;
+  mute?: string; // duration: 'off' | '8h' | '1w' | 'always'
+  deleted?: boolean;
+  isBestFriend?: boolean;
+  alertTone?: string;
+}
+
 export async function setConversationArchived(
   userId: string,
   participantId: string,
@@ -315,13 +325,66 @@ export async function setConversationArchived(
   await setDoc(ref, { archived }, { merge: true });
 }
 
+export async function muteConversation(
+  userId: string,
+  participantId: string,
+  muted: boolean
+): Promise<void> {
+  const ref = doc(db, 'users', userId, 'contactSettings', participantId);
+  await setDoc(ref, { muted, mute: muted ? 'always' : 'off' }, { merge: true });
+}
+
+export async function reportUser(
+  reporterId: string,
+  reportedId: string
+): Promise<void> {
+  await addDoc(collection(db, 'reports'), {
+    reporterId,
+    reportedId,
+    createdAt: serverTimestamp(),
+    status: 'pending',
+  });
+}
+
+export async function deleteConversation(
+  userId: string,
+  participantId: string
+): Promise<void> {
+  const ref = doc(db, 'users', userId, 'contactSettings', participantId);
+  await setDoc(ref, { deleted: true }, { merge: true });
+}
+
+export async function clearChatForMe(
+  conversationId: string,
+  userId: string
+): Promise<void> {
+  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+  const snap = await getDocs(messagesRef);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => {
+    const deletedFor: string[] = d.data().deletedForUsers || [];
+    if (!deletedFor.includes(userId)) {
+      batch.update(d.ref, { deletedForUsers: [...deletedFor, userId] });
+    }
+  });
+  await batch.commit();
+}
+
+export async function blockUser(
+  userId: string,
+  targetId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'users', userId), { blockedUsers: arrayUnion(targetId) });
+}
+
 export function subscribeToContactSettings(
   userId: string,
-  callback: (settings: Record<string, { archived: boolean }>) => void
+  callback: (settings: Record<string, ContactSettings>) => void
 ): Unsubscribe {
   return onSnapshot(collection(db, 'users', userId, 'contactSettings'), (snap) => {
-    const result: Record<string, { archived: boolean }> = {};
-    snap.docs.forEach(d => { result[d.id] = d.data() as { archived: boolean }; });
+    const result: Record<string, ContactSettings> = {};
+    snap.docs.forEach(d => { result[d.id] = d.data() as ContactSettings; });
     callback(result);
   });
 }
