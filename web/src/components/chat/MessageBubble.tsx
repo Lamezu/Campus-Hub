@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
@@ -13,6 +14,7 @@ interface MessageBubbleProps {
   isOwnMessage: boolean;
   chatId?: string;
   isConversation?: boolean;
+  chatCollection?: 'conversations' | 'channels' | 'groupConversations';
   isSaved?: boolean;
   onReply?: (message: Message) => void;
   onDelete?: (message: Message, forEveryone: boolean) => void;
@@ -50,6 +52,7 @@ export default function MessageBubble({
   isOwnMessage,
   chatId,
   isConversation = false,
+  chatCollection,
   isSaved = false,
   onReply,
   onDelete,
@@ -82,6 +85,7 @@ export default function MessageBubble({
   const audioAttachment = message.attachments?.find(a => a.type === 'audio');
   const imageAttachment = message.attachments?.find(a => a.type === 'image');
   const fileAttachment = message.attachments?.find(a => a.type === 'file');
+  const postAttachment = message.attachments?.find(a => a.type === 'post');
   const currentUid = auth.currentUser?.uid ?? '';
   const poll = (message.poll && typeof message.poll === 'object' && !Array.isArray(message.poll) && typeof message.poll.question === 'string' && Array.isArray(message.poll.options))
     ? message.poll
@@ -89,9 +93,8 @@ export default function MessageBubble({
 
   const handleVote = async (optionIndex: number) => {
     if (!poll || !chatId || !currentUid) return;
-    const msgRef = isConversation
-      ? doc(db, 'conversations', chatId, 'messages', message.id)
-      : doc(db, 'channels', chatId, 'messages', message.id);
+    const collection_ = chatCollection ?? (isConversation ? 'conversations' : 'channels');
+    const msgRef = doc(db, collection_, chatId, 'messages', message.id);
     const key = `poll.votes.${optionIndex}`;
     const pollVotes = poll.votes || {};
     const alreadyVoted = ((pollVotes[optionIndex] ?? pollVotes[String(optionIndex)]) ?? []).includes(currentUid);
@@ -148,37 +151,31 @@ export default function MessageBubble({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleScroll = () => setShowMenu(false);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [showMenu]);
+
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
-    const menuWidth = 200;
-    const menuHeight = isOwnMessage ? 250 : 200;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    const menuWidth = 210;
+    const menuHeight = 300;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
 
     let left = e.clientX;
-    let top = e.clientY;
+    if (left + menuWidth > vw - margin) left = e.clientX - menuWidth;
+    if (left < margin) left = margin;
 
-    if (isOwnMessage) {
-      left = left - menuWidth - 10;
-    }
-
-    if (left + menuWidth > viewportWidth) {
-      left = viewportWidth - menuWidth - 10;
-    }
-
-    if (left < 10) {
-      left = 10;
-    }
-
-    if (top + menuHeight > viewportHeight) {
-      top = viewportHeight - menuHeight - 10;
-    }
-
-    if (top < 10) {
-      top = 10;
-    }
+    let top = e.clientY + margin;
+    if (top + menuHeight > vh - margin) top = e.clientY - menuHeight;
+    if (top < margin) top = margin;
 
     setMenuPosition({ left, top });
     setShowMenu(true);
@@ -191,29 +188,24 @@ export default function MessageBubble({
     const pickerHeight = 400;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const margin = 8;
 
-    let left = e.clientX;
-    let top = e.clientY;
+    let left = isOwnMessage
+      ? e.clientX - pickerWidth - margin
+      : e.clientX + margin;
 
-    if (isOwnMessage) {
-      left = left - pickerWidth - 10;
+    if (left + pickerWidth > viewportWidth - margin) left = viewportWidth - pickerWidth - margin;
+    if (left < margin) left = margin;
+
+    let top: number;
+    if (e.clientY + pickerHeight + margin <= viewportHeight) {
+      top = e.clientY;
+    } else {
+      top = e.clientY - pickerHeight;
     }
 
-    if (left + pickerWidth > viewportWidth) {
-      left = viewportWidth - pickerWidth - 10;
-    }
-
-    if (left < 10) {
-      left = 10;
-    }
-
-    if (top + pickerHeight > viewportHeight) {
-      top = viewportHeight - pickerHeight - 10;
-    }
-
-    if (top < 10) {
-      top = 10;
-    }
+    if (top + pickerHeight > viewportHeight - margin) top = viewportHeight - pickerHeight - margin;
+    if (top < margin) top = margin;
 
     setEmojiPosition({ left, top });
     setShowEmojiPicker(true);
@@ -440,7 +432,6 @@ export default function MessageBubble({
         width: '100%',
         position: 'relative' as const,
       }}
-      onContextMenu={handleContextMenu}
     >
       {!isOwnMessage && avatar}
 
@@ -482,7 +473,7 @@ export default function MessageBubble({
           </div>
         )}
 
-        <div style={bubbleStyle}>
+        <div style={bubbleStyle} onContextMenu={handleContextMenu}>
           {message.replyTo && (
             <div
               style={{ ...replyContainerStyle, cursor: 'pointer' }}
@@ -527,6 +518,48 @@ export default function MessageBubble({
               >
                 <Download size={16} color={bubbleText} />
               </button>
+            </div>
+          ) : postAttachment ? (
+            <div
+              onClick={() => postAttachment.postId && window.open(`/post/${postAttachment.postId}`, '_self')}
+              style={{
+                borderRadius: 10,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                backgroundColor: hexToRgba(bubbleText, 0.08),
+                minWidth: 200,
+                maxWidth: 280,
+              }}
+            >
+              {postAttachment.url && (
+                <img
+                  src={postAttachment.url}
+                  alt=""
+                  style={{ width: '100%', maxHeight: 140, objectFit: 'cover', display: 'block' }}
+                />
+              )}
+              <div style={{ padding: '8px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  {postAttachment.postAuthorPhoto ? (
+                    <img src={postAttachment.postAuthorPhoto} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', backgroundColor: hexToRgba(bubbleText, 0.25), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
+                      {postAttachment.postAuthorName?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+                  <span style={{ fontSize: 11, opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {postAttachment.postAuthorName}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {postAttachment.postTitle}
+                </div>
+                {postAttachment.postContent && (
+                  <div style={{ fontSize: 12, opacity: 0.7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                    {postAttachment.postContent}
+                  </div>
+                )}
+              </div>
             </div>
           ) : poll ? (
             <div style={{ minWidth: 220 }}>
@@ -612,7 +645,7 @@ export default function MessageBubble({
 
       {isOwnMessage && avatar}
 
-      {showMenu && (
+      {showMenu && createPortal(
         <div ref={menuRef} style={menuStyle}>
           <div
             style={menuItemStyle}
@@ -665,20 +698,18 @@ export default function MessageBubble({
             </span>
           </div>
 
-          {isOwnMessage && (
-            <div
-              style={menuItemStyle}
-              onClick={() => {
-                onForward?.(message);
-                setShowMenu(false);
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <Forward size={16} color={colors.success} />
-              <span>Reenviar</span>
-            </div>
-          )}
+          <div
+            style={menuItemStyle}
+            onClick={() => {
+              onForward?.(message);
+              setShowMenu(false);
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Forward size={16} color={colors.success} />
+            <span>Reenviar</span>
+          </div>
 
           <div
             style={{ ...menuItemStyle, color: colors.danger }}
@@ -689,10 +720,11 @@ export default function MessageBubble({
             <Trash2 size={16} color={colors.danger} />
             <span>{isOwnMessage ? 'Eliminar' : 'Eliminar para mí'}</span>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showEmojiPicker && (
+      {showEmojiPicker && createPortal(
         <div ref={emojiPickerRef} style={emojiPickerStyle}>
           <EmojiPicker
             onEmojiClick={handleEmojiSelect}
@@ -702,10 +734,11 @@ export default function MessageBubble({
             searchPlaceholder="Buscar emoji..."
             previewConfig={{ showPreview: false }}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showDeleteModal && (
+      {showDeleteModal && createPortal(
         <>
           <div style={deleteModalOverlayStyle} />
           <div ref={deleteModalRef} style={deleteModalStyle}>
@@ -760,7 +793,8 @@ export default function MessageBubble({
               </button>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
