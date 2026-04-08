@@ -117,7 +117,7 @@ service cloud.firestore {
         allow create: if isSignedIn() && isConvParticipant(conversationId);
         allow update: if isSignedIn() && (
           request.auth.uid == resource.data.senderId ||
-          (isConvParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'read', 'readAt', 'status']))
+          (isConvParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'read', 'readAt', 'status', 'poll']))
         );
         allow delete: if isSignedIn() && (
           request.auth.uid == resource.data.senderId || isAdmin()
@@ -272,11 +272,13 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if isSignedIn() && (
-          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid)) ||
+          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
           isStaff()
         );
-        allow create: if isSignedIn() &&
-          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid));
+        allow create: if isSignedIn() && (
+          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
+          isStaff()
+        );
         allow update: if request.auth.uid == resource.data.senderId ||
                       (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
         allow delete: if request.auth.uid == resource.data.senderId || isStaff();
