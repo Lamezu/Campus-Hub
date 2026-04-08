@@ -22,6 +22,15 @@ export default function CampusScreen() {
   const { colors } = useTheme();
   const { can, subrole, department, isAdmin, eventTypes } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<Subtab>('Tablón');
+  const [slideDir, setSlideDir] = useState<'right' | 'left' | null>(null);
+
+  const handleTabChange = (tab: Subtab) => {
+    if (tab === activeTab) return;
+    const oldIdx = SUBTABS.indexOf(activeTab);
+    const newIdx = SUBTABS.indexOf(tab);
+    setSlideDir(newIdx > oldIdx ? 'right' : 'left');
+    setActiveTab(tab);
+  };
   const currentUser = auth.currentUser;
   const isDesktop = useWindowSize();
 
@@ -55,7 +64,7 @@ export default function CampusScreen() {
                 return (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => handleTabChange(tab)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 7,
                       padding: '10px 20px',
@@ -85,7 +94,7 @@ export default function CampusScreen() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => handleTabChange(tab)}
                   style={{
                     flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
                     paddingTop: 12, background: 'none', border: 'none', cursor: 'pointer',
@@ -107,18 +116,13 @@ export default function CampusScreen() {
         )}
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: activeTab === 'Tablón' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className={activeTab === 'Tablón' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Tablón' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <AnnouncementsTab canCreateAnnouncement={can('createAnnouncement')} />
           </div>
-          <div style={{ display: activeTab === 'Calendario' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-            <CalendarTab
-              eventTypes={eventTypes}
-              department={department}
-              subrole={subrole}
-              currentUserId={currentUser?.uid ?? ''}
-            />
+          <div className={activeTab === 'Calendario' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Calendario' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <CalendarTab eventTypes={eventTypes} department={department} subrole={subrole} currentUserId={currentUser?.uid ?? ''} />
           </div>
-          <div style={{ display: activeTab === 'Grupos' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className={activeTab === 'Grupos' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Grupos' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <GroupsTab canCreate={can('createStudyGroup')} isAdmin={isAdmin} />
           </div>
         </div>

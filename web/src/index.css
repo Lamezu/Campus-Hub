@@ -331,6 +331,19 @@ body {
   to   { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes tabSlideInRight {
+  from { margin-left: 100%; }
+  to   { margin-left: 0; }
+}
+
+@keyframes tabSlideInLeft {
+  from { margin-left: -100%; }
+  to   { margin-left: 0; }
+}
+
+.animate-tab-slide-right { animation: tabSlideInRight 0.25s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.animate-tab-slide-left  { animation: tabSlideInLeft 0.25s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+
 .animate-fade-in      { animation: fadeIn 0.22s ease-out both; }
 .animate-slide-right  { animation: slideInRight 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .msg-enter          { animation: msgIn 0.14s cubic-bezier(0.25,0.46,0.45,0.94) both; }

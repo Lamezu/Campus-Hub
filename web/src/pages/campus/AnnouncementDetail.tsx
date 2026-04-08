@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc, updateDoc, deleteDoc, addDoc, collection,
@@ -461,8 +462,8 @@ export default function AnnouncementDetail() {
         </div>
       )}
 
-      {showDocsViewer && announcement?.docsContent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
+      {showDocsViewer && announcement?.docsContent && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0, backgroundColor: colors.background }}>
             <button onClick={() => { setShowDocsViewer(false); setShowDocsSearch(false); setDocsSearchQuery(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 6 }}>
               <X size={22} color={colors.text} strokeWidth={2} />
@@ -518,11 +519,12 @@ export default function AnnouncementDetail() {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showDocsEditor && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column' }}>
+      {showDocsEditor && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0, backgroundColor: colors.background }}>
             <button onClick={() => setShowDocsEditor(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 6 }}>
               <X size={22} color={colors.text} strokeWidth={2} />
@@ -554,7 +556,8 @@ export default function AnnouncementDetail() {
             pageMode
             pageTitle={announcement?.title}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
       {showCreateEvent && (

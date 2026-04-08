@@ -172,8 +172,8 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
       </div>
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ backgroundColor: colors.background, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 100, paddingLeft: 16, paddingRight: 16, paddingBottom: 16 }}>
+          <div className="animate-slide-up" style={{ backgroundColor: colors.background, borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: 'calc(100vh - 124px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: `1px solid ${colors.border}` }}>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
                 <X size={22} color={colors.text} strokeWidth={2} />
