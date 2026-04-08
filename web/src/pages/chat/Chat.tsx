@@ -5,7 +5,7 @@ import { auth, db } from '../../config/firebase';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import type { Message } from '../../types';
 import MessageBubble from '../../components/chat/MessageBubble';
-import ForwardModal from '../../components/chat/FowardModal';
+import SharePostModal from '../../components/SharePostModal';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -320,17 +320,22 @@ export default function Chat() {
 
   const handleSave = async (message: Message) => {
     if (!currentUser || !id) return;
-    if (savedIds.has(message.id)) {
-      await unsaveMessage(currentUser.uid, message.id);
-    } else {
-      await saveMessage(currentUser.uid, {
-        id: message.id,
-        text: message.text,
-        senderName: message.senderName,
-        senderId: message.senderId,
-        originalChannelId: id,
-        attachments: message.attachments?.map(a => ({ type: a.type, url: a.url })),
-      }, id);
+    try {
+      if (savedIds.has(message.id)) {
+        await unsaveMessage(currentUser.uid, message.id);
+      } else {
+        await saveMessage(currentUser.uid, {
+          id: message.id,
+          text: message.text,
+          senderName: message.senderName,
+          senderId: message.senderId,
+          originalChannelId: id,
+          chatType: 'channel',
+          attachments: message.attachments?.map(a => ({ type: a.type, url: a.url })),
+        }, id);
+      }
+    } catch (err) {
+      console.error('Error al guardar mensaje:', err);
     }
   };
 
@@ -510,42 +515,6 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
   const handleForward = (message: any) => {
     setMessageToForward(message);
     setShowForwardModal(true);
-  };
-
-  const handleForwardToChannels = async (channelIds: string[]) => {
-    if (!currentUser || !messageToForward) return;
-    
-    try {
-      for (const channelId of channelIds) {
-        const messagesRef = collection(db, 'channels', channelId, 'messages');
-        
-        await addDoc(messagesRef, {
-          text: messageToForward.text,
-          senderId: currentUser.uid,
-          senderName: userData?.displayName || currentUser.displayName || 'User',
-          senderPhoto: userData?.photoURL || currentUser.photoURL || null,
-          createdAt: serverTimestamp(),
-          edited: false,
-          editedAt: null,
-          attachments: messageToForward.attachments,
-          reactions: {},
-          deletedForUsers: [],
-          isForwarded: true,
-          originalSender: messageToForward.senderName,
-          forwardedFrom: {
-            channelId: id,
-            messageId: messageToForward.id,
-            senderName: messageToForward.senderName
-          }
-        });
-      }
-      
-      alert(`Mensaje reenviado a ${channelIds.length} chat(s)`);
-      setShowForwardModal(false);
-      setMessageToForward(null);
-    } catch {
-      alert('Error al reenviar el mensaje');
-    }
   };
 
   const handleReact = async (message: any, emoji: string) => {
@@ -826,13 +795,9 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         />
       )}
 
-      <ForwardModal
+      <SharePostModal
         isOpen={showForwardModal}
-        onClose={() => {
-          setShowForwardModal(false);
-          setMessageToForward(null);
-        }}
-        onForward={handleForwardToChannels}
+        onClose={() => { setShowForwardModal(false); setMessageToForward(null); }}
         message={messageToForward}
       />
     </div>

@@ -26,10 +26,12 @@ import {
   deleteMessageForMe,
   addReaction,
   removeReaction,
+  deleteConversation,
   type DMMessage,
   type DMReplyTo
 } from '../../services/firebase/directMessageService';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
+import SharePostModal from '../../components/SharePostModal';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 
 const MESSAGES_PER_PAGE = 50;
@@ -159,6 +161,7 @@ export default function DirectChat() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [forwardMessage, setForwardMessage] = useState<any>(null);
   const { setActiveCall, setActiveCallId } = useCall();
 
   const handleStartCall = async (type: CallType) => {
@@ -369,21 +372,26 @@ export default function DirectChat() {
 
   const handleSave = async (message: any) => {
     if (!currentUser || !conversationId) return;
-    if (savedIds.has(message.id)) {
-      await unsaveMessage(currentUser.uid, message.id);
-    } else {
-      await saveMessage(
-        currentUser.uid,
-        {
-          id: message.id,
-          text: message.text,
-          senderName: message.senderName,
-          senderId: message.senderId,
-          originalChannelId: conversationId,
-          attachments: message.attachments,
-        },
-        conversationId
-      );
+    try {
+      if (savedIds.has(message.id)) {
+        await unsaveMessage(currentUser.uid, message.id);
+      } else {
+        await saveMessage(
+          currentUser.uid,
+          {
+            id: message.id,
+            text: message.text,
+            senderName: message.senderName,
+            senderId: message.senderId,
+            originalChannelId: conversationId,
+            chatType: 'dm',
+            attachments: message.attachments,
+          },
+          conversationId
+        );
+      }
+    } catch (err) {
+      console.error('Error al guardar mensaje:', err);
     }
   };
 
@@ -584,6 +592,7 @@ export default function DirectChat() {
               isSaved={savedIds.has(message.id)}
               onReply={(msg: any) => setReplyingTo(msg)}
               onDelete={handleDelete}
+              onForward={(msg: any) => setForwardMessage(msg)}
               onReact={handleReact}
               onCopy={handleCopy}
               onScrollToMessage={handleScrollToMessage}
@@ -647,11 +656,21 @@ export default function DirectChat() {
             colors={colors}
             onClose={() => setShowInfoPanel(false)}
             onClearChat={() => setMessages([])}
+            onDeleteChat={() => {
+              const uid = auth.currentUser?.uid;
+              if (uid) deleteConversation(uid, otherUser.uid).catch(() => {});
+              navigate('/messages');
+            }}
             onCall={handleStartCall}
           />
         </div>
       )}
 
+      <SharePostModal
+        isOpen={!!forwardMessage}
+        onClose={() => setForwardMessage(null)}
+        message={forwardMessage}
+      />
     </div>
   );
 }
