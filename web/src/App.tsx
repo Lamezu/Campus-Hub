@@ -25,6 +25,7 @@ import DeleteAccount from './pages/settings/DeleteAccount';
 import Support from './pages/main/Support';
 import Events from './pages/main/Events';
 import ArchivedChats from './pages/main/ArchivedChats';
+import GroupChat from './pages/chat/GroupChat';
 import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
@@ -77,6 +78,7 @@ function App() {
             <Route path="/campus" element={<Campus />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/archived" element={<ArchivedChats />} />
+            <Route path="/messages/group/:groupId" element={<GroupChat />} />
             <Route path="/messages/:conversationId" element={<DirectChat />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/" element={<Navigate to="/login" />} />
