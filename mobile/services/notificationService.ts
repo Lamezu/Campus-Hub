@@ -48,6 +48,8 @@ export const notificationService = {
         item => new Date(item.createdAt) >= sevenDaysAgo
       );
 
+      const autoReadIds = new Set<string>();
+
       if (!isInitialLoad) {
         const newUnread = fresh.filter(item => {
           const isKnown = notifications.some(existing => existing.id === item.id);
@@ -57,8 +59,14 @@ export const notificationService = {
         for (const n of newUnread) {
           let suppressed = false;
           if (this.currentView) {
-            if (this.currentView.type === 'channel' && n.meta?.channelId === this.currentView.id) suppressed = true;
-            if (this.currentView.type === 'dm' && n.meta?.participantId === this.currentView.id) suppressed = true;
+            if (this.currentView.type === 'channel' && n.meta?.channelId === this.currentView.id) {
+              suppressed = true;
+              autoReadIds.add(n.id);
+            }
+            if (this.currentView.type === 'dm' && n.meta?.participantId === this.currentView.id) {
+              suppressed = true;
+              autoReadIds.add(n.id);
+            }
           }
           if (!suppressed && onNewNotificationCallback) {
             onNewNotificationCallback(n as NotificationItem);
@@ -68,8 +76,19 @@ export const notificationService = {
       }
 
       isInitialLoad = false;
-      notifications = fresh;
+      // Mark auto-read notifications as read before emitting so badge stays accurate
+      notifications = fresh.map(n => autoReadIds.has(n.id) ? { ...n, read: true } : n);
       emit();
+
+      // Write auto-read state to Firestore in background
+      if (autoReadIds.size > 0) {
+        const userId = auth.currentUser?.uid;
+        if (userId) {
+          autoReadIds.forEach(id => {
+            (sharedGetNotificationService() as any).markAsRead(userId, id).catch(() => {});
+          });
+        }
+      }
     });
   },
 

@@ -350,17 +350,15 @@ export default function NotificationsScreen() {
     }
   }, []);
 
-  const handleMarkAllRead = useCallback(async () => {
+  const handleMarkAllRead = useCallback(() => {
     if (drillGroupId && category === 'channel') {
       notificationService.markChatRead('channel', drillGroupId);
     } else if (drillGroupId && category === 'dm') {
       notificationService.markChatRead('dm', drillGroupId);
-    } else if (drillGroupId && category === 'social') {
-      drillNotifications.filter(n => !n.read).forEach(n => notificationService.markRead(n.id));
     } else {
-      await notificationService.markAllRead(category as NotificationCategory | undefined);
+      notificationService.markAllRead(category as NotificationCategory | undefined);
     }
-  }, [category, drillGroupId, drillNotifications]);
+  }, [category, drillGroupId]);
 
   const handleAcceptRequest = useCallback(async () => {
     const fromUserId = friendRequestItem?.meta?.fromUserId;
@@ -436,7 +434,7 @@ export default function NotificationsScreen() {
           <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{screenTitle}</ThemedText>
-        {!drillGroupId && unreadCount > 0 ? (
+        {unreadCount > 0 ? (
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
             <ThemedText style={[styles.markAllText, { color: colors.primary }]}>
               {t('notifications.mark_all_read') || 'Mark All Read'}
