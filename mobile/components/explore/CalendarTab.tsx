@@ -68,13 +68,34 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
 
   const { allEvents, saveEvent, deleteEvent, publishEventToChannel } = useCalendarEvents();
 
-  const userDepartment = userData?.department ?? null;
+  const userDepartment = userData?.department ? userData.department.toLowerCase() : null;
+
+  // Cycle → family map (same as useEvents)
+  const CYCLE_TO_FAMILY: Record<string, string> = {
+    smr: 'it_comms', asir: 'it_comms', dam: 'it_comms', daw: 'it_comms',
+    cooking: 'hospitality', restaurant_services: 'hospitality', kitchen_management: 'hospitality',
+    restaurant_management: 'hospitality', hotel_management: 'hospitality', tourist_guide: 'hospitality',
+    tcae: 'health', pharmacy: 'health', dietetics: 'health', hygiene: 'health', emergencies: 'health',
+    fitness: 'sports', tseas: 'energy_water', energy_efficiency: 'energy_water', water_management: 'energy_water',
+    admin_mgmt_cycle: 'admin_mgmt', finance_insurance: 'admin_mgmt', management_assistance: 'admin_mgmt',
+  };
+  const FAMILY_TO_CYCLES: Record<string, string[]> = {
+    it_comms: ['smr', 'asir', 'dam', 'daw'],
+    hospitality: ['cooking', 'restaurant_services', 'kitchen_management', 'restaurant_management', 'hotel_management', 'tourist_guide'],
+    health: ['tcae', 'pharmacy', 'dietetics', 'hygiene', 'emergencies'],
+    sports: ['fitness', 'tseas'], admin_mgmt: ['admin_mgmt_cycle', 'finance_insurance', 'management_assistance'],
+    energy_water: ['energy_efficiency', 'water_management', 'tseas'],
+  };
 
   const visibleEvents = useMemo(() => {
     return allEvents.filter(ev => {
-      if (!ev.departmentId) return true;
+      const evDept = ev.departmentId ? ev.departmentId.toLowerCase() : null;
+      if (!evDept) return true;
       if (!userDepartment) return true;
-      return ev.departmentId === userDepartment;
+      if (evDept === userDepartment) return true;
+      if (CYCLE_TO_FAMILY[userDepartment] === evDept) return true;
+      if (FAMILY_TO_CYCLES[userDepartment]?.includes(evDept)) return true;
+      return false;
     });
   }, [allEvents, userDepartment]);
 
@@ -302,7 +323,7 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
                     {ev.departmentId && (
                       <View style={[styles.deptBadge, { backgroundColor: colors.backgroundSecondary }]}>
                         <Users size={10} color={colors.textSecondary} strokeWidth={2} />
-                        <ThemedText style={[styles.deptBadgeText, { color: colors.textSecondary }]}>{ev.departmentId}</ThemedText>
+                        <ThemedText style={[styles.deptBadgeText, { color: colors.textSecondary }]}>{t(`explore.groups.subjects_list.${ev.departmentId}`) || ev.departmentId}</ThemedText>
                       </View>
                     )}
                     {ev.publishedInChannel && (

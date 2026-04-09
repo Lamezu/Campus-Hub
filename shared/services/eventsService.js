@@ -56,6 +56,11 @@ export class EventsService {
 
     return this.fs.onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error('subscribeToEvents error:', error);
+      }
+      callback([]);
     });
   }
 
