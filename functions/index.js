@@ -461,10 +461,38 @@ exports.onPostDeleted = onDocumentDeleted(
     const data = event.data.data();
     const apiKey = CLOUDINARY_API_KEY.value();
     const apiSecret = CLOUDINARY_API_SECRET.value();
-    await Promise.all([
+
+    const ops = [
       data?.mediaUrl && deleteCloudinaryAsset(data.mediaUrl, data.mediaType === 'video' ? 'video' : 'image', apiKey, apiSecret),
       data?.imageUrl && deleteCloudinaryAsset(data.imageUrl, 'image', apiKey, apiSecret),
-    ].filter(Boolean));
+    ].filter(Boolean);
+
+    // When an announcement with a linked event is deleted → delete the event too
+    if (data?.postType === 'announcement' && data?.linkedEventId) {
+      ops.push(
+        db.collection('events').doc(data.linkedEventId).delete().catch(() => {})
+      );
+    }
+
+    // When a social post is deleted, clear publishedInChannel on the linked event
+    // and clear socialId on the linked announcement — restoring the publish button
+    if (data?.postType !== 'announcement' && data?.linkedEventId) {
+      ops.push(
+        db.collection('events').doc(data.linkedEventId).update({
+          publishedInChannel: false,
+          socialId: FieldValue.delete(),
+        }).catch(() => {})
+      );
+    }
+    if (data?.originalAnnouncementId) {
+      ops.push(
+        db.collection('posts').doc(data.originalAnnouncementId).update({
+          socialId: FieldValue.delete(),
+        }).catch(() => {})
+      );
+    }
+
+    await Promise.all(ops);
     return null;
   }
 );
@@ -578,3 +606,34 @@ exports.getCustomToken = onRequest({ cors: true }, async (req, res) => {
     res.status(500).json({ error: 'Custom token creation failed' });
   }
 });
+
+// Auto-join all users to public channels when their profile is created
+const PUBLIC_CHANNEL_IDS = ['1', '2', '3', '4'];
+
+exports.onUserCreated = onDocumentCreated(
+  'users/{userId}',
+  async (event) => {
+    const userId = event.params.userId;
+    try {
+      const batch = db.batch();
+      for (const channelId of PUBLIC_CHANNEL_IDS) {
+        // Add to members subcollection
+        const memberRef = db.collection('channels').doc(channelId).collection('members').doc(userId);
+        batch.set(memberRef, {
+          userId,
+          role: 'member',
+          joinedAt: FieldValue.serverTimestamp(),
+          notifications: true,
+        }, { merge: true });
+        // Add to memberIds array on the channel document
+        const channelRef = db.collection('channels').doc(channelId);
+        batch.update(channelRef, { memberIds: FieldValue.arrayUnion(userId) });
+      }
+      await batch.commit();
+      console.log(`[onUserCreated] Auto-joined ${userId} to public channels`);
+    } catch (error) {
+      console.error('[onUserCreated] Error auto-joining user:', error);
+    }
+    return null;
+  }
+);
