@@ -30,20 +30,31 @@ import Friends from './pages/main/Friends';
 import SavedItems from './pages/main/SavedItems';
 import AdminUsers from './pages/admin/AdminUsers';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
+import GroupCallScreen, { IncomingGroupCallModal } from './components/call/GroupCallScreen';
 
 function GlobalCallOverlay() {
   const location = useLocation();
-  const { incomingCall, activeCall, setActiveCall, setActiveCallId, acceptIncoming, rejectIncoming } = useCall();
+  const {
+    incomingCall, activeCall, setActiveCall, setActiveCallId, acceptIncoming, rejectIncoming,
+    incomingGroupCall, activeGroupCall, setActiveGroupCall, setActiveGroupCallId, dismissGroupIncoming, joinGroupIncoming
+  } = useCall();
 
   if (location.pathname === '/login' || location.pathname === '/register') return null;
 
   return (
     <>
-      {incomingCall && !activeCall && (
+      {incomingCall && !activeCall && !activeGroupCall && (
         <IncomingCallModal
           call={incomingCall}
           onAccept={acceptIncoming}
           onReject={rejectIncoming}
+        />
+      )}
+      {incomingGroupCall && !activeCall && !activeGroupCall && !incomingCall && (
+        <IncomingGroupCallModal
+          call={incomingGroupCall}
+          onJoin={joinGroupIncoming}
+          onDismiss={dismissGroupIncoming}
         />
       )}
       {activeCall && (
@@ -56,6 +67,22 @@ function GlobalCallOverlay() {
           onClose={() => {
             setActiveCall(null);
             setActiveCallId(null);
+          }}
+        />
+      )}
+      {activeGroupCall && (
+        <GroupCallScreen
+          callId={activeGroupCall.callId}
+          isInitiator={activeGroupCall.isInitiator}
+          callType={activeGroupCall.type}
+          groupName={activeGroupCall.groupName}
+          groupPhoto={activeGroupCall.groupPhoto}
+          myUid={activeGroupCall.myUid}
+          myName={activeGroupCall.myName}
+          myPhoto={activeGroupCall.myPhoto}
+          onClose={() => {
+            setActiveGroupCall(null);
+            setActiveGroupCallId(null);
           }}
         />
       )}

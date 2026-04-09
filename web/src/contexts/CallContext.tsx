@@ -9,6 +9,10 @@ import {
   type Call,
   type CallType
 } from '../services/firebase/callService';
+import {
+  subscribeToIncomingGroupCalls,
+  type GroupCall
+} from '../services/firebase/groupCallService';
 import { playCallTone, stopCallTone } from '../utils/toneGenerator';
 
 export interface ActiveCall {
@@ -17,6 +21,17 @@ export interface ActiveCall {
   type: CallType;
   otherUserName: string;
   otherUserPhoto: string | null;
+}
+
+export interface ActiveGroupCall {
+  callId: string;
+  isInitiator: boolean;
+  type: CallType;
+  groupName: string;
+  groupPhoto: string | null;
+  myUid: string;
+  myName: string;
+  myPhoto: string | null;
 }
 
 interface CallContextValue {
@@ -28,6 +43,13 @@ interface CallContextValue {
   dismissIncoming: () => void;
   acceptIncoming: () => void;
   rejectIncoming: () => void;
+  incomingGroupCall: GroupCall | null;
+  activeGroupCall: ActiveGroupCall | null;
+  setActiveGroupCall: (call: ActiveGroupCall | null) => void;
+  activeGroupCallId: string | null;
+  setActiveGroupCallId: (id: string | null) => void;
+  dismissGroupIncoming: () => void;
+  joinGroupIncoming: () => void;
 }
 
 const CallContext = createContext<CallContextValue>({
@@ -38,7 +60,14 @@ const CallContext = createContext<CallContextValue>({
   setActiveCallId: () => {},
   dismissIncoming: () => {},
   acceptIncoming: () => {},
-  rejectIncoming: () => {}
+  rejectIncoming: () => {},
+  incomingGroupCall: null,
+  activeGroupCall: null,
+  setActiveGroupCall: () => {},
+  activeGroupCallId: null,
+  setActiveGroupCallId: () => {},
+  dismissGroupIncoming: () => {},
+  joinGroupIncoming: () => {}
 });
 
 export function useCall() {
@@ -50,10 +79,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [incomingCall, setIncomingCall] = useState<Call | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [incomingGroupCall, setIncomingGroupCall] = useState<GroupCall | null>(null);
+  const [activeGroupCall, setActiveGroupCall] = useState<ActiveGroupCall | null>(null);
+  const [activeGroupCallId, setActiveGroupCallId] = useState<string | null>(null);
+
   const callToneRef = useRef<string>('Trompeta');
   const callToneUrlRef = useRef<string | null>(null);
+  const userNameRef = useRef<string>('Usuario');
+  const userPhotoRef = useRef<string | null>(null);
   const customAudioRef = useRef<HTMLAudioElement | null>(null);
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => setUserId(user?.uid ?? null));
@@ -67,6 +103,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         const data = snap.data();
         if (data.settings?.callTone) callToneRef.current = data.settings.callTone;
         callToneUrlRef.current = data.settings?.callToneUrl ?? null;
+        if (data.displayName) userNameRef.current = data.displayName;
+        if (data.photoURL !== undefined) userPhotoRef.current = data.photoURL ?? null;
       }
     });
     return unsub;
@@ -74,9 +112,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!userId) return;
-
     const unsub = subscribeToIncomingCalls(userId, (call) => {
-      if (call && !activeCallId) {
+      if (call && !activeCallId && !activeGroupCallId) {
         if (call.callerId === userId) return;
         setIncomingCall(call);
         if (customAudioRef.current) {
@@ -105,9 +142,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
       }
     });
-
     return unsub;
-  }, [userId, activeCallId]);
+  }, [userId, activeCallId, activeGroupCallId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = subscribeToIncomingGroupCalls(userId, (call) => {
+      if (call && !activeCallId && !activeGroupCallId && !incomingCall) {
+        setIncomingGroupCall(call);
+        if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
+        groupDismissTimerRef.current = setTimeout(() => {
+          setIncomingGroupCall(null);
+        }, 45000);
+      } else if (!call) {
+        setIncomingGroupCall(null);
+        if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
+      }
+    });
+    return unsub;
+  }, [userId, activeCallId, activeGroupCallId, incomingCall]);
 
   function stopRinging() {
     if (customAudioRef.current) {
@@ -142,6 +195,27 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     dismissIncoming();
   }
 
+  function dismissGroupIncoming() {
+    setIncomingGroupCall(null);
+    if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
+  }
+
+  function joinGroupIncoming() {
+    if (!incomingGroupCall || !userId) return;
+    setActiveGroupCall({
+      callId: incomingGroupCall.id,
+      isInitiator: false,
+      type: incomingGroupCall.type,
+      groupName: incomingGroupCall.groupName,
+      groupPhoto: incomingGroupCall.groupPhoto ?? null,
+      myUid: userId,
+      myName: userNameRef.current,
+      myPhoto: userPhotoRef.current
+    });
+    setActiveGroupCallId(incomingGroupCall.id);
+    dismissGroupIncoming();
+  }
+
   return (
     <CallContext.Provider value={{
       incomingCall,
@@ -151,7 +225,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setActiveCallId,
       dismissIncoming,
       acceptIncoming,
-      rejectIncoming
+      rejectIncoming,
+      incomingGroupCall,
+      activeGroupCall,
+      setActiveGroupCall,
+      activeGroupCallId,
+      setActiveGroupCallId,
+      dismissGroupIncoming,
+      joinGroupIncoming
     }}>
       {children}
     </CallContext.Provider>

@@ -7,8 +7,10 @@ import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { PollModal } from '../../components/chat/PollModal';
 import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
-import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Plus, Image, FileText, BarChart3, Users, LogOut, UserPlus, UserRound } from 'lucide-react';
+import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Plus, Image, FileText, BarChart3, Users, LogOut, UserPlus, UserRound, Phone, Video } from 'lucide-react';
 import type { PollData } from '../../types';
+import { useCall } from '../../contexts/CallContext';
+import { createGroupCall, type CallType } from '../../services/firebase/groupCallService';
 import {
   subscribeToGroupMessages,
   subscribeToGroupInfo,
@@ -226,6 +228,8 @@ export default function GroupChat() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [forwardMessage, setForwardMessage] = useState<any>(null);
 
+  const { setActiveGroupCall, setActiveGroupCallId } = useCall();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -348,6 +352,38 @@ export default function GroupChat() {
     }
   };
 
+  const handleStartGroupCall = async (type: CallType) => {
+    if (!currentUser || !group) return;
+    const participantData: Record<string, { name: string; photo: string | null }> = {};
+    for (const uid of group.members) {
+      participantData[uid] = { name: group.memberNames[uid] || 'Usuario', photo: group.memberPhotos[uid] || null };
+    }
+    try {
+      const callId = await createGroupCall(
+        group.id,
+        group.name,
+        group.photoURL,
+        currentUser.uid,
+        userData?.displayName || currentUser.displayName || 'Usuario',
+        userData?.photoURL || currentUser.photoURL || null,
+        type,
+        group.members,
+        participantData
+      );
+      setActiveGroupCall({
+        callId,
+        isInitiator: true,
+        type,
+        groupName: group.name,
+        groupPhoto: group.photoURL,
+        myUid: currentUser.uid,
+        myName: userData?.displayName || currentUser.displayName || 'Usuario',
+        myPhoto: userData?.photoURL || currentUser.photoURL || null,
+      });
+      setActiveGroupCallId(callId);
+    } catch {}
+  };
+
   const handleLeave = async () => {
     if (!groupId || !currentUser) return;
     if (!window.confirm('¿Salir del grupo?')) return;
@@ -433,6 +469,22 @@ export default function GroupChat() {
           </div>
         </div>
 
+        <button
+          onClick={() => handleStartGroupCall('audio')}
+          className="chat-back-button"
+          style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}
+          title="Llamada de voz"
+        >
+          <Phone size={20} />
+        </button>
+        <button
+          onClick={() => handleStartGroupCall('video')}
+          className="chat-back-button"
+          style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}
+          title="Videollamada"
+        >
+          <Video size={20} />
+        </button>
         <button className="chat-back-button" onClick={() => setShowInfoPanel(v => !v)} style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}>
           <Users size={20} color={showInfoPanel ? colors.primary : undefined} />
         </button>
