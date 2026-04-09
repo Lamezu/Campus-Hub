@@ -143,6 +143,7 @@ export const AnnouncementCard = React.memo(({
   return prev.highlighted === next.highlighted &&
     prev.post.id === next.post.id &&
     prev.post.pinned === next.post.pinned &&
+    prev.post.socialId === next.post.socialId &&
     prev.post.title === next.post.title &&
     prev.post.content === next.post.content &&
     prev.post.imageUrl === next.post.imageUrl;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { eventsService, authService } from '../../services/shared';
+import { eventsService, authService, forumService } from '../../services/shared';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { auth } from '../../config/firebase';
 import { useCurrentUser } from '../../contexts/UserContext';
 import { notificationService } from '../../services/notificationService';
@@ -146,45 +146,71 @@ export function useCalendarEvents() {
     if (!currentUser) return;
     return new Promise<void>((resolve) => {
       Alert.alert(
-        t('explore.calendar.publish_title') || 'Publicar en Canal',
-        t('explore.calendar.publish_subtitle') || '¿Quieres anunciar este evento en el canal institucional?',
+        t('explore.calendar.publish_title') || 'Publicar en Explore',
+        t('explore.calendar.publish_subtitle') || '¿Quieres publicar este evento en el feed social?',
         [
           { text: t('common.cancel') || 'Cancelar', style: 'cancel', onPress: () => resolve() },
           {
             text: t('explore.calendar.publish_button') || 'Publicar',
             onPress: async () => {
               try {
-                const { db } = await import('../../config/firebase');
-                const { collection, addDoc, serverTimestamp, doc, updateDoc } = await import('firebase/firestore');
-
-                const msgText = t('explore.calendar.notify_template', {
-                  title: event.title,
-                  description: event.description || t('explore.calendar.no_desc'),
-                  date: new Date(event.date).toLocaleDateString(),
-                  time: event.time || t('explore.calendar.all_day')
-                });
-
-                await addDoc(collection(db, 'channels', '3', 'messages'), {
-                  text: msgText,
-                  senderId: currentUser.uid,
-                  senderName: currentUser.displayName || (t('roles.admin') || 'Administración'),
-                  senderPhoto: currentUser.photoURL || null,
-                  createdAt: serverTimestamp(),
-                  type: 'event',
-                  metadata: {
-                    eventId: event.id,
-                    eventDate: event.date,
-                    eventType: event.type
+                // Case 1: event was created from an announcement → publish that announcement as social post
+                if (event.linkedAnnouncementId) {
+                  const announcementSnap = await getDoc(doc(db, 'posts', event.linkedAnnouncementId));
+                  if (announcementSnap.exists()) {
+                    const ann = announcementSnap.data();
+                    // If already published as social post, just mark event
+                    let socialId = ann.socialId ?? null;
+                    if (!socialId) {
+                      socialId = await (forumService as any).createPost({
+                        title: ann.title,
+                        content: ann.content,
+                        authorName: ann.authorName,
+                        authorPhoto: ann.authorPhoto ?? null,
+                        postType: 'post',
+                        likes: [],
+                        tags: ['anuncio'],
+                        mediaUrl: ann.imageUrl ?? null,
+                        mediaType: ann.imageUrl ? 'image' : null,
+                        imageOffsetY: ann.imageUrl ? (ann.imageOffsetY ?? null) : null,
+                        originalAnnouncementId: event.linkedAnnouncementId,
+                        linkedEventId: event.id,
+                      }, ann.authorId ?? currentUser.uid);
+                      // Mark announcement as published (syncs the "AVISADO" badge in AnnouncementsTab)
+                      await updateDoc(doc(db, 'posts', event.linkedAnnouncementId), { socialId });
+                    }
+                    // Mark event as published
+                    await updateDoc(doc(db, 'events', event.id), { publishedInChannel: true, socialId });
                   }
-                });
+                } else {
+                  // Case 2: standalone event → create a new social post from event data
+                  const dateStr = new Date(event.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                  const timeStr = event.time ? ` · ${event.time}` : '';
+                  const content = [
+                    dateStr + timeStr,
+                    event.description || '',
+                  ].filter(Boolean).join('\n\n');
 
-                await updateDoc(doc(db, 'events', event.id), {
-                  publishedInChannel: true
-                });
+                  const socialId = await (forumService as any).createPost({
+                    title: event.title,
+                    content,
+                    authorName: currentUser.displayName || (t('roles.admin') || 'Administración'),
+                    authorPhoto: currentUser.photoURL ?? null,
+                    postType: 'post',
+                    likes: [],
+                    tags: ['evento'],
+                    mediaUrl: null,
+                    mediaType: null,
+                    linkedEventId: event.id,
+                  }, currentUser.uid);
+
+                  await updateDoc(doc(db, 'events', event.id), { publishedInChannel: true, socialId });
+                }
 
                 resolve();
               } catch (error) {
-                console.error('Error publishing event:', error);
+                console.error('Error publishing event to social:', error);
+                Alert.alert(t('common.error') || 'Error', 'No se pudo publicar.');
                 resolve();
               }
             }

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
-import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark, Share2 } from 'lucide-react-native';
+import { Heart, MessageCircle, Music2, Video, ChartNoAxesColumn, Bookmark, Share2, CalendarDays } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { avatarColor } from '@/utils/avatarColor';
 import { ThemedText } from './themed-text';
 import { FloatingHeart } from './FloatingHeart';
@@ -143,6 +144,19 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
         )}
       </View>
 
+      {!!post.linkedEventId && (
+        <TouchableOpacity
+          style={[styles.eventChip, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+          onPress={() => router.push('/events' as never)}
+          hitSlop={{ top: 4, bottom: 4 }}
+        >
+          <CalendarDays size={13} color={colors.primary} strokeWidth={2} />
+          <ThemedText style={[styles.eventChipText, { color: colors.primary }]}>
+            {t('events.view_in_events') || 'Ver en Eventos'}
+          </ThemedText>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.footer}>
         <View style={styles.stat}>
           <Heart
@@ -202,7 +216,8 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
     prev.post.viewsCount === next.post.viewsCount &&
     prev.post.likes?.length === next.post.likes?.length &&
     prev.post.savedBy?.length === next.post.savedBy?.length &&
-    prev.post.sharesCount === next.post.sharesCount;
+    prev.post.sharesCount === next.post.sharesCount &&
+    prev.post.linkedEventId === next.post.linkedEventId;
 });
 
 const styles = StyleSheet.create({
@@ -236,4 +251,6 @@ const styles = StyleSheet.create({
   thumbnail: { width: 80, height: 80, borderRadius: 10, flexShrink: 0 },
   videoThumb: { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   videoOverlay: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  eventChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, marginBottom: spacing.xs },
+  eventChipText: { fontSize: 12, fontWeight: '600' },
 });
