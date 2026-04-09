@@ -155,12 +155,17 @@ export default function HomeScreen() {
         const isDefault = CHANNELS.find(c => c.id === ch.id);
         if (isDefault && (!ch.memberIds || !ch.memberIds.includes(user.uid))) {
           try {
-            await setDoc(doc(db, 'channels', ch.id, 'members', user.uid), {
-              userId: user.uid,
-              role: 'member',
-              joinedAt: serverTimestamp(),
-              notifications: true
-            }, { merge: true });
+            await Promise.all([
+              setDoc(doc(db, 'channels', ch.id, 'members', user.uid), {
+                userId: user.uid,
+                role: 'member',
+                joinedAt: serverTimestamp(),
+                notifications: true
+              }, { merge: true }),
+              setDoc(doc(db, 'channels', ch.id), {
+                memberIds: arrayUnion(user.uid),
+              }, { merge: true }),
+            ]);
           } catch (e: any) {
             if (e.code !== 'permission-denied') {
               console.error(`[AutoJoin] Failed for channel ${ch.name}:`, e.message);
