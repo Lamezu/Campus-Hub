@@ -69,9 +69,15 @@
         "empty_body": "No hay eventos próximos para ti",
         "department_only": "Tu departamento",
         "view_in_calendar": "Ver en calendario",
-        "going": "van",
+        "view_in_events": "Ver en Eventos y Actividades",
+        "confirmed_zero": "0 confirmados",
+        "confirmed_one": "1 confirmado",
+        "confirmed_other": "{{count}} confirmados",
         "rsvp_going": "Voy",
-        "rsvp_not_going": "No voy"
+        "rsvp_not_going": "No voy",
+        "channel_info": "Información del canal",
+        "channel_info_hint": "Canal de eventos, exámenes y actividades del centro.",
+        "description_placeholder": "Añade una descripción del canal..."
     },
     "roles": {
         "student": "Alumno/a",

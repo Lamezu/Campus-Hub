@@ -1,14 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
-  StatusBar, ActivityIndicator, ScrollView,
+  StatusBar, ActivityIndicator, ScrollView, Modal, Image, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ChevronLeft, CalendarDays, BookOpen, Clock,
-  PartyPopper, GraduationCap, AlertCircle, Users, Check, X,
+  PartyPopper, GraduationCap, AlertCircle, Users, Check, X, Info, Camera, CalendarFold,
 } from 'lucide-react-native';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadChannelPhoto } from '@/config/cloudinary';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/EmptyState';
 import { spacing, typography } from '@/constants/styles';
@@ -16,7 +20,178 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { useEvents } from '@/hooks/useEvents';
+import { notificationService } from '@/services/notificationService';
+import { markChannelRead } from '@/services/channelReadService';
 import type { CalendarEvent, CalendarEventType } from '@/types';
+
+import { TextInput } from 'react-native';
+
+function EventsInfoModal({ onClose, colors, t, isAdmin }: {
+  onClose: () => void;
+  colors: any;
+  t: (k: string) => string;
+  isAdmin: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [name, setName] = useState('Eventos y Actividades');
+  const [description, setDescription] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'channels', '3'), snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setPhotoURL(data.photoURL ?? null);
+        setName(data.name ?? 'Eventos y Actividades');
+        const desc = data.description ?? '';
+        setDescription(desc);
+        setEditDesc(desc);
+      }
+    });
+    return unsub;
+  }, []);
+
+  const handleSaveDescription = async () => {
+    if (editDesc === description) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'channels', '3'), { description: editDesc });
+      setDescription(editDesc);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar la descripción.');
+      setEditDesc(description);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setUploading(true);
+    try {
+      const url = await uploadChannelPhoto(result.assets[0].uri, '3');
+      await updateDoc(doc(db, 'channels', '3'), { photoURL: url });
+      setPhotoURL(url);
+    } catch {
+      Alert.alert('Error', 'No se pudo subir la foto.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[infoModalStyles.screen, { backgroundColor: colors.background }]}>
+        <View style={[infoModalStyles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={onClose} hitSlop={10}>
+            <X size={22} color={colors.text} strokeWidth={2} />
+          </TouchableOpacity>
+          <ThemedText style={[infoModalStyles.headerTitle, { color: colors.text }]}>
+            {t('events.channel_info') || 'Información del canal'}
+          </ThemedText>
+          <View style={{ width: 22 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={infoModalStyles.content}>
+          <View style={infoModalStyles.photoWrap}>
+            {photoURL ? (
+              <Image source={{ uri: photoURL }} style={infoModalStyles.photo} />
+            ) : (
+              <View style={[infoModalStyles.photoPlaceholder, { backgroundColor: colors.primary + '22' }]}>
+                <CalendarFold size={48} color={colors.primary} strokeWidth={1.5} />
+              </View>
+            )}
+            {isAdmin && (
+              <TouchableOpacity
+                style={[infoModalStyles.cameraBtn, { backgroundColor: colors.primary }]}
+                onPress={handlePickPhoto}
+                disabled={uploading}
+                activeOpacity={0.8}
+              >
+                {uploading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Camera size={18} color="#fff" strokeWidth={2} />}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ThemedText style={[infoModalStyles.channelName, { color: colors.text }]}>{name}</ThemedText>
+
+          <View style={[infoModalStyles.descCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <ThemedText style={[infoModalStyles.descLabel, { color: colors.textSecondary }]}>
+              {t('support.channel_description') || 'Descripción'}
+            </ThemedText>
+            {isAdmin ? (
+              <>
+                <TextInput
+                  style={[infoModalStyles.descInput, { color: colors.text, borderColor: colors.border }]}
+                  value={editDesc}
+                  onChangeText={setEditDesc}
+                  multiline
+                  placeholder={t('events.description_placeholder') || 'Añade una descripción del canal...'}
+                  placeholderTextColor={colors.textSecondary}
+                  onBlur={handleSaveDescription}
+                />
+                {editDesc !== description && (
+                  <TouchableOpacity
+                    style={[infoModalStyles.saveBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleSaveDescription}
+                    disabled={saving}
+                    activeOpacity={0.8}
+                  >
+                    <ThemedText style={infoModalStyles.saveBtnText}>
+                      {saving ? (t('common.loading') || 'Guardando...') : (t('common.update') || 'Guardar')}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <ThemedText style={[infoModalStyles.descText, { color: colors.text }]}>
+                {description || (t('events.channel_info_hint') || 'Canal de eventos y actividades del centro.')}
+              </ThemedText>
+            )}
+          </View>
+
+          <View style={[infoModalStyles.infoRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <CalendarDays size={16} color={colors.textSecondary} strokeWidth={1.8} />
+            <ThemedText style={[infoModalStyles.infoText, { color: colors.textSecondary }]}>
+              {t('events.channel_info_hint') || 'Aquí encontrarás todos los eventos, exámenes y actividades del centro.'}
+            </ThemedText>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const infoModalStyles = StyleSheet.create({
+  screen: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
+  content: { alignItems: 'center', padding: 24, gap: 16 },
+  photoWrap: { position: 'relative', marginBottom: 4 },
+  photo: { width: 100, height: 100, borderRadius: 50 },
+  photoPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
+  cameraBtn: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  channelName: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  descCard: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth, gap: 4 },
+  descLabel: { fontSize: 12, fontWeight: '600' },
+  descText: { fontSize: 14, lineHeight: 20 },
+  descInput: { fontSize: 14, lineHeight: 20, borderWidth: 1, borderRadius: 8, padding: 8, minHeight: 70, textAlignVertical: 'top' },
+  saveBtn: { borderRadius: 10, paddingVertical: 8, alignItems: 'center', marginTop: 6 },
+  saveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  infoRow: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  infoText: { fontSize: 13, lineHeight: 20, flex: 1 },
+});
 
 const EVENT_CONFIG: Record<CalendarEventType, { color: string; labelKey: string }> = {
   exam: { color: '#FF3B30', labelKey: 'explore.calendar.event_types.exam' },
@@ -34,11 +209,12 @@ function EventIcon({ type, size = 16, color }: { type: CalendarEventType; size?:
   return <AlertCircle size={size} color={color} strokeWidth={2} />;
 }
 
-function formatEventDate(isoDate: string, time: string | null | undefined, allDay: boolean, t: any): string {
+function formatEventDate(isoDate: string, time: string | null | undefined, allDay: boolean): string {
   const d = new Date(isoDate);
-  const dateStr = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-  if (allDay || !time) return dateStr;
-  return `${dateStr} · ${time}`;
+  const dateStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const capitalized = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  if (allDay || !time) return capitalized;
+  return `${capitalized} · ${time}`;
 }
 
 export default function EventsScreen() {
@@ -47,7 +223,18 @@ export default function EventsScreen() {
   const { userData } = useCurrentUser();
   const [activeFilter, setActiveFilter] = useState<CalendarEventType | 'all'>('all');
 
-  const { events, rsvpMap, rsvp, loading } = useEvents(userData?.department ?? null);
+  const { events, rsvpMap, rsvp, loading } = useEvents(userData?.department ? userData.department.toLowerCase() : null);
+  const [showInfo, setShowInfo] = useState(false);
+
+  const { firebaseUser, isAdmin } = useCurrentUser();
+
+  useFocusEffect(useCallback(() => {
+    notificationService.markAllRead('campus');
+    notificationService.markChatRead('channel', '3');
+    if (firebaseUser?.uid) {
+      markChannelRead('3', firebaseUser.uid).catch(() => {});
+    }
+  }, [firebaseUser?.uid]));
 
   const FILTERS: Array<{ id: CalendarEventType | 'all'; labelKey: string }> = [
     { id: 'all', labelKey: 'common.all' },
@@ -95,7 +282,7 @@ export default function EventsScreen() {
           </ThemedText>
 
           <ThemedText style={[styles.cardDate, { color: colors.textSecondary }]}>
-            {formatEventDate(item.date, item.time, item.allDay, t)}
+            {formatEventDate(item.date, item.time, item.allDay)}
           </ThemedText>
 
           {!!item.description && (
@@ -103,6 +290,55 @@ export default function EventsScreen() {
               {item.description}
             </ThemedText>
           )}
+
+          {(() => {
+            const count = (item as any).attendeesCount ?? 0;
+            const iGo = myRsvp === 'going';
+            const countLabel = count === 0
+              ? (t('events.confirmed_zero') || '0 confirmados')
+              : count === 1
+                ? (t('events.confirmed_one') || '1 confirmado')
+                : (t('events.confirmed_other') || `${count} confirmados`).replace('{{count}}', String(count));
+            return (
+              <View style={styles.rsvpSection}>
+                <View style={styles.rsvpButtons}>
+                  {!isPast && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.rsvpBtn, { borderColor: '#34C759' }, iGo && { backgroundColor: '#34C759' }]}
+                        onPress={() => rsvp(item.id, 'going')}
+                        activeOpacity={0.7}
+                      >
+                        <Check size={14} color={iGo ? '#fff' : '#34C759'} strokeWidth={2.5} />
+                        <ThemedText style={[styles.rsvpBtnText, { color: iGo ? '#fff' : '#34C759' }]}>
+                          {t('events.rsvp_going') || 'Voy'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.rsvpBtn, { borderColor: '#FF3B30' }, myRsvp === 'not_going' && { backgroundColor: '#FF3B30' }]}
+                        onPress={() => rsvp(item.id, 'not_going')}
+                        activeOpacity={0.7}
+                      >
+                        <X size={14} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
+                        <ThemedText style={[styles.rsvpBtnText, { color: myRsvp === 'not_going' ? '#fff' : '#FF3B30' }]}>
+                          {t('events.rsvp_not_going') || 'No voy'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  <View style={[styles.attendeesBadge, {
+                    backgroundColor: iGo ? '#34C75918' : colors.backgroundSecondary,
+                    borderColor: iGo ? '#34C75950' : colors.border,
+                  }]}>
+                    <Users size={12} color={iGo ? '#34C759' : colors.textSecondary} strokeWidth={2} />
+                    <ThemedText style={[styles.attendeesBadgeText, { color: iGo ? '#34C759' : colors.textSecondary }]}>
+                      {countLabel}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            );
+          })()}
 
           <View style={styles.cardFooter}>
             <TouchableOpacity
@@ -115,47 +351,9 @@ export default function EventsScreen() {
             >
               <CalendarDays size={14} color={colors.primary} strokeWidth={2} />
               <ThemedText style={[styles.calendarLinkText, { color: colors.primary }]}>
-                {t('events.view_in_calendar') || 'View In Calendar'}
+                {t('events.view_in_calendar') || 'Ver en calendario'}
               </ThemedText>
             </TouchableOpacity>
-
-            {!isPast && (
-              <View style={styles.rsvpRow}>
-                {(item as any).attendeesCount > 0 && (
-                  <ThemedText style={[styles.attendeesText, { color: colors.textSecondary }]}>
-                    {(item as any).attendeesCount} {t('events.going') || 'van'}
-                  </ThemedText>
-                )}
-                <TouchableOpacity
-                  style={[
-                    styles.rsvpBtn,
-                    { borderColor: '#34C759' },
-                    myRsvp === 'going' && { backgroundColor: '#34C759' },
-                  ]}
-                  onPress={() => rsvp(item.id, 'going')}
-                  activeOpacity={0.7}
-                >
-                  <Check size={14} color={myRsvp === 'going' ? '#fff' : '#34C759'} strokeWidth={2.5} />
-                  <ThemedText style={[styles.rsvpBtnText, { color: myRsvp === 'going' ? '#fff' : '#34C759' }]}>
-                    {t('events.rsvp_going') || 'Rsvp Going'}
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.rsvpBtn,
-                    { borderColor: '#FF3B30' },
-                    myRsvp === 'not_going' && { backgroundColor: '#FF3B30' },
-                  ]}
-                  onPress={() => rsvp(item.id, 'not_going')}
-                  activeOpacity={0.7}
-                >
-                  <X size={14} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
-                  <ThemedText style={[styles.rsvpBtnText, { color: myRsvp === 'not_going' ? '#fff' : '#FF3B30' }]}>
-                    {t('events.rsvp_not_going') || 'Rsvp Not Going'}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </View>
       </View>
@@ -173,7 +371,9 @@ export default function EventsScreen() {
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           {t('events.title') || 'Title'}
         </ThemedText>
-        <View style={styles.headerRight} />
+        <TouchableOpacity onPress={() => setShowInfo(true)} style={styles.headerRight} activeOpacity={0.7}>
+          <Info size={22} color={colors.text} strokeWidth={1.8} />
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.filterBar, { borderBottomColor: colors.border }]}>
@@ -224,6 +424,15 @@ export default function EventsScreen() {
           }
         />
       )}
+
+      {showInfo && (
+        <EventsInfoModal
+          onClose={() => setShowInfo(false)}
+          colors={colors}
+          t={t}
+          isAdmin={isAdmin}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -237,7 +446,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4, width: 36 },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: typography.sizes.md, lineHeight: 22, fontWeight: '700' },
-  headerRight: { width: 36 },
+  headerRight: { width: 36, alignItems: 'flex-end', justifyContent: 'center' },
   filterBar: { borderBottomWidth: StyleSheet.hairlineWidth },
   filterBarContent: { paddingHorizontal: spacing.md, paddingVertical: 10, gap: spacing.xs + 2, alignItems: 'center' },
   filterPill: {
@@ -273,7 +482,15 @@ const styles = StyleSheet.create({
   calendarLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   calendarLinkText: { fontSize: typography.sizes.xs, lineHeight: 16, fontWeight: '500' },
   rsvpRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  rsvpSection: { marginTop: spacing.xs },
+  rsvpButtons: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs },
   attendeesText: { fontSize: typography.sizes.xs, lineHeight: 16 },
+  attendeesBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1,
+  },
+  attendeesBadgeText: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
   rsvpBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: spacing.sm, paddingVertical: 5,
