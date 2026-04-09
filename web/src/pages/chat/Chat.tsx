@@ -738,6 +738,7 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
               key={message.id}
               message={message}
               isOwnMessage={message.senderId === currentUser?.uid}
+              isAdmin={userData?.role === 'admin'}
               chatId={id}
               isConversation={false}
               isSaved={savedIds.has(message.id)}

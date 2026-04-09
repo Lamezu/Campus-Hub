@@ -14,6 +14,7 @@ import { getOrCreateConversation } from '../../services/firebase/directMessageSe
 interface MessageBubbleProps {
   message: Message;
   isOwnMessage: boolean;
+  isAdmin?: boolean;
   chatId?: string;
   isConversation?: boolean;
   chatCollection?: 'conversations' | 'channels' | 'groupConversations';
@@ -52,6 +53,7 @@ function getLuminance(hex: string): number {
 export default function MessageBubble({
   message,
   isOwnMessage,
+  isAdmin = false,
   chatId,
   isConversation = false,
   chatCollection,
@@ -97,7 +99,7 @@ export default function MessageBubble({
     try {
       const convId = await getOrCreateConversation(currentUid, userId);
       navigate('/messages/' + convId);
-    } catch {}
+    } catch { }
   };
   const poll = (message.poll && typeof message.poll === 'object' && !Array.isArray(message.poll) && typeof message.poll.question === 'string' && Array.isArray(message.poll.options))
     ? message.poll
@@ -420,12 +422,12 @@ export default function MessageBubble({
       {message.senderPhoto
         ? <img src={message.senderPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{
-            width: '100%', height: '100%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '13px', fontWeight: '600', color: colors.textSecondary,
-          }}>
-            {message.senderName?.[0]?.toUpperCase() || '?'}
-          </div>
+          width: '100%', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '13px', fontWeight: '600', color: colors.textSecondary,
+        }}>
+          {message.senderName?.[0]?.toUpperCase() || '?'}
+        </div>
       }
     </div>
   );
@@ -471,11 +473,11 @@ export default function MessageBubble({
       )}
 
       <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column' as const, alignItems: isOwnMessage ? 'flex-end' : 'flex-start' }}>
-      {!isOwnMessage && (
-        <div style={senderNameStyle}>
-          {message.senderName}
-        </div>
-      )}
+        {!isOwnMessage && (
+          <div style={senderNameStyle}>
+            {message.senderName}
+          </div>
+        )}
         {message.isForwarded && (
           <div style={forwardedStyle}>
             <Forward size={12} />
@@ -751,15 +753,17 @@ export default function MessageBubble({
             <span>Reenviar</span>
           </div>
 
-          <div
-            style={{ ...menuItemStyle, color: colors.danger }}
-            onClick={handleDeleteClick}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Trash2 size={16} color={colors.danger} />
-            <span>{isOwnMessage ? 'Eliminar' : 'Eliminar para mí'}</span>
-          </div>
+          {(isOwnMessage || isAdmin) && (
+            <div
+              style={{ ...menuItemStyle, color: colors.danger }}
+              onClick={handleDeleteClick}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Trash2 size={16} color={colors.danger} />
+              <span>{isOwnMessage ? 'Eliminar' : 'Eliminar'}</span>
+            </div>
+          )}
         </div>,
         document.body
       )}
@@ -801,7 +805,7 @@ export default function MessageBubble({
                 Eliminar para mí
               </button>
 
-              {isOwnMessage && (
+              {(isOwnMessage || isAdmin) && (
                 <button
                   onClick={() => handleDeleteOption(true)}
                   style={{

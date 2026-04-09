@@ -604,6 +604,7 @@ export default function DirectChat() {
             <MessageBubble
               message={message as any}
               isOwnMessage={message.senderId === currentUser?.uid}
+              isAdmin={userData?.role === 'admin'}
               chatId={conversationId}
               isConversation={true}
               isSaved={savedIds.has(message.id)}

@@ -456,6 +456,7 @@ export default function GroupChat() {
               key={msg.id}
               message={msg as any}
               isOwnMessage={msg.senderId === currentUser?.uid}
+              isAdmin={userData?.role === 'admin'}
               chatId={groupId}
               isConversation={false}
               chatCollection="groupConversations"
