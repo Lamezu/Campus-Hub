@@ -18,6 +18,10 @@ export interface ChatSettings {
   fontSize: number;
   fontWeight: '400' | '600' | 'bold';
   fontStyle: 'normal' | 'italic';
+  notificationSound: string;
+  muteUntil?: number;
+  customBackground?: { url: string; x: number; y: number; scale: number } | null;
+  savedCustomBackgrounds?: { url: string; x: number; y: number; scale: number }[] | null;
 }
 
 export const chatSettingsDefaults: ChatSettings = {
@@ -25,6 +29,10 @@ export const chatSettingsDefaults: ChatSettings = {
   fontSize: 16,
   fontWeight: '400',
   fontStyle: 'normal',
+  notificationSound: 'default',
+  muteUntil: 0,
+  customBackground: null,
+  savedCustomBackgrounds: [],
 };
 
 export interface ThemeColors {

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Heart, MessageCircle, Music2, Video, BarChart2 } from 'lucide-react';
+import { Heart, MessageCircle, Music2, Video, BarChart2, Bookmark, ExternalLink, Share2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -10,6 +11,8 @@ interface PostCardProps {
   onPress: () => void;
   onDoubleTap?: () => void;
   currentUserId?: string;
+  onSave?: () => void;
+  onShare?: () => void;
 }
 
 function getTimeAgo(dateString: string): string {
@@ -26,8 +29,9 @@ function getTimeAgo(dateString: string): string {
   return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCardProps) {
+export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave, onShare }: PostCardProps) {
   const { colors } = useTheme();
+  const navigate = useNavigate();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
   const hasSong = !!post.song;
@@ -55,6 +59,19 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
       }, 280);
     }
     lastClickRef.current = now;
+  };
+
+  const handleGoToAnnouncement = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const targetId = post.linkedAnnouncementId || (post.postType === 'announcement' ? post.id : null);
+    if (targetId) {
+      navigate('/tabs/campus', { 
+        state: { 
+          tab: 'tablon', 
+          selectedId: targetId 
+        } 
+      });
+    }
   };
 
   return (
@@ -88,7 +105,6 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
       )}
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
         <div style={{ flex: 1 }}>
-          {/* Author row */}
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
             {post.authorPhoto ? (
               <img
@@ -124,7 +140,6 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
             </div>
           </div>
 
-          {/* Title */}
           <ThemedText
             numberOfLines={1}
             style={{ fontSize: typography.sizes.md, fontWeight: 'bold', color: colors.text, marginBottom: spacing.xs }}
@@ -132,21 +147,52 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
             {post.title}
           </ThemedText>
 
-          {/* Content */}
-          <div style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            marginBottom: spacing.sm,
-          }}>
-            <ThemedText style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: '20px' }}>
+          <div style={{ marginBottom: spacing.sm, overflow: 'hidden' }}>
+            <ThemedText 
+              numberOfLines={2}
+              style={{ 
+                fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: '20px',
+                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                wordBreak: 'break-word', whiteSpace: 'pre-wrap'
+              }}
+            >
               {post.content}
             </ThemedText>
           </div>
 
-          {/* Footer stats */}
+          {(post.linkedAnnouncementId || post.postType === 'announcement') && (
+            <button
+              onClick={handleGoToAnnouncement}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                borderRadius: 12,
+                backgroundColor: colors.primary + '15',
+                color: colors.primary,
+                border: `1px solid ${colors.primary}30`,
+                fontSize: 13,
+                fontWeight: '700',
+                cursor: 'pointer',
+                marginBottom: spacing.md,
+                transition: 'all 0.2s',
+                width: 'fit-content'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.backgroundColor = colors.primary + '25';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = colors.primary + '15';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <ExternalLink size={14} />
+              Ver Anuncio Original
+            </button>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Heart size={14} color={isLiked ? '#FF3B30' : colors.textSecondary} fill={isLiked ? '#FF3B30' : 'transparent'} strokeWidth={1.8} />
@@ -162,15 +208,45 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId }: PostCard
               <BarChart2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
               <ThemedText style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{post.viewsCount ?? 0}</ThemedText>
             </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare?.(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
+                cursor: 'pointer', padding: 0, color: colors.textSecondary, transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              <Share2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
+              {(post.sharesCount ?? 0) > 0 && (
+                <ThemedText style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                  {post.sharesCount}
+                </ThemedText>
+              )}
+            </button>
             {hasSong && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Music2 size={14} color={colors.primary} strokeWidth={1.8} />
               </div>
             )}
+            {onSave && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onSave(); }}
+                style={{ 
+                  marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', 
+                  display: 'flex', color: colors.textSecondary 
+                }}
+              >
+                <Bookmark 
+                  size={16} 
+                  color={post.savedBy?.includes(currentUserId || '') ? colors.primary : colors.textSecondary}
+                  fill={post.savedBy?.includes(currentUserId || '') ? colors.primary : 'transparent'}
+                />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Thumbnail */}
         {hasImage && (
           <img
             src={post.mediaUrl!}

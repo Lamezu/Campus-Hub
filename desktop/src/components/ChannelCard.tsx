@@ -24,75 +24,109 @@ const CHANNEL_ICONS: Record<string, LucideIcon> = {
 interface ChannelCardProps {
   channel: Channel;
   onPress: () => void;
+  accentColor?: string;
 }
 
-export function ChannelCard({ channel, onPress }: ChannelCardProps) {
+export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps) {
   const { colors } = useTheme();
   const Icon: LucideIcon = channel.icon ? (CHANNEL_ICONS[channel.icon] ?? MessagesSquare) : MessagesSquare;
+  const unreadCount = channel.unreadCount || 0;
 
   return (
     <button
+      id={`channel-card-${channel.id}`}
       onClick={onPress}
       style={{
         display: 'flex',
         flexDirection: 'row',
         padding: spacing.md,
-        borderBottom: `1px solid ${colors.border}`,
+        borderRadius: 20,
         alignItems: 'center',
-        backgroundColor: 'transparent',
-        border: 'none',
+        backgroundColor: colors.card,
+        border: `1px solid ${colors.border}`,
         cursor: 'pointer',
         width: '100%',
         textAlign: 'left',
-        transition: 'background-color 0.15s',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
-      onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
-      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = `0 12px 24px ${colors.primary}10`;
+        e.currentTarget.style.borderColor = colors.primary + '40';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+        e.currentTarget.style.borderColor = colors.border;
+      }}
     >
       <div
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.backgroundSecondary,
+          width: 56,
+          height: 56,
+          borderRadius: 18,
+          backgroundColor: (accentColor || colors.primary) + '15',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: spacing.md,
           flexShrink: 0,
+          overflow: 'hidden'
         }}
       >
-        <Icon size={22} color={colors.primary} strokeWidth={1.8} />
+        {channel.photoURL ? (
+          <img src={channel.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <Icon size={24} color={accentColor || colors.primary} strokeWidth={1.8} />
+        )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <ThemedText
-          style={{
-            fontSize: typography.sizes.md,
-            fontWeight: '600',
-            marginBottom: spacing.xs,
-            display: 'block',
-            color: colors.text,
-          }}
-        >
-          {channel.name}
-        </ThemedText>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <ThemedText style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>
+            {channel.name}
+          </ThemedText>
+          {unreadCount > 0 && (
+            <div style={{
+              backgroundColor: colors.primary,
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: 10,
+              minWidth: 20,
+              textAlign: 'center',
+            }}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </div>
+          )}
+        </div>
         <ThemedText
           numberOfLines={1}
           style={{
-            fontSize: typography.sizes.sm,
+            fontSize: 14,
             color: colors.textSecondary,
             display: 'block',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            opacity: 0.8,
           }}
         >
           {channel.description}
         </ThemedText>
       </div>
 
-      <ChevronRight size={18} color={colors.textSecondary} strokeWidth={1.8} />
+      <div style={{
+        width: 32, height: 32, borderRadius: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: colors.backgroundSecondary,
+        color: colors.textSecondary, transition: 'all 0.2s'
+      }}>
+        <ChevronRight size={18} strokeWidth={2.5} />
+      </div>
     </button>
   );
 }

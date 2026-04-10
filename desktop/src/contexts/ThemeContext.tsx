@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getColors, type AppTheme, type ThemeColors, type ChatSettings, chatSettingsDefaults } from '@/constants/styles';
+import { auth, db } from '@/config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 type ThemeContextType = {
   theme: AppTheme;
@@ -33,14 +36,48 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
     mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      // Immediate cleanup to avoid "ghost" data from previous user
+      setChatSettingsState(chatSettingsDefaults);
+
+      if (user) {
+        // Load from local for speed
+        const local = localStorage.getItem(`chatSettings_${user.uid}`);
+        if (local) {
+          try { setChatSettingsState(JSON.parse(local)); } catch (e) {}
+        }
+
+        // Setup Firestore listener for Cloud Sync using user root document
+        const userRef = doc(db, 'users', user.uid);
+        const unsubFirestore = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.chatSettings) {
+              setChatSettingsState(data.chatSettings);
+              localStorage.setItem(`chatSettings_${user.uid}`, JSON.stringify(data.chatSettings));
+            }
+          }
+        }, (error) => {
+          if (error.code !== 'permission-denied') {
+            console.error('ThemeContext: Sync error', error);
+          }
+        });
+        
+        return () => unsubFirestore();
+      }
+    });
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+      unsubAuth();
+    };
   }, []);
 
   const loadTheme = () => {
     try {
       const savedTheme = localStorage.getItem('theme');
       const savedColor = localStorage.getItem('customPrimary');
-      const savedChatSettings = localStorage.getItem('chatSettings');
 
       if (savedTheme) {
         setThemeState(savedTheme as AppTheme);
@@ -50,10 +87,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
       if (savedColor) {
         setCustomPrimaryState(savedColor);
-      }
-
-      if (savedChatSettings) {
-        setChatSettingsState(JSON.parse(savedChatSettings));
       }
     } catch (error) {
       console.error(error);
@@ -84,10 +117,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setChatSettings = async (newSettings: Partial<ChatSettings>) => {
     try {
       const updated = { ...chatSettings, ...newSettings };
-      localStorage.setItem('chatSettings', JSON.stringify(updated));
+      const uid = auth.currentUser?.uid;
+      
       setChatSettingsState(updated);
+      
+      if (uid) {
+        // Save to local
+        localStorage.setItem(`chatSettings_${uid}`, JSON.stringify(updated));
+        
+        // Save to Cloud (Root User Doc)
+        const userRef = doc(db, 'users', uid);
+        await updateDoc(userRef, { chatSettings: updated });
+      }
     } catch (error) {
-      console.error(error);
+      console.error('Error saving chat settings:', error);
     }
   };
 

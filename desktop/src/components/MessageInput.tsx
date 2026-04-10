@@ -1,23 +1,28 @@
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Send, X, Mic, Square, Trash2, Play, Pause, RefreshCcw } from 'lucide-react';
-import { spacing, typography } from '@/constants/styles';
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { Send, Plus, Mic, X, Image as ImageIcon, FileText, BarChart2, Trash2, Square, Play, Pause, Loader2, Info, Lock } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { ThemedText } from './themed-text';
-import type { ReplyPreview } from '@/types';
-import { uploadAudio } from '@/config/cloudinary';
-import { AlertModal } from './AlertModal';
+import { uploadAudio, uploadMessageMedia } from '@/config/cloudinary';
+import { spacing, typography } from '@/constants/styles';
+import { PollModal } from './PollModal';
 
 export interface MessageInputHandle {
-  startRecording: () => Promise<void>;
-  startRecordingLocked: () => Promise<void>;
+  focus: () => void;
+  clear: () => void;
 }
 
 interface MessageInputProps {
   onSend: (text: string) => void;
   onSendAudio?: (url: string, duration: number) => void;
-  replyTo?: ReplyPreview | null;
+  onSendMedia?: (url: string, type: 'image' | 'video') => void;
+  onSendPoll?: (poll: { question: string; options: string[]; multipleAnswers: boolean }) => void;
+  replyTo?: { id: string; text: string; senderName: string, isAudio?: boolean } | null;
   onCancelReply?: () => void;
   disabled?: boolean;
+  placeholder?: string;
+  isDM?: boolean;
+  isReadOnly?: boolean;
 }
 
 function formatDuration(seconds: number): string {
@@ -26,89 +31,76 @@ function formatDuration(seconds: number): string {
   return `${m}:${s}`;
 }
 
-export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(function MessageInput({
-  onSend,
-  onSendAudio,
-  replyTo,
-  onCancelReply,
-  disabled = false,
-}, ref) {
+export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
+  onSend, onSendAudio, onSendMedia, onSendPoll, replyTo, onCancelReply, disabled, placeholder = "Escribe un mensaje...", isDM, isReadOnly
+}, ref) => {
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [recordDuration, setRecordDuration] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
-
-  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title: string; message: string; type?: 'info' | 'success' | 'error' }>({
-    isOpen: false,
-    title: '',
-    message: '',
-  });
-
-  const showAlert = (title: string, message: string, type: 'info' | 'success' | 'error' = 'info') => {
-    setAlertConfig({ isOpen: true, title, message, type });
-  };
-
+  const [recordDuration, setRecordDuration] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioBlobRef = useRef<Blob | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const timerRef = useRef<any>(null);
 
   const chatTheme = colors.chat;
   const isDefault = chatTheme.id === 'default';
-
   const inputBgColor = isDefault ? colors.backgroundSecondary : `${chatTheme.bubbleOther}66`;
-  const containerBgColor = isDefault ? colors.background : chatTheme.background;
-  
-  // Decide text color based on chat theme brightness
-  // Only 'gamer' (isDark) should have white text in the input bar
-  const inputTextColor = chatTheme.isDark ? '#FFFFFF' : '#1C1C1E';
-  const placeholderColor = chatTheme.isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({
+    focus: () => textareaRef.current?.focus(),
+    clear: () => setText('')
+  }));
 
-  useEffect(() => {
-    // Attempt to focus when component mounts or reply state changes
-    if (textareaRef.current && !isRecording && !isStopped) {
-      textareaRef.current.focus();
+  const handleSend = () => {
+    if (text.trim() && !disabled) {
+      onSend(text.trim());
+      setText('');
+      setShowMenu(false);
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     }
-  }, [replyTo, isRecording, isStopped]);
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+  };
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        audioBlobRef.current = audioBlob;
-      };
-
-      mediaRecorder.start();
+      recorder.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => { audioBlobRef.current = new Blob(audioChunksRef.current, { type: 'audio/webm' }); };
+      recorder.start();
       setIsRecording(true);
+      setIsStopped(false);
       setRecordDuration(0);
-      timerRef.current = setInterval(() => {
-        setRecordDuration(prev => prev + 1);
-      }, 1000);
+      timerRef.current = setInterval(() => setRecordDuration((d: number) => d + 1), 1000);
     } catch (err) {
-      console.error('Error starting recording:', err);
-      showAlert('Micrófono', 'No se pudo acceder al micrófono.', 'error');
+      showAlert({ title: 'Error', message: 'No se pudo acceder al micrófono', type: 'error' });
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      if (mediaRecorderRef.current.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+      }
       setIsRecording(false);
       setIsStopped(true);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -117,38 +109,18 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current) {
-      if (mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
       }
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
     if (timerRef.current) clearInterval(timerRef.current);
-    if (previewAudioRef.current) {
-      previewAudioRef.current.pause();
-      previewAudioRef.current = null;
-    }
+    if (previewAudioRef.current) previewAudioRef.current.pause();
     setIsRecording(false);
     setIsStopped(false);
     setIsPlayingPreview(false);
-    setRecordDuration(0);
     audioBlobRef.current = null;
     audioChunksRef.current = [];
-  };
-
-  const handleSendAudio = async () => {
-    if (!audioBlobRef.current || !onSendAudio) return;
-    setIsUploading(true);
-    try {
-      const file = new File([audioBlobRef.current], 'audio.webm', { type: 'audio/webm' });
-      const url = await uploadAudio(file);
-      onSendAudio(url, recordDuration);
-      cancelRecording();
-    } catch (err) {
-      console.error('Error uploading audio:', err);
-      showAlert('Error', 'Error al enviar el audio.', 'error');
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const togglePreview = () => {
@@ -158,7 +130,6 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
       previewAudioRef.current = new Audio(url);
       previewAudioRef.current.onended = () => setIsPlayingPreview(false);
     }
-
     if (isPlayingPreview) {
       previewAudioRef.current.pause();
     } else {
@@ -167,164 +138,233 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
     setIsPlayingPreview(!isPlayingPreview);
   };
 
-  const handleSendText = () => {
-    if (text.trim() && !disabled) {
-      onSend(text.trim());
-      setText('');
-      onCancelReply?.();
-      // Refocus after sending
-      setTimeout(() => textareaRef.current?.focus(), 50);
+  const handleSendAudioInternal = async () => {
+    if (!audioBlobRef.current || !onSendAudio) return;
+    setUploading(true);
+    try {
+      const file = new File([audioBlobRef.current], 'audio.webm', { type: 'audio/webm' });
+      const url = await uploadAudio(file);
+      onSendAudio(url, recordDuration);
+      cancelRecording();
+    } catch (err) {
+      showAlert({ title: 'Error', message: 'Error al enviar el audio', type: 'error' });
+    } finally {
+      setUploading(false);
     }
   };
 
-  useImperativeHandle(ref, () => ({
-    startRecording: async () => {
-      await startRecording();
-    },
-    startRecordingLocked: async () => {
-      await startRecording();
-    },
-  }));
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setShowMenu(false);
+    try {
+      const url = await uploadMessageMedia(file);
+      if (onSendMedia) onSendMedia(url, type);
+    } catch (err) {
+      showAlert({ title: 'Error', message: 'Error al subir el archivo', type: 'error' });
+    } finally {
+      setUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
 
   return (
-    <div style={{
-      padding: `${spacing.sm}px ${spacing.md}px`,
-      backgroundColor: containerBgColor,
-      borderTop: isDefault ? `1px solid ${colors.border}` : 'none',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: spacing.xs,
+    <div style={{ 
+      padding: `12px ${spacing.md}px`, 
+      backgroundColor: colors.card, 
+      borderTop: `1px solid ${colors.border}`, 
+      position: 'relative',
+      zIndex: 10
     }}>
-      {/* Reply Bar */}
-      {replyTo && (
+      {isReadOnly ? (
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: spacing.sm,
-          padding: '8px 12px',
-          backgroundColor: inputBgColor,
-          borderRadius: 8,
-          borderLeft: `3px solid ${colors.primary}`,
+          justifyContent: 'center',
+          gap: 12,
+          padding: '16px',
+          backgroundColor: `${colors.backgroundSecondary}88`,
+          backdropFilter: 'blur(8px)',
+          borderRadius: 16,
+          border: `1px solid ${colors.border}`,
+          margin: '4px 0',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+          animation: 'fadeIn 0.3s ease-out'
         }}>
-          <div style={{ flex: 1 }}>
-            <ThemedText style={{ fontSize: 12, fontWeight: 'bold', color: colors.primary, display: 'block' }}>{replyTo.senderName}</ThemedText>
-            <ThemedText style={{ fontSize: 12, color: inputTextColor, opacity: 0.7, display: 'block' }}>
-              {replyTo.isAudio ? '🎤 Mensaje de voz' : replyTo.text}
-            </ThemedText>
-          </div>
-          <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: inputTextColor }}>
-            <X size={18} />
-          </button>
+          <Lock size={18} color={colors.textSecondary} />
+          <ThemedText style={{
+            fontSize: 14,
+            fontWeight: '600',
+            color: colors.textSecondary,
+            textAlign: 'center'
+          }}>
+            Solo los administradores pueden enviar mensajes en este canal
+          </ThemedText>
         </div>
+      ) : (
+        <>
+          {replyTo && (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 12, 
+              padding: '10px 14px', 
+              backgroundColor: colors.backgroundSecondary, 
+              borderRadius: 16, 
+              marginBottom: 10, 
+              borderLeft: `4px solid ${colors.primary}`,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              animation: 'slideUp 0.2s ease-out'
+            }}>
+              <div style={{ flex: 1 }}>
+                <ThemedText style={{ fontSize: 11, fontWeight: 800, color: colors.primary, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Respondiendo a {replyTo.senderName}</ThemedText>
+                <ThemedText style={{ fontSize: 13, color: colors.text, opacity: 0.8, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyTo.isAudio ? '🎤 Mensaje de voz' : replyTo.text}</ThemedText>
+              </div>
+              <button 
+                onClick={onCancelReply} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  color: colors.textSecondary,
+                  padding: 4,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: spacing.sm, minHeight: 44 }}>
+            {!isRecording && !isStopped && (
+              <button 
+                onClick={() => setShowMenu(!showMenu)} 
+                style={{ 
+                  width: 40, height: 40, borderRadius: 12, border: 'none', 
+                  backgroundColor: colors.backgroundSecondary, cursor: 'pointer', 
+                  color: colors.primary, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.primary + '15'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
+              >
+                <Plus size={22} strokeWidth={2.5} />
+              </button>
+            )}
+            
+            <div style={{ 
+              flex: 1, 
+              backgroundColor: colors.backgroundSecondary, 
+              borderRadius: 20, 
+              padding: '0 16px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              minHeight: 40,
+              border: `1px solid ${colors.border}`,
+              transition: 'border-color 0.2s'
+            }}>
+              {isRecording ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, height: 40 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', animation: 'pulse 1s infinite' }} />
+                  <ThemedText style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>{formatDuration(recordDuration)}</ThemedText>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={cancelRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FF3B30' }}><Trash2 size={20} /></button>
+                  <button onClick={stopRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary }}><Square size={18} fill={colors.primary} /></button>
+                </div>
+              ) : isStopped ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, height: 40 }}>
+                  <button onClick={togglePreview} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary }}>
+                    {isPlayingPreview ? <Pause size={20} fill={colors.primary} /> : <Play size={20} fill={colors.primary} />}
+                  </button>
+                  <ThemedText style={{ fontSize: 14, color: colors.text }}>{formatDuration(recordDuration)}</ThemedText>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={cancelRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FF3B30' }}><Trash2 size={20} /></button>
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={text}
+                  onChange={handleTextChange}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder={placeholder}
+                  disabled={disabled || uploading}
+                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: typography.sizes.md, resize: 'none', height: 'auto', maxHeight: 120, padding: '10px 0', overflowY: 'auto' }}
+                />
+              )}
+            </div>
+
+            {uploading ? (
+              <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 size={24} className="animate-spin" color={colors.primary} /></div>
+            ) : (text.trim() || isStopped) ? (
+              <button 
+                onClick={isStopped ? handleSendAudioInternal : handleSend} 
+                style={{ 
+                  width: 40, height: 40, borderRadius: 12, border: 'none', 
+                  backgroundColor: colors.primary, color: '#fff', cursor: 'pointer', 
+                  flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: `0 4px 12px ${colors.primary}40`,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <Send size={18} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button 
+                onClick={startRecording} 
+                style={{ 
+                  width: 40, height: 40, borderRadius: 12, border: 'none', 
+                  backgroundColor: colors.backgroundSecondary, color: colors.textSecondary, 
+                  cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}
+              >
+                <Mic size={22} />
+              </button>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Input Row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, minHeight: 48 }}>
-        {isRecording ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, backgroundColor: inputBgColor, borderRadius: 24, padding: '0 16px', height: 40 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FF3B30', animation: 'pulse 1s infinite' }} />
-            <ThemedText style={{ fontSize: 14, fontWeight: '600', color: inputTextColor }}>{formatDuration(recordDuration)}</ThemedText>
-            <div style={{ flex: 1 }} />
-            <button onClick={cancelRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FF3B30' }}>
-              <Trash2 size={20} />
-            </button>
-            <button onClick={stopRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary }}>
-              <Square size={18} fill={colors.primary} />
-            </button>
-          </div>
-        ) : isStopped ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, backgroundColor: inputBgColor, borderRadius: 24, padding: '0 16px', height: 40 }}>
-            <button onClick={togglePreview} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary }}>
-              {isPlayingPreview ? <Pause size={20} fill={colors.primary} /> : <Play size={20} fill={colors.primary} />}
-            </button>
-            <ThemedText style={{ fontSize: 14, color: inputTextColor }}>{formatDuration(recordDuration)}</ThemedText>
-            <div style={{ flex: 1 }} />
-            <button 
-              onClick={() => { cancelRecording(); startRecording(); }} 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: chatTheme.isDark ? 'rgba(255,255,255,0.7)' : colors.textSecondary }}
-              title="Volver a grabar"
-            >
-              <RefreshCcw size={18} />
-            </button>
-            <button onClick={cancelRecording} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FF3B30' }}>
-              <Trash2 size={20} />
-            </button>
-          </div>
-        ) : (
-          <textarea
-            ref={textareaRef}
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-            placeholder="Escribe un mensaje..."
-            style={{
-              flex: 1,
-              borderRadius: 20,
-              padding: '10px 16px',
-              backgroundColor: inputBgColor,
-              color: inputTextColor,
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
-              minHeight: 20,
-              maxHeight: 120,
-              fontSize: typography.sizes.md,
-              fontFamily: 'Inter, sans-serif',
-            }}
-          />
-        )}
+      <input type="file" ref={fileInputRef} hidden accept="image/*,video/*" onChange={e => handleFileSelect(e, 'image')} />
 
-        {isUploading ? (
-          <div style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 20, height: 20, border: `2px solid ${colors.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      {showMenu && (
+        <>
+          <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
+          <div style={{ position: 'absolute', bottom: '100%', left: spacing.md, backgroundColor: colors.card, borderRadius: 12, padding: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 2, zIndex: 999, minWidth: 180, marginBottom: 12, border: `1px solid ${colors.border}` }}>
+            <button onClick={() => fileInputRef.current?.click()} style={menuItemStyle(colors)}><ImageIcon size={18} color={colors.primary} /> Foto o Vídeo</button>
+            <button style={menuItemStyle(colors)}><FileText size={18} color={colors.primary} /> Documento</button>
+            <button onClick={() => { setShowPollModal(true); setShowMenu(false); }} style={menuItemStyle(colors)}><BarChart2 size={18} color={colors.primary} /> Encuesta</button>
           </div>
-        ) : text.trim() ? (
-          <button
-            onClick={handleSendText}
-            style={{
-              width: 44, height: 44, borderRadius: '50%', border: 'none',
-              backgroundColor: colors.primary, color: '#FFF',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'opacity 0.2s'
-            }}
-          >
-            <Send size={20} />
-          </button>
-        ) : (
-          <button
-            onClick={isStopped ? handleSendAudio : startRecording}
-            style={{
-              width: 44, height: 44, borderRadius: '50%', border: 'none',
-              backgroundColor: isRecording || isStopped ? colors.primary : inputBgColor,
-              color: isRecording || isStopped ? '#FFF' : colors.text,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            {isStopped ? <Send size={20} /> : <Mic size={22} />}
-          </button>
-        )}
-      </div>
+        </>
+      )}
+
+      <PollModal isOpen={showPollModal} onClose={() => setShowPollModal(false)} onSend={onSendPoll!} />
 
       <style>{`
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.2); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-
-      <AlertModal
-        isOpen={alertConfig.isOpen}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
-      />
     </div>
   );
+});
+
+const menuItemStyle = (colors: any) => ({
+  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 8, border: 'none', backgroundColor: 'transparent',
+  color: colors.text, fontSize: 14, cursor: 'pointer', textAlign: 'left' as const
 });

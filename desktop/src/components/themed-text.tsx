@@ -24,7 +24,7 @@ export function ThemedText({
 
   const baseStyle: React.CSSProperties = {
     color: colors.text,
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     margin: 0,
     padding: 0,
   };
