@@ -1,27 +1,28 @@
 import React, { useState } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { House, Compass, PlusCircle, MessagesSquare, UserRound, LogOut } from 'lucide-react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { House, Compass, MessagesSquare, UserRound, LogOut, GraduationCap, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import HomeScreen from './HomeScreen';
 import ExploreScreen from './ExploreScreen';
-import CreateScreen from './CreateScreen';
+import CampusScreen from './CampusScreen';
 import MessagesScreen from './MessagesScreen';
 import ProfileScreen from './ProfileScreen';
 
 const TABS = [
-  { id: 'home',     path: '/tabs/home',     label: 'Inicio',    Icon: House },
-  { id: 'explore',  path: '/tabs/explore',  label: 'Explorar',  Icon: Compass },
-  { id: 'create',   path: '/tabs/create',   label: 'Crear',     Icon: PlusCircle },
-  { id: 'messages', path: '/tabs/messages', label: 'Mensajes',  Icon: MessagesSquare },
-  { id: 'profile',  path: '/tabs/profile',  label: 'Perfil',    Icon: UserRound },
+  { id: 'home', path: '/tabs/home', label: 'Inicio', Icon: House },
+  { id: 'campus', path: '/tabs/campus', label: 'Campus', Icon: GraduationCap },
+  { id: 'explore', path: '/tabs/explore', label: 'Explorar', Icon: Compass },
+  { id: 'messages', path: '/tabs/messages', label: 'Mensajes', Icon: MessagesSquare },
+  { id: 'profile', path: '/tabs/profile', label: 'Perfil', Icon: UserRound },
 ];
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -34,25 +35,59 @@ export default function TabsLayout() {
     <div style={{ display: 'flex', height: '100vh', backgroundColor: colors.background, overflow: 'hidden' }}>
       {/* Sidebar */}
       <div style={{
-        width: 220,
-        minWidth: 220,
+        width: isCollapsed ? 70 : 220,
+        minWidth: isCollapsed ? 70 : 220,
         backgroundColor: colors.card,
         borderRight: `1px solid ${colors.border}`,
         display: 'flex',
         flexDirection: 'column',
         padding: '16px 0',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflow: 'hidden',
       }}>
-        {/* Logo */}
-        <div style={{ padding: '0 20px 20px', borderBottom: `1px solid ${colors.border}`, marginBottom: 8 }}>
-          <span style={{
-            fontSize: 22,
-            fontWeight: 'bold',
-            color: colors.primary,
-            fontFamily: 'Inter, sans-serif',
-            letterSpacing: '-0.5px',
-          }}>
-            CampusHub
-          </span>
+        {/* Logo & Toggle */}
+        <div style={{ 
+          padding: isCollapsed ? '0 0 20px' : '0 20px 20px', 
+          borderBottom: `1px solid ${colors.border}`, 
+          marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isCollapsed ? 'center' : 'space-between'
+        }}>
+          {!isCollapsed && (
+            <span style={{
+              fontSize: 22,
+              fontWeight: 'bold',
+              color: colors.primary,
+              fontFamily: 'Inter, sans-serif',
+              letterSpacing: '-0.5px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              CampusHub
+            </span>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: colors.textSecondary,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 4,
+              borderRadius: 8,
+              backgroundColor: colors.backgroundSecondary,
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+            onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}
+          >
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
         </div>
 
         {/* Nav tabs */}
@@ -63,10 +98,12 @@ export default function TabsLayout() {
               <button
                 key={id}
                 onClick={() => navigate(path)}
+                title={isCollapsed ? label : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
+                  justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  gap: isCollapsed ? 0 : 12,
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: 10,
@@ -88,7 +125,7 @@ export default function TabsLayout() {
                 }}
               >
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
-                <span>{label}</span>
+                {!isCollapsed && <span>{label}</span>}
               </button>
             );
           })}
@@ -98,8 +135,12 @@ export default function TabsLayout() {
         <div style={{ padding: '0 8px', borderTop: `1px solid ${colors.border}`, marginTop: 8, paddingTop: 8 }}>
           <button
             onClick={handleLogout}
+            title={isCollapsed ? "Cerrar sesión" : undefined}
             style={{
-              display: 'flex', alignItems: 'center', gap: 12,
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              gap: isCollapsed ? 0 : 12,
               width: '100%', padding: '10px 12px', borderRadius: 10,
               border: 'none', cursor: 'pointer',
               backgroundColor: 'transparent',
@@ -112,7 +153,7 @@ export default function TabsLayout() {
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <LogOut size={20} strokeWidth={1.8} />
-            <span>Cerrar sesión</span>
+            {!isCollapsed && <span>Cerrar sesión</span>}
           </button>
         </div>
       </div>
@@ -121,11 +162,12 @@ export default function TabsLayout() {
       <div className="scrollable" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="home" element={<HomeScreen />} />
+          <Route path="campus" element={<CampusScreen />} />
           <Route path="explore" element={<ExploreScreen />} />
-          <Route path="create" element={<CreateScreen />} />
           <Route path="messages" element={<MessagesScreen />} />
           <Route path="profile" element={<ProfileScreen />} />
-          <Route path="*" element={<HomeScreen />} />
+          <Route path="/" element={<Navigate to="home" replace />} />
+          <Route path="*" element={<Navigate to="home" replace />} />
         </Routes>
       </div>
     </div>
