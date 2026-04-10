@@ -13,6 +13,11 @@ import {
   subscribeToIncomingGroupCalls,
   type GroupCall
 } from '../services/firebase/groupCallService';
+import {
+  subscribeToIncomingConferences,
+  requestToJoinConference,
+  subscribeToGroupCall as subscribeToConference,
+} from '../services/firebase/studyGroupConferenceService';
 import { playCallTone, stopCallTone } from '../utils/toneGenerator';
 
 export interface ActiveCall {
@@ -27,6 +32,15 @@ export interface ActiveGroupCall {
   callId: string;
   isInitiator: boolean;
   type: CallType;
+  groupName: string;
+  groupPhoto: string | null;
+  myUid: string;
+  myName: string;
+  myPhoto: string | null;
+}
+
+export interface AwaitingConference {
+  callId: string;
   groupName: string;
   groupPhoto: string | null;
   myUid: string;
@@ -50,6 +64,16 @@ interface CallContextValue {
   setActiveGroupCallId: (id: string | null) => void;
   dismissGroupIncoming: () => void;
   joinGroupIncoming: () => void;
+  incomingConference: GroupCall | null;
+  activeConference: ActiveGroupCall | null;
+  setActiveConference: (call: ActiveGroupCall | null) => void;
+  activeConferenceId: string | null;
+  setActiveConferenceId: (id: string | null) => void;
+  dismissConferenceIncoming: () => void;
+  joinConferenceIncoming: () => void;
+  awaitingConference: AwaitingConference | null;
+  setAwaitingConference: (c: AwaitingConference | null) => void;
+  requestConferenceJoin: (call: GroupCall) => void;
 }
 
 const CallContext = createContext<CallContextValue>({
@@ -67,7 +91,17 @@ const CallContext = createContext<CallContextValue>({
   activeGroupCallId: null,
   setActiveGroupCallId: () => {},
   dismissGroupIncoming: () => {},
-  joinGroupIncoming: () => {}
+  joinGroupIncoming: () => {},
+  incomingConference: null,
+  activeConference: null,
+  setActiveConference: () => {},
+  activeConferenceId: null,
+  setActiveConferenceId: () => {},
+  dismissConferenceIncoming: () => {},
+  joinConferenceIncoming: () => {},
+  awaitingConference: null,
+  setAwaitingConference: () => {},
+  requestConferenceJoin: () => {},
 });
 
 export function useCall() {
@@ -82,6 +116,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [incomingGroupCall, setIncomingGroupCall] = useState<GroupCall | null>(null);
   const [activeGroupCall, setActiveGroupCall] = useState<ActiveGroupCall | null>(null);
   const [activeGroupCallId, setActiveGroupCallId] = useState<string | null>(null);
+  const [incomingConference, setIncomingConference] = useState<GroupCall | null>(null);
+  const [activeConference, setActiveConference] = useState<ActiveGroupCall | null>(null);
+  const [activeConferenceId, setActiveConferenceId] = useState<string | null>(null);
+  const [awaitingConference, setAwaitingConference] = useState<AwaitingConference | null>(null);
 
   const callToneRef = useRef<string>('Trompeta');
   const callToneUrlRef = useRef<string | null>(null);
@@ -162,6 +200,25 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [userId, activeCallId, activeGroupCallId, incomingCall]);
 
+  const conferenceDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = subscribeToIncomingConferences(userId, (call) => {
+      if (call && !activeCallId && !activeGroupCallId && !activeConferenceId && !incomingCall) {
+        setIncomingConference(call);
+        if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
+        conferenceDismissTimerRef.current = setTimeout(() => {
+          setIncomingConference(null);
+        }, 45000);
+      } else if (!call) {
+        setIncomingConference(null);
+        if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
+      }
+    });
+    return unsub;
+  }, [userId, activeCallId, activeGroupCallId, activeConferenceId, incomingCall]);
+
   function stopRinging() {
     if (customAudioRef.current) {
       customAudioRef.current.pause();
@@ -216,6 +273,57 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     dismissGroupIncoming();
   }
 
+  function dismissConferenceIncoming() {
+    setIncomingConference(null);
+    if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
+  }
+
+  function joinConferenceIncoming() {
+    if (!incomingConference || !userId) return;
+    requestConferenceJoin(incomingConference);
+    dismissConferenceIncoming();
+  }
+
+  function requestConferenceJoin(call: GroupCall) {
+    if (!userId) return;
+    setAwaitingConference({
+      callId: call.id,
+      groupName: call.groupName,
+      groupPhoto: call.groupPhoto ?? null,
+      myUid: userId,
+      myName: userNameRef.current,
+      myPhoto: userPhotoRef.current
+    });
+    requestToJoinConference(call.id, userId).catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!awaitingConference || !userId) return;
+    const unsub = subscribeToConference(awaitingConference.callId, (call) => {
+      if (!call || call.status === 'ended') {
+        setAwaitingConference(null);
+        return;
+      }
+      if (call.activeParticipants.includes(userId)) {
+        setActiveConference({
+          callId: call.id,
+          isInitiator: false,
+          type: call.type,
+          groupName: call.groupName,
+          groupPhoto: call.groupPhoto ?? null,
+          myUid: userId,
+          myName: userNameRef.current,
+          myPhoto: userPhotoRef.current
+        });
+        setActiveConferenceId(call.id);
+        setAwaitingConference(null);
+      } else if (call.rejectedParticipants?.includes(userId)) {
+        setAwaitingConference(null);
+      }
+    });
+    return unsub;
+  }, [awaitingConference?.callId, userId]);
+
   return (
     <CallContext.Provider value={{
       incomingCall,
@@ -232,7 +340,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       activeGroupCallId,
       setActiveGroupCallId,
       dismissGroupIncoming,
-      joinGroupIncoming
+      joinGroupIncoming,
+      incomingConference,
+      activeConference,
+      setActiveConference,
+      activeConferenceId,
+      setActiveConferenceId,
+      dismissConferenceIncoming,
+      joinConferenceIncoming,
+      awaitingConference,
+      setAwaitingConference,
+      requestConferenceJoin,
     }}>
       {children}
     </CallContext.Provider>

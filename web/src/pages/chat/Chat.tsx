@@ -9,9 +9,12 @@ import SharePostModal from '../../components/SharePostModal';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
-import { Settings, CornerDownRight, X, Mic, ChevronsDown, Info, Plus, Image, FileText, BarChart3, UserRound } from 'lucide-react';
+import { Settings, CornerDownRight, X, Mic, ChevronsDown, Info, Plus, Image, FileText, BarChart3, UserRound, Presentation } from 'lucide-react';
 import ChannelInfoPanel from '../../components/chat/ChannelInfoPanel';
 import DMInfoPanel from '../../components/chat/DMInfoPanel';
+import { useCall } from '../../contexts/CallContext';
+import { createConference, subscribeToActiveConferenceForGroup } from '../../services/firebase/studyGroupConferenceService';
+import type { GroupCall } from '../../services/firebase/groupCallService';
 import { PollModal } from '../../components/chat/PollModal';
 import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
 import type { PollData } from '../../types';
@@ -172,6 +175,8 @@ export default function Chat() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
+  const [studyGroupData, setStudyGroupData] = useState<{ name: string; photo: string | null; memberIds: string[] } | null>(null);
+  const [activeGroupConference, setActiveGroupConference] = useState<GroupCall | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -180,6 +185,7 @@ export default function Chat() {
   const lastDocRef = useRef<any>(null);
   const navigate = useNavigate();
 
+  const { setActiveConference, setActiveConferenceId, activeConferenceId, requestConferenceJoin } = useCall();
   const { colors } = useTheme();
   const chatTheme = colors.chat;
   const isDesktop = useWindowSize();
@@ -192,8 +198,21 @@ export default function Chat() {
     if (!id?.startsWith('sg_')) return;
     const groupId = id.slice(3);
     getDoc(doc(db, 'studyGroups', groupId)).then(snap => {
-      if (snap.exists()) setGroupName(snap.data().name ?? null);
+      if (snap.exists()) {
+        const data = snap.data();
+        setGroupName(data.name ?? null);
+        setStudyGroupData({ name: data.name ?? '', photo: data.photoURL ?? null, memberIds: data.memberIds ?? [] });
+      }
     }).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (!id?.startsWith('sg_')) return;
+    const groupId = id.slice(3);
+    const unsub = subscribeToActiveConferenceForGroup(groupId, (call) => {
+      setActiveGroupConference(call);
+    });
+    return unsub;
   }, [id]);
 
   useEffect(() => {
@@ -691,6 +710,16 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         </button>
         <h1 className="chat-header-title" style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}>{channelName}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {activeGroupConference && (
+            <button
+              className="chat-back-button"
+              onClick={() => requestConferenceJoin(activeGroupConference)}
+              style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
+              title="Unirse a la conferencia"
+            >
+              <Presentation size={20} color="#34C759" />
+            </button>
+          )}
           <button
             className="chat-back-button"
             onClick={() => setShowInfoPanel(v => !v)}

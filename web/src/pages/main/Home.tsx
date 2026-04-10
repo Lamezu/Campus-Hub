@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc, limit, Timestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import { useCall } from '../../contexts/CallContext';
+import { createConference } from '../../services/firebase/studyGroupConferenceService';
 import { MOCK_CHANNELS } from '../../constants/mockData';
 import Layout from '../../components/Layout';
 import { useEvents } from '../../hooks/useEvents';
@@ -11,7 +13,7 @@ const SUPPORT_CHANNEL_ID = '4';
 const EVENTS_CHANNEL_ID = '3';
 import { ChannelCard } from '../../components/ChannelCard';
 import type { Channel, StudyGroup, CalendarEventType } from '../../types';
-import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircleQuestion, Users, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircleQuestion, Users, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, ChevronRight, Presentation, type LucideIcon } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -78,6 +80,7 @@ export default function Home() {
   const [department, setDepartment] = useState<string | null>(null);
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { setActiveConference, setActiveConferenceId } = useCall();
   const isDesktop = useWindowSize();
   const { events: allEvents } = useEvents(department);
 
@@ -223,6 +226,59 @@ export default function Home() {
     return () => { active = false; unsubs.forEach(u => u()); };
   }, [user?.uid, myGroups.length]);
 
+  const handleStartConference = async (group: StudyGroup) => {
+    if (!user || !userData) return;
+    const participantData: Record<string, { name: string; photo: string | null }> = {};
+    await Promise.all(
+      group.memberIds.map(async (uid) => {
+        if (uid === user.uid) {
+          participantData[uid] = {
+            name: userData.displayName || user.displayName || 'Usuario',
+            photo: userData.photoURL || user.photoURL || null,
+          };
+        } else {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            if (snap.exists()) {
+              const d = snap.data();
+              participantData[uid] = { name: d.displayName || 'Usuario', photo: d.photoURL || null };
+            } else {
+              participantData[uid] = { name: 'Usuario', photo: null };
+            }
+          } catch {
+            participantData[uid] = { name: 'Usuario', photo: null };
+          }
+        }
+      })
+    );
+    try {
+      const conferenceId = await createConference(
+        group.id,
+        group.name,
+        group.photoURL ?? null,
+        user.uid,
+        userData.displayName || user.displayName || 'Usuario',
+        userData.photoURL || user.photoURL || null,
+        'video',
+        group.memberIds,
+        participantData
+      );
+      setActiveConference({
+        callId: conferenceId,
+        isInitiator: true,
+        type: 'video',
+        groupName: group.name,
+        groupPhoto: group.photoURL ?? null,
+        myUid: user.uid,
+        myName: userData.displayName || user.displayName || 'Usuario',
+        myPhoto: userData.photoURL || user.photoURL || null,
+      });
+      setActiveConferenceId(conferenceId);
+    } catch {}
+  };
+
+  const canStartConference = userData?.role === 'teacher' || userData?.role === 'admin';
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -279,9 +335,18 @@ export default function Home() {
                   <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
                   <ChannelCard channel={studyGroupToChannel(group)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
                   {(sgUnreads[group.id] ?? 0) > 0 && (
-                    <div style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', backgroundColor: colors.primary, borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                    <div style={{ position: 'absolute', right: canStartConference ? 68 : 40, top: '50%', transform: 'translateY(-50%)', backgroundColor: colors.primary, borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
                     </div>
+                  )}
+                  {canStartConference && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleStartConference(group); }}
+                      title="Iniciar conferencia"
+                      style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Presentation size={14} color={group.color} />
+                    </button>
                   )}
                 </div>
               ))}
@@ -481,6 +546,17 @@ export default function Home() {
                         <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', flexShrink: 0 }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
                         </div>
+                      )}
+                      {canStartConference && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleStartConference(group); }}
+                          title="Iniciar conferencia"
+                          style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = group.color + '44')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = group.color + '22')}
+                        >
+                          <Presentation size={15} color={group.color} />
+                        </button>
                       )}
                     </div>
                   ))}
