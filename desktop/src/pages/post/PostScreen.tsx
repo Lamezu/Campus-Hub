@@ -15,7 +15,8 @@ import {
   increment,
   getDoc,
 } from 'firebase/firestore';
-import { ChevronLeft, Heart, Music2, Volume2, VolumeX, BarChart2, MessageCircle, Pencil, Trash2, Send, Play, Pause } from 'lucide-react';
+import { ChevronLeft, Heart, Music2, Volume2, VolumeX, BarChart2, MessageCircle, Pencil, Trash2, Send, Play, Pause, ChevronRight, Bookmark, X, CornerDownRight, Share2 } from 'lucide-react';
+import { SharePostModal } from '@/components/SharePostModal';
 import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
@@ -23,7 +24,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Post, Comment } from '@/types';
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string | undefined): string {
+  if (!dateString) return 'Ahora';
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return 'Ahora';
   const diff = Date.now() - date.getTime();
@@ -46,10 +48,12 @@ export default function PostScreen() {
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingPost, setLoadingPost] = useState(true);
+  const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null);
   const [commentText, setCommentText] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -70,6 +74,35 @@ export default function PostScreen() {
     });
     return unsub;
   }, [id]);
+
+  // Increment view count on entry (Permanent per user)
+  const viewProcessed = useRef(false);
+  useEffect(() => {
+    if (!id || !currentUser || !post || viewProcessed.current) return;
+    
+    const incrementView = async () => {
+      // Check if user already viewed (using post.views array)
+      const hasViewed = post.views?.includes(currentUser.uid);
+      if (hasViewed) {
+        viewProcessed.current = true;
+        return;
+      }
+
+      viewProcessed.current = true;
+      try {
+        const postRef = doc(db, 'posts', id);
+        await updateDoc(postRef, {
+          views: arrayUnion(currentUser.uid),
+          viewsCount: increment(1)
+        });
+      } catch (err) {
+        // Silently catch permission errors as we cannot update global counts without rule changes
+        console.warn('Silent skip of view increment due to permissions or other error');
+      }
+    };
+
+    incrementView();
+  }, [id, currentUser, post?.id]);
 
   useEffect(() => {
     if (!id) return;
@@ -137,24 +170,59 @@ export default function PostScreen() {
     });
   };
 
-  const handleAddComment = async () => {
-    if (!currentUser || !post || !commentText.trim() || sendingComment) return;
+  const isSaved = !!(currentUser && post?.savedBy?.includes(currentUser.uid));
+
+  const toggleSave = async () => {
+    if (!currentUser || !post) return;
+    try {
+      const postRef = doc(db, 'posts', post.id);
+      if (isSaved) {
+        await updateDoc(postRef, { savedBy: arrayRemove(currentUser.uid) });
+      } else {
+        await updateDoc(postRef, { savedBy: arrayUnion(currentUser.uid) });
+      }
+    } catch (error) {
+      console.error('Error toggling save:', error);
+    }
+  };
+
+  const handleSendComment = async () => {
+    if (!currentUser || !id || !commentText.trim() || sendingComment) return;
     setSendingComment(true);
     try {
-      await addDoc(collection(db, 'posts', post.id, 'comments'), {
-        postId: post.id,
+      await addDoc(collection(db, 'posts', id, 'comments'), {
         content: commentText.trim(),
         authorId: currentUser.uid,
-        authorName: currentUser.displayName ?? 'Usuario',
-        authorPhoto: currentUser.photoURL ?? null,
+        authorName: currentUser.displayName || 'Usuario',
+        authorPhoto: currentUser.photoURL,
         createdAt: serverTimestamp(),
+        parentCommentId: replyTo?.id || null,
         likes: [],
-        likesCount: 0,
+        likesCount: 0
       });
-      await updateDoc(doc(db, 'posts', post.id), { commentsCount: increment(1) });
+      await updateDoc(doc(db, 'posts', id), {
+        commentsCount: increment(1)
+      });
       setCommentText('');
+      setReplyTo(null);
+    } catch (err) {
+      console.error('Error adding comment:', err);
     } finally {
       setSendingComment(false);
+    }
+  };
+
+  const handleToggleCommentLike = async (commentId: string, likes: string[]) => {
+    if (!currentUser || !id) return;
+    const isLiked = (likes || []).includes(currentUser.uid);
+    try {
+      const commentRef = doc(db, 'posts', id, 'comments', commentId);
+      await updateDoc(commentRef, {
+        likes: isLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
+        likesCount: increment(isLiked ? -1 : 1)
+      });
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
     }
   };
 
@@ -271,26 +339,51 @@ export default function PostScreen() {
             </div>
           )}
 
-          {/* Stats */}
-          <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg }}>
-            <button onClick={handleToggleLike} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20,
-              border: `1px solid ${isLiked ? colors.danger : colors.border}`,
-              backgroundColor: isLiked ? `${colors.danger}15` : 'transparent',
-              cursor: 'pointer', color: isLiked ? colors.danger : colors.textSecondary
-            }}>
-              <Heart size={18} fill={isLiked ? colors.danger : 'transparent'} />
-              <span style={{ fontWeight: '600' }}>{post.likesCount}</span>
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
-              <MessageCircle size={18} />
-              <span style={{ fontWeight: '600' }}>{post.commentsCount}</span>
+            <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg }}>
+              <button onClick={handleToggleLike} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20,
+                border: `1px solid ${isLiked ? colors.danger : colors.border}`,
+                backgroundColor: isLiked ? `${colors.danger}15` : 'transparent',
+                cursor: 'pointer', color: isLiked ? colors.danger : colors.textSecondary
+              }}>
+                <Heart size={18} fill={isLiked ? colors.danger : 'transparent'} />
+                <span style={{ fontWeight: '600' }}>{post.likesCount}</span>
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                <MessageCircle size={18} />
+                <span style={{ fontWeight: '600' }}>{post.commentsCount}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                <BarChart2 size={18} />
+                <span style={{ fontWeight: '600' }}>{post.viewsCount ?? 0}</span>
+              </div>
+              <button 
+                onClick={() => setShowShareModal(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20,
+                  border: `1px solid ${colors.border}`, background: 'transparent',
+                  cursor: 'pointer', color: colors.textSecondary, transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Share2 size={18} />
+                <span style={{ fontWeight: '600' }}>{post.sharesCount ?? 0}</span>
+              </button>
+              <button 
+                onClick={toggleSave}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20,
+                  backgroundColor: isSaved ? `${colors.primary}15` : 'transparent',
+                  border: `1px solid ${isSaved ? colors.primary : colors.border}`,
+                  cursor: 'pointer', color: isSaved ? colors.primary : colors.textSecondary,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Bookmark size={18} fill={isSaved ? colors.primary : 'none'} color={isSaved ? colors.primary : colors.textSecondary} />
+                <span style={{ fontWeight: '600' }}>{isSaved ? 'Guardado' : 'Guardar'}</span>
+              </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
-              <BarChart2 size={18} />
-              <span style={{ fontWeight: '600' }}>{post.viewsCount ?? 0}</span>
-            </div>
-          </div>
 
           <div style={{ height: 1, backgroundColor: colors.border, marginBottom: spacing.lg }} />
 
@@ -304,56 +397,146 @@ export default function PostScreen() {
                  No hay comentarios aún. ¡Sé el primero!
                </ThemedText>
              ) : (
-               comments.map(comment => (
-                 <div key={comment.id} style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
-                   <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', flexShrink: 0 }}>
-                      {comment.authorPhoto ? <img src={comment.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 'bold' }}>{comment.authorName[0]}</span>}
-                   </div>
-                   <div style={{ flex: 1, backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: spacing.sm }}>
-                     <ThemedText style={{ fontWeight: '600', fontSize: 14, display: 'block', marginBottom: 2 }}>{comment.authorName}</ThemedText>
-                     <ThemedText style={{ fontSize: 14, lineHeight: '20px' }}>{comment.content}</ThemedText>
-                     <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                       <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>{getTimeAgo(comment.createdAt)}</ThemedText>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: colors.textSecondary }}>
-                         <Heart size={12} />
-                         <span style={{ fontSize: 11 }}>{comment.likesCount}</span>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
-               ))
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginBottom: spacing.xl }}>
+            {comments
+              .filter(comment => !comment.parentCommentId)
+              .map((comment) => (
+                <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: spacing.md }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', flexShrink: 0 }}>
+                       {comment.authorPhoto ? <img src={comment.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 'bold' }}>{comment.authorName[0]}</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ backgroundColor: colors.backgroundSecondary, padding: '12px 16px', borderRadius: '0 16px 16px 16px', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <ThemedText style={{ fontSize: 13, fontWeight: '800' }}>{comment.authorName}</ThemedText>
+                          <ThemedText style={{ fontSize: 11, opacity: 0.5 }}>{getTimeAgo(comment.createdAt)}</ThemedText>
+                        </div>
+                        <ThemedText style={{ fontSize: 14, lineHeight: 1.5, display: 'block', marginBottom: 8 }}>{comment.content}</ThemedText>
+                        
+                        <div 
+                          style={{ 
+                            display: 'flex', alignItems: 'center', gap: 4, 
+                            color: currentUser && (comment.likes || []).includes(currentUser.uid) ? colors.primary : colors.textSecondary,
+                            cursor: 'pointer', width: 'fit-content'
+                          }} 
+                          onClick={() => handleToggleCommentLike(comment.id, comment.likes || [])}
+                        >
+                          <Heart size={14} fill={currentUser && (comment.likes || []).includes(currentUser.uid) ? colors.primary : 'none'} />
+                          <span style={{ fontSize: 12, fontWeight: '700' }}>{comment.likesCount || 0}</span>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 6, paddingLeft: 8 }}>
+                        <button 
+                          onClick={() => setReplyTo({ id: comment.id, authorName: comment.authorName })}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <CornerDownRight size={12} />
+                          Responder
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Replies Rendering */}
+                  {comments
+                    .filter(reply => reply.parentCommentId === comment.id)
+                    .map(reply => (
+                      <div key={reply.id} style={{ position: 'relative', display: 'flex', gap: spacing.md, marginLeft: 52 }}>
+                        <div style={{ position: 'absolute', left: -30, top: -20, bottom: 16, width: 2, backgroundColor: colors.border, borderRadius: 1, opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: -30, bottom: 16, width: 14, height: 2, backgroundColor: colors.border, borderRadius: 1, opacity: 0.5 }} />
+
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', flexShrink: 0 }}>
+                           {reply.authorPhoto ? <img src={reply.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 'bold' }}>{reply.authorName[0]}</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ backgroundColor: colors.backgroundSecondary, padding: '10px 14px', borderRadius: '0 14px 14px 14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                              <ThemedText style={{ fontSize: 12, fontWeight: '800' }}>{reply.authorName}</ThemedText>
+                              <ThemedText style={{ fontSize: 10, opacity: 0.5 }}>{getTimeAgo(reply.createdAt)}</ThemedText>
+                            </div>
+                            <ThemedText style={{ fontSize: 13, lineHeight: 1.4, display: 'block', marginBottom: 6 }}>{reply.content}</ThemedText>
+                            
+                            <div 
+                              style={{ 
+                                display: 'flex', alignItems: 'center', gap: 4, 
+                                color: currentUser && (reply.likes || []).includes(currentUser.uid) ? colors.primary : colors.textSecondary,
+                                cursor: 'pointer', width: 'fit-content'
+                              }} 
+                              onClick={() => handleToggleCommentLike(reply.id, reply.likes || [])}
+                            >
+                              <Heart size={12} fill={currentUser && (reply.likes || []).includes(currentUser.uid) ? colors.primary : 'none'} />
+                              <span style={{ fontSize: 11, fontWeight: '700' }}>{reply.likesCount || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ))}
+          </div>
              )}
           </div>
         </div>
       </div>
 
-      {/* Comment Input */}
-      <div style={{
-        padding: spacing.md, borderTop: `1px solid ${colors.border}`,
-        backgroundColor: colors.card, display: 'flex', gap: spacing.sm, alignItems: 'center'
+      <div style={{ 
+        marginTop: 'auto', 
+        padding: '24px 40px 40px 40px', 
+        borderTop: `1px solid ${colors.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        backgroundColor: colors.card
       }}>
-        <input
-          value={commentText}
-          onChange={e => setCommentText(e.target.value)}
-          placeholder="Añadir un comentario..."
-          style={{
-            flex: 1, borderRadius: 20, padding: '10px 16px',
-            backgroundColor: colors.backgroundSecondary, color: colors.text,
-            border: 'none', outline: 'none', fontSize: 14
-          }}
-          onKeyDown={e => e.key === 'Enter' && handleAddComment()}
-        />
-        <button
-          onClick={handleAddComment}
-          disabled={!commentText.trim() || sendingComment}
-          style={{
-            padding: '8px 16px', borderRadius: 20, backgroundColor: colors.primary,
-            color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer',
-            opacity: !commentText.trim() || sendingComment ? 0.5 : 1
-          }}
-        >
-          {sendingComment ? '...' : 'Enviar'}
-        </button>
+        {replyTo && (
+          <div style={{ 
+            display: 'flex', alignItems: 'center', gap: 8, 
+            padding: '8px 12px', backgroundColor: colors.backgroundSecondary, 
+            borderRadius: 12, width: 'fit-content' 
+          }}>
+            <CornerDownRight size={14} color={colors.primary} />
+            <ThemedText style={{ fontSize: 12, color: colors.textSecondary }}>
+              Respondiendo a <span style={{ fontWeight: 700, color: colors.text }}>{replyTo.authorName}</span>
+            </ThemedText>
+            <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.textSecondary }}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: spacing.md }}>
+          <input
+            type="text"
+            placeholder="Escribe un comentario..."
+            value={commentText}
+            onChange={e => setCommentText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSendComment()}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: `1px solid ${colors.border}`,
+              backgroundColor: colors.backgroundSecondary,
+              color: colors.text,
+              outline: 'none'
+            }}
+          />
+          <button
+            onClick={handleSendComment}
+            disabled={!commentText.trim() || sendingComment}
+            style={{
+              padding: '12px 24px',
+              borderRadius: 12,
+              border: 'none',
+              backgroundColor: commentText.trim() ? colors.primary : `${colors.primary}66`,
+              color: '#fff',
+              fontWeight: 'bold',
+              cursor: commentText.trim() ? 'pointer' : 'default'
+            }}
+          >
+            {sendingComment ? '...' : 'Enviar'}
+          </button>
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -368,6 +551,13 @@ export default function PostScreen() {
             </div>
           </div>
         </div>
+      )}
+
+      {showShareModal && (
+        <SharePostModal
+          post={post}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
 
       <style>{`

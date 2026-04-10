@@ -10,11 +10,13 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAccounts } from '@/contexts/AccountsContext';
 import { spacing, typography } from '@/constants/styles';
 import { useEffect } from 'react';
 
 export default function LoginScreen() {
   const { colors } = useTheme();
+  const { addAccount } = useAccounts();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +36,19 @@ export default function LoginScreen() {
     if (!email || !password) { setError('Por favor completa todos los campos'); return; }
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const user = credential.user;
+      
+      // Save credentials for account switching
+      addAccount({
+        uid: user.uid,
+        email: user.email || email,
+        displayName: user.displayName || user.email || 'Usuario',
+        photoURL: user.photoURL || null,
+        refreshToken: user.refreshToken,
+        _pw: btoa(password)
+      });
+
       navigate('/tabs/home', { replace: true });
     } catch (err: any) {
       let msg = 'Credenciales inválidas';
