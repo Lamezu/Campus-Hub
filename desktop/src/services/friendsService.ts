@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { notificationService } from './notificationService';
-import type { FriendRequest, User } from '@/types';
+import type { FriendRequest } from '@/types';
 
 function tsToISO(val: unknown): string {
   if (val instanceof Timestamp) return val.toDate().toISOString();
@@ -24,19 +24,23 @@ export async function sendFriendRequest(
 ): Promise<string> {
   const requestId = getRequestId(fromUserId, toUserId);
   const requestRef = doc(db, 'friendRequests', requestId);
-  
-  const requestSnap = await getDoc(requestRef);
-  if (requestSnap.exists()) {
-    const data = requestSnap.data();
-    if (data.status === 'pending') {
-      if (data.fromUserId === fromUserId) throw new Error('Ya has enviado una solicitud a este usuario');
-      else throw new Error('Ya tienes una solicitud pendiente de este usuario');
-    }
-    if (data.status === 'accepted') throw new Error('Ya sois amigos');
-  }
 
-  const alreadyFriends = await areFriends(fromUserId, toUserId);
-  if (alreadyFriends) throw new Error('Ya sois amigos');
+  // Use the exact check as mobile to prevent any rule friction
+  try {
+    const requestSnap = await getDoc(requestRef);
+    if (requestSnap.exists()) {
+      const data = requestSnap.data();
+      if (data.status === 'pending') {
+        if (data.fromUserId === fromUserId) throw new Error('Ya has enviado una solicitud a este usuario');
+        else throw new Error('Ya tienes una solicitud pendiente de este usuario');
+      }
+      if (data.status === 'accepted') throw new Error('Ya sois amigos');
+      // If rejected, we will overwrite it
+    }
+  } catch (e: any) {
+    // If we hit permission denied on reading non-existent (sometimes happens if Rules evaluates strictly before existence check), just proceed to setDoc
+    if (e.code !== 'permission-denied') throw e;
+  }
 
   await setDoc(requestRef, {
     fromUserId,
@@ -47,34 +51,33 @@ export async function sendFriendRequest(
     createdAt: serverTimestamp(),
   });
 
-  notificationService.addNotification(toUserId, {
-    category: 'friend',
-    title: 'Nueva solicitud de amistad',
-    body: `${fromUserName} quiere ser tu amigo`,
-    meta: { fromUserId, fromUserName, isRequest: 'true', requestId },
-  }).catch(() => { });
-
   return requestId;
 }
+
 
 export async function getFriendRequest(
   userId1: string,
   userId2: string
 ): Promise<(FriendRequest & { id: string }) | null> {
   const requestId = getRequestId(userId1, userId2);
-  const snap = await getDoc(doc(db, 'friendRequests', requestId));
+  const requestRef = doc(db, 'friendRequests', requestId);
   
-  if (snap.exists() && snap.data().status === 'pending') {
-    const data = snap.data();
-    return {
-      id: snap.id,
-      fromUserId: data.fromUserId,
-      fromUserName: data.fromUserName,
-      fromUserPhoto: data.fromUserPhoto || null,
-      toUserId: data.toUserId,
-      status: data.status as any,
-      createdAt: tsToISO(data.createdAt),
-    };
+  try {
+    const snap = await getDoc(requestRef);
+    if (snap.exists() && snap.data().status === 'pending') {
+      const data = snap.data();
+      return {
+        id: snap.id,
+        fromUserId: data.fromUserId as string,
+        fromUserName: data.fromUserName as string,
+        fromUserPhoto: (data.fromUserPhoto as string | null) ?? null,
+        toUserId: data.toUserId as string,
+        status: data.status as 'pending' | 'accepted' | 'rejected',
+        createdAt: tsToISO(data.createdAt),
+      };
+    }
+  } catch (e: any) {
+    if (e.code !== 'permission-denied') console.error(e);
   }
   return null;
 }
@@ -86,33 +89,29 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
 
   const data = requestSnap.data();
   const batch = writeBatch(db);
-  
   batch.update(requestRef, { status: 'accepted', acceptedAt: serverTimestamp() });
 
-  // Bidirectional in root friendships
-  const f1 = doc(db, 'friendships', `${data.fromUserId}_${data.toUserId}`);
-  batch.set(f1, {
-    userId: data.fromUserId,
-    friendId: data.toUserId,
-    createdAt: serverTimestamp()
-  });
+  // 1. Root collection friendships (New architecture)
+  const fRoot1 = doc(db, 'friendships', `${data.fromUserId}_${data.toUserId}`);
+  batch.set(fRoot1, { userId: data.fromUserId, friendId: data.toUserId, createdAt: serverTimestamp() });
 
-  const f2 = doc(db, 'friendships', `${data.toUserId}_${data.fromUserId}`);
-  batch.set(f2, {
-    userId: data.toUserId,
-    friendId: data.fromUserId,
-    createdAt: serverTimestamp()
-  });
+  const fRoot2 = doc(db, 'friendships', `${data.toUserId}_${data.fromUserId}`);
+  batch.set(fRoot2, { userId: data.toUserId, friendId: data.fromUserId, createdAt: serverTimestamp() });
+
+  // 2. Subcollections (Legacy/Mobile Counter compatible architecture)
+  const fSub1 = doc(db, 'users', data.fromUserId, 'friends', data.toUserId);
+  batch.set(fSub1, { createdAt: serverTimestamp(), status: 'accepted' });
+
+  const fSub2 = doc(db, 'users', data.toUserId, 'friends', data.fromUserId);
+  batch.set(fSub2, { createdAt: serverTimestamp(), status: 'accepted' });
 
   await batch.commit();
 
-  const requesterId = data.fromUserId;
   const accepterName = auth.currentUser?.displayName ?? 'Alguien';
-  
-  notificationService.addNotification(requesterId, {
+  notificationService.addNotification(data.fromUserId, {
     category: 'friend',
     title: 'Solicitud de amistad aceptada',
-    body: `${accepterName} ha aceptado tu solicitud de amistad`,
+    body: `${accepterName} aceptó tu solicitud de amistad`,
     meta: { fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
   }).catch(() => { });
 }
@@ -129,59 +128,39 @@ export async function cancelFriendRequest(requestId: string): Promise<void> {
 }
 
 export async function areFriends(userId1: string, userId2: string): Promise<boolean> {
-  const fId = `${userId1}_${userId2}`;
-  const snap = await getDoc(doc(db, 'friendships', fId));
-  return snap.exists();
-}
-
-/**
- * Listens to friendship status in real-time between two users.
- * Returns 'friends', 'sent' (from current to other), 'received' (from other to me), or 'none'.
- */
-export function subscribeToFriendshipStatus(
-  meId: string,
-  otherId: string,
-  callback: (status: 'friends' | 'sent' | 'received' | 'none') => void
-): () => void {
-  const fId = `${meId}_${otherId}`;
-  const requestId = getRequestId(meId, otherId);
-
-  // We need to listen to both the friendship doc and the request doc
-  const unsubFriend = onSnapshot(doc(db, 'friendships', fId), (fSnap) => {
-    if (fSnap.exists()) {
-      callback('friends');
-      return;
+  try {
+    const docRef = doc(db, 'users', userId1, 'friends', userId2);
+    const snap = await getDoc(docRef);
+    return snap.exists();
+  } catch (e) {
+    // Fallback to legacy root check if needed, but subcollection is now source of truth
+    try {
+      const fId = `${userId1}_${userId2}`;
+      const rootSnap = await getDoc(doc(db, 'friendships', fId));
+      return rootSnap.exists();
+    } catch {
+      return false;
     }
-    
-    // If not friends, check request status
-    onSnapshot(doc(db, 'friendRequests', requestId), (rSnap) => {
-      if (rSnap.exists() && rSnap.data().status === 'pending') {
-        if (rSnap.data().fromUserId === meId) callback('sent');
-        else callback('received');
-      } else {
-        // Double check friends in case it changed while reading request
-        getDoc(doc(db, 'friendships', fId)).then(s => {
-          if (s.exists()) callback('friends');
-          else callback('none');
-        });
-      }
-    });
-  });
-
-  return unsubFriend;
+  }
 }
 
 export async function removeFriend(userId: string, friendId: string): Promise<void> {
-  const batch = writeBatch(db);
+  const paths = [
+    doc(db, 'friendships', `${userId}_${friendId}`),
+    doc(db, 'friendships', `${friendId}_${userId}`),
+    doc(db, 'users', userId, 'friends', friendId),
+    doc(db, 'users', friendId, 'friends', userId),
+    doc(db, 'friendRequests', [userId, friendId].sort().join('_'))
+  ];
+
+  // Using individual deletes to be resilient to partial permission/existence issues
+  // especially with legacy data that might not match current rules perfectly.
+  const results = await Promise.allSettled(paths.map(ref => deleteDoc(ref)));
   
-  batch.delete(doc(db, 'friendships', `${userId}_${friendId}`));
-  batch.delete(doc(db, 'friendships', `${friendId}_${userId}`));
-
-  // Cleanup request
-  const rId = getRequestId(userId, friendId);
-  batch.delete(doc(db, 'friendRequests', rId));
-
-  await batch.commit();
+  const failed = results.filter(r => r.status === 'rejected');
+  if (failed.length === paths.length) {
+    throw new Error('No se pudo eliminar ninguna referencia de amistad.');
+  }
 }
 
 export function subscribeToReceivedRequests(
@@ -191,22 +170,24 @@ export function subscribeToReceivedRequests(
   const q = query(
     collection(db, 'friendRequests'),
     where('toUserId', '==', userId),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+    where('status', '==', 'pending')
   );
   return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        fromUserId: data.fromUserId as string,
-        fromUserName: data.fromUserName as string,
-        fromUserPhoto: (data.fromUserPhoto as string | null) ?? null,
-        toUserId: data.toUserId as string,
-        status: data.status as any,
-        createdAt: tsToISO(data.createdAt),
-      } as FriendRequest;
-    }));
+    const sorted = snap.docs
+      .map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          fromUserId: data.fromUserId as string,
+          fromUserName: data.fromUserName as string,
+          fromUserPhoto: (data.fromUserPhoto as string | null) ?? null,
+          toUserId: data.toUserId as string,
+          status: data.status as any,
+          createdAt: tsToISO(data.createdAt),
+        } as FriendRequest;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    callback(sorted);
   }, (error) => {
     if (error.code !== 'permission-denied') {
       console.error('ReceivedRequests Snapshot error:', error);
@@ -218,30 +199,41 @@ export function subscribeToFriends(
   userId: string,
   callback: (friends: any[]) => void
 ): () => void {
+  // Reading from subcollection (most reliable per rules and mobile parity)
   const q = query(
-    collection(db, 'friendships'), 
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    collection(db, 'users', userId, 'friends')
   );
 
-  return onSnapshot(q, async (snap) => {
-    const friendships = snap.docs.map(d => d.data());
-
+  return onSnapshot(q, async (snapshot) => {
+    const friendDocs = snapshot.docs;
+    
     const friendsData = await Promise.all(
-      friendships.map(async (f) => {
+      friendDocs.map(async (fDoc) => {
         try {
-          const userSnap = await getDoc(doc(db, 'users', f.friendId));
-          if (userSnap.exists()) {
-            return { uid: userSnap.id, ...userSnap.data(), friendsSince: f.createdAt };
-          }
+          const friendId = fDoc.id;
+          const userSnap = await getDoc(doc(db, 'users', friendId));
+          if (!userSnap.exists()) return null;
+          return {
+            uid: userSnap.id,
+            ...userSnap.data(),
+            ...fDoc.data(),
+            friendshipCreatedAt: fDoc.data().createdAt
+          };
         } catch (e) {
           console.error('Error fetching friend profile:', e);
+          return null;
         }
-        return null;
       })
     );
 
-    callback(friendsData.filter(p => p !== null));
+    // Sync in-memory sort
+    const sorted = friendsData.filter(Boolean).sort((a: any, b: any) => {
+      const t1 = a.friendshipCreatedAt?.toMillis ? a.friendshipCreatedAt.toMillis() : 0;
+      const t2 = b.friendshipCreatedAt?.toMillis ? b.friendshipCreatedAt.toMillis() : 0;
+      return t2 - t1;
+    });
+
+    callback(sorted);
   }, (error) => {
     if (error.code !== 'permission-denied') {
       console.error('FriendsList Snapshot error:', error);
@@ -254,30 +246,39 @@ export function subscribeToBestFriends(
   callback: (friends: any[]) => void
 ): () => void {
   const q = query(
-    collection(db, 'friendships'),
-    where('userId', '==', userId),
-    where('isBestFriend', '==', true),
-    orderBy('createdAt', 'desc')
+    collection(db, 'users', userId, 'friends'),
+    where('isBestFriend', '==', true)
   );
 
-  return onSnapshot(q, async (snap) => {
-    const friendships = snap.docs.map(d => d.data());
-
+  return onSnapshot(q, async (snapshot) => {
+    const friendDocs = snapshot.docs;
+    
     const friendsData = await Promise.all(
-      friendships.map(async (f) => {
+      friendDocs.map(async (fDoc) => {
         try {
-          const userSnap = await getDoc(doc(db, 'users', f.friendId));
-          if (userSnap.exists()) {
-            return { uid: userSnap.id, ...userSnap.data(), friendsSince: f.createdAt };
-          }
+          const friendId = fDoc.id;
+          const userSnap = await getDoc(doc(db, 'users', friendId));
+          if (!userSnap.exists()) return null;
+          return {
+            uid: userSnap.id,
+            ...userSnap.data(),
+            ...fDoc.data(),
+            friendshipCreatedAt: fDoc.data().createdAt
+          };
         } catch (e) {
-          console.error('Error fetching friend profile:', e);
+          console.error('Error fetching best friend profile:', e);
+          return null;
         }
-        return null;
       })
     );
 
-    callback(friendsData.filter(p => p !== null));
+    const sorted = friendsData.filter(Boolean).sort((a: any, b: any) => {
+      const t1 = a.friendshipCreatedAt?.toMillis ? a.friendshipCreatedAt.toMillis() : 0;
+      const t2 = b.friendshipCreatedAt?.toMillis ? b.friendshipCreatedAt.toMillis() : 0;
+      return t2 - t1;
+    });
+
+    callback(sorted);
   }, (error) => {
     if (error.code !== 'permission-denied') {
       console.error('BestFriends Snapshot error:', error);
@@ -286,13 +287,12 @@ export function subscribeToBestFriends(
 }
 
 export async function toggleBestFriend(userId: string, friendId: string): Promise<boolean> {
-  const fId = `${userId}_${friendId}`;
-  const fRef = doc(db, 'friendships', fId);
-  const snap = await getDoc(fRef);
+  const docRef = doc(db, 'users', userId, 'friends', friendId);
+  const snap = await getDoc(docRef);
   if (!snap.exists()) return false;
 
   const isBest = snap.data().isBestFriend ?? false;
-  await updateDoc(fRef, { isBestFriend: !isBest });
+  await updateDoc(docRef, { isBestFriend: !isBest });
   return !isBest;
 }
 
@@ -304,4 +304,59 @@ export async function cleanupAllFriendRequests(userId: string): Promise<void> {
   s1.docs.forEach(d => batch.delete(d.ref));
   s2.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
+}
+
+export function subscribeToFriendshipStatus(
+  userId1: string,
+  userId2: string,
+  callback: (status: 'none' | 'sent' | 'received' | 'friends') => void
+): () => void {
+  // 1. Listen to the subcollection (Primary source of truth for "friends")
+  const friendRef = doc(db, 'users', userId1, 'friends', userId2);
+  let isFriend = false;
+  let isSent = false;
+  let isReceived = false;
+
+  const unsubFriend = onSnapshot(friendRef, (snap) => {
+    isFriend = snap.exists();
+    reportStatus();
+  }, () => {});
+
+  // 2. Listen to requests
+  const requestId = [userId1, userId2].sort().join('_');
+  const requestRef = doc(db, 'friendRequests', requestId);
+  
+  const unsubRequest = onSnapshot(requestRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.status === 'pending') {
+        if (data.fromUserId === userId1) {
+          isSent = true;
+          isReceived = false;
+        } else {
+          isSent = false;
+          isReceived = true;
+        }
+      } else {
+        isSent = false;
+        isReceived = false;
+      }
+    } else {
+      isSent = false;
+      isReceived = false;
+    }
+    reportStatus();
+  }, () => {});
+
+  function reportStatus() {
+    if (isFriend) callback('friends');
+    else if (isReceived) callback('received');
+    else if (isSent) callback('sent');
+    else callback('none');
+  }
+
+  return () => {
+    unsubFriend();
+    unsubRequest();
+  };
 }

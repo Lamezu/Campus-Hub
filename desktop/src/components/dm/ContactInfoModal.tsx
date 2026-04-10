@@ -17,6 +17,7 @@ import { subscribeToConversations, getConversationId, sendMessage as dmSendMessa
 import { MOCK_CHANNELS as CHANNELS } from '@/constants/mockData';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertModal } from '@/components/AlertModal';
+import { subscribeToFriendshipStatus } from '@/services/friendsService';
 
 interface ContactInfoModalProps {
   isOpen: boolean;
@@ -64,9 +65,8 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
       try {
         const conversationId = [meId, user.uid].sort().join('_');
         
-        const [settings, status, media, groups] = await Promise.all([
+        const [settings, media, groups] = await Promise.all([
           contactService.getContactSettings(meId, user.uid),
-          contactService.getFriendStatus(meId, user.uid),
           contactService.getSharedMedia(conversationId, 200),
           contactService.getMutualGroups(meId, user.uid)
         ]);
@@ -75,8 +75,6 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
         setSaveToPhotos(settings.saveToPhotos);
         setAlertTone(settings.alertTone || 'Predeterminado');
         setIsBestFriend(settings.isBestFriend);
-        setIsFriend(status.isFriend);
-        setFriendRequestStatus(status.friendRequestStatus);
         setSharedMedia(media);
         setMutualGroups(groups);
       } catch (error) {
@@ -87,6 +85,23 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
     };
 
     loadData();
+  }, [isOpen, meId, user.uid]);
+
+  // Reactive Friendship Status
+  useEffect(() => {
+    if (!isOpen || !meId || !user.uid) return;
+
+    const unsub = subscribeToFriendshipStatus(meId, user.uid, (status) => {
+      if (status === 'friends') {
+        setIsFriend(true);
+        setFriendRequestStatus('none');
+      } else {
+        setIsFriend(false);
+        setFriendRequestStatus(status);
+      }
+    });
+
+    return () => unsub();
   }, [isOpen, meId, user.uid]);
 
   const handleFriendAction = async () => {

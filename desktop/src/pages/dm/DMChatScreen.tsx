@@ -17,7 +17,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { notificationService } from '@/services/notificationService';
 import type { DirectMessage, ReplyPreview, User, Message } from '@/types';
 import * as dmService from '@/services/dmService';
-import { areFriends, sendFriendRequest, getFriendRequest } from '@/services/friendsService';
+import { subscribeToFriendshipStatus, sendFriendRequest } from '@/services/friendsService';
 import * as starredService from '@/services/starredMessagesService';
 
 export default function DMChatScreen() {
@@ -34,7 +34,7 @@ export default function DMChatScreen() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [menuMessage, setMenuMessage] = useState<Message | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
-  const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'friends'>('none');
+  const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'received' | 'friends'>('none');
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
@@ -58,15 +58,18 @@ export default function DMChatScreen() {
         if (userDoc.exists()) setParticipant({ uid: userDoc.id, ...userDoc.data() } as User);
         const convId = await dmService.getOrCreateConversation(currentUser.uid, userId);
         setConversationId(convId);
-        const [already, pending] = await Promise.all([areFriends(currentUser.uid, userId), getFriendRequest(currentUser.uid, userId)]);
-        if (already) setFriendStatus('friends');
-        else if (pending) setFriendStatus('sent');
-        else setFriendStatus('none');
       } catch (error) {
         console.error(error);
       }
     };
     init();
+
+    // Subscribe to realtime friendship status changes
+    const unsubStatus = subscribeToFriendshipStatus(currentUser.uid, userId, (status) => {
+      setFriendStatus(status);
+    });
+
+    return () => unsubStatus();
   }, [userId, currentUser]);
 
   useEffect(() => {

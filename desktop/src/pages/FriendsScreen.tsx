@@ -134,10 +134,12 @@ export default function FriendsScreen() {
     }
   };
 
-  const filteredFriends = (activeTab === 'all' ? allFriends : bestFriends).filter(f =>
-    f.displayName.toLowerCase().includes(search.toLowerCase()) ||
-    f.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredFriends = (activeTab === 'all' ? allFriends : bestFriends).filter(f => {
+    const name = f.displayName || '';
+    const email = f.email || '';
+    const sTerm = (search || '').toLowerCase();
+    return name.toLowerCase().includes(sTerm) || email.toLowerCase().includes(sTerm);
+  });
 
   return (
     <ThemedView style={{ flex: 1 }}>
