@@ -320,6 +320,45 @@ service cloud.firestore {
       }
     }
 
+    match /studyGroupConferences/{callId} {
+      function isConferenceMember() {
+        return request.auth.uid in resource.data.memberIds;
+      }
+      function isTeacherOrAdmin() {
+        return hasRole('teacher') || isAdmin();
+      }
+
+      allow read: if isSignedIn() && isConferenceMember();
+      allow create: if isSignedIn() && isTeacherOrAdmin()
+                    && request.auth.uid == request.resource.data.initiatorId
+                    && request.auth.uid in request.resource.data.memberIds;
+      allow update: if isSignedIn() && isConferenceMember();
+      allow delete: if false;
+
+      match /connections/{connectionId} {
+        allow read: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+        allow create: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+        allow update: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+
+        match /callerCandidates/{candidateId} {
+          allow read: if isSignedIn() &&
+            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+          allow create: if isSignedIn() &&
+            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+        }
+
+        match /receiverCandidates/{candidateId} {
+          allow read: if isSignedIn() &&
+            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+          allow create: if isSignedIn() &&
+            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
+        }
+      }
+    }
+
     match /groupConversations/{groupId} {
       allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.members);
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.members;
