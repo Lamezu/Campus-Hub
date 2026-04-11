@@ -313,26 +313,6 @@ export default function PostDetailScreen() {
     try {
       await forumService.toggleLike(post.id, currentUser.uid);
 
-      if (!isLiked && post.authorId !== currentUser.uid) {
-        const myName = currentUser.displayName || t('post.someone') || 'Someone';
-        notificationService.addNotification(post.authorId, {
-          category: 'social',
-          title: t('post.new_like') || 'New Like',
-          body: t('post.liked_your_post', { name: myName }) || `A ${myName} le gustó tu publicación`,
-          meta: { postId: post.id, userId: currentUser.uid, userName: myName }
-        });
-
-        // We still need to get the tag for push notification, 
-        // using dynamic import to keep dependencies clean in the component.
-        import('firebase/firestore').then(async ({ doc, getDoc }) => {
-          const { db } = await import('@/config/firebase');
-          const uSnap = await getDoc(doc(db, 'users', post.authorId));
-          const token = uSnap.data()?.fcmToken;
-          if (token) {
-            sendPushNotification(token, 'CampusHub', `❤️ ${t('post.liked_your_post', { name: myName }) || `A ${myName} le gustó tu publicación`}: ${post.title}`, { postId: post.id });
-          }
-        });
-      }
     } catch (error) {
       console.error('Like action failed:', error);
     } finally {
@@ -345,11 +325,11 @@ export default function PostDetailScreen() {
     if (isLiked) {
       if (count <= 1) return t('post.likes.you_like') || 'You Like';
       if (count === 2) return t('post.likes.you_and_one') || 'You And One';
-      return t('post.likes.you_and_others', { count: count - 1 }) || `Tú y ${count - 1} personas más`;
+      return t('post.likes.you_and_others', { count: count - 1 }) || `You and ${count - 1} others`;
     }
     if (count === 0) return '';
     if (count === 1) return t('post.likes.one_likes') || 'One Likes';
-    return t('post.likes.others_like', { count }) || `${count} personas les gusta`;
+    return t('post.likes.others_like', { count }) || `${count} people like this`;
   };
 
   const handlePostContentDoubleTap = (x: number, y: number) => {
@@ -388,7 +368,7 @@ export default function PostDetailScreen() {
         notificationService.addNotification(comment.authorId, {
           category: 'social',
           title: t('post.like_on_comment') || 'Like On Comment',
-          body: t('post.reacted_to_comment', { name: myName }) || `${myName} reaccionó a tu comentario`,
+          body: t('post.reacted_to_comment', { name: myName }) || `${myName} reacted to your comment`,
           meta: { postId: id, commentId, userId: currentUser.uid, userName: myName }
         });
       }
@@ -440,24 +420,6 @@ export default function PostDetailScreen() {
       };
       await forumService.addComment(post.id, commentData, currentUser.uid);
 
-      if (post.authorId !== currentUser.uid) {
-        const myName = currentUser.displayName || t('post.someone') || 'Someone';
-        notificationService.addNotification(post.authorId, {
-          category: 'social',
-          title: t('post.new_comment') || 'New Comment',
-          body: t('post.commented_on_post', { name: myName, text: text.substring(0, 40) + (text.length > 40 ? '...' : '') }) || `${myName} comentó en tu publicación: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`,
-          meta: { postId: post.id, userId: currentUser.uid, userName: myName }
-        });
-
-        import('firebase/firestore').then(async ({ doc, getDoc }) => {
-          const { db } = await import('@/config/firebase');
-          const uSnap = await getDoc(doc(db, 'users', post.authorId));
-          const token = uSnap.data()?.fcmToken;
-          if (token) {
-            sendPushNotification(token, t('post.new_comment') || 'New Comment', t('post.commented', { name: myName, text: text.substring(0, 60) }) || `${myName} comentó: ${text.substring(0, 60)}`, { postId: post.id });
-          }
-        });
-      }
 
       setCommentText('');
       setReplyingToComment(null);

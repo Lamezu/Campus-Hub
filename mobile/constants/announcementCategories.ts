@@ -7,11 +7,11 @@ export interface AnnouncementCategory {
 export const ANNOUNCEMENT_CATEGORIES: AnnouncementCategory[] = [
   { id: 'general', label: 'General', color: '#8E8E93' },
   { id: 'erasmus', label: 'Erasmus+', color: '#007AFF' },
-  { id: 'matricula', label: 'Matrícula', color: '#34C759' },
-  { id: 'eventos', label: 'Eventos', color: '#AF52DE' },
+  { id: 'matricula', label: 'Enrollment', color: '#34C759' },
+  { id: 'eventos', label: 'Events', color: '#AF52DE' },
   { id: 'fct', label: 'FCT', color: '#FF6B35' },
-  { id: 'becas', label: 'Becas', color: '#5AC8FA' },
-  { id: 'evaluacion', label: 'Evaluación', color: '#FF3B30' },
+  { id: 'becas', label: 'Scholarships', color: '#5AC8FA' },
+  { id: 'evaluacion', label: 'Evaluation', color: '#FF3B30' },
 ];
 
 export function getCategoryConfig(categoryId: string | null | undefined): AnnouncementCategory {

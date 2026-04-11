@@ -34,7 +34,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
 }) {
   const insets = useSafeAreaInsets();
   const [photoURL, setPhotoURL] = useState<string | null>(null);
-  const [name, setName] = useState('Eventos y Actividades');
+  const [name, setName] = useState('Events & Activities');
   const [description, setDescription] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,7 +45,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
       if (snap.exists()) {
         const data = snap.data();
         setPhotoURL(data.photoURL ?? null);
-        setName(data.name ?? 'Eventos y Actividades');
+        setName(data.name ?? 'Events & Activities');
         const desc = data.description ?? '';
         setDescription(desc);
         setEditDesc(desc);
@@ -61,7 +61,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
       await updateDoc(doc(db, 'channels', '3'), { description: editDesc });
       setDescription(editDesc);
     } catch {
-      Alert.alert('Error', 'No se pudo guardar la descripción.');
+      Alert.alert('Error', 'Could not save the description.');
       setEditDesc(description);
     } finally {
       setSaving(false);
@@ -96,7 +96,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
             <X size={22} color={colors.text} strokeWidth={2} />
           </TouchableOpacity>
           <ThemedText style={[infoModalStyles.headerTitle, { color: colors.text }]}>
-            {t('events.channel_info') || 'Información del canal'}
+            {t('events.channel_info') || 'Channel info'}
           </ThemedText>
           <View style={{ width: 22 }} />
         </View>
@@ -128,7 +128,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
 
           <View style={[infoModalStyles.descCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <ThemedText style={[infoModalStyles.descLabel, { color: colors.textSecondary }]}>
-              {t('support.channel_description') || 'Descripción'}
+              {t('support.channel_description') || 'Description'}
             </ThemedText>
             {isAdmin ? (
               <>
@@ -137,7 +137,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
                   value={editDesc}
                   onChangeText={setEditDesc}
                   multiline
-                  placeholder={t('events.description_placeholder') || 'Añade una descripción del canal...'}
+                  placeholder={t('events.description_placeholder') || 'Add a channel description...'}
                   placeholderTextColor={colors.textSecondary}
                   onBlur={handleSaveDescription}
                 />
@@ -149,14 +149,14 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
                     activeOpacity={0.8}
                   >
                     <ThemedText style={infoModalStyles.saveBtnText}>
-                      {saving ? (t('common.loading') || 'Guardando...') : (t('common.update') || 'Guardar')}
+                      {saving ? (t('common.loading') || 'Loading...') : (t('common.update') || 'Update')}
                     </ThemedText>
                   </TouchableOpacity>
                 )}
               </>
             ) : (
               <ThemedText style={[infoModalStyles.descText, { color: colors.text }]}>
-                {description || (t('events.channel_info_hint') || 'Canal de eventos y actividades del centro.')}
+                {description || (t('events.channel_info_hint') || 'Events, exams and activities channel.')}
               </ThemedText>
             )}
           </View>
@@ -164,7 +164,7 @@ function EventsInfoModal({ onClose, colors, t, isAdmin }: {
           <View style={[infoModalStyles.infoRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <CalendarDays size={16} color={colors.textSecondary} strokeWidth={1.8} />
             <ThemedText style={[infoModalStyles.infoText, { color: colors.textSecondary }]}>
-              {t('events.channel_info_hint') || 'Aquí encontrarás todos los eventos, exámenes y actividades del centro.'}
+              {t('events.channel_info_hint') || 'Events, exams and activities channel for the school.'}
             </ThemedText>
           </View>
         </ScrollView>
@@ -209,9 +209,9 @@ function EventIcon({ type, size = 16, color }: { type: CalendarEventType; size?:
   return <AlertCircle size={size} color={color} strokeWidth={2} />;
 }
 
-function formatEventDate(isoDate: string, time: string | null | undefined, allDay: boolean): string {
+function formatEventDate(isoDate: string, time: string | null | undefined, allDay: boolean, locale = 'en-US'): string {
   const d = new Date(isoDate);
-  const dateStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStr = d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   const capitalized = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
   if (allDay || !time) return capitalized;
   return `${capitalized} · ${time}`;
@@ -219,7 +219,8 @@ function formatEventDate(isoDate: string, time: string | null | undefined, allDa
 
 export default function EventsScreen() {
   const { colors, theme } = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
   const { userData } = useCurrentUser();
   const [activeFilter, setActiveFilter] = useState<CalendarEventType | 'all'>('all');
 
@@ -282,7 +283,7 @@ export default function EventsScreen() {
           </ThemedText>
 
           <ThemedText style={[styles.cardDate, { color: colors.textSecondary }]}>
-            {formatEventDate(item.date, item.time, item.allDay)}
+            {formatEventDate(item.date, item.time, item.allDay, locale)}
           </ThemedText>
 
           {!!item.description && (
@@ -295,10 +296,10 @@ export default function EventsScreen() {
             const count = (item as any).attendeesCount ?? 0;
             const iGo = myRsvp === 'going';
             const countLabel = count === 0
-              ? (t('events.confirmed_zero') || '0 confirmados')
+              ? (t('events.confirmed_zero') || '0 confirmed')
               : count === 1
-                ? (t('events.confirmed_one') || '1 confirmado')
-                : (t('events.confirmed_other') || `${count} confirmados`).replace('{{count}}', String(count));
+                ? (t('events.confirmed_one') || '1 confirmed')
+                : (t('events.confirmed_other') || `${count} confirmed`).replace('{{count}}', String(count));
             return (
               <View style={styles.rsvpSection}>
                 <View style={styles.rsvpButtons}>
@@ -311,7 +312,7 @@ export default function EventsScreen() {
                       >
                         <Check size={14} color={iGo ? '#fff' : '#34C759'} strokeWidth={2.5} />
                         <ThemedText style={[styles.rsvpBtnText, { color: iGo ? '#fff' : '#34C759' }]}>
-                          {t('events.rsvp_going') || 'Voy'}
+                          {t('events.rsvp_going') || 'Going'}
                         </ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -321,7 +322,7 @@ export default function EventsScreen() {
                       >
                         <X size={14} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
                         <ThemedText style={[styles.rsvpBtnText, { color: myRsvp === 'not_going' ? '#fff' : '#FF3B30' }]}>
-                          {t('events.rsvp_not_going') || 'No voy'}
+                          {t('events.rsvp_not_going') || 'Not going'}
                         </ThemedText>
                       </TouchableOpacity>
                     </>
@@ -351,7 +352,7 @@ export default function EventsScreen() {
             >
               <CalendarDays size={14} color={colors.primary} strokeWidth={2} />
               <ThemedText style={[styles.calendarLinkText, { color: colors.primary }]}>
-                {t('events.view_in_calendar') || 'Ver en calendario'}
+                {t('events.view_in_calendar') || 'View in calendar'}
               </ThemedText>
             </TouchableOpacity>
           </View>

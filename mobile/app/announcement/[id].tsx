@@ -45,8 +45,8 @@ function getPinExpiryText(pinnedUntil: string | null | undefined, t: (k: string,
   if (remaining <= 0) return t('explore.pin_expiry.expired') || 'Expired';
   const days = Math.ceil(remaining / 86400000);
   if (days < 2) return t('explore.pin_expiry.today') || 'Today';
-  if (days < 8) return t('explore.pin_expiry.days', { days }) || `Fijado · expira en ${days}d`;
-  return t('explore.pin_expiry.weeks', { weeks: Math.ceil(days / 7) }) || `Fijado · expira en ${Math.ceil(days / 7)}sem`;
+  if (days < 8) return t('explore.pin_expiry.days', { days }) || `Pinned · expires in ${days}d`;
+  return t('explore.pin_expiry.weeks', { weeks: Math.ceil(days / 7) }) || `Pinned · expires in ${Math.ceil(days / 7)}w`;
 }
 
 export default function AnnouncementDetailScreen() {
@@ -485,7 +485,7 @@ export default function AnnouncementDetailScreen() {
                       onPress={() => setEditForm(f => ({ ...f, pinnedUntil: opt }))}
                     >
                       <ThemedText style={[styles.durationChipText, { color: editForm.pinnedUntil === opt ? colors.primary : colors.textSecondary }]}>
-                        {t(`explore.pin_durations.${opt}`) || (opt === '1d' ? '1 día' : opt === '3d' ? '3 días' : opt === '1w' ? '1 sem' : opt === '1m' ? '1 mes' : 'Siempre')}
+                        {t(`explore.pin_durations.${opt}`) || (opt === '1d' ? '1d' : opt === '3d' ? '3d' : opt === '1w' ? '1w' : opt === '1m' ? '1m' : 'Always')}
                       </ThemedText>
                     </TouchableOpacity>
                   ))}

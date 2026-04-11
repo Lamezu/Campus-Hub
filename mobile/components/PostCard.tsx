@@ -152,7 +152,7 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
         >
           <CalendarDays size={13} color={colors.primary} strokeWidth={2} />
           <ThemedText style={[styles.eventChipText, { color: colors.primary }]}>
-            {t('events.view_in_events') || 'Ver en Eventos'}
+            {t('events.view_in_events') || 'View in Events'}
           </ThemedText>
         </TouchableOpacity>
       )}

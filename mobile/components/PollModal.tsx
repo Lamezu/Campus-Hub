@@ -107,7 +107,7 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                             <View key={index} style={styles.optionRow}>
                                 <TextInput
                                     style={[styles.optionInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                                    placeholder={t('dm.poll_option_placeholder', { index: index + 1 }) || `Opción ${index + 1}`}
+                                    placeholder={t('dm.poll_option_placeholder', { index: index + 1 }) || `Option ${index + 1}`}
                                     placeholderTextColor={colors.textSecondary + '80'}
                                     value={opt}
                                     onChangeText={(t) => updateOption(t, index)}

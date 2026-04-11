@@ -367,7 +367,7 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
       onCreated();
       onClose();
     } catch {
-      Alert.alert('Error', 'No se pudo crear el ticket. Inténtalo de nuevo.');
+      Alert.alert('Error', 'Could not create the ticket. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -456,21 +456,32 @@ function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
 }) {
   const insets = useSafeAreaInsets();
   const [photoURL, setPhotoURL] = useState<string | null>(null);
-  const [name, setName] = useState('Ayuda y Soporte');
+  const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [memberCount, setMemberCount] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [editDesc, setEditDesc] = useState('');
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'channels', '4'), snap => {
       if (snap.exists()) {
         const data = snap.data();
         setPhotoURL(data.photoURL ?? null);
-        setName(data.name ?? 'Ayuda y Soporte');
+        setName(data.name ?? '');
         setDescription(data.description ?? '');
+        setMemberCount(data.memberCount ?? null);
       }
     });
     return unsub;
   }, []);
+
+  const handleSaveDesc = async () => {
+    try {
+      await updateDoc(doc(db, 'channels', '4'), { description: editDesc.trim() });
+    } catch { }
+    setIsEditingDesc(false);
+  };
 
   const handlePickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -486,7 +497,7 @@ function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
       await updateDoc(doc(db, 'channels', '4'), { photoURL: url });
       setPhotoURL(url);
     } catch {
-      Alert.alert('Error', 'No se pudo subir la foto.');
+      Alert.alert(t('common.error') || 'Error', t('chat.info.image_error') || 'Could not upload the image.');
     } finally {
       setUploading(false);
     }
@@ -530,19 +541,57 @@ function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
 
           <ThemedText style={[infoStyles.channelName, { color: colors.text }]}>{name}</ThemedText>
 
-          {!!description && (
-            <View style={[infoStyles.descCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <ThemedText style={[infoStyles.descLabel, { color: colors.textSecondary }]}>
-                {t('support.channel_description')}
-              </ThemedText>
-              <ThemedText style={[infoStyles.descText, { color: colors.text }]}>{description}</ThemedText>
-            </View>
-          )}
-
-          <View style={[infoStyles.infoRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>
-              {t('support.all_members')}
+          <View style={[infoStyles.descCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <ThemedText style={[infoStyles.descLabel, { color: colors.textSecondary }]}>
+              {t('support.channel_description') || 'Description'}
             </ThemedText>
+            {isAdmin && isEditingDesc ? (
+              <>
+                <TextInput
+                  style={[infoStyles.descInput, { color: colors.text, borderColor: colors.border }]}
+                  value={editDesc}
+                  onChangeText={setEditDesc}
+                  multiline
+                  maxLength={300}
+                  autoFocus
+                  placeholder={t('chat.info.description_placeholder') || 'Add a description\u2026'}
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <View style={infoStyles.descBtns}>
+                  <TouchableOpacity onPress={() => setIsEditingDesc(false)} style={[infoStyles.descBtn, { backgroundColor: colors.border + '80' }]}>
+                    <ThemedText style={{ fontSize: 13 }}>{t('common.cancel') || 'Cancel'}</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSaveDesc} style={[infoStyles.descBtn, { backgroundColor: colors.primary }]}>
+                    <ThemedText style={{ fontSize: 13, color: '#fff', fontWeight: '600' }}>{t('common.save') || 'Save'}</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <TouchableOpacity activeOpacity={isAdmin ? 0.6 : 1} onPress={() => {
+                if (!isAdmin) return;
+                setEditDesc(description);
+                setIsEditingDesc(true);
+              }}>
+                {description ? (
+                  <ThemedText style={[infoStyles.descText, { color: colors.text }]}>{description}</ThemedText>
+                ) : isAdmin ? (
+                  <ThemedText style={[infoStyles.descText, { color: colors.primary + 'CC' }]}>
+                    {t('chat.info.add_description') || '+ Add description'}
+                  </ThemedText>
+                ) : null}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={[infoStyles.compactInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[infoStyles.infoRow, { borderBottomColor: colors.border }]}>
+              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.type') || 'Type'}</ThemedText>
+              <ThemedText style={[infoStyles.infoValue, { color: colors.text }]}>{t('chat.info.public_channel') || 'Public channel'}</ThemedText>
+            </View>
+            <View style={infoStyles.infoRow}>
+              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.members_label') || 'Members'}</ThemedText>
+              <ThemedText style={[infoStyles.infoValue, { color: colors.text }]}>{memberCount !== null ? String(memberCount) : (t('chat.info.all_users') || 'All users')}</ThemedText>
+            </View>
           </View>
         </ScrollView>
       </View>
@@ -560,11 +609,16 @@ const infoStyles = StyleSheet.create({
   photoPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
   cameraBtn: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   channelName: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  descCard: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth, gap: 4 },
+  descCard: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth, gap: 6 },
   descLabel: { fontSize: 12, fontWeight: '600' },
   descText: { fontSize: 14, lineHeight: 20 },
-  infoRow: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth },
-  infoLabel: { fontSize: 13 },
+  descInput: { fontSize: 14, lineHeight: 20, borderWidth: 1, borderRadius: 8, padding: 8, minHeight: 64, textAlignVertical: 'top', marginTop: 4 },
+  descBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
+  descBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 9 },
+  compactInfo: { width: '100%', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  infoLabel: { fontSize: 14 },
+  infoValue: { fontSize: 14, fontWeight: '500' },
 });
 
 type FilterStatus = 'all' | TicketStatus;

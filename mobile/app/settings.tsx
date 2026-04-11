@@ -43,7 +43,7 @@ export default function SettingsScreen() {
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
-  const [globalTone, setGlobalTone] = useState('Melodía');
+  const [globalTone, setGlobalTone] = useState('Melody');
   const currentUser = auth.currentUser;
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
   const { t, language, setLanguage } = useTranslation();
@@ -191,7 +191,7 @@ export default function SettingsScreen() {
 
           <View style={[styles.section, { borderBottomColor: colors.border }]}>
             <ThemedText style={styles.sectionTitle}>{t('common.profile')}</ThemedText>
-            <View style={styles.infoRow}>
+            <View style={styles.infoColumn}>
               <ThemedText style={styles.label}>{t('common.name') || 'Name'}</ThemedText>
               <ThemedText style={styles.value}>{userData?.displayName || currentUser?.displayName || 'User'}</ThemedText>
             </View>

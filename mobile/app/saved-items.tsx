@@ -190,7 +190,7 @@ export default function SavedItemsScreen() {
                 </View>
 
                 <ThemedText style={styles.itemDate}>
-                    {t('saved.saved_at', { date: new Date(item.savedAt).toLocaleDateString() }) || `Guardado el ${new Date(item.savedAt).toLocaleDateString()}`}
+                    {t('saved.saved_at', { date: new Date(item.savedAt).toLocaleDateString() }) || `Saved on ${new Date(item.savedAt).toLocaleDateString()}`}
                 </ThemedText>
             </TouchableOpacity>
         );

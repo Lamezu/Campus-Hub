@@ -211,7 +211,7 @@ function showAddPanel(mode){
   addPanel.innerHTML='';
   var title=document.createElement('div');
   title.style.cssText='color:#fff;font-size:15px;font-weight:600;text-align:center;margin-bottom:16px;';
-  title.textContent=mode==='add-row'?'¿Cuántas filas añadir?':'¿Cuántas columnas añadir?';
+  title.textContent=mode==='add-row'?'How many rows to add?':'How many columns to add?';
   var row=document.createElement('div');
   row.style.cssText='display:flex;align-items:center;justify-content:center;gap:28px;margin-bottom:18px;';
   var minus=document.createElement('button');
@@ -229,11 +229,11 @@ function showAddPanel(mode){
   var btns=document.createElement('div');
   btns.style.cssText='display:flex;gap:10px;';
   var cancelB=document.createElement('button');
-  cancelB.textContent='Cancelar';
+  cancelB.textContent='Cancel';
   cancelB.style.cssText='flex:1;padding:13px;border-radius:10px;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:15px;cursor:pointer;';
   cancelB.addEventListener('touchend',function(e){e.preventDefault();closeAddPanel();},{passive:false});
   var okB=document.createElement('button');
-  okB.textContent='Añadir';
+  okB.textContent='Add';
   okB.style.cssText='flex:1;padding:13px;border-radius:10px;background:#007AFF;border:none;color:#fff;font-size:15px;font-weight:600;cursor:pointer;';
   okB.addEventListener('touchend',function(e){
     e.preventDefault();
@@ -283,14 +283,14 @@ function mkCtxItem(label,cls,fn){
 }
 function showCtx(table,cell){
   tTable=table;ctx.innerHTML='';
-  ctx.appendChild(mkCtxItem('Eliminar celdas/filas/cols','',function(){startMode('del');}));
-  ctx.appendChild(mkCtxItem('Limpiar contenido de celdas','',function(){startMode('clear');}));
-  ctx.appendChild(mkCtxItem('Combinar celdas','',function(){startMode('merge');}));
-  ctx.appendChild(mkCtxItem('Borrar filas','',function(){startMode('del-row');}));
-  ctx.appendChild(mkCtxItem('Borrar columnas','',function(){startMode('del-col');}));
-  ctx.appendChild(mkCtxItem('Añadir filas','',function(){closeCtx();showAddPanel('add-row');}));
-  ctx.appendChild(mkCtxItem('Añadir columnas','',function(){closeCtx();showAddPanel('add-col');}));
-  ctx.appendChild(mkCtxItem('Borrar tabla','danger',function(){closeCtx();doDeleteTable();}));
+  ctx.appendChild(mkCtxItem('Delete cells/rows/cols','',function(){startMode('del');}));
+  ctx.appendChild(mkCtxItem('Clear cell content','',function(){startMode('clear');}));
+  ctx.appendChild(mkCtxItem('Merge cells','',function(){startMode('merge');}));
+  ctx.appendChild(mkCtxItem('Delete rows','',function(){startMode('del-row');}));
+  ctx.appendChild(mkCtxItem('Delete columns','',function(){startMode('del-col');}));
+  ctx.appendChild(mkCtxItem('Add rows','',function(){closeCtx();showAddPanel('add-row');}));
+  ctx.appendChild(mkCtxItem('Add columns','',function(){closeCtx();showAddPanel('add-col');}));
+  ctx.appendChild(mkCtxItem('Delete table','danger',function(){closeCtx();doDeleteTable();}));
   var rect=cell.getBoundingClientRect();
   var x=Math.max(4,Math.min(window.innerWidth-218,rect.left+window.pageXOffset));
   var y=rect.top+window.pageYOffset+rect.height+6;
@@ -614,7 +614,7 @@ const tpStyles = StyleSheet.create({
 });
 
 export function RichTextEditor({
-  value, onChange, placeholder = 'Escribe aquí...',
+  value, onChange, placeholder = 'Write here...',
 }: RichTextEditorProps) {
   const { colors } = useTheme();
   const wv = useRef<WebView>(null);
