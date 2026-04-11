@@ -451,12 +451,15 @@ export default function ChannelInfoScreen() {
     const [showMuteModal, setShowMuteModal] = useState(false);
     const [showMemberSearch, setShowMemberSearch] = useState(false);
     const [memberFilter, setMemberFilter] = useState('');
+    const [isEditingDesc, setIsEditingDesc] = useState(false);
+    const [editDescText, setEditDescText] = useState('');
 
     const isSG = id?.startsWith('sg_');
     const realId = isSG ? id!.replace('sg_', '') : id!;
     const colName = isSG ? 'studyGroups' : 'channels';
     const currentUser = auth.currentUser;
     const canEdit = userRole === 'admin' || subrole === 'coordinator' || channel?.createdBy === currentUser?.uid;
+    const isPublicChannel = !isSG && ['1', '2', '3', '4'].includes(realId);
 
     const filteredMembers = memberFilter
         ? members.filter(m => m.displayName?.toLowerCase().includes(memberFilter.toLowerCase()))
@@ -572,6 +575,14 @@ export default function ChannelInfoScreen() {
         ]);
     };
 
+    const handleSaveDesc = async () => {
+        if (!realId) return;
+        try {
+            await updateDoc(doc(db, colName, realId), { description: editDescText.trim() });
+        } catch (e) { console.error(e); }
+        setIsEditingDesc(false);
+    };
+
     if (loading || updating) {
         return (
             <ThemedView style={styles.center}>
@@ -622,65 +633,128 @@ export default function ChannelInfoScreen() {
                     <ThemedText style={[styles.heroSub, { color: colors.textSecondary }]}>
                         {isSG ? (t('chat.info.study_group') || 'Study Group') : (t('chat.info.campus_channel') || 'Campus Channel')} • {members.length === 1 ? t('chat.info.member_count_one') : t('chat.info.member_count_other', { count: members.length })}
                     </ThemedText>
-                    {channel?.description ? (
-                        <ThemedText style={[styles.heroDesc, { color: colors.textSecondary }]}>{channel.description}</ThemedText>
-                    ) : null}
-                </View>
-
-                <View style={styles.sectionHeader}>
-                    <ThemedText style={[styles.sectionCount, { color: colors.textSecondary }]}>
-                        {members.length === 1 ? t('chat.info.miembro') : t('chat.info.miembros')}
-                    </ThemedText>
-                    <TouchableOpacity
-                        onPress={() => { setShowMemberSearch(!showMemberSearch); setMemberFilter(''); }}
-                        style={styles.searchIconBtn}
-                    >
-                        <Search size={18} color={showMemberSearch ? colors.primary : colors.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-
-                {showMemberSearch && (
-                    <View style={[styles.memberSearchWrap, { backgroundColor: colors.backgroundSecondary }]}>
-                        <Search size={14} color={colors.textSecondary} />
-                        <TextInput
-                            style={[styles.memberSearchInput, { color: colors.text }]}
-                            placeholder={t('chat.info.search_placeholder') || "Search Placeholder"}
-                            placeholderTextColor={colors.textSecondary}
-                            value={memberFilter}
-                            onChangeText={setMemberFilter}
-                            autoFocus
-                        />
-                    </View>
-                )}
-
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                    {canEdit && (
-                        <>
-                            <TouchableOpacity style={styles.addRow} onPress={() => setShowAddModal(true)} activeOpacity={0.7}>
-                                <View style={[styles.addIconWrap, { backgroundColor: colors.primary + '18' }]}>
-                                    <UserPlus size={20} color={colors.primary} />
-                                </View>
-                                <ThemedText style={[styles.addLabel, { color: colors.primary }]}>{t('chat.info.add_members') || 'Add Members'}</ThemedText>
-                            </TouchableOpacity>
-                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        </>
-                    )}
-                    {filteredMembers.map((m, idx) => (
-                        <React.Fragment key={m.id}>
-                            <MemberRow
-                                member={m}
-                                isCreator={m.id === channel?.createdBy}
-                                isSelf={m.id === currentUser?.uid}
-                                canRemove={canEdit && m.id !== channel?.createdBy && m.id !== currentUser?.uid}
-                                onPress={() => m.id !== currentUser?.uid && router.push(`/dm/${m.id}` as any)}
-                                onRemove={() => handleRemoveMember(m)}
+                    {isEditingDesc ? (
+                        <View style={{ width: '100%', paddingHorizontal: spacing.md, marginTop: 8 }}>
+                            <TextInput
+                                style={[styles.heroDescInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+                                value={editDescText}
+                                onChangeText={setEditDescText}
+                                multiline
+                                maxLength={300}
+                                autoFocus
+                                placeholder={t('chat.info.description_placeholder') || 'Add a description…'}
+                                placeholderTextColor={colors.textSecondary}
                             />
-                            {idx < filteredMembers.length - 1 && (
-                                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                            )}
-                        </React.Fragment>
-                    ))}
+                            <View style={styles.descEditBtns}>
+                                <TouchableOpacity onPress={() => setIsEditingDesc(false)} style={[styles.descBtn, { backgroundColor: colors.border + '80' }]}>
+                                    <ThemedText style={{ fontSize: 14 }}>{t('common.cancel') || 'Cancel'}</ThemedText>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={handleSaveDesc} style={[styles.descBtn, { backgroundColor: colors.primary }]}>
+                                    <ThemedText style={{ fontSize: 14, color: '#fff', fontWeight: '600' }}>{t('common.save') || 'Save'}</ThemedText>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <TouchableOpacity activeOpacity={canEdit ? 0.6 : 1} onPress={() => {
+                            if (!canEdit) return;
+                            setEditDescText(channel?.description ?? '');
+                            setIsEditingDesc(true);
+                        }}>
+                            {channel?.description ? (
+                                <ThemedText style={[styles.heroDesc, { color: colors.textSecondary }]}>{channel.description}</ThemedText>
+                            ) : canEdit ? (
+                                <ThemedText style={[styles.heroDesc, { color: colors.primary + 'CC' }]}>
+                                    {t('chat.info.add_description') || '+ Add description'}
+                                </ThemedText>
+                            ) : null}
+                        </TouchableOpacity>
+                    )}
                 </View>
+
+                {isPublicChannel ? (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <ThemedText style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                                {t('chat.info.channel_info') || 'CHANNEL INFO'}
+                            </ThemedText>
+                        </View>
+                        <View style={[styles.card, { backgroundColor: colors.card }]}>
+                            <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
+                                <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.type') || 'Type'}</ThemedText>
+                                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{t('chat.info.public_channel') || 'Public channel'}</ThemedText>
+                            </View>
+                            <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
+                                <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.members_label') || 'Members'}</ThemedText>
+                                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{(channel?.memberCount ?? null) !== null ? String(channel.memberCount) : (t('chat.info.all_users') || 'All users')}</ThemedText>
+                            </View>
+                            {createdAtStr && (
+                                <View style={styles.infoRow}>
+                                    <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.created') || 'Created'}</ThemedText>
+                                    <ThemedText style={[styles.infoValue, { color: colors.text }]}>{createdAtStr}</ThemedText>
+                                </View>
+                            )}
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <ThemedText style={[styles.sectionCount, { color: colors.textSecondary }]}>
+                                {members.length === 1
+                                    ? t('chat.info.member_count_one') || '1 MEMBER'
+                                    : t('chat.info.member_count_other', { count: members.length }) || `${members.length} MEMBERS`}
+                            </ThemedText>
+                            <TouchableOpacity
+                                onPress={() => { setShowMemberSearch(!showMemberSearch); setMemberFilter(''); }}
+                                style={styles.searchIconBtn}
+                            >
+                                <Search size={18} color={showMemberSearch ? colors.primary : colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {showMemberSearch && (
+                            <View style={[styles.memberSearchWrap, { backgroundColor: colors.backgroundSecondary }]}>
+                                <Search size={14} color={colors.textSecondary} />
+                                <TextInput
+                                    style={[styles.memberSearchInput, { color: colors.text }]}
+                                    placeholder={t('chat.info.search_members') || 'Search members…'}
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={memberFilter}
+                                    onChangeText={setMemberFilter}
+                                    autoFocus
+                                />
+                            </View>
+                        )}
+
+                        <View style={[styles.card, { backgroundColor: colors.card }]}>
+                            {canEdit && (
+                                <>
+                                    <TouchableOpacity style={styles.addRow} onPress={() => setShowAddModal(true)} activeOpacity={0.7}>
+                                        <View style={[styles.addIconWrap, { backgroundColor: colors.primary + '18' }]}>
+                                            <UserPlus size={20} color={colors.primary} />
+                                        </View>
+                                        <ThemedText style={[styles.addLabel, { color: colors.primary }]}>{t('chat.info.add_members') || 'Add members'}</ThemedText>
+                                    </TouchableOpacity>
+                                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                                </>
+                            )}
+                            {filteredMembers.map((m, idx) => (
+                                <React.Fragment key={m.id}>
+                                    <MemberRow
+                                        member={m}
+                                        isCreator={m.id === channel?.createdBy}
+                                        isSelf={m.id === currentUser?.uid}
+                                        canRemove={canEdit && m.id !== channel?.createdBy && m.id !== currentUser?.uid}
+                                        onPress={() => m.id !== currentUser?.uid && router.push(`/dm/${m.id}` as any)}
+                                        onRemove={() => handleRemoveMember(m)}
+                                    />
+                                    {idx < filteredMembers.length - 1 && (
+                                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </View>
+                    </>
+                )}
 
                 <View style={[styles.card, { backgroundColor: colors.card, marginTop: 16 }]}>
                     <View style={styles.actionRow}>
@@ -712,15 +786,15 @@ export default function ChannelInfoScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {createdAtStr && (
+                {!isPublicChannel && createdAtStr && (
                     <View style={styles.footer}>
                         {creatorMember && (
                             <ThemedText style={[styles.footerText, { color: colors.textSecondary }]}>
-                                {t('chat.info.created_by', { name: creatorMember.id === currentUser?.uid ? (t('chat.info.created_by_you') || 'ti') : creatorMember.displayName }) || `Creado por ${creatorMember.id === currentUser?.uid ? 'ti' : creatorMember.displayName}.`}
+                                {t('chat.info.created_by', { name: creatorMember.id === currentUser?.uid ? (t('chat.info.created_by_you') || 'you') : creatorMember.displayName }) || `Created by ${creatorMember.id === currentUser?.uid ? 'you' : creatorMember.displayName}.`}
                             </ThemedText>
                         )}
                         <ThemedText style={[styles.footerText, { color: colors.textSecondary }]}>
-                            {t('chat.info.created_at', { date: createdAtStr }) || `Creado el ${createdAtStr}.`}
+                            {t('chat.info.created_at', { date: createdAtStr }) || `Created on ${createdAtStr}.`}
                         </ThemedText>
                     </View>
                 )}
@@ -788,4 +862,16 @@ const styles = StyleSheet.create({
     actionLabel: { fontSize: 16, fontWeight: '500' },
     footer: { marginTop: 16, paddingHorizontal: spacing.lg, gap: 2 },
     footerText: { fontSize: 13 },
+    heroDescInput: {
+        borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+        fontSize: 14, lineHeight: 20, minHeight: 72, textAlignVertical: 'top',
+    },
+    descEditBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 },
+    descBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+    infoRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingVertical: 13, paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    infoLabel: { fontSize: 14 },
+    infoValue: { fontSize: 14, fontWeight: '500' },
 });
