@@ -16,6 +16,10 @@ export type ChatView = { type: 'channel' | 'dm'; id: string } | null;
 let onNewNotificationCallback: ((n: NotificationItem) => void) | null = null;
 let isInitialLoad = true;
 
+// IDs optimistically marked as read — survives Firestore snapshot overwrites
+// until Firestore confirms read:true (then we remove from this set)
+const locallyReadIds = new Set<string>();
+
 import { getNotificationService as sharedGetNotificationService } from './shared';
 
 export const notificationService = {
@@ -36,24 +40,60 @@ export const notificationService = {
     unsubscribe = (sharedGetNotificationService() as any).subscribeToNotifications(userId, (items: any[]) => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-      // On first load: purge stale notifications (older than 7 days) from Firestore
       if (isInitialLoad) {
-        const stale = items.filter((item: any) => new Date(item.createdAt) < sevenDaysAgo);
-        for (const old of stale) {
-          (sharedGetNotificationService() as any).deleteNotification(userId, old.id);
+        const svc = sharedGetNotificationService() as any;
+
+        // Batch-delete stale (>7d) and orphaned social notifications in one go
+        const toDelete = items.filter((item: any) =>
+          new Date(item.createdAt) < sevenDaysAgo ||
+          (item.category === 'social' && !item.meta?.fromUserId)
+        );
+        if (toDelete.length > 0) {
+          svc.batchDeleteNotifications(userId, toDelete.map((n: any) => n.id)).catch(() => {});
+        }
+
+        // Migrate old channel notifications: update Firestore with English title + senderName
+        const oldChannelNotifs = items.filter((item: any) =>
+          item.category === 'channel' &&
+          item.meta?.channelId &&
+          !item.meta?.senderName &&
+          item.title
+        );
+        for (const n of oldChannelNotifs) {
+          const storedCh = n.meta.channelName ?? '';
+          let senderName = n.title;
+          const enIdx = n.title.lastIndexOf(` en ${storedCh}`);
+          const inIdx = n.title.lastIndexOf(` in ${storedCh}`);
+          if (enIdx > -1) senderName = n.title.slice(0, enIdx).trim();
+          else if (inIdx > -1) senderName = n.title.slice(0, inIdx).trim();
+
+          if (senderName && senderName !== n.title && storedCh) {
+            svc.updateNotification(userId, n.id, {
+              title: `${senderName} in ${storedCh}`,
+              'meta.senderName': senderName,
+            }).catch(() => {});
+          }
         }
       }
 
       const fresh = (items as NotificationItem[]).filter(
-        item => new Date(item.createdAt) >= sevenDaysAgo
+        item => new Date(item.createdAt) >= sevenDaysAgo &&
+          !(item.category === 'social' && !item.meta?.fromUserId)
       );
+
+      // Clean up confirmed reads from locallyReadIds
+      for (const item of fresh) {
+        if (item.read && locallyReadIds.has(item.id)) {
+          locallyReadIds.delete(item.id);
+        }
+      }
 
       const autoReadIds = new Set<string>();
 
       if (!isInitialLoad) {
         const newUnread = fresh.filter(item => {
           const isKnown = notifications.some(existing => existing.id === item.id);
-          return !isKnown && !item.read;
+          return !isKnown && !item.read && !locallyReadIds.has(item.id);
         });
 
         for (const n of newUnread) {
@@ -62,10 +102,12 @@ export const notificationService = {
             if (this.currentView.type === 'channel' && n.meta?.channelId === this.currentView.id) {
               suppressed = true;
               autoReadIds.add(n.id);
+              locallyReadIds.add(n.id);
             }
             if (this.currentView.type === 'dm' && n.meta?.participantId === this.currentView.id) {
               suppressed = true;
               autoReadIds.add(n.id);
+              locallyReadIds.add(n.id);
             }
           }
           if (!suppressed && onNewNotificationCallback) {
@@ -76,16 +118,17 @@ export const notificationService = {
       }
 
       isInitialLoad = false;
-      // Mark auto-read notifications as read before emitting so badge stays accurate
-      notifications = fresh.map(n => autoReadIds.has(n.id) ? { ...n, read: true } : n);
+      // Apply both auto-read and optimistic local reads — never downgrade from read to unread
+      notifications = fresh.map(n =>
+        (autoReadIds.has(n.id) || locallyReadIds.has(n.id)) ? { ...n, read: true } : n
+      );
       emit();
 
-      // Write auto-read state to Firestore in background
       if (autoReadIds.size > 0) {
-        const userId = auth.currentUser?.uid;
-        if (userId) {
+        const uid = auth.currentUser?.uid;
+        if (uid) {
           autoReadIds.forEach(id => {
-            (sharedGetNotificationService() as any).markAsRead(userId, id).catch(() => {});
+            (sharedGetNotificationService() as any).markAsRead(uid, id).catch(() => {});
           });
         }
       }
@@ -112,9 +155,10 @@ export const notificationService = {
   async markRead(id: string): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
+    locallyReadIds.add(id);
     notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
     emit();
-    await (sharedGetNotificationService() as any).markAsRead(userId, id);
+    await (sharedGetNotificationService() as any).markAsRead(userId, id).catch(() => {});
   },
 
   async markAllRead(category?: NotificationCategory): Promise<void> {
@@ -122,20 +166,20 @@ export const notificationService = {
     if (!userId) return;
     try {
       const toMark = notifications.filter(n => (!category || n.category === category) && !n.read);
-      if (toMark.length > 0) {
-        const ids = new Set(toMark.map(n => n.id));
-        notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
-        emit();
-      }
-      for (const n of toMark) {
-        await (sharedGetNotificationService() as any).markAsRead(userId, n.id);
-      }
+      if (toMark.length === 0) return;
+      toMark.forEach(n => locallyReadIds.add(n.id));
+      const ids = new Set(toMark.map(n => n.id));
+      notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
+      emit();
+      await Promise.all(
+        toMark.map(n => (sharedGetNotificationService() as any).markAsRead(userId, n.id).catch(() => {}))
+      );
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   },
 
-  async markChatRead(type: 'channel' | 'dm', id: string): Promise<void> {
+  async markChatRead(type: 'channel' | 'dm' | 'social', id: string): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
     try {
@@ -143,18 +187,17 @@ export const notificationService = {
         if (n.read) return false;
         if (type === 'channel') return n.meta?.channelId === id;
         if (type === 'dm') return n.meta?.participantId === id;
+        if (type === 'social') return n.meta?.postId === id;
         return false;
       });
-
-      if (toMark.length > 0) {
-        const ids = new Set(toMark.map(n => n.id));
-        notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
-        emit();
-      }
-
-      for (const n of toMark) {
-        await (sharedGetNotificationService() as any).markAsRead(userId, n.id);
-      }
+      if (toMark.length === 0) return;
+      toMark.forEach(n => locallyReadIds.add(n.id));
+      const ids = new Set(toMark.map(n => n.id));
+      notifications = notifications.map(n => ids.has(n.id) ? { ...n, read: true } : n);
+      emit();
+      await Promise.all(
+        toMark.map(n => (sharedGetNotificationService() as any).markAsRead(userId, n.id).catch(() => {}))
+      );
     } catch (error) {
       console.error('Error marking chat notifications as read:', error);
     }
@@ -167,6 +210,7 @@ export const notificationService = {
   async deleteNotification(id: string): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
+    locallyReadIds.delete(id);
     notifications = notifications.filter(n => n.id !== id);
     emit();
     await (sharedGetNotificationService() as any).deleteNotification(userId, id);
@@ -178,6 +222,7 @@ export const notificationService = {
       unsubscribe = null;
     }
     notifications = [];
+    locallyReadIds.clear();
     isInitialLoad = true;
     emit();
   }
