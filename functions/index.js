@@ -32,8 +32,7 @@ async function writeInAppNotifications(userIds, notification) {
     });
     await batch.commit();
 
-    // Enforce 50-notification cap: delete the oldest if a user now has 51
-    await Promise.all(chunk.map(async uid => {
+        await Promise.all(chunk.map(async uid => {
       const snap = await db.collection('notifications').doc(uid).collection('items')
         .orderBy('createdAt', 'desc').limit(51).get();
       if (snap.size === 51) {
@@ -61,7 +60,15 @@ exports.onMessageCreated = onDocumentCreated(
       const channelData = channelDoc.data();
       const channelName = channelData.name || 'Channel';
       const metaChannelId = isStudyGroup ? `sg_${channelId}` : channelId;
-      const allMemberIds = (channelData.memberIds || []).filter(id => id !== message.senderId);
+      let allMemberIds = (channelData.memberIds || []).filter(id => id !== message.senderId);
+
+      if (allMemberIds.length === 0 && !isStudyGroup) {
+        const membersSnap = await db.collection('channels').doc(channelId).collection('members').get();
+        allMemberIds = membersSnap.docs
+          .map(d => d.data().userId)
+          .filter(Boolean)
+          .filter(id => id !== message.senderId);
+      }
 
       if (allMemberIds.length === 0) return null;
 
@@ -794,5 +801,226 @@ exports.onUserCreated = onDocumentCreated(
       console.error('[onUserCreated] Error auto-joining user:', error);
     }
     return null;
+  }
+);
+
+exports.onTicketReplyCreated = onDocumentCreated(
+  'tickets/{ticketId}/replies/{replyId}',
+  async (event) => {
+    const reply = event.data.data();
+    const ticketId = event.params.ticketId;
+
+    try {
+      const ticketDoc = await db.collection('tickets').doc(ticketId).get();
+      if (!ticketDoc.exists) return null;
+      const ticket = ticketDoc.data();
+
+      if (reply.isStaff) {
+        // Staff replied → notify the student anonymously (don't expose admin name)
+        if (!ticket.userId) return null;
+
+        const studentPayload = {
+          category: 'channel',
+          title: 'Support replied to your ticket',
+          body: reply.text ? reply.text.substring(0, 100) : '📎 Attachment',
+          meta: {
+            channelId: '4',
+            channelName: 'Help & Support',
+            senderName: 'Support Team',
+            ticketId,
+            notifSubtype: 'ticket_reply_staff',
+          },
+        };
+
+        await writeInAppNotifications([ticket.userId], studentPayload);
+
+        const buildFcm = (token) => ({
+          notification: { title: studentPayload.title, body: studentPayload.body },
+          data: { type: 'channel_message', channelId: '4', ticketId },
+          android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+          apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          token,
+        });
+
+        const userDoc = await db.collection('users').doc(ticket.userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          if (userData.fcmToken && userData.notificationsEnabled !== false) {
+            await messaging.send(buildFcm(userData.fcmToken));
+          }
+        }
+      } else {
+        // Student replied → notify admins with ticket context
+        const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
+        const adminIds = adminsSnap.docs
+          .map(d => d.id)
+          .filter(id => id !== reply.authorId);
+
+        if (adminIds.length === 0) return null;
+
+        const adminPayload = {
+          category: 'channel',
+          title: `${ticket.userName || 'A student'} replied on their ticket`,
+          body: reply.text ? reply.text.substring(0, 100) : '📎 Attachment',
+          meta: {
+            channelId: '4',
+            channelName: 'Help & Support',
+            senderName: ticket.userName || 'Student',
+            ticketId,
+            notifSubtype: 'ticket_reply_user',
+          },
+        };
+
+        await writeInAppNotifications(adminIds, adminPayload);
+
+        const buildAdminFcm = (token) => ({
+          notification: { title: adminPayload.title, body: adminPayload.body },
+          data: { type: 'channel_message', channelId: '4', ticketId },
+          android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+          apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          token,
+        });
+
+        const fcmMessages = [];
+        for (const chunk of chunks(adminIds, 30)) {
+          const usersSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+          usersSnap.docs.forEach(d => {
+            const userData = d.data();
+            if (userData.fcmToken && userData.notificationsEnabled !== false) {
+              fcmMessages.push(buildAdminFcm(userData.fcmToken));
+            }
+          });
+        }
+
+        if (fcmMessages.length > 0) {
+          const response = await messaging.sendEach(fcmMessages);
+          console.log(`FCM ticket reply to admins: ${response.successCount}/${fcmMessages.length}`);
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in onTicketReplyCreated:', error);
+      return null;
+    }
+  }
+);
+
+exports.onTicketCreated = onDocumentCreated(
+  'tickets/{ticketId}',
+  async (event) => {
+    const ticket = event.data.data();
+    const ticketId = event.params.ticketId;
+
+    try {
+      const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
+      const adminIds = adminsSnap.docs
+        .map(d => d.id)
+        .filter(id => id !== ticket.userId);
+
+      if (adminIds.length === 0) return null;
+
+      const notifPayload = {
+        category: 'channel',
+        title: `${ticket.userName} opened a support ticket`,
+        body: ticket.title ? ticket.title.substring(0, 100) : 'New ticket',
+        meta: {
+          channelId: '4',
+          channelName: 'Help & Support',
+          senderName: ticket.userName || '',
+          ticketId,
+          ticketTitle: ticket.title || '',
+          notifSubtype: 'ticket_new',
+        },
+      };
+
+      await writeInAppNotifications(adminIds, notifPayload);
+
+      const buildFcm = (token) => ({
+        notification: { title: notifPayload.title, body: notifPayload.body },
+        data: { type: 'channel_message', channelId: '4', ticketId },
+        android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+        apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+        token,
+      });
+
+      const fcmMessages = [];
+      for (const chunk of chunks(adminIds, 30)) {
+        const usersSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+        usersSnap.docs.forEach(d => {
+          const userData = d.data();
+          if (userData.fcmToken && userData.notificationsEnabled !== false) {
+            fcmMessages.push(buildFcm(userData.fcmToken));
+          }
+        });
+      }
+
+      if (fcmMessages.length > 0) {
+        const response = await messaging.sendEach(fcmMessages);
+        console.log(`FCM new ticket to admins: ${response.successCount}/${fcmMessages.length}`);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in onTicketCreated:', error);
+      return null;
+    }
+  }
+);
+
+exports.onTicketStatusChanged = onDocumentUpdated(
+  'tickets/{ticketId}',
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    const ticketId = event.params.ticketId;
+
+    // Only fire when status actually changed
+    if (before.status === after.status) return null;
+    if (!after.userId) return null;
+
+    const statusMessages = {
+      in_progress: { title: 'Ticket in progress', body: `Your ticket "${after.title}" is being reviewed` },
+      resolved:    { title: 'Ticket resolved',     body: `Your ticket "${after.title}" has been resolved` },
+      open:        { title: 'Ticket reopened',     body: `Your ticket "${after.title}" has been reopened` },
+    };
+
+    const msg = statusMessages[after.status];
+    if (!msg) return null;
+
+    try {
+      await writeInAppNotifications([after.userId], {
+        category: 'channel',
+        title: msg.title,
+        body: msg.body.substring(0, 100),
+        meta: {
+          channelId: '4',
+          channelName: 'Help & Support',
+          senderName: 'Support Team',
+          ticketId,
+          ticketTitle: after.title || '',
+          notifSubtype: `ticket_status_${after.status}`,
+        },
+      });
+
+      const userDoc = await db.collection('users').doc(after.userId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData.fcmToken && userData.notificationsEnabled !== false) {
+          await messaging.send({
+            notification: { title: msg.title, body: msg.body.substring(0, 100) },
+            data: { type: 'channel_message', channelId: '4', ticketId },
+            android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+            apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+            token: userData.fcmToken,
+          });
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in onTicketStatusChanged:', error);
+      return null;
+    }
   }
 );
