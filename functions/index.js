@@ -31,6 +31,15 @@ async function writeInAppNotifications(userIds, notification) {
       });
     });
     await batch.commit();
+
+    // Enforce 50-notification cap: delete the oldest if a user now has 51
+    await Promise.all(chunk.map(async uid => {
+      const snap = await db.collection('notifications').doc(uid).collection('items')
+        .orderBy('createdAt', 'desc').limit(51).get();
+      if (snap.size === 51) {
+        await snap.docs[50].ref.delete();
+      }
+    }));
   }
 }
 
@@ -50,7 +59,7 @@ exports.onMessageCreated = onDocumentCreated(
       }
 
       const channelData = channelDoc.data();
-      const channelName = channelData.name || 'Canal';
+      const channelName = channelData.name || 'Channel';
       const metaChannelId = isStudyGroup ? `sg_${channelId}` : channelId;
       const allMemberIds = (channelData.memberIds || []).filter(id => id !== message.senderId);
 
@@ -58,9 +67,9 @@ exports.onMessageCreated = onDocumentCreated(
 
       await writeInAppNotifications(allMemberIds, {
         category: 'channel',
-        title: `${message.senderName} en ${channelName}`,
-        body: message.text ? message.text.substring(0, 100) : '📎 Adjunto',
-        meta: { channelId: metaChannelId, channelName },
+        title: `${message.senderName} in ${channelName}`,
+        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        meta: { channelId: metaChannelId, channelName, senderName: message.senderName || '' },
       });
 
       const fcmMessages = [];
@@ -71,8 +80,8 @@ exports.onMessageCreated = onDocumentCreated(
           if (userData.fcmToken && userData.notificationsEnabled !== false) {
             fcmMessages.push({
               notification: {
-                title: `${message.senderName} en ${channelName}`,
-                body: message.text ? message.text.substring(0, 100) : '📎 Adjunto',
+                title: `${message.senderName} in ${channelName}`,
+                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
               },
               data: {
                 type: 'channel_message',
@@ -90,11 +99,11 @@ exports.onMessageCreated = onDocumentCreated(
 
       if (fcmMessages.length > 0) {
         const response = await messaging.sendEach(fcmMessages);
-        console.log(`FCM canal: ${response.successCount}/${fcmMessages.length}`);
+        console.log(`FCM channel: ${response.successCount}/${fcmMessages.length}`);
       }
       return null;
     } catch (error) {
-      console.error('Error en onMessageCreated:', error);
+      console.error('Error in onMessageCreated:', error);
       return null;
     }
   }
@@ -115,8 +124,8 @@ exports.onCallInitiated = onDocumentCreated(
 
       await messaging.send({
         notification: {
-          title: `Llamada ${call.type === 'video' ? 'de video' : 'de voz'} entrante`,
-          body: `${call.callerName} te está llamando`,
+          title: `Incoming ${call.type === 'video' ? 'video' : 'voice'} call`,
+          body: `${call.callerName} is calling you`,
         },
         data: {
           type: 'incoming_call',
@@ -132,7 +141,7 @@ exports.onCallInitiated = onDocumentCreated(
       });
       return null;
     } catch (error) {
-      console.error('Error en onCallInitiated:', error);
+      console.error('Error in onCallInitiated:', error);
       return null;
     }
   }
@@ -146,8 +155,8 @@ exports.onFriendRequestCreated = onDocumentCreated(
     try {
       await writeInAppNotifications([request.toUserId], {
         category: 'friend',
-        title: 'Nueva solicitud de amistad',
-        body: `${request.fromUserName} quiere ser tu amigo/a`,
+        title: 'New friend request',
+        body: `${request.fromUserName} wants to be your friend`,
         meta: {
           isRequest: 'true',
           fromUserId: request.fromUserId,
@@ -162,8 +171,8 @@ exports.onFriendRequestCreated = onDocumentCreated(
 
       await messaging.send({
         notification: {
-          title: 'Nueva solicitud de amistad',
-          body: `${request.fromUserName} quiere ser tu amigo`,
+          title: 'New friend request',
+          body: `${request.fromUserName} wants to be your friend`,
         },
         data: {
           type: 'friend_request',
@@ -175,7 +184,7 @@ exports.onFriendRequestCreated = onDocumentCreated(
       });
       return null;
     } catch (error) {
-      console.error('Error en onFriendRequestCreated:', error);
+      console.error('Error in onFriendRequestCreated:', error);
       return null;
     }
   }
@@ -192,16 +201,16 @@ exports.onStudyGroupMessageCreated = onDocumentCreated(
       if (!groupDoc.exists) return null;
 
       const groupData = groupDoc.data();
-      const groupName = groupData.name || 'Grupo';
+      const groupName = groupData.name || 'Group';
       const allMemberIds = (groupData.memberIds || []).filter(id => id !== message.senderId);
 
       if (allMemberIds.length === 0) return null;
 
       await writeInAppNotifications(allMemberIds, {
         category: 'channel',
-        title: `${message.senderName} en ${groupName}`,
-        body: message.text ? message.text.substring(0, 100) : '📎 Adjunto',
-        meta: { channelId: `sg_${groupId}`, channelName: groupName },
+        title: `${message.senderName} in ${groupName}`,
+        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        meta: { channelId: `sg_${groupId}`, channelName: groupName, senderName: message.senderName || '' },
       });
 
       const fcmMessages = [];
@@ -212,8 +221,8 @@ exports.onStudyGroupMessageCreated = onDocumentCreated(
           if (userData.fcmToken && userData.notificationsEnabled !== false) {
             fcmMessages.push({
               notification: {
-                title: `${message.senderName} en ${groupName}`,
-                body: message.text ? message.text.substring(0, 100) : '📎 Adjunto',
+                title: `${message.senderName} in ${groupName}`,
+                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
               },
               data: {
                 type: 'channel_message',
@@ -231,11 +240,11 @@ exports.onStudyGroupMessageCreated = onDocumentCreated(
 
       if (fcmMessages.length > 0) {
         const response = await messaging.sendEach(fcmMessages);
-        console.log(`FCM grupo: ${response.successCount}/${fcmMessages.length}`);
+        console.log(`FCM group: ${response.successCount}/${fcmMessages.length}`);
       }
       return null;
     } catch (error) {
-      console.error('Error en onStudyGroupMessageCreated:', error);
+      console.error('Error in onStudyGroupMessageCreated:', error);
       return null;
     }
   }
@@ -257,7 +266,7 @@ exports.onAnnouncementCreated = onDocumentCreated(
 
       if (userIds.length === 0) return null;
 
-      const title = post.title ? post.title.substring(0, 60) : 'Nuevo anuncio';
+      const title = post.title ? post.title.substring(0, 60) : 'New announcement';
       const body = post.content ? post.content.substring(0, 100) : '';
 
       await writeInAppNotifications(userIds, {
@@ -287,12 +296,12 @@ exports.onAnnouncementCreated = onDocumentCreated(
       if (fcmMessages.length > 0) {
         for (const chunk of chunks(fcmMessages, 500)) {
           const response = await messaging.sendEach(chunk);
-          console.log(`FCM anuncio: ${response.successCount}/${chunk.length}`);
+          console.log(`FCM announcement: ${response.successCount}/${chunk.length}`);
         }
       }
       return null;
     } catch (error) {
-      console.error('Error en onAnnouncementCreated:', error);
+      console.error('Error in onAnnouncementCreated:', error);
       return null;
     }
   }
@@ -314,9 +323,9 @@ exports.onEventCreated = onDocumentCreated(
 
       if (userIds.length === 0) return null;
 
-      const title = ev.title ? ev.title.substring(0, 60) : 'Nuevo evento';
+      const title = ev.title ? ev.title.substring(0, 60) : 'New event';
       const dateStr = ev.startDate
-        ? (ev.startDate.toDate ? ev.startDate.toDate().toLocaleDateString('es-ES') : new Date(ev.startDate).toLocaleDateString('es-ES'))
+        ? (ev.startDate.toDate ? ev.startDate.toDate().toLocaleDateString('en-GB') : new Date(ev.startDate).toLocaleDateString('en-GB'))
         : '';
       const body = dateStr ? `${dateStr}` : '';
 
@@ -347,12 +356,12 @@ exports.onEventCreated = onDocumentCreated(
       if (fcmMessages.length > 0) {
         for (const chunk of chunks(fcmMessages, 500)) {
           const response = await messaging.sendEach(chunk);
-          console.log(`FCM evento: ${response.successCount}/${chunk.length}`);
+          console.log(`FCM event: ${response.successCount}/${chunk.length}`);
         }
       }
       return null;
     } catch (error) {
-      console.error('Error en onEventCreated:', error);
+      console.error('Error in onEventCreated:', error);
       return null;
     }
   }
@@ -381,7 +390,7 @@ exports.onDirectMessageCreated = onDocumentCreated(
       await messaging.send({
         notification: {
           title: message.senderName,
-          body: message.text ? message.text.substring(0, 100) : '📎 Adjunto',
+          body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
         },
         data: {
           type: 'direct_message',
@@ -396,7 +405,7 @@ exports.onDirectMessageCreated = onDocumentCreated(
       });
       return null;
     } catch (error) {
-      console.error('Error en onDirectMessageCreated:', error);
+      console.error('Error in onDirectMessageCreated:', error);
       return null;
     }
   }
@@ -467,15 +476,10 @@ exports.onPostDeleted = onDocumentDeleted(
       data?.imageUrl && deleteCloudinaryAsset(data.imageUrl, 'image', apiKey, apiSecret),
     ].filter(Boolean);
 
-    // When an announcement with a linked event is deleted → delete the event too
     if (data?.postType === 'announcement' && data?.linkedEventId) {
-      ops.push(
-        db.collection('events').doc(data.linkedEventId).delete().catch(() => {})
-      );
+      ops.push(db.collection('events').doc(data.linkedEventId).delete().catch(() => {}));
     }
 
-    // When a social post is deleted, clear publishedInChannel on the linked event
-    // and clear socialId on the linked announcement — restoring the publish button
     if (data?.postType !== 'announcement' && data?.linkedEventId) {
       ops.push(
         db.collection('events').doc(data.linkedEventId).update({
@@ -484,6 +488,7 @@ exports.onPostDeleted = onDocumentDeleted(
         }).catch(() => {})
       );
     }
+
     if (data?.originalAnnouncementId) {
       ops.push(
         db.collection('posts').doc(data.originalAnnouncementId).update({
@@ -493,6 +498,37 @@ exports.onPostDeleted = onDocumentDeleted(
     }
 
     await Promise.all(ops);
+
+    const postId = event.params.postId;
+    try {
+      const notifSnap = await db.collectionGroup('items').where('meta.postId', '==', postId).get();
+      if (!notifSnap.empty) {
+        for (const ch of chunks(notifSnap.docs, 499)) {
+          const batch = db.batch();
+          ch.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  }
+);
+
+exports.onEventDeleted = onDocumentDeleted(
+  'events/{eventId}',
+  async (event) => {
+    const eventId = event.params.eventId;
+    try {
+      const notifSnap = await db.collectionGroup('items').where('meta.eventId', '==', eventId).get();
+      if (!notifSnap.empty) {
+        for (const ch of chunks(notifSnap.docs, 499)) {
+          const batch = db.batch();
+          ch.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+    } catch (e) {}
     return null;
   }
 );
@@ -510,7 +546,133 @@ exports.onPostUpdated = onDocumentUpdated(
     if (before?.imageUrl && before.imageUrl !== after?.imageUrl)
       ops.push(deleteCloudinaryAsset(before.imageUrl, 'image', apiKey, apiSecret));
     await Promise.all(ops);
+
+    const beforeLikes = Array.isArray(before?.likes) ? before.likes : [];
+    const afterLikes = Array.isArray(after?.likes) ? after.likes : [];
+    const beforeShared = Array.isArray(before?.sharedBy) ? before.sharedBy : [];
+    const afterShared = Array.isArray(after?.sharedBy) ? after.sharedBy : [];
+    const postId = event.params.postId;
+
+    const newLikerId = afterLikes.length > beforeLikes.length
+      ? (afterLikes.find(id => !beforeLikes.includes(id)) ?? null)
+      : null;
+    const removedLikerId = beforeLikes.length > afterLikes.length
+      ? (beforeLikes.find(id => !afterLikes.includes(id)) ?? null)
+      : null;
+    const newSharerId = afterShared.length > beforeShared.length
+      ? (afterShared.find(id => !beforeShared.includes(id)) ?? null)
+      : null;
+
+    if (removedLikerId) {
+      await db.collection('posts').doc(postId).update({
+        [`likeNotifiedUsers.${removedLikerId}`]: FieldValue.delete(),
+      }).catch(() => {});
+    }
+
+    const likeNotifiedUsers = after.likeNotifiedUsers || {};
+    const likerIsOther = newLikerId && newLikerId !== after?.authorId && !likeNotifiedUsers[newLikerId];
+    const sharerIsOther = newSharerId && newSharerId !== after?.authorId;
+
+    if ((likerIsOther || sharerIsOther) && after?.authorId) {
+      const [authorDoc, likerDoc, sharerDoc] = await Promise.all([
+        db.collection('users').doc(after.authorId).get(),
+        likerIsOther ? db.collection('users').doc(newLikerId).get() : Promise.resolve(null),
+        sharerIsOther ? db.collection('users').doc(newSharerId).get() : Promise.resolve(null),
+      ]);
+
+      const authorData = authorDoc.data();
+      const notifOps = [];
+
+      if (likerDoc) {
+        const likerName = likerDoc.data()?.displayName || 'Someone';
+        notifOps.push(
+          db.collection('posts').doc(postId).update({
+            [`likeNotifiedUsers.${newLikerId}`]: true,
+          })
+        );
+        notifOps.push(writeInAppNotifications([after.authorId], {
+          category: 'social',
+          title: likerName,
+          body: 'liked your post',
+          meta: { postId, fromUserId: newLikerId, fromUserName: likerName, type: 'like', postTitle: (after.title || '').substring(0, 60) },
+        }));
+        if (authorData?.fcmToken && authorData?.notificationsEnabled !== false) {
+          notifOps.push(messaging.send({
+            notification: { title: likerName, body: 'liked your post' },
+            data: { type: 'post_like', postId, fromUserId: newLikerId },
+            token: authorData.fcmToken,
+            android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+            apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          }).catch(e => console.warn('FCM like error:', e.message)));
+        }
+      }
+
+      if (sharerDoc) {
+        const sharerName = sharerDoc.data()?.displayName || 'Someone';
+        notifOps.push(writeInAppNotifications([after.authorId], {
+          category: 'social',
+          title: sharerName,
+          body: 'shared your post',
+          meta: { postId, fromUserId: newSharerId, fromUserName: sharerName, type: 'share', postTitle: (after.title || '').substring(0, 60) },
+        }));
+        if (authorData?.fcmToken && authorData?.notificationsEnabled !== false) {
+          notifOps.push(messaging.send({
+            notification: { title: sharerName, body: 'shared your post' },
+            data: { type: 'post_share', postId, fromUserId: newSharerId },
+            token: authorData.fcmToken,
+            android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+            apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          }).catch(e => console.warn('FCM share error:', e.message)));
+        }
+      }
+
+      await Promise.all(notifOps);
+    }
+
     return null;
+  }
+);
+
+exports.onCommentCreated = onDocumentCreated(
+  'posts/{postId}/comments/{commentId}',
+  async (event) => {
+    const comment = event.data.data();
+    const postId = event.params.postId;
+    try {
+      const postDoc = await db.collection('posts').doc(postId).get();
+      if (!postDoc.exists) return null;
+      const post = postDoc.data();
+
+      if (!post.authorId || comment.authorId === post.authorId) return null;
+
+      const commenterName = comment.authorName || 'Someone';
+      const commentText = (comment.content || comment.text || '').substring(0, 100).trim();
+      const body = commentText || 'commented on your post';
+
+      await writeInAppNotifications([post.authorId], {
+        category: 'social',
+        title: commenterName,
+        body,
+        meta: { postId, fromUserId: comment.authorId || '', fromUserName: commenterName, type: 'comment', postTitle: (post.title || '').substring(0, 60) },
+      });
+
+      const authorDoc = await db.collection('users').doc(post.authorId).get();
+      if (!authorDoc.exists) return null;
+      const authorData = authorDoc.data();
+      if (authorData?.fcmToken && authorData?.notificationsEnabled !== false) {
+        await messaging.send({
+          notification: { title: commenterName, body },
+          data: { type: 'post_comment', postId, fromUserId: comment.authorId || '' },
+          token: authorData.fcmToken,
+          android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+          apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+        }).catch(e => console.warn('FCM comment error:', e.message));
+      }
+      return null;
+    } catch (error) {
+      console.error('Error in onCommentCreated:', error);
+      return null;
+    }
   }
 );
 
@@ -607,7 +769,6 @@ exports.getCustomToken = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-// Auto-join all users to public channels when their profile is created
 const PUBLIC_CHANNEL_IDS = ['1', '2', '3', '4'];
 
 exports.onUserCreated = onDocumentCreated(
@@ -617,7 +778,6 @@ exports.onUserCreated = onDocumentCreated(
     try {
       const batch = db.batch();
       for (const channelId of PUBLIC_CHANNEL_IDS) {
-        // Add to members subcollection
         const memberRef = db.collection('channels').doc(channelId).collection('members').doc(userId);
         batch.set(memberRef, {
           userId,
@@ -625,7 +785,6 @@ exports.onUserCreated = onDocumentCreated(
           joinedAt: FieldValue.serverTimestamp(),
           notifications: true,
         }, { merge: true });
-        // Add to memberIds array on the channel document
         const channelRef = db.collection('channels').doc(channelId);
         batch.update(channelRef, { memberIds: FieldValue.arrayUnion(userId) });
       }
