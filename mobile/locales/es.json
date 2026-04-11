@@ -1065,7 +1065,18 @@
         "social_comment_body": "ha comentado tu publicación",
         "social_share_body": "ha compartido tu publicación",
         "your_post": "Tu publicación",
-        "and_others": "y {{count}} más"
+        "and_others": "y {{count}} más",
+        "channel_in": "en",
+        "attachment": "📎 Adjunto",
+        "ticket_new": "{{name}} ha abierto un ticket de soporte",
+        "ticket_reply_staff": "Soporte ha respondido a tu ticket",
+        "ticket_reply_user": "{{name}} ha respondido en su ticket",
+        "ticket_status_in_progress_title": "Ticket en curso",
+        "ticket_status_resolved_title": "Ticket resuelto",
+        "ticket_status_open_title": "Ticket reabierto",
+        "ticket_status_body_in_progress": "Tu ticket \"{{title}}\" está siendo revisado",
+        "ticket_status_body_resolved": "Tu ticket \"{{title}}\" ha sido resuelto",
+        "ticket_status_body_open": "Tu ticket \"{{title}}\" ha sido reabierto"
     },
     "post": {
         "someone": "Alguien",
@@ -1140,7 +1151,10 @@
         "change_photo": "Cambiar foto",
         "uploading_photo": "Subiendo...",
         "all_members": "Todos los usuarios registrados",
-        "channel_description": "Descripción"
+        "channel_description": "Descripción",
+        "update_status_error": "No se pudo actualizar el estado del ticket.",
+        "create_error": "No se pudo crear el ticket. Por favor, inténtalo de nuevo.",
+        "unknown_user": "Usuario"
     },
     "predefined_channels": {
         "1": {

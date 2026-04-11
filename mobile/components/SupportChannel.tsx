@@ -111,27 +111,28 @@ const rowStyles = StyleSheet.create({
   avatarLetter: { fontSize: 9, color: '#FFF', fontWeight: '700' },
 });
 
-function ReplyBubble({ reply, colors }: { reply: any; colors: any }) {
+function ReplyBubble({ reply, colors, currentUserId }: { reply: any; colors: any; currentUserId: string }) {
+  const isOwn = reply.authorId === currentUserId;
   return (
-    <View style={[replyStyles.root, reply.isStaff ? replyStyles.staffSide : replyStyles.userSide]}>
-      {reply.isStaff && (
+    <View style={[replyStyles.root, isOwn ? replyStyles.ownSide : replyStyles.otherSide]}>
+      {!isOwn && reply.isStaff && (
         <View style={[replyStyles.staffBadge, { backgroundColor: colors.primary + '18' }]}>
           <ThemedText style={[replyStyles.staffLabel, { color: colors.primary }]}>Staff</ThemedText>
         </View>
       )}
       <View style={[
         replyStyles.bubble,
-        { backgroundColor: reply.isStaff ? colors.primary : colors.card, borderColor: colors.border },
+        { backgroundColor: isOwn ? colors.primary : colors.card, borderColor: colors.border },
       ]}>
-        {!reply.isStaff && (
+        {!isOwn && (
           <ThemedText style={[replyStyles.author, { color: colors.primary }]}>
-            {reply.authorName}
+            {reply.isStaff ? 'Support Team' : reply.authorName}
           </ThemedText>
         )}
-        <ThemedText style={[replyStyles.text, { color: reply.isStaff ? '#fff' : colors.text }]}>
+        <ThemedText style={[replyStyles.text, { color: isOwn ? '#fff' : colors.text }]}>
           {reply.text}
         </ThemedText>
-        <ThemedText style={[replyStyles.time, { color: reply.isStaff ? 'rgba(255,255,255,0.65)' : colors.textSecondary }]}>
+        <ThemedText style={[replyStyles.time, { color: isOwn ? 'rgba(255,255,255,0.65)' : colors.textSecondary }]}>
           {formatDate(reply.createdAt)}
         </ThemedText>
       </View>
@@ -141,8 +142,8 @@ function ReplyBubble({ reply, colors }: { reply: any; colors: any }) {
 
 const replyStyles = StyleSheet.create({
   root: { marginVertical: 4, marginHorizontal: 16, maxWidth: '80%' },
-  userSide: { alignSelf: 'flex-start' },
-  staffSide: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  otherSide: { alignSelf: 'flex-start' },
+  ownSide: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   staffBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1, alignSelf: 'flex-end', marginBottom: 2 },
   staffLabel: { fontSize: 10, fontWeight: '700' },
   bubble: { borderRadius: 14, padding: 10, borderWidth: StyleSheet.hairlineWidth, gap: 3 },
@@ -165,6 +166,9 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  // Staff acting on their own ticket should be treated as a regular user
+  const isActingAsStaff = isStaff && ticket.userId !== currentUser?.uid;
+
   const handleSendReply = async () => {
     const txt = replyText.trim();
     if (!txt || !currentUser) return;
@@ -173,10 +177,10 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
       await addTicketReply({
         ticketId: ticket.id,
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || currentUser.email || 'Usuario',
+        authorName: currentUser.displayName || currentUser.email || t('support.unknown_user'),
         authorPhoto: currentUser.photoURL ?? null,
         text: txt,
-        isStaff,
+        isStaff: isActingAsStaff,
       });
       setReplyText('');
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
@@ -189,7 +193,7 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
     try {
       await updateTicketStatus(ticket.id, status);
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar el estado.');
+      Alert.alert(t('common.error') || 'Error', t('support.update_status_error') || 'Could not update the ticket status.');
     }
   };
 
@@ -239,7 +243,7 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
               </View>
             </View>
 
-            {isStaff && (
+            {isActingAsStaff && (
               <View style={detailStyles.statusActions}>
                 {ticket.status !== 'in_progress' && (
                   <TouchableOpacity
@@ -287,7 +291,7 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
             {repliesLoading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
             ) : (
-              replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} />)
+              replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} currentUserId={currentUser?.uid ?? ''} />)
             )}
             <View style={{ height: 20 }} />
           </ScrollView>
@@ -359,7 +363,7 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
     try {
       await createTicket({
         userId: currentUser.uid,
-        userName: currentUser.displayName || currentUser.email || 'Usuario',
+        userName: currentUser.displayName || currentUser.email || t('support.unknown_user'),
         userPhoto: currentUser.photoURL ?? null,
         title: title.trim(),
         description: description.trim(),
@@ -367,7 +371,7 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
       onCreated();
       onClose();
     } catch {
-      Alert.alert('Error', 'Could not create the ticket. Please try again.');
+      Alert.alert(t('common.error') || 'Error', t('support.create_error') || 'Could not create the ticket. Please try again.');
     } finally {
       setSubmitting(false);
     }

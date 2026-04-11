@@ -1066,7 +1066,18 @@
         "social_comment_body": "commented on your post",
         "social_share_body": "shared your post",
         "your_post": "Your post",
-        "and_others": "and {{count}} more"
+        "and_others": "and {{count}} more",
+        "channel_in": "in",
+        "attachment": "📎 Attachment",
+        "ticket_new": "{{name}} opened a support ticket",
+        "ticket_reply_staff": "Support replied to your ticket",
+        "ticket_reply_user": "{{name}} replied on their ticket",
+        "ticket_status_in_progress_title": "Ticket in progress",
+        "ticket_status_resolved_title": "Ticket resolved",
+        "ticket_status_open_title": "Ticket reopened",
+        "ticket_status_body_in_progress": "Your ticket \"{{title}}\" is being reviewed",
+        "ticket_status_body_resolved": "Your ticket \"{{title}}\" has been resolved",
+        "ticket_status_body_open": "Your ticket \"{{title}}\" has been reopened"
     },
     "post": {
         "someone": "Someone",
@@ -1141,7 +1152,10 @@
         "change_photo": "Change photo",
         "uploading_photo": "Uploading...",
         "all_members": "All registered users",
-        "channel_description": "Description"
+        "channel_description": "Description",
+        "update_status_error": "Could not update the ticket status.",
+        "create_error": "Could not create the ticket. Please try again.",
+        "unknown_user": "User"
     },
     "predefined_channels": {
         "1": {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image,
     ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView,
-    StatusBar, Animated, TextInput, Clipboard, Alert, Linking
+    StatusBar, Animated, TextInput, Clipboard, Alert
 } from 'react-native';
 import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
@@ -15,6 +15,7 @@ import { spacing, chatThemes, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { auth, db } from '@/config/firebase';
+import { downloadAndOpenFile } from '@/utils/fileDownload';
 import type { DirectMessage, ReplyPreview, User } from '@/types';
 import {
     Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus,
@@ -115,8 +116,6 @@ export default function DMChatScreen() {
             .then(setConversationId)
             .catch((error) => console.error('Error initializing DM chat:', error));
 
-        // Si el usuario había "eliminado" este chat (deleted: true en contactSettings),
-        // al abrirlo de nuevo lo restauramos para que vuelva a aparecer en la lista.
         updateContactSettings(currentUser.uid, userId, { deleted: false } as any).catch(() => {});
 
         return () => unsubParticipant();
@@ -131,6 +130,9 @@ export default function DMChatScreen() {
             (newMessages) => {
                 setMessages(newMessages as DirectMessage[]);
                 setLoading(false);
+                if (newMessages.some(m => m.senderId !== currentUser.uid && m.status !== 'read')) {
+                    dmService.markAsRead(conversationId, currentUser.uid).catch(() => {});
+                }
             },
             (err) => {
                 console.error('DM subscription error:', err);
@@ -625,8 +627,8 @@ export default function DMChatScreen() {
                                     isStarred={starredIds.has(item.id)}
                                     showReadReceipt
                                     onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                                    onFilePress={(url, _name) => {
-                                        Linking.openURL(url);
+                                    onFilePress={(url, name) => {
+                                        downloadAndOpenFile(url, name);
                                     }}
                                     searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
                                 />

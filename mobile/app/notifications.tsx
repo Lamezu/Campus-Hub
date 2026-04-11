@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
 import { notificationService } from '@/services/notificationService';
+import { markAsRead as dmMarkAsRead } from '@/services/dmService';
 import { acceptFriendRequest } from '@/services/contactSettingsService';
 import { auth, db } from '@/config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -42,10 +43,10 @@ function resolveChannelName(channelId: string, metaName?: string, nameMap?: Reco
   return channelId ?? 'Channel';
 }
 
-const ATTACHMENT_LABELS = ['Adjunto', '📎 Adjunto'];
+const ATTACHMENT_LABELS = ['Adjunto', '📎 Adjunto', 'Attachment', '📎 Attachment'];
 
-function fixChannelBody(body: string): string {
-  if (ATTACHMENT_LABELS.includes(body)) return '📎 Attachment';
+function fixChannelBody(body: string, t?: (k: string) => string): string {
+  if (ATTACHMENT_LABELS.includes(body)) return t?.('notifications.attachment') || '📎 Attachment';
   return body;
 }
 
@@ -375,16 +376,30 @@ export default function NotificationsScreen() {
   }, []);
 
   const handleMarkAllRead = useCallback(() => {
+    const meId = auth.currentUser?.uid;
+
     if (drillGroupId && category === 'channel') {
       notificationService.markChatRead('channel', drillGroupId);
     } else if (drillGroupId && category === 'dm') {
       notificationService.markChatRead('dm', drillGroupId);
+      // Also reset the conversation's unread count and message read status
+      if (meId) {
+        const conversationId = drillNotifications[0]?.meta?.conversationId
+          || [meId, drillGroupId].sort().join('_');
+        dmMarkAsRead(conversationId, meId).catch(() => {});
+      }
     } else if (drillGroupId && category === 'social') {
       notificationService.markChatRead('social', drillGroupId);
     } else {
       notificationService.markAllRead(category as NotificationCategory | undefined);
+      // If marking DM notifications, also reset each conversation's unread count
+      if (meId && (!category || category === 'dm')) {
+        const dmNotifs = notificationService.getByCategory('dm');
+        const convIds = new Set(dmNotifs.map(n => n.meta?.conversationId).filter(Boolean) as string[]);
+        convIds.forEach(cid => dmMarkAsRead(cid, meId).catch(() => {}));
+      }
     }
-  }, [category, drillGroupId]);
+  }, [category, drillGroupId, drillNotifications]);
 
   const handleAcceptRequest = useCallback(async () => {
     const fromUserId = friendRequestItem?.meta?.fromUserId;
@@ -429,19 +444,49 @@ export default function NotificationsScreen() {
     let displayBody = item.body;
 
     if (item.category === 'channel') {
-      const channelId = item.meta?.channelId ?? '';
-      const resolvedName = resolveChannelName(channelId, item.meta?.channelName, channelNameMap, t);
-      const senderName = item.meta?.senderName
-        || (() => {
-            const storedCh = item.meta?.channelName ?? resolvedName;
-            const stripped = item.title
-              .replace(` in ${storedCh}`, '')
-              .replace(` en ${storedCh}`, '')
-              .trim();
-            return stripped || item.title;
-          })();
-      displayTitle = `${senderName} in ${resolvedName}`;
-      displayBody = fixChannelBody(item.body);
+      const subtype = item.meta?.notifSubtype as string | undefined;
+      if (subtype && item.meta?.ticketId) {
+        // Ticket notification: compose from i18n so it's always in the user's language
+        const name = item.meta?.senderName || '';
+        const title = item.meta?.ticketTitle || '';
+        if (subtype === 'ticket_reply_staff') {
+          displayTitle = t('notifications.ticket_reply_staff') || 'Support replied to your ticket';
+          displayBody = fixChannelBody(item.body, t);
+        } else if (subtype === 'ticket_reply_user') {
+          displayTitle = (t('notifications.ticket_reply_user') || '{{name}} replied on their ticket').replace('{{name}}', name);
+          displayBody = fixChannelBody(item.body, t);
+        } else if (subtype === 'ticket_new') {
+          displayTitle = (t('notifications.ticket_new') || '{{name}} opened a support ticket').replace('{{name}}', name);
+          displayBody = item.body;
+        } else if (subtype === 'ticket_status_in_progress') {
+          displayTitle = t('notifications.ticket_status_in_progress_title') || 'Ticket in progress';
+          displayBody = (t('notifications.ticket_status_body_in_progress') || 'Your ticket "{{title}}" is being reviewed').replace('{{title}}', title);
+        } else if (subtype === 'ticket_status_resolved') {
+          displayTitle = t('notifications.ticket_status_resolved_title') || 'Ticket resolved';
+          displayBody = (t('notifications.ticket_status_body_resolved') || 'Your ticket "{{title}}" has been resolved').replace('{{title}}', title);
+        } else if (subtype === 'ticket_status_open') {
+          displayTitle = t('notifications.ticket_status_open_title') || 'Ticket reopened';
+          displayBody = (t('notifications.ticket_status_body_open') || 'Your ticket "{{title}}" has been reopened').replace('{{title}}', title);
+        } else {
+          displayTitle = item.title;
+          displayBody = item.body;
+        }
+      } else {
+        // Regular channel message: compose sender + channel name
+        const channelId = item.meta?.channelId ?? '';
+        const resolvedName = resolveChannelName(channelId, item.meta?.channelName, channelNameMap, t);
+        const senderName = item.meta?.senderName
+          || (() => {
+              const storedCh = item.meta?.channelName ?? resolvedName;
+              const stripped = item.title
+                .replace(` in ${storedCh}`, '')
+                .replace(` en ${storedCh}`, '')
+                .trim();
+              return stripped || item.title;
+            })();
+        displayTitle = `${senderName} ${t('notifications.channel_in') || 'in'} ${resolvedName}`;
+        displayBody = fixChannelBody(item.body, t);
+      }
     } else if (item.category === 'friend') {
       const personName = item.meta?.fromUserName ?? (t('post.someone') || 'Someone');
       displayTitle = personName;
@@ -513,7 +558,7 @@ export default function NotificationsScreen() {
             <GroupCard
               icon={<Hash size={20} color={colors.primary} strokeWidth={2} />}
               name={g.channelName}
-              subtitle={fixChannelBody(g.latest.body)}
+              subtitle={fixChannelBody(g.latest.body, t)}
               unreadCount={g.unreadCount}
               latestTime={timeAgo(g.latest.createdAt, t)}
               onPress={() => handleChannelGroupPress(g)}

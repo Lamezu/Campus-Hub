@@ -72,6 +72,7 @@ export class DirectMessageService {
       createdAt: this.fs.serverTimestamp(),
       read: false,
       readAt: null,
+      status: 'sent',
       attachments,
       replyTo: cleanReplyTo,
       forwarded,

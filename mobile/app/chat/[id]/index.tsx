@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Clipboard, Alert, Linking, Keyboard } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Clipboard, Alert, Keyboard } from 'react-native';
 import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
@@ -14,6 +14,7 @@ import { auth, db } from '@/config/firebase';
 import type { Message, ReplyPreview } from '@/types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus, ChevronDown, ChevronUp, Bookmark, MessageCircle, Search, Lock, X } from 'lucide-react-native';
+import { downloadAndOpenFile } from '@/utils/fileDownload';
 import { EmptyState } from '@/components/EmptyState';
 import { saveMessage } from '@/services/savedItemsService';
 import { notificationService } from '@/services/notificationService';
@@ -732,8 +733,8 @@ export default function ChatScreen() {
                   onSenderPress={setPreviewUserId}
                   highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
                   onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                  onFilePress={(url, _name) => {
-                    Linking.openURL(url);
+                  onFilePress={(url, name) => {
+                    downloadAndOpenFile(url, name);
                   }}
                   searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
                 />
