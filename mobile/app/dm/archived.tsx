@@ -139,7 +139,7 @@ export default function ArchivedConversationsScreen() {
     setContextTarget(null);
     Alert.alert(
       t('dm.clear_chat_title') || 'Clear Chat Title',
-      t('dm.clear_chat_confirm', { name: target.participantName }) || `¿Vaciar el chat con ${target.participantName}?`,
+      t('dm.clear_chat_confirm', { name: target.participantName }) || `Clear chat with ${target.participantName}?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -162,7 +162,7 @@ export default function ArchivedConversationsScreen() {
     setContextTarget(null);
     Alert.alert(
       t('dm.delete_chat_title') || 'Delete Chat Title',
-      t('dm.delete_chat_confirm', { name: target.participantName }) || `¿Eliminar el chat con ${target.participantName}?`,
+      t('dm.delete_chat_confirm', { name: target.participantName }) || `Delete chat with ${target.participantName}?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {

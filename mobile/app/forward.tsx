@@ -269,7 +269,7 @@ export default function ForwardScreen() {
     if (!currentUser) return;
 
     const meId = currentUser.uid;
-    const senderName = currentUser.displayName ?? 'Tú';
+    const senderName = currentUser.displayName ?? 'Me';
     const senderPhoto = currentUser.photoURL ?? null;
 
     let singleChannelId: string | null = null;
@@ -551,7 +551,7 @@ export default function ForwardScreen() {
         <Search size={16} color={colors.textSecondary} strokeWidth={2} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder={tab === 'channels' ? 'Buscar canal...' : tab === 'groups' ? 'Buscar grupo...' : 'Buscar persona...'}
+          placeholder={tab === 'channels' ? (t('forward.search_channels') || 'Search channel...') : tab === 'groups' ? (t('forward.search_groups') || 'Search group...') : (t('forward.search_people') || 'Search person...')}
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
@@ -592,7 +592,7 @@ export default function ForwardScreen() {
             />
           )}
           keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={<EmptyState icon={Users} title="No perteneces a ningún grupo" />}
+          ListEmptyComponent={<EmptyState icon={Users} title={t('explore.groups.no_groups') || 'No groups yet.'} />}
         />
       ) : (
         <FlatList

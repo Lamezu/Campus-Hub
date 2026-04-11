@@ -75,7 +75,7 @@ export default function DMGroupsScreen() {
           if (names.length > 0) {
             preview = names.join(', ');
             if (item.memberCount > names.length + 2) {
-              preview += t('dm.profile.mutual_groups.and_more', { count: item.memberCount - (names.length + 2) }) || ` y más`;
+              preview += t('dm.profile.mutual_groups.and_more', { count: item.memberCount - (names.length + 2) }) || ` and more`;
             }
           } else {
             preview = t('dm.profile.mutual_groups.you_and_contact') || 'You And Contact';
@@ -95,7 +95,7 @@ export default function DMGroupsScreen() {
               <View style={styles.groupInfo}>
                 <ThemedText style={[styles.groupName, { color: colors.text }]}>{item.name}</ThemedText>
                 <ThemedText style={[styles.groupMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {t('chat.info.member_count', { count: item.memberCount }) || `${item.memberCount} miembros`} • {preview}
+                  {t('chat.info.member_count', { count: item.memberCount }) || `${item.memberCount} members`} • {preview}
                 </ThemedText>
               </View>
               <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
@@ -103,7 +103,7 @@ export default function DMGroupsScreen() {
           );
         }}
         ListEmptyComponent={
-          <EmptyState icon={Users} title={t('dm.profile.mutual_groups.none') || 'No hay grupos en común'} fill />
+          <EmptyState icon={Users} title={t('dm.profile.mutual_groups.none') || 'No groups in common'} fill />
         }
       />
     </SafeAreaView>

@@ -297,7 +297,7 @@ export default function MessagesScreen() {
     setContextTarget(null);
     Alert.alert(
       t('dm.profile.remove_friend_title') || 'Remove Friend Title',
-      t('dm.profile.remove_friend_confirm', { name: target.participantName }) || `¿Eliminar a ${target.participantName} de tus amigos?`,
+      t('dm.profile.remove_friend_confirm', { name: target.participantName }) || `Remove ${target.participantName} from your friends?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -324,7 +324,7 @@ export default function MessagesScreen() {
     setContextTarget(null);
     Alert.alert(
       t('dm.clear_chat_title') || 'Clear Chat Title',
-      t('dm.clear_chat_confirm', { name: contextTarget.participantName }) || `¿Vaciar el chat con ${contextTarget.participantName}? No se puede deshacer.`,
+      t('dm.clear_chat_confirm', { name: contextTarget.participantName }) || `Clear chat with ${contextTarget.participantName}? This cannot be undone.`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -346,7 +346,7 @@ export default function MessagesScreen() {
     const target = contextTarget;
     setContextTarget(null);
     Alert.alert(
-      t('dm.block_title', { name: target.participantName }) || `Bloquear a ${target.participantName}`,
+      t('dm.block_title', { name: target.participantName }) || `Block ${target.participantName}`,
       t('dm.block_confirm') || 'Block Confirm',
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
@@ -369,7 +369,7 @@ export default function MessagesScreen() {
     setContextTarget(null);
     Alert.alert(
       t('dm.delete_chat_title') || 'Delete Chat Title',
-      t('dm.delete_chat_confirm', { name: target.participantName }) || `¿Eliminar el chat con ${target.participantName}? Los mensajes seguirán en Firestore pero no aparecerá en tu lista.`,
+      t('dm.delete_chat_confirm', { name: target.participantName }) || `Delete chat with ${target.participantName}?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -656,7 +656,7 @@ export default function MessagesScreen() {
             <TouchableOpacity style={[styles.sheetRow, { borderBottomColor: colors.border }]} onPress={handleBlock} activeOpacity={0.7}>
               <Ban size={20} color={colors.danger ?? '#FF3B30'} strokeWidth={1.8} />
               <ThemedText style={[styles.sheetRowText, { color: colors.danger ?? '#FF3B30' }]}>
-                {t('dm.block_user', { name: contextTarget?.participantName?.split(' ')[0] ?? '' }) || `Bloquear a ${contextTarget?.participantName?.split(' ')[0] ?? ''}`}
+                {t('dm.block_user', { name: contextTarget?.participantName?.split(' ')[0] ?? '' }) || `Block ${contextTarget?.participantName?.split(' ')[0] ?? ''}`}
               </ThemedText>
             </TouchableOpacity>
 

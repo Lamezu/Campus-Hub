@@ -235,7 +235,7 @@ export default function GroupInfoScreen() {
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
             onPress={() => router.push(`/dm/group/select?groupId=${groupId}` as any)} activeOpacity={0.7}>
             <UserPlus size={22} color={colors.primary} strokeWidth={1.8} />
-            <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.add_members') || 'Añadir miembros'}</ThemedText>
+            <ThemedText style={[styles.actionBtnLabel, { color: colors.text }]}>{t('dm.group.add_members') || 'Add members'}</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
             onPress={handleMuteToggle} activeOpacity={0.7}>

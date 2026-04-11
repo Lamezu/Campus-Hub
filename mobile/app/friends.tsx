@@ -53,7 +53,7 @@ export default function FriendsScreen() {
     const handleRemoveFriend = (friendId: string, friendName: string) => {
         Alert.alert(
             t('dm.profile.remove_friend_title') || 'Remove Friend Title',
-            t('dm.profile.remove_friend_confirm', { name: friendName }) || `¿Eliminar a ${friendName} de tus amigos?`,
+            t('dm.profile.remove_friend_confirm', { name: friendName }) || `Remove ${friendName} from your friends?`,
             [
                 { text: t('common.cancel') || 'Cancel', style: 'cancel' },
                 {

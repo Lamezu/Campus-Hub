@@ -145,11 +145,11 @@ export default function DMContactProfileScreen() {
       const currentUser = auth.currentUser;
       await sendFriendRequest(
         meId, userId,
-        currentUser?.displayName ?? 'Tú',
+        currentUser?.displayName ?? 'Me',
         currentUser?.photoURL ?? null
       );
       setFriendRequestStatus('sent');
-      Alert.alert(t('dm.profile.friend_request_sent') || 'Friend Request Sent', t('dm.profile.friend_request_success', { name: participantName }) || `Se envió una solicitud de amistad a ${participantName}`);
+      Alert.alert(t('dm.profile.friend_request_sent') || 'Friend Request Sent', t('dm.profile.friend_request_success', { name: participantName }) || `Friend request sent to ${participantName}`);
     } else if (isFriend) {
       const next = await toggleBestFriend(meId, userId);
       setIsBestFriend(next);
@@ -160,7 +160,7 @@ export default function DMContactProfileScreen() {
     if (!meId || !userId) return;
     Alert.alert(
       t('dm.profile.remove_friend_title') || 'Remove Friend Title',
-      t('dm.profile.remove_friend_confirm', { name: participantName }) || `¿Eliminar a ${participantName} de tus amigos?`,
+      t('dm.profile.remove_friend_confirm', { name: participantName }) || `Remove ${participantName} from your friends?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -200,7 +200,7 @@ export default function DMContactProfileScreen() {
     }
     Alert.alert(
       t('dm.profile.clear_chat') || 'Clear Chat',
-      t('chat.clear_chat_msg') || `¿Cómo quieres vaciar el chat con ${participantName}?`,
+      t('chat.clear_chat_msg') || `How do you want to clear the chat with ${participantName}?`,
       buttons
     );
   };
@@ -345,8 +345,8 @@ export default function DMContactProfileScreen() {
           <View style={styles.sectionHeader}>
             <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
               {mutualGroups.length === 1
-                ? (t('dm.profile.mutual_groups.other.one') || '1 grupo en común')
-                : (t('dm.profile.mutual_groups.other.other', { count: mutualGroups.length }) || `${mutualGroups.length} grupos en común`)}
+                ? (t('dm.profile.mutual_groups.other.one') || '1 group in common')
+                : (t('dm.profile.mutual_groups.other.other', { count: mutualGroups.length }) || `${mutualGroups.length} groups in common`)}
             </ThemedText>
           </View>
           <TouchableOpacity
@@ -458,13 +458,13 @@ export default function DMContactProfileScreen() {
           >
             <Shield size={20} color="#FF3B30" strokeWidth={1.8} />
             <ThemedText style={[styles.rowLabel, { color: '#FF3B30' }]}>
-              {t('dm.profile.block_user', { name: participantName.split(' ')[0] }) || `Bloquear a ${participantName.split(' ')[0]}`}
+              {t('dm.profile.block_user', { name: participantName.split(' ')[0] }) || `Block ${participantName.split(' ')[0]}`}
             </ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={styles.row} onPress={() => setShowReportSheet(true)} activeOpacity={0.7}>
             <AlertTriangle size={20} color="#FF3B30" strokeWidth={1.8} />
             <ThemedText style={[styles.rowLabel, { color: '#FF3B30' }]}>
-              {t('dm.profile.report_user', { name: participantName.split(' ')[0] }) || `Reportar a ${participantName.split(' ')[0]}`}
+              {t('dm.profile.report_user', { name: participantName.split(' ')[0] }) || `Report ${participantName.split(' ')[0]}`}
             </ThemedText>
           </TouchableOpacity>
         </View>

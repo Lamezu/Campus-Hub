@@ -13,10 +13,10 @@ import { auth } from '@/config/firebase';
 import type { MuteDuration } from '@/types';
 
 const getMuteOptions = (t: any): { value: MuteDuration; label: string; description: string }[] => [
-  { value: '8h', label: t('dm.profile.notifications_settings.mute_options.8h.label') || '8 horas', description: t('dm.profile.notifications_settings.mute_options.8h.desc') || 'Silenciar durante 8 horas' },
-  { value: '1w', label: t('dm.profile.notifications_settings.mute_options.1w.label') || '1 semana', description: t('dm.profile.notifications_settings.mute_options.1w.desc') || 'Silenciar durante 7 días' },
-  { value: 'always', label: t('dm.profile.notifications_settings.mute_options.always.label') || 'Siempre', description: t('dm.profile.notifications_settings.mute_options.always.desc') || 'Silenciar indefinidamente' },
-  { value: 'off', label: t('dm.profile.notifications_settings.mute_options.off.label') || 'No silenciar', description: t('dm.profile.notifications_settings.mute_options.off.desc') || 'Recibir todas las notificaciones' },
+  { value: '8h', label: t('dm.profile.notifications_settings.mute_options.8h.label') || '8 hours', description: t('dm.profile.notifications_settings.mute_options.8h.desc') || 'Mute for 8 hours' },
+  { value: '1w', label: t('dm.profile.notifications_settings.mute_options.1w.label') || '1 week', description: t('dm.profile.notifications_settings.mute_options.1w.desc') || 'Mute for 7 days' },
+  { value: 'always', label: t('dm.profile.notifications_settings.mute_options.always.label') || 'Always', description: t('dm.profile.notifications_settings.mute_options.always.desc') || 'Mute indefinitely' },
+  { value: 'off', label: t('dm.profile.notifications_settings.mute_options.off.label') || 'Unmute', description: t('dm.profile.notifications_settings.mute_options.off.desc') || 'Receive all notifications' },
 ];
 
 const ALERT_TONES = ['Default', 'Classic', 'Soft', 'Melody', 'Bell', 'Pulse', 'None'];
@@ -134,7 +134,7 @@ export default function GroupNotificationsScreen() {
           ))}
         </View>
         <ThemedText style={[styles.toneNote, { color: colors.textSecondary }]}>
-          {t('dm.profile.notifications_settings.tone_preview_note') || 'Toca un tono para escuchar una previsualización.'}
+          {t('dm.profile.notifications_settings.tone_preview_note') || 'Tap a tone to hear a preview.'}
         </ThemedText>
       </ScrollView>
     </SafeAreaView>
