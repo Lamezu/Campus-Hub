@@ -121,6 +121,10 @@ export class NotificationService {
         };
       });
       callback(notifications);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.warn('Notification snapshot error:', error);
+      }
     });
   }
 
@@ -137,6 +141,25 @@ export class NotificationService {
   async deleteNotification(userId, notificationId) {
     const notificationRef = this.fs.doc(this.db, 'notifications', userId, 'items', notificationId);
     await this.fs.deleteDoc(notificationRef);
+  }
+
+  async updateNotification(userId, notificationId, data) {
+    const notificationRef = this.fs.doc(this.db, 'notifications', userId, 'items', notificationId);
+    await this.fs.updateDoc(notificationRef, data);
+  }
+
+  async batchDeleteNotifications(userId, notificationIds) {
+    if (notificationIds.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < notificationIds.length; i += CHUNK) {
+      const slice = notificationIds.slice(i, i + CHUNK);
+      const batch = this.fs.writeBatch(this.db);
+      slice.forEach(id => {
+        const ref = this.fs.doc(this.db, 'notifications', userId, 'items', id);
+        batch.delete(ref);
+      });
+      await batch.commit();
+    }
   }
 }
 
