@@ -20,7 +20,7 @@ export default function TabLayout() {
     const update = () => {
       setCounts({
         dm: notificationService.getUnreadCount('dm'),
-        campus: notificationService.getUnreadCount('campus') + notificationService.getUnreadCount('social'),
+        campus: notificationService.getUnreadCount('campus'),
         friend: notificationService.getUnreadCount('friend'),
       });
     };
