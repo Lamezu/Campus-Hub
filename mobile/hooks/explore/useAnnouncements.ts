@@ -111,7 +111,7 @@ export function useAnnouncements() {
       await forumService.updatePost(announcement.id, { socialId });
       Alert.alert(
         t('explore.announcements.alerts.published_title') || 'Publicado',
-        t('explore.announcements.alerts.published_subtitle') || 'El anuncio ya está en el feed social.'
+        t('explore.announcements.alerts.published_subtitle') || 'The announcement is now on the social feed.'
       );
     } catch (e) {
       console.error(e);

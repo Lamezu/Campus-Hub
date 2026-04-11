@@ -194,7 +194,7 @@ export function useCalendarEvents() {
                   const socialId = await (forumService as any).createPost({
                     title: event.title,
                     content,
-                    authorName: currentUser.displayName || (t('roles.admin') || 'Administración'),
+                    authorName: currentUser.displayName || (t('roles.admin') || 'Administration'),
                     authorPhoto: currentUser.photoURL ?? null,
                     postType: 'post',
                     likes: [],

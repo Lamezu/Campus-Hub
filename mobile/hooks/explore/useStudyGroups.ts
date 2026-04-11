@@ -49,11 +49,11 @@ export function useStudyGroups() {
         await groupsService.joinGroup(groupId, currentUser.uid);
 
         if (group && group.createdBy && group.createdBy !== currentUser.uid) {
-            const myName = currentUser.displayName ?? 'Alguien';
+            const myName = currentUser.displayName ?? 'Someone';
             notificationService.addNotification(group.createdBy, {
                 category: 'campus',
-                title: t('explore.groups.notifications.new_member_title') || 'Nuevo miembro en tu grupo',
-                body: t('explore.groups.notifications.new_member_body', { name: myName, groupName: group.name }) || `${myName} se unió a "${group.name}"`,
+                title: t('explore.groups.notifications.new_member_title') || 'New member in your group',
+                body: t('explore.groups.notifications.new_member_body', { name: myName, groupName: group.name }) || `${myName} joined "${group.name}"`,
                 meta: { groupId },
             }).catch(() => { });
         }
@@ -63,12 +63,12 @@ export function useStudyGroups() {
         if (!currentUser) return;
         return new Promise<void>((resolve) => {
             Alert.alert(
-                t('explore.groups.alerts.leave_title') || 'Salir del grupo',
-                t('explore.groups.alerts.leave_subtitle') || '¿Seguro que quieres salir?',
+                t('explore.groups.alerts.leave_title') || 'Leave group',
+                t('explore.groups.alerts.leave_subtitle') || 'Are you sure you want to leave?',
                 [
-                    { text: t('common.cancel') || 'Cancelar', style: 'cancel', onPress: () => resolve() },
+                    { text: t('common.cancel') || 'Cancel', style: 'cancel', onPress: () => resolve() },
                     {
-                        text: t('common.leave') || 'Salir', style: 'destructive', onPress: async () => {
+                        text: t('common.leave') || 'Leave', style: 'destructive', onPress: async () => {
                             await groupsService.leaveGroup(groupId, currentUser.uid);
                             resolve();
                         }
@@ -87,12 +87,12 @@ export function useStudyGroups() {
 
         const invited: string[] = form.invitedUserIds ?? [];
         if (invited.length > 0) {
-            const myName = currentUser.displayName ?? 'Alguien';
+            const myName = currentUser.displayName ?? 'Someone';
             invited.forEach(uid => {
                 notificationService.addNotification(uid, {
                     category: 'campus',
-                    title: t('explore.groups.notifications.added_title') || 'Te añadieron a un grupo de estudio',
-                    body: t('explore.groups.notifications.added_body', { name: myName, groupName: form.name }) || `${myName} te añadió a "${form.name}"`,
+                    title: t('explore.groups.notifications.added_title') || 'You were added to a study group',
+                    body: t('explore.groups.notifications.added_body', { name: myName, groupName: form.name }) || `${myName} added you to "${form.name}"`,
                     meta: { groupId },
                 }).catch(() => { });
             });

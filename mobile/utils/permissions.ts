@@ -66,12 +66,12 @@ export function allowedEventTypes(
 }
 
 export const SUBROLE_LABELS: Record<NonNullable<UserSubrole>, string> = {
-  delegate: 'Delegado/a',
-  coordinator: 'Coordinador/a',
+  delegate: 'Delegate',
+  coordinator: 'Coordinator',
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  student: 'Alumno/a',
-  teacher: 'Profesor/a',
-  admin: 'Administración',
+  student: 'Student',
+  teacher: 'Teacher',
+  admin: 'Administration',
 };
