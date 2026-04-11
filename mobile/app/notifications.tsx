@@ -8,6 +8,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft, ChevronRight, Bell, MessageSquare, Heart,
   Users, Megaphone, UserCheck, UserX, CalendarDays, Hash,
+  MessageCircle, Share2,
 } from 'lucide-react-native';
 import { EmptyState } from '@/components/EmptyState';
 import { ThemedText } from '@/components/themed-text';
@@ -29,15 +30,26 @@ function timeAgo(iso: string, t: any): string {
   return t('time_ago.days', { count: Math.floor(diff / 86400) }) || `${Math.floor(diff / 86400)}d`;
 }
 
-function resolveChannelName(channelId: string, metaName?: string, nameMap?: Record<string, string>): string {
-  if (metaName) return metaName;
+function resolveChannelName(channelId: string, metaName?: string, nameMap?: Record<string, string>, t?: (k: string) => string): string {
+  if (['1', '2', '3', '4'].includes(channelId) && t) {
+    const translated = t(`predefined_channels.${channelId}.name`);
+    if (translated) return translated;
+  }
   if (nameMap?.[channelId]) return nameMap[channelId];
+  if (metaName) return metaName;
   const staticCh = CHANNELS.find(c => c.id === channelId);
   if (staticCh) return staticCh.name;
-  return channelId ?? 'Canal';
+  return channelId ?? 'Channel';
 }
 
-type SectionKey = 'friend_request' | 'friend_accepted' | 'dm' | 'social_like' | 'social_comment' | 'campus';
+const ATTACHMENT_LABELS = ['Adjunto', '📎 Adjunto'];
+
+function fixChannelBody(body: string): string {
+  if (ATTACHMENT_LABELS.includes(body)) return '📎 Attachment';
+  return body;
+}
+
+type SectionKey = 'friend_request' | 'friend_accepted' | 'dm' | 'social' | 'campus';
 
 interface SectionDef {
   key: SectionKey;
@@ -67,19 +79,34 @@ interface UserGroup {
   latest: NotificationItem;
 }
 
+interface PostGroup {
+  postId: string;
+  postTitle: string;
+  items: NotificationItem[];
+  count: number;
+  unreadCount: number;
+  latest: NotificationItem;
+}
+
 const SECTION_DEFS: SectionDef[] = [
   { key: 'friend_request', category: 'friend', filter: (n) => n.category === 'friend' && n.meta?.isRequest === 'true' },
   { key: 'friend_accepted', category: 'friend', filter: (n) => n.category === 'friend' && n.meta?.type === 'accepted' },
   { key: 'dm', category: 'dm', filter: (n) => n.category === 'dm' },
-  { key: 'social_like', category: 'social', filter: (n) => n.category === 'social' && (!!n.meta?.userId || !!n.meta?.commentId) },
-  { key: 'social_comment', category: 'social', filter: (n) => n.category === 'social' && !n.meta?.userId && !n.meta?.commentId },
+  { key: 'social', category: 'social', filter: (n) => n.category === 'social' },
   { key: 'campus', category: 'campus', filter: (n) => n.category === 'campus' },
 ];
+
+function socialIcon(type: string | undefined, color: string, size = 20) {
+  const sw = 1.8;
+  if (type === 'comment') return <MessageCircle size={size} color={color} strokeWidth={sw} />;
+  if (type === 'share') return <Share2 size={size} color={color} strokeWidth={sw} />;
+  return <Heart size={size} color={color} strokeWidth={sw} />;
+}
 
 function NotificationIcon({ item, color }: { item: NotificationItem; color: string }) {
   const size = 20; const sw = 1.8;
   if (item.category === 'dm') return <MessageSquare size={size} color={color} strokeWidth={sw} />;
-  if (item.category === 'social') return <Heart size={size} color={color} strokeWidth={sw} />;
+  if (item.category === 'social') return socialIcon(item.meta?.type, color, size);
   if (item.category === 'channel') return <Hash size={size} color={color} strokeWidth={sw} />;
   if (item.category === 'campus') {
     if (item.meta?.eventId) return <CalendarDays size={size} color={color} strokeWidth={sw} />;
@@ -133,29 +160,7 @@ export default function NotificationsScreen() {
   const [drillGroupId, setDrillGroupId] = useState<string | null>(null);
   const [drillGroupName, setDrillGroupName] = useState<string>('');
   const [channelNameMap, setChannelNameMap] = useState<Record<string, string>>({});
-  const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (category !== 'social') return;
-    const toResolve = [...new Set(
-      notifications
-        .filter(n => n.category === 'social' && n.meta?.userId && !n.meta?.userName)
-        .map(n => n.meta!.userId!)
-        .filter(id => !userNameMap[id])
-    )];
-    if (toResolve.length === 0) return;
-
-    (async () => {
-      const updates: Record<string, string> = {};
-      await Promise.all(toResolve.map(async (userId) => {
-        try {
-          const snap = await getDoc(doc(db, 'users', userId));
-          if (snap.exists()) updates[userId] = snap.data().displayName ?? userId;
-        } catch {}
-      }));
-      if (Object.keys(updates).length > 0) setUserNameMap(prev => ({ ...prev, ...updates }));
-    })();
-  }, [notifications, category]);
+  const [postTitleMap, setPostTitleMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (category !== 'channel') return;
@@ -190,7 +195,7 @@ export default function NotificationsScreen() {
     };
     updateNotifs();
     const unsub = notificationService.subscribe(updateNotifs);
-    if (category !== 'channel' && category !== 'campus' && category !== 'dm' && category !== 'social') {
+    if (category !== 'channel' && category !== 'dm' && category !== 'social') {
       notificationService.markAllRead(category as NotificationCategory | undefined);
     }
     return unsub;
@@ -208,8 +213,7 @@ export default function NotificationsScreen() {
       );
       toMark.forEach(n => notificationService.markRead(n.id));
     } else if (category === 'social') {
-      notifications.filter(n => n.meta?.userId === drillGroupId && !n.read)
-        .forEach(n => notificationService.markRead(n.id));
+      notificationService.markChatRead('social', drillGroupId);
     }
   }, [drillGroupId]);
 
@@ -219,7 +223,7 @@ export default function NotificationsScreen() {
     for (const n of notifications) {
       const id = n.meta?.channelId ?? '';
       if (!id) continue;
-      const name = resolveChannelName(id, n.meta?.channelName, channelNameMap);
+      const name = resolveChannelName(id, n.meta?.channelName, channelNameMap, t);
       if (!map.has(id)) map.set(id, { channelId: id, channelName: name, count: 0, unreadCount: 0, latest: n });
       const g = map.get(id)!;
       g.count++;
@@ -229,7 +233,7 @@ export default function NotificationsScreen() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime()
     );
-  }, [notifications, category, channelNameMap]);
+  }, [notifications, category, channelNameMap, t]);
 
   const dmGroups: UserGroup[] = useMemo(() => {
     if (category !== 'dm') return [];
@@ -249,23 +253,44 @@ export default function NotificationsScreen() {
     );
   }, [notifications, category]);
 
-  const socialGroups: UserGroup[] = useMemo(() => {
+  const postGroups: PostGroup[] = useMemo(() => {
     if (category !== 'social') return [];
-    const map = new Map<string, UserGroup>();
+    const map = new Map<string, PostGroup>();
     for (const n of notifications) {
-      const id = n.meta?.userId ?? '';
-      if (!id) continue;
-      const name = n.meta?.userName ?? userNameMap[id] ?? id;
-      if (!map.has(id)) map.set(id, { userId: id, userName: name, count: 0, unreadCount: 0, latest: n });
-      const g = map.get(id)!;
+      const postId = n.meta?.postId ?? '';
+      if (!postId || !n.meta?.fromUserId) continue;
+      if (!map.has(postId)) {
+        map.set(postId, { postId, postTitle: n.meta?.postTitle ?? '', items: [], count: 0, unreadCount: 0, latest: n });
+      }
+      const g = map.get(postId)!;
+      g.items.push(n);
       g.count++;
       if (!n.read) g.unreadCount++;
       if (new Date(n.createdAt) > new Date(g.latest.createdAt)) g.latest = n;
+      if (!g.postTitle && n.meta?.postTitle) g.postTitle = n.meta.postTitle;
     }
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime()
     );
-  }, [notifications, category, userNameMap]);
+  }, [notifications, category]);
+
+  useEffect(() => {
+    if (category !== 'social') return;
+    const toResolve = postGroups
+      .filter(g => !g.postTitle && !postTitleMap[g.postId])
+      .map(g => g.postId);
+    if (toResolve.length === 0) return;
+    (async () => {
+      const updates: Record<string, string> = {};
+      await Promise.all(toResolve.map(async (postId) => {
+        try {
+          const snap = await getDoc(doc(db, 'posts', postId));
+          if (snap.exists()) updates[postId] = snap.data().title ?? '';
+        } catch {}
+      }));
+      if (Object.keys(updates).length > 0) setPostTitleMap(prev => ({ ...prev, ...updates }));
+    })();
+  }, [postGroups, category]);
 
   const campusGroups: CampusGroup[] = useMemo(() => {
     if (category !== 'campus') return [];
@@ -287,7 +312,7 @@ export default function NotificationsScreen() {
     if (category === 'dm') return notifications.filter(n =>
       n.meta?.participantId === drillGroupId || n.meta?.groupId === drillGroupId
     ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (category === 'social') return notifications.filter(n => n.meta?.userId === drillGroupId)
+    if (category === 'social') return notifications.filter(n => n.meta?.postId === drillGroupId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return [];
   }, [notifications, drillGroupId, category]);
@@ -300,11 +325,10 @@ export default function NotificationsScreen() {
       .map(def => ({
         key: def.key,
         title: ({
-          friend_request: t('notifications.groups.friend_request') || 'Friend Request',
-          friend_accepted: t('notifications.groups.friend_accepted') || 'Friend Accepted',
-          dm: t('notifications.groups.dm') || 'Dm',
-          social_like: t('notifications.groups.social_like') || 'Social Like',
-          social_comment: t('notifications.groups.social_comment') || 'Social Comment',
+          friend_request: t('notifications.groups.friend_request') || 'Friend requests',
+          friend_accepted: t('notifications.groups.friend_accepted') || 'New friends',
+          dm: t('notifications.groups.dm') || 'Direct messages',
+          social: t('notifications.social') || 'Social activity',
           campus: t('notifications.groups.campus') || 'Campus',
         } as Record<SectionKey, string>)[def.key],
         data: notifications.filter(def.filter).sort(sortByDate),
@@ -355,6 +379,8 @@ export default function NotificationsScreen() {
       notificationService.markChatRead('channel', drillGroupId);
     } else if (drillGroupId && category === 'dm') {
       notificationService.markChatRead('dm', drillGroupId);
+    } else if (drillGroupId && category === 'social') {
+      notificationService.markChatRead('social', drillGroupId);
     } else {
       notificationService.markAllRead(category as NotificationCategory | undefined);
     }
@@ -371,7 +397,7 @@ export default function NotificationsScreen() {
     await notificationService.addNotification(fromUserId, {
       category: 'friend',
       title: t('notifications.friend_accepted.title') || 'Title',
-      body: t('notifications.friend_accepted.body', { name: myName }) || `${myName} aceptó tu solicitud de amistad.`,
+      body: t('notifications.friend_accepted.body', { name: myName }) || `${myName} accepted your friend request.`,
       meta: { type: 'accepted', fromUserId: meId, fromUserName: myName },
     }).catch(() => {});
     setFriendRequestItem(null);
@@ -398,31 +424,64 @@ export default function NotificationsScreen() {
   const activeNotifs = drillGroupId ? drillNotifications : notifications;
   const unreadCount = activeNotifs.filter(n => !n.read).length;
 
-  const renderNotifItem = useCallback(({ item }: { item: NotificationItem }) => (
-    <TouchableOpacity
-      style={[styles.item, { borderBottomColor: colors.border }, !item.read && { backgroundColor: colors.primary + '0A' }]}
-      onPress={() => handlePress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.iconBox, { backgroundColor: colors.backgroundSecondary }]}>
-        <NotificationIcon item={item} color={colors.primary} />
-      </View>
-      <View style={styles.itemContent}>
-        <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '700' }]} numberOfLines={1}>
-          {item.title}
-        </ThemedText>
-        <ThemedText style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>
-          {item.meta?.type === 'added_to_group'
-            ? (t('dm.group.notification_added', { name: item.meta.adderName }) || `${item.meta.adderName} te añadió al grupo`)
-            : item.body}
-        </ThemedText>
-      </View>
-      <View style={styles.itemRight}>
-        <ThemedText style={[styles.itemTime, { color: colors.textSecondary }]}>{timeAgo(item.createdAt, t)}</ThemedText>
-        {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
-      </View>
-    </TouchableOpacity>
-  ), [colors, handlePress, t]);
+  const renderNotifItem = useCallback(({ item }: { item: NotificationItem }) => {
+    let displayTitle = item.title;
+    let displayBody = item.body;
+
+    if (item.category === 'channel') {
+      const channelId = item.meta?.channelId ?? '';
+      const resolvedName = resolveChannelName(channelId, item.meta?.channelName, channelNameMap, t);
+      const senderName = item.meta?.senderName
+        || (() => {
+            const storedCh = item.meta?.channelName ?? resolvedName;
+            const stripped = item.title
+              .replace(` in ${storedCh}`, '')
+              .replace(` en ${storedCh}`, '')
+              .trim();
+            return stripped || item.title;
+          })();
+      displayTitle = `${senderName} in ${resolvedName}`;
+      displayBody = fixChannelBody(item.body);
+    } else if (item.category === 'friend') {
+      const personName = item.meta?.fromUserName ?? (t('post.someone') || 'Someone');
+      displayTitle = personName;
+      displayBody = item.meta?.isRequest === 'true'
+        ? (t('notifications.friend_request.action') || 'wants to be your friend')
+        : (t('notifications.friend_accepted.action') || 'accepted your friend request');
+    }
+
+    return (
+      <TouchableOpacity
+        style={[styles.item, { borderBottomColor: colors.border }, !item.read && { backgroundColor: colors.primary + '0A' }]}
+        onPress={() => handlePress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.iconBox, { backgroundColor: colors.backgroundSecondary }]}>
+          <NotificationIcon item={item} color={colors.primary} />
+        </View>
+        <View style={styles.itemContent}>
+          <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '700' }]} numberOfLines={1}>
+            {displayTitle}
+          </ThemedText>
+          <ThemedText style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>
+            {item.meta?.type === 'added_to_group'
+              ? (t('dm.group.notification_added', { name: item.meta.adderName }) || `${item.meta.adderName} added you to the group`)
+              : item.category === 'social'
+                ? (item.meta?.type === 'comment'
+                    ? (t('notifications.social_comment_body') || 'commented on your post')
+                    : item.meta?.type === 'share'
+                      ? (t('notifications.social_share_body') || 'shared your post')
+                      : (t('notifications.social_like_body') || 'liked your post'))
+                : displayBody}
+          </ThemedText>
+        </View>
+        <View style={styles.itemRight}>
+          <ThemedText style={[styles.itemTime, { color: colors.textSecondary }]}>{timeAgo(item.createdAt, t)}</ThemedText>
+          {!item.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [colors, handlePress, t, channelNameMap]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
@@ -454,7 +513,7 @@ export default function NotificationsScreen() {
             <GroupCard
               icon={<Hash size={20} color={colors.primary} strokeWidth={2} />}
               name={g.channelName}
-              subtitle={g.latest.body}
+              subtitle={fixChannelBody(g.latest.body)}
               unreadCount={g.unreadCount}
               latestTime={timeAgo(g.latest.createdAt, t)}
               onPress={() => handleChannelGroupPress(g)}
@@ -511,20 +570,34 @@ export default function NotificationsScreen() {
 
       {category === 'social' && !drillGroupId && (
         <FlatList
-          data={socialGroups}
-          keyExtractor={g => g.userId}
+          data={postGroups}
+          keyExtractor={g => g.postId}
           contentContainerStyle={styles.groupList}
-          renderItem={({ item: g }) => (
-            <GroupCard
-              icon={<Heart size={20} color={colors.primary} strokeWidth={2} />}
-              name={g.userName}
-              subtitle={g.latest.body}
-              unreadCount={g.unreadCount}
-              latestTime={timeAgo(g.latest.createdAt, t)}
-              onPress={() => { setDrillGroupId(g.userId); setDrillGroupName(g.userName); }}
-              colors={colors}
-            />
-          )}
+          renderItem={({ item: g }) => {
+            const type = g.latest.meta?.type;
+            const latestName = g.latest.meta?.fromUserName ?? g.latest.title ?? '?';
+            const uniqueActors = new Set(g.items.map(n => n.meta?.fromUserId)).size;
+            const actionText = type === 'comment'
+              ? (t('notifications.social_comment_body') || 'commented on your post')
+              : type === 'share'
+                ? (t('notifications.social_share_body') || 'shared your post')
+                : (t('notifications.social_like_body') || 'liked your post');
+            const subtitle = uniqueActors > 1
+              ? `${latestName} ${t('notifications.and_others', { count: uniqueActors - 1 }) || `and ${uniqueActors - 1} more`}`
+              : `${latestName} ${actionText}`;
+            const postTitle = g.postTitle || postTitleMap[g.postId] || (t('notifications.your_post') || 'Your post');
+            return (
+              <GroupCard
+                icon={socialIcon(type, colors.primary, 20)}
+                name={postTitle}
+                subtitle={subtitle}
+                unreadCount={g.unreadCount}
+                latestTime={timeAgo(g.latest.createdAt, t)}
+                onPress={() => { setDrillGroupId(g.postId); setDrillGroupName(postTitle); }}
+                colors={colors}
+              />
+            );
+          }}
           ListEmptyComponent={<EmptyState icon={Bell} title={t('notifications.no_notifications') || 'No Notifications'} />}
         />
       )}
@@ -562,7 +635,7 @@ export default function NotificationsScreen() {
             <ThemedText style={[styles.modalBody, { color: colors.textSecondary }]}>
               {t('notifications.friend_request.body', {
                 name: friendRequestItem?.meta?.fromUserName ?? (t('post.someone') || 'Body'),
-              }) || `${friendRequestItem?.meta?.fromUserName ?? 'Alguien'} quiere ser tu amigo/a.`}
+              }) || `${friendRequestItem?.meta?.fromUserName ?? 'Someone'} wants to be your friend.`}
             </ThemedText>
             <View style={styles.modalActions}>
               <TouchableOpacity
