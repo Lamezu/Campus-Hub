@@ -69,9 +69,16 @@
         "empty_body": "There are no upcoming events for you",
         "department_only": "Your department",
         "view_in_calendar": "View in calendar",
+        "view_in_events": "View in Events",
         "going": "going",
         "rsvp_going": "Going",
-        "rsvp_not_going": "Not going"
+        "rsvp_not_going": "Not going",
+        "confirmed_zero": "0 confirmed",
+        "confirmed_one": "1 confirmed",
+        "confirmed_other": "{{count}} confirmed",
+        "channel_info": "Channel info",
+        "channel_info_hint": "Events, exams and activities channel for the school.",
+        "description_placeholder": "Add a channel description..."
     },
     "roles": {
         "student": "Student",
@@ -955,13 +962,15 @@
             "campus_channel": "Channel",
             "created_at": "Created on {{date}}.",
             "created_by": "Created by {{name}}.",
-            "created_by_you": "Created by you.",
+            "created_by_you": "you",
             "creator": "Creator",
             "image_error": "Could not upload the image.",
             "leave_btn": "Leave",
             "leave_confirm": "Are you sure you want to leave this group?",
             "leave_group": "Leave group",
             "member_count": "{{count}} members",
+            "member_count_one": "1 MEMBER",
+            "member_count_other": "{{count}} MEMBERS",
             "miembro": "member",
             "miembros": "members",
             "mute_notifications": "Mute notifications",
@@ -975,11 +984,20 @@
             "no_results": "No results found",
             "remove_member": "Remove from group",
             "search_hint": "Search people to add",
+            "search_members": "Search members\u2026",
             "search_placeholder": "Search by name...",
             "study_group": "Group",
             "unmute_notifications": "Unmute",
             "what_to_do": "What do you want to do?",
-            "you": "You"
+            "you": "You",
+            "channel_info": "CHANNEL INFO",
+            "type": "Type",
+            "public_channel": "Public channel",
+            "members_label": "Members",
+            "all_users": "All users",
+            "created": "Created",
+            "add_description": "+ Add description",
+            "description_placeholder": "Add a description\u2026"
         },
         "group": {
             "new_group": "New group",
@@ -1007,8 +1025,8 @@
             "starred": "Starred",
             "media_links": "Media, links and docs"
         },
-        "read_only_announcement": "Read Only Announcement",
-        "read_only_events": "Read Only Events"
+        "read_only_announcement": "Only the management team can post here",
+        "read_only_events": "Only teachers and administrators can post here"
     },
     "time_ago": {
         "now": "Now",
@@ -1027,11 +1045,13 @@
         "new_notifications": "{{count}} new notifications",
         "friend_request": {
             "title": "Friend request",
-            "body": "{{name}} wants to be your friend."
+            "body": "{{name}} wants to be your friend.",
+            "action": "wants to be your friend"
         },
         "friend_accepted": {
             "title": "Friend request accepted",
-            "body": "{{name}} accepted your friend request."
+            "body": "{{name}} accepted your friend request.",
+            "action": "accepted your friend request"
         },
         "groups": {
             "friend_request": "New friend requests",
@@ -1039,8 +1059,14 @@
             "dm": "Messages",
             "social_like": "Likes",
             "social_comment": "Comments",
+            "social_share": "Shares",
             "campus": "Campus"
-        }
+        },
+        "social_like_body": "liked your post",
+        "social_comment_body": "commented on your post",
+        "social_share_body": "shared your post",
+        "your_post": "Your post",
+        "and_others": "and {{count}} more"
     },
     "post": {
         "someone": "Someone",
@@ -1135,5 +1161,10 @@
             "description": "General questions and assistance"
         }
     },
-    "Error": "Error"
+    "Error": "Error",
+    "forward": {
+        "search_channels": "Search channel...",
+        "search_groups": "Search group...",
+        "search_people": "Search person..."
+    }
 }

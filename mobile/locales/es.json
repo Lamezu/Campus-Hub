@@ -961,13 +961,15 @@
             "campus_channel": "Canal",
             "created_at": "Creado el {{date}}.",
             "created_by": "Creado por {{name}}.",
-            "created_by_you": "Creado por ti.",
+            "created_by_you": "ti",
             "creator": "Creador",
             "image_error": "No se pudo subir la imagen.",
             "leave_btn": "Salir",
             "leave_confirm": "¿Seguro que quieres abandonar este grupo?",
             "leave_group": "Salir del grupo",
             "member_count": "{{count}} miembros",
+            "member_count_one": "1 MIEMBRO",
+            "member_count_other": "{{count}} MIEMBROS",
             "miembro": "miembro",
             "miembros": "miembros",
             "mute_notifications": "Silenciar notificaciones",
@@ -981,11 +983,20 @@
             "no_results": "No se encontraron resultados",
             "remove_member": "Eliminar del grupo",
             "search_hint": "Busca personas para añadir",
+            "search_members": "Buscar miembros\u2026",
             "search_placeholder": "Buscar por nombre...",
             "study_group": "Grupo",
             "unmute_notifications": "Desactivar silencio",
             "what_to_do": "¿Qué quieres hacer?",
-            "you": "Tú"
+            "you": "Tú",
+            "channel_info": "INFO DEL CANAL",
+            "type": "Tipo",
+            "public_channel": "Canal público",
+            "members_label": "Miembros",
+            "all_users": "Todos los usuarios",
+            "created": "Creado",
+            "add_description": "+ Añadir descripción",
+            "description_placeholder": "Añade una descripción\u2026"
         },
         "group": {
             "new_group": "Nuevo grupo",
@@ -1033,11 +1044,13 @@
         "new_notifications": "{{count}} notificaciones nuevas",
         "friend_request": {
             "title": "Solicitud de amistad",
-            "body": "{{name}} quiere ser tu amigo/a."
+            "body": "{{name}} quiere ser tu amigo/a.",
+            "action": "quiere ser tu amigo/a"
         },
         "friend_accepted": {
             "title": "Solicitud aceptada",
-            "body": "{{name}} aceptó tu solicitud de amistad."
+            "body": "{{name}} aceptó tu solicitud de amistad.",
+            "action": "aceptó tu solicitud de amistad"
         },
         "groups": {
             "friend_request": "Nuevas solicitudes de amistad",
@@ -1045,8 +1058,14 @@
             "dm": "Mensajes",
             "social_like": "Me gustas",
             "social_comment": "Comentarios",
+            "social_share": "Compartidos",
             "campus": "Campus"
-        }
+        },
+        "social_like_body": "le ha gustado tu publicación",
+        "social_comment_body": "ha comentado tu publicación",
+        "social_share_body": "ha compartido tu publicación",
+        "your_post": "Tu publicación",
+        "and_others": "y {{count}} más"
     },
     "post": {
         "someone": "Alguien",
@@ -1141,5 +1160,10 @@
             "description": "Dudas generales y asistencia"
         }
     },
-    "Error": "Failed to create group"
+    "Error": "Failed to create group",
+    "forward": {
+        "search_channels": "Buscar canal...",
+        "search_groups": "Buscar grupo...",
+        "search_people": "Buscar persona..."
+    }
 }
