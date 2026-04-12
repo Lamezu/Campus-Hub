@@ -8,42 +8,46 @@ interface ToneSegment {
   expDecay?: number;
   vibrato?: { rate: number; depth: number; delay?: number };
   chorus?: number;
+  fadeOut?: number;
 }
 
 const SAMPLE_RATE = 44100;
 
+const E5 = 659.25;
+const G5 = 783.99;  const A5 = 880.00;
+
 const MESSAGE_TONES: Record<string, ToneSegment[]> = {
   Predeterminado: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.09, amplitude: 0.52, fadeIn: 0.04, expDecay: 5 },
-    { freq: 0, duration: 0.03 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.24, amplitude: 0.55, fadeIn: 0.02, expDecay: 4.5 },
+    { freq: E5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: G5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: A5, duration: 0.22, amplitude: 0.22, fadeIn: 0.04, fadeOut: 0.22, expDecay: 3.5 },
   ],
   Clásico: [
-    { freq: 880, harmonics: [{ freq: 1320, amp: 0.45 }, { freq: 1760, amp: 0.2 }], duration: 0.4, amplitude: 0.5, fadeIn: 0.01, expDecay: 2.5 },
-    { freq: 0, duration: 0.06 },
-    { freq: 659, harmonics: [{ freq: 990, amp: 0.4 }], duration: 0.4, amplitude: 0.48, fadeIn: 0.01, expDecay: 2.5 },
+    { freq: G5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
+    { freq: E5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
+    { freq: G5, duration: 0.28, amplitude: 0.20, fadeIn: 0.05, fadeOut: 0.25, expDecay: 3.0 },
   ],
   Suave: [
-    { freq: 523, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1047, amp: 0.2 }], duration: 0.6, amplitude: 0.4, fadeIn: 0.14, expDecay: 1.8 },
-    { freq: 0, duration: 0.05 },
-    { freq: 659, harmonics: [{ freq: 988, amp: 0.3 }], duration: 0.55, amplitude: 0.38, fadeIn: 0.1, expDecay: 1.8 },
+    { freq: E5, duration: 0.18, amplitude: 0.16, fadeIn: 0.12, fadeOut: 0.25, expDecay: 2.5 },
+    { freq: G5, duration: 0.18, amplitude: 0.15, fadeIn: 0.10, fadeOut: 0.25, expDecay: 2.5 },
+    { freq: A5, duration: 0.30, amplitude: 0.14, fadeIn: 0.10, fadeOut: 0.28, expDecay: 2.0 },
   ],
   Melodía: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.25 }], duration: 0.1, amplitude: 0.52, fadeIn: 0.02, expDecay: 6 },
-    { freq: 0, duration: 0.04 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.2 }], duration: 0.1, amplitude: 0.55, fadeIn: 0.02, expDecay: 6 },
-    { freq: 0, duration: 0.04 },
-    { freq: 1568, harmonics: [{ freq: 3136, amp: 0.2 }, { freq: 2352, amp: 0.15 }], duration: 0.28, amplitude: 0.58, fadeIn: 0.02, expDecay: 4 },
+    { freq: E5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: A5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
+    { freq: E5, duration: 0.24, amplitude: 0.20, fadeIn: 0.04, fadeOut: 0.25, expDecay: 3.5 },
   ],
   Campana: [
-    { freq: 880, harmonics: [{ freq: 1100, amp: 0.6 }, { freq: 2200, amp: 0.35 }, { freq: 3520, amp: 0.18 }], duration: 0.9, amplitude: 0.48, fadeIn: 0.005, expDecay: 2.8 },
+    { freq: A5, harmonics: [{ freq: 1108.73, amp: 0.18 }, { freq: 2093.00, amp: 0.06 }], duration: 0.90, amplitude: 0.16, fadeIn: 0.008, fadeOut: 0.15, expDecay: 2.5 },
   ],
   Pulso: [
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
-    { freq: 0, duration: 0.07 },
-    { freq: 1047, harmonics: [{ freq: 2093, amp: 0.3 }], duration: 0.08, amplitude: 0.5, fadeIn: 0.01, expDecay: 10 },
-    { freq: 0, duration: 0.07 },
-    { freq: 1319, harmonics: [{ freq: 2637, amp: 0.25 }], duration: 0.1, amplitude: 0.56, fadeIn: 0.01, expDecay: 8 },
+    { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
+    { freq: 0, duration: 0.04 },
+    { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
+    { freq: 0, duration: 0.04 },
+    { freq: A5, duration: 0.18, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.22, expDecay: 7.0 },
   ],
   'Sin tono': [],
 };
