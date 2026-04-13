@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Plus, X } from 'lucide-react';
 import type { ChatTheme } from '../../contexts/ThemeContext';
 import ChatBackgroundEditor from '../../components/chat/ChatBackgroundEditor';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function ThemeSettings() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function ThemeSettings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [editorVisible, setEditorVisible] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,14 +52,14 @@ export default function ThemeSettings() {
     <div className="chat-loading-container">
       <div className="chat-header">
         <button className="chat-back-button" onClick={() => navigate(-1)}>←</button>
-        <h1 className="chat-header-title">Theme Settings</h1>
+        <h1 className="chat-header-title">{t('theme.title')}</h1>
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
         <div className="settings-section">
-          <h2 className="settings-section-title">Chat Themes</h2>
+          <h2 className="settings-section-title">{t('theme.chat_themes')}</h2>
           <p className="text-subtitle" style={{ marginBottom: '16px' }}>
-            Personaliza el aspecto de tus conversaciones
+            {t('theme.chat_themes_desc')}
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -78,7 +80,9 @@ export default function ThemeSettings() {
               }}
             >
               <Plus size={28} color={colors.textSecondary} strokeWidth={1.8} />
-              <span style={{ fontSize: 13, color: colors.textSecondary, fontWeight: 500 }}>Personalizado</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary, fontWeight: 500 }}>
+                {t('common.custom')}
+              </span>
             </button>
 
             {allThemes.map((chatTheme) => {
@@ -151,10 +155,10 @@ export default function ThemeSettings() {
         </div>
 
         <div className="settings-section">
-          <h2 className="settings-section-title">Font Settings</h2>
+          <h2 className="settings-section-title">{t('theme.font_settings')}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label className="settings-label">Font Size</label>
+              <label className="settings-label">{t('theme.font_size')}</label>
               <input
                 type="range"
                 min="12"
@@ -171,15 +175,15 @@ export default function ThemeSettings() {
             </div>
 
             <div>
-              <label className="settings-label">Font Weight</label>
+              <label className="settings-label">{t('theme.font_weight')}</label>
               <select
                 value={chatSettings.fontWeight}
                 onChange={(e) => setChatSettings({ fontWeight: e.target.value as any })}
                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text)', marginTop: '8px' }}
               >
-                <option value="400">Normal</option>
-                <option value="600">Semibold</option>
-                <option value="bold">Bold</option>
+                <option value="400">{t('theme.font_normal')}</option>
+                <option value="600">{t('theme.font_semibold')}</option>
+                <option value="bold">{t('theme.font_bold')}</option>
               </select>
             </div>
           </div>

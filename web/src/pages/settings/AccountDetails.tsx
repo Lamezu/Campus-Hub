@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 
 async function sha256(text: string): Promise<string> {
@@ -20,6 +21,7 @@ function generateCode(): string {
 export default function AccountDetails() {
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -53,7 +55,7 @@ export default function AccountDetails() {
   const handleVerifyCode = async () => {
     if (!currentUser) return;
     if (codeInput !== verificationCode) {
-      setCodeError('Código incorrecto. Inténtalo de nuevo.');
+      setCodeError(t('account_details.invalid_code'));
       return;
     }
     const hash = await sha256(currentUser.uid + (currentUser.email ?? ''));
@@ -74,11 +76,11 @@ export default function AccountDetails() {
     setSuccess('');
 
     if (newPassword !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError(t('account_details.passwords_no_match'));
       return;
     }
     if (newPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError(t('account_details.password_too_short'));
       return;
     }
     if (!currentUser || !currentUser.email) return;
@@ -88,16 +90,16 @@ export default function AccountDetails() {
       const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPassword);
-      setSuccess('Contraseña actualizada correctamente');
+      setSuccess(t('account_details.password_updated'));
       setShowChangePassword(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       if (error.code === 'auth/wrong-password') {
-        setError('La contraseña actual es incorrecta');
+        setError(t('account_details.wrong_password'));
       } else {
-        setError('Error al cambiar la contraseña');
+        setError(t('account_details.change_password_error'));
       }
     } finally {
       setLoading(false);
@@ -108,18 +110,18 @@ export default function AccountDetails() {
     <div className="chat-loading-container">
       <div className="chat-header">
         <button className="chat-back-button" onClick={() => navigate(-1)}>←</button>
-        <h1 className="chat-header-title">Datos de la Cuenta</h1>
+        <h1 className="chat-header-title">{t('account_details.header_title')}</h1>
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
         <div className="settings-section">
           <h2 className="settings-section-title" style={{ fontSize: '14px', fontWeight: '600', opacity: 0.7, marginBottom: '16px' }}>
-            SEGURIDAD
+            {t('account_details.security').toUpperCase()}
           </h2>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${colors.border}` }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '16px', color: colors.text, marginBottom: '4px' }}>Contraseña</div>
+              <div style={{ fontSize: '16px', color: colors.text, marginBottom: '4px' }}>{t('account_details.password_label')}</div>
               <div style={{ fontSize: '14px', color: colors.textSecondary, fontFamily: 'monospace' }}>
                 {passwordHash
                   ? <span style={{ wordBreak: 'break-all', fontSize: '11px', color: colors.text }}>{passwordHash}</span>
@@ -131,7 +133,7 @@ export default function AccountDetails() {
               {passwordHash && (
                 <button
                   onClick={handleCopyHash}
-                  title="Copiar hash"
+                  title={t('account_details.copy_hash')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, display: 'flex', alignItems: 'center' }}
                 >
                   {copied ? <Check size={18} color={colors.success} /> : <Copy size={18} />}
@@ -139,7 +141,7 @@ export default function AccountDetails() {
               )}
               <button
                 onClick={verificationCode || passwordHash ? handleHideHash : handleShowCode}
-                title={passwordHash ? 'Ocultar hash' : 'Mostrar hash'}
+                title={passwordHash ? t('account_details.hide_hash') : t('account_details.show_hash')}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, display: 'flex', alignItems: 'center' }}
               >
                 {passwordHash ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -156,7 +158,7 @@ export default function AccountDetails() {
                   cursor: 'pointer',
                 }}
               >
-                Cambiar
+                {t('account_details.change_btn')}
               </button>
             </div>
           </div>
@@ -170,7 +172,7 @@ export default function AccountDetails() {
               border: `1px solid ${colors.border}`,
             }}>
               <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '10px' }}>
-                Código de verificación generado. Introdúcelo para ver el hash.
+                {t('account_details.verify_code_desc')}
               </div>
               <div style={{
                 fontSize: '28px',
@@ -188,7 +190,7 @@ export default function AccountDetails() {
                 className="form-input"
                 value={codeInput}
                 onChange={e => { setCodeInput(e.target.value); setCodeError(''); }}
-                placeholder="Ingresa el código"
+                placeholder={t('account_details.code_placeholder')}
                 maxLength={6}
                 style={{ textAlign: 'center', letterSpacing: '6px', fontFamily: 'monospace', fontSize: '18px', marginTop: '8px' }}
               />
@@ -209,7 +211,7 @@ export default function AccountDetails() {
                   cursor: codeInput.length === 6 ? 'pointer' : 'default',
                 }}
               >
-                Verificar
+                {t('account_details.verify')}
               </button>
             </div>
           )}
@@ -217,25 +219,25 @@ export default function AccountDetails() {
           {showChangePassword && (
             <form onSubmit={handleChangePassword} style={{ marginTop: '16px' }}>
               <div className="form-group">
-                <label className="form-label">Contraseña actual</label>
+                <label className="form-label">{t('account_details.current_password_label')}</label>
                 <input type="password" className="form-input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="••••••••" required />
               </div>
               <div className="form-group">
-                <label className="form-label">Nueva contraseña</label>
+                <label className="form-label">{t('account_details.new_password')}</label>
                 <input type="password" className="form-input" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" required />
               </div>
               <div className="form-group">
-                <label className="form-label">Confirmar nueva contraseña</label>
+                <label className="form-label">{t('account_details.confirm_password_label')}</label>
                 <input type="password" className="form-input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" required />
               </div>
               {error && <div className="error-message">{error}</div>}
               {success && <div style={{ color: colors.success, fontSize: '14px', marginBottom: '12px' }}>{success}</div>}
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button type="submit" disabled={loading} className="btn" style={{ flex: 1 }}>
-                  {loading ? 'Actualizando...' : 'Actualizar'}
+                  {loading ? t('account_details.updating_btn') : t('account_details.update_btn')}
                 </button>
                 <button type="button" onClick={() => setShowChangePassword(false)} style={{ flex: 1, padding: '14px', background: 'none', border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.text, cursor: 'pointer' }}>
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
               </div>
             </form>

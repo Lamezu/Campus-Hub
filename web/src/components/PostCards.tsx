@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Heart, MessageCircle, Video, ChartNoAxesColumn, Play, Pause, Music2, Share2 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 import type { Post } from '../types/index.ts';
 
 const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
@@ -18,18 +19,18 @@ interface PostCardProps {
   hideMedia?: boolean;
 }
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string, t: (key: string) => string): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Ahora';
+  if (isNaN(date.getTime())) return t('post.now');
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return 'Ahora';
+  if (minutes < 1) return t('post.now');
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   if (days < 30) return `${days}d`;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function FloatingHeart({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
@@ -51,6 +52,7 @@ function FloatingHeart({ x, y, onDone }: { x: number; y: number; onDone: () => v
 
 export function PostCard({ post, onPress, onDoubleTap, onLikePress, onShare, currentUserId, hideMedia = false }: PostCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
   const hasSong = !!post.song;
@@ -150,7 +152,7 @@ export function PostCard({ post, onPress, onDoubleTap, onLikePress, onShare, cur
                   {post.authorName}
                 </span>
                 <div style={{ fontSize: typography.sizes.xs, marginTop: 1, color: colors.textSecondary }}>
-                  {getTimeAgo(post.createdAt)}
+                  {getTimeAgo(post.createdAt, t)}
                 </div>
               </div>
             </div>

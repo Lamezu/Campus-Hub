@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 export type AppTheme = 'light' | 'dark' | 'high-contrast' | 'pastel' | 'monochromatic';
 
@@ -332,80 +335,223 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<AppTheme>('light');
+  const [theme, setThemeState] = useState<AppTheme>(() => {
+    // Read theme synchronously from localStorage before auth is known,
+    // so the first render already uses the correct theme (avoids dark-mode flash).
+    try {
+      const validThemes: AppTheme[] = ['light', 'dark', 'high-contrast', 'pastel', 'monochromatic'];
+      // Scan for any user-scoped theme key (theme_<uid>)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.match(/^theme_\S+$/) && key !== 'theme_') {
+          const val = localStorage.getItem(key);
+          if (val && validThemes.includes(val as AppTheme)) return val as AppTheme;
+        }
+      }
+      // Fall back to unscoped key
+      const val = localStorage.getItem('theme');
+      if (val && validThemes.includes(val as AppTheme)) return val as AppTheme;
+    } catch {}
+    // Fall back to system preference
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const [customPrimary, setCustomPrimaryState] = useState<string | null>(null);
   const [chatSettings, setChatSettingsState] = useState<ChatSettings>(chatSettingsDefaults);
   const [customChatThemes, setCustomChatThemesState] = useState<ChatTheme[]>([]);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as AppTheme | null;
-    const savedColor = localStorage.getItem('customPrimary');
-    const savedChatSettings = localStorage.getItem('chatSettings');
-    const savedCustomThemes = localStorage.getItem('customChatThemes');
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      const uid = user ? user.uid : null;
+      userIdRef.current = uid;
 
-    if (savedTheme) {
-      setThemeState(savedTheme);
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setThemeState(prefersDark ? 'dark' : 'light');
-    }
+      const getScopedKey = (base: string) => uid ? `${base}_${uid}` : base;
 
-    if (savedColor) {
-      setCustomPrimaryState(savedColor);
-    }
+      let savedTheme = localStorage.getItem(getScopedKey('theme')) as AppTheme | null;
+      let savedColor = localStorage.getItem(getScopedKey('customPrimary'));
+      let savedChatSettings = localStorage.getItem(getScopedKey('chatSettings'));
+      let savedCustomThemes = localStorage.getItem(getScopedKey('customChatThemes'));
 
-    if (savedChatSettings) {
-      try {
-        setChatSettingsState(JSON.parse(savedChatSettings));
-      } catch {
+      if (uid) {
+        if (!savedTheme && localStorage.getItem('theme')) {
+          savedTheme = localStorage.getItem('theme') as AppTheme;
+          localStorage.setItem(getScopedKey('theme'), savedTheme);
+          localStorage.removeItem('theme');
+        }
+        
+        if (!savedColor && localStorage.getItem('customPrimary')) {
+          savedColor = localStorage.getItem('customPrimary');
+          localStorage.setItem(getScopedKey('customPrimary'), savedColor as string);
+          localStorage.removeItem('customPrimary');
+        }
+
+        if (!savedChatSettings && localStorage.getItem('chatSettings')) {
+          savedChatSettings = localStorage.getItem('chatSettings');
+          localStorage.setItem(getScopedKey('chatSettings'), savedChatSettings as string);
+          localStorage.removeItem('chatSettings');
+        }
+
+        if (!savedCustomThemes && localStorage.getItem('customChatThemes')) {
+          savedCustomThemes = localStorage.getItem('customChatThemes');
+          localStorage.setItem(getScopedKey('customChatThemes'), savedCustomThemes as string);
+          localStorage.removeItem('customChatThemes');
+        }
       }
-    }
 
-    if (savedCustomThemes) {
-      try {
-        setCustomChatThemesState(JSON.parse(savedCustomThemes));
-      } catch {
+      const applyThemeState = (t: AppTheme | null, c: string | null, s: string | null, themesData: string | null) => {
+        if (t) {
+          setThemeState(t);
+        } else {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          setThemeState(prefersDark ? 'dark' : 'light');
+        }
+
+        if (c) {
+          setCustomPrimaryState(c);
+        } else {
+          setCustomPrimaryState(null);
+        }
+
+        if (s) {
+          try {
+            setChatSettingsState(JSON.parse(s));
+          } catch {
+            setChatSettingsState(chatSettingsDefaults);
+          }
+        } else {
+          setChatSettingsState(chatSettingsDefaults);
+        }
+
+        if (themesData) {
+          try {
+            setCustomChatThemesState(JSON.parse(themesData));
+          } catch {
+            setCustomChatThemesState([]);
+          }
+        } else {
+          setCustomChatThemesState([]);
+        }
+      };
+
+      applyThemeState(savedTheme, savedColor, savedChatSettings, savedCustomThemes);
+
+      if (uid) {
+        try {
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            const appSettings = data?.appSettings || {};
+            
+            let updated = false;
+
+            if (appSettings.theme && appSettings.theme !== savedTheme) {
+              localStorage.setItem(getScopedKey('theme'), appSettings.theme);
+              updated = true;
+            }
+            if (appSettings.customPrimary !== undefined && appSettings.customPrimary !== savedColor) {
+              if (appSettings.customPrimary) {
+                localStorage.setItem(getScopedKey('customPrimary'), appSettings.customPrimary);
+              } else {
+                localStorage.removeItem(getScopedKey('customPrimary'));
+              }
+              updated = true;
+            }
+            if (appSettings.chatSettings) {
+              const strSettings = JSON.stringify(appSettings.chatSettings);
+              if (strSettings !== savedChatSettings) {
+                localStorage.setItem(getScopedKey('chatSettings'), strSettings);
+                updated = true;
+              }
+            }
+            if (appSettings.customChatThemes) {
+              const strThemes = JSON.stringify(appSettings.customChatThemes);
+              if (strThemes !== savedCustomThemes) {
+                localStorage.setItem(getScopedKey('customChatThemes'), strThemes);
+                updated = true;
+              }
+            }
+
+            if (updated) {
+               applyThemeState(
+                 localStorage.getItem(getScopedKey('theme')) as AppTheme | null,
+                 localStorage.getItem(getScopedKey('customPrimary')),
+                 localStorage.getItem(getScopedKey('chatSettings')),
+                 localStorage.getItem(getScopedKey('customChatThemes'))
+               );
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching appSettings from Firestore:", error);
+        }
       }
-    }
+    });
+
+    return unsub;
   }, []);
 
+  const getActiveKey = (base: string) => userIdRef.current ? `${base}_${userIdRef.current}` : base;
+
+  const asyncSyncSetting = async (key: string, value: any) => {
+    if (userIdRef.current) {
+      try {
+        await setDoc(doc(db, 'users', userIdRef.current), {
+          appSettings: {
+            [key]: value
+          }
+        }, { merge: true });
+      } catch (e) {
+        console.error('Failed to sync settings to Firestore', e);
+      }
+    }
+  };
+
   const setTheme = (newTheme: AppTheme) => {
-    localStorage.setItem('theme', newTheme);
+    localStorage.setItem(getActiveKey('theme'), newTheme);
     setThemeState(newTheme);
+    asyncSyncSetting('theme', newTheme);
   };
 
   const setCustomPrimary = (color: string) => {
-    localStorage.setItem('customPrimary', color);
+    localStorage.setItem(getActiveKey('customPrimary'), color);
     setCustomPrimaryState(color);
+    asyncSyncSetting('customPrimary', color);
     if (theme !== 'monochromatic') {
-      setTheme('monochromatic');
+      setThemeState('monochromatic');
+      localStorage.setItem(getActiveKey('theme'), 'monochromatic');
+      asyncSyncSetting('theme', 'monochromatic');
     }
   };
 
   const setChatSettings = (newSettings: Partial<ChatSettings>) => {
     const updated = { ...chatSettings, ...newSettings };
-    localStorage.setItem('chatSettings', JSON.stringify(updated));
+    localStorage.setItem(getActiveKey('chatSettings'), JSON.stringify(updated));
     setChatSettingsState(updated);
+    asyncSyncSetting('chatSettings', updated);
   };
 
   const addCustomChatTheme = (newTheme: ChatTheme) => {
     const updated = [...customChatThemes, newTheme];
-    localStorage.setItem('customChatThemes', JSON.stringify(updated));
+    localStorage.setItem(getActiveKey('customChatThemes'), JSON.stringify(updated));
     setCustomChatThemesState(updated);
+    asyncSyncSetting('customChatThemes', updated);
   };
 
   const deleteCustomChatTheme = (themeId: string) => {
     const updated = customChatThemes.filter(t => t.id !== themeId);
-    localStorage.setItem('customChatThemes', JSON.stringify(updated));
+    localStorage.setItem(getActiveKey('customChatThemes'), JSON.stringify(updated));
     setCustomChatThemesState(updated);
+    asyncSyncSetting('customChatThemes', updated);
     if (chatSettings.themeId === themeId) {
-      setChatSettings({ themeId: 'default' });
+      const resetSettings = { ...chatSettings, themeId: 'default' };
+      localStorage.setItem(getActiveKey('chatSettings'), JSON.stringify(resetSettings));
+      setChatSettingsState(resetSettings);
+      asyncSyncSetting('chatSettings', resetSettings);
     }
   };
 
   const colors = getColors(theme, customPrimary || undefined, chatSettings, customChatThemes);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--primary', colors.primary);
     root.style.setProperty('--secondary', colors.secondary);

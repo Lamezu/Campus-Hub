@@ -3,6 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { Home, Compass, GraduationCap, MessagesSquare, User } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,14 +27,68 @@ export default function Layout({
   const navigate = useNavigate();
   const location = useLocation();
   const isDesktop = useWindowSize();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const getScopedKey = (uid: string | null) => uid ? `sidebarCollapsed_${uid}` : 'sidebarCollapsed';
+
   const [collapsed, setCollapsed] = useState<boolean>(() => {
-    return localStorage.getItem('sidebarCollapsed') === 'true';
+    return false;
   });
+
+  React.useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      const uid = user ? user.uid : null;
+      setUserId(uid);
+      const scopedKey = getScopedKey(uid);
+      let isCollapsed = localStorage.getItem(scopedKey);
+
+      if (uid && isCollapsed === null && localStorage.getItem('sidebarCollapsed') !== null) {
+        isCollapsed = localStorage.getItem('sidebarCollapsed');
+        localStorage.setItem(scopedKey, isCollapsed as string);
+        localStorage.removeItem('sidebarCollapsed');
+      }
+
+      setCollapsed(isCollapsed === 'true');
+
+      if (uid) {
+        try {
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) {
+            const data = snap.data();
+            const appSettings = data?.appSettings || {};
+            if (appSettings.sidebarCollapsed !== undefined) {
+              const cloudValue = String(appSettings.sidebarCollapsed);
+              if (cloudValue !== String(isCollapsed === 'true')) {
+                localStorage.setItem(scopedKey, cloudValue);
+                setCollapsed(appSettings.sidebarCollapsed);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching sidebar setting:", e);
+        }
+      }
+    });
+    return unsub;
+  }, []);
+
+  const asyncSyncSidebar = async (val: boolean) => {
+    if (userId) {
+      try {
+        await setDoc(doc(db, 'users', userId), {
+          appSettings: {
+            sidebarCollapsed: val
+          }
+        }, { merge: true });
+      } catch (e) { }
+    }
+  };
 
   const handleToggle = () => {
     setCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('sidebarCollapsed', String(next));
+      localStorage.setItem(getScopedKey(userId), String(next));
+      asyncSyncSidebar(next);
       return next;
     });
   };
@@ -51,15 +108,15 @@ export default function Layout({
         backgroundColor: 'var(--background)',
         minHeight: '100vh',
       }}>
-        <header className="header" style={{ 
-          position: 'sticky', 
-          top: 0, 
+        <header className="header" style={{
+          position: 'sticky',
+          top: 0,
           zIndex: 10,
           backgroundColor: 'var(--background)',
           borderBottom: '1px solid var(--border)'
         }}>
-          <div className="header-content" style={{ 
-            maxWidth: isDesktop ? 'none' : '600px', 
+          <div className="header-content" style={{
+            maxWidth: isDesktop ? 'none' : '600px',
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns: '1fr auto 1fr',
@@ -69,10 +126,10 @@ export default function Layout({
           }}>
             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
               {showBackButton && (
-                <button 
+                <button
                   className="settings-button"
                   onClick={onBack || (() => navigate(-1))}
-                  style={{ 
+                  style={{
                     fontSize: '24px',
                     background: 'none',
                     border: 'none',
@@ -85,10 +142,10 @@ export default function Layout({
                 </button>
               )}
             </div>
-            
-            <h1 
-              className="text-title" 
-              style={{ 
+
+            <h1
+              className="text-title"
+              style={{
                 margin: 0,
                 fontSize: '17px',
                 fontWeight: '600',
@@ -101,7 +158,7 @@ export default function Layout({
             >
               {title}
             </h1>
-            
+
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               {rightAction && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>{rightAction}</div>
@@ -121,35 +178,35 @@ export default function Layout({
         {!isDesktop && (
           <footer className="nav-footer">
             <ul className="nav-items">
-              <li 
+              <li
                 className={`nav-item ${location.pathname === '/home' ? 'active' : ''}`}
                 onClick={() => navigate('/home')}
               >
                 <span className="nav-icon"><Home /></span>
                 <span>Inicio</span>
               </li>
-              <li 
+              <li
                 className={`nav-item ${location.pathname === '/create' ? 'active' : ''}`}
                 onClick={() => navigate('/campus')}
               >
                 <span className="nav-icon"><GraduationCap /></span>
                 <span>Campus</span>
               </li>
-              <li 
+              <li
                 className={`nav-item ${location.pathname === '/explore' ? 'active' : ''}`}
                 onClick={() => navigate('/explore')}
               >
                 <span className="nav-icon"><Compass /></span>
                 <span>Explorar</span>
               </li>
-              <li 
+              <li
                 className={`nav-item ${location.pathname === '/messages' ? 'active' : ''}`}
                 onClick={() => navigate('/messages')}
               >
                 <span className="nav-icon"><MessagesSquare /></span>
                 <span>Mensajes</span>
               </li>
-              <li 
+              <li
                 className={`nav-item ${location.pathname === '/profile' ? 'active' : ''}`}
                 onClick={() => navigate('/profile')}
               >

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, query, orderBy, where, onSnapshot,
+  collection, query, where, orderBy, onSnapshot,
   doc, writeBatch, Timestamp, increment,
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import type { CalendarEvent, CalendarEventType } from '../types';
+import { useMySubjectKeys } from './campus/useMySubjectKeys';
 
 type RsvpStatus = 'going' | 'not_going';
 
@@ -36,22 +37,28 @@ function parseEvent(d: any): EventWithMeta {
   };
 }
 
-export function useEvents(department: string | null) {
+export function useEvents(role: string | null) {
   const currentUser = auth.currentUser;
-  const [events, setEvents] = useState<EventWithMeta[]>([]);
+  const mySubjectKeys = useMySubjectKeys(currentUser?.uid ?? null);
+  const [allEvents, setAllEvents] = useState<EventWithMeta[]>([]);
   const [rsvpMap, setRsvpMap] = useState<Record<string, RsvpStatus | null>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const q = query(collection(db, 'events'), orderBy('startDate', 'asc'));
     return onSnapshot(q, snap => {
-      const list = snap.docs
-        .map(parseEvent)
-        .filter(ev => !ev.departmentId || !department || ev.departmentId === department);
-      setEvents(list);
+      setAllEvents(snap.docs.map(parseEvent));
       setLoading(false);
     }, () => setLoading(false));
-  }, [department]);
+  }, []);
+
+  // Teachers and admins see all events.
+  // Students only see events with no departmentId (global) or ones
+  // whose departmentId matches a study group they belong to.
+  const canSeeAll = role === 'teacher' || role === 'admin';
+  const events = allEvents.filter(ev =>
+    canSeeAll || !ev.departmentId || mySubjectKeys.has(ev.departmentId)
+  );
 
   useEffect(() => {
     if (!currentUser) return;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Users, Lock, MoreVertical, MessageSquare } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { StudyGroup } from '../../types';
 
 interface GroupCardProps {
@@ -15,13 +16,32 @@ interface GroupCardProps {
 
 export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, onDelete }: GroupCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const isMember = group.memberIds.includes(userId);
 
+  const detectCategory = (subject: string): 'subjects' | 'departments' | 'cycles' => {
+    const subjectsKeys = ['math', 'physics', 'chemistry', 'history', 'english', 'french', 'philosophy', 'economics', 'technology', 'programming', 'other'];
+    const departmentsKeys = ['hospitality_tourism', 'health', 'informatics_comms', 'sports', 'admin_management', 'sociocultural', 'energy_water', 'wood_furniture', 'safety_environment', 'languages', 'fol', 'guidance', 'innovation_quality'];
+    
+    if (subjectsKeys.includes(subject)) return 'subjects';
+    if (departmentsKeys.includes(subject)) return 'departments';
+    return 'cycles';
+  };
+
+  const getSubjectDisplay = () => {
+    const category = detectCategory(group.subject);
+    const translation = t(`campus.groups_tab.${category}.${group.subject}`);
+    if (translation !== `campus.groups_tab.${category}.${group.subject}`) {
+      return translation;
+    }
+    return group.subject;
+  };
+
   const handleMemberBtn = () => {
-    const action = window.confirm(`${group.name}\n\nPresiona Aceptar para ir al canal o Cancelar para salir del grupo.`);
+    const action = window.confirm(`${group.name}\n\n${t('campus.groups_tab.member_navigate_confirm')}`);
     if (action) onNavigate?.();
-    else if (window.confirm('¿Salir del grupo?')) onLeave();
+    else if (window.confirm(t('campus.groups_tab.leave_confirm'))) onLeave();
   };
 
   return (
@@ -61,13 +81,13 @@ export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, 
                     {onEdit && (
                       <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
                         style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: colors.text }}>
-                        Editar
+                        {t('common.edit')}
                       </button>
                     )}
                     {onDelete && (
                       <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
                         style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF3B30' }}>
-                        Eliminar
+                        {t('common.delete')}
                       </button>
                     )}
                   </div>
@@ -77,7 +97,7 @@ export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, 
           )}
         </div>
 
-        <span style={{ fontSize: 12, fontWeight: 600, color: group.color }}>{group.subject}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: group.color }}>{getSubjectDisplay()}</span>
 
         {!!group.description && (
           <span style={{ fontSize: 12, color: colors.textSecondary, lineHeight: '16px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
@@ -86,13 +106,13 @@ export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, 
         )}
 
         {(group.allowedRoles?.length ?? 0) > 0 && (
-          <span style={{ fontSize: 11, color: colors.textSecondary }}>Solo: {group.allowedRoles!.join(', ')}</span>
+          <span style={{ fontSize: 11, color: colors.textSecondary }}>{t('campus.groups_tab.only_roles', { roles: group.allowedRoles!.join(', ') })}</span>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Users size={12} color={colors.textSecondary} strokeWidth={2} />
-            <span style={{ fontSize: 12, color: colors.textSecondary }}>{group.memberCount} miembros</span>
+            <span style={{ fontSize: 12, color: colors.textSecondary }}>{t('dm.group.member_count', { count: String(group.memberCount) })}</span>
           </div>
 
           {isMember ? (
@@ -101,14 +121,14 @@ export function GroupCard({ group, userId, onJoin, onLeave, onNavigate, onEdit, 
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, border: `1px solid ${group.color}`, backgroundColor: group.color + '20', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: group.color }}
             >
               <MessageSquare size={11} color={group.color} strokeWidth={2.5} />
-              Ir al canal
+              {t('campus.groups_tab.go_to_channel')}
             </button>
           ) : (
             <button
               onClick={e => { e.stopPropagation(); onJoin(); }}
               style={{ padding: '5px 12px', borderRadius: 8, border: 'none', backgroundColor: group.color, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#fff' }}
             >
-              Unirse
+              {t('campus.groups_tab.join_btn')}
             </button>
           )}
         </div>

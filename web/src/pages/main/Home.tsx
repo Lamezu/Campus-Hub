@@ -5,9 +5,10 @@ import { collection, query, where, orderBy, onSnapshot, doc, getDoc, limit, Time
 import { auth, db } from '../../config/firebase';
 import { useCall } from '../../contexts/CallContext';
 import { createConference } from '../../services/firebase/studyGroupConferenceService';
-import { MOCK_CHANNELS } from '../../constants/mockData';
 import Layout from '../../components/Layout';
 import { useEvents } from '../../hooks/useEvents';
+import { useSystemChannels } from '../../hooks/useSystemChannels';
+import { seedSystemChannels } from '../../utils/seedChannels';
 
 const SUPPORT_CHANNEL_ID = '4';
 const EVENTS_CHANNEL_ID = '3';
@@ -17,13 +18,14 @@ import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircle
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
 
-const EVENT_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam:     { label: 'Examen',  color: '#FF3B30' },
-  deadline: { label: 'Entrega', color: '#FF9500' },
-  holiday:  { label: 'Festivo', color: '#34C759' },
-  event:    { label: 'Evento',  color: '#007AFF' },
-  class:    { label: 'Clase',   color: '#AF52DE' },
+const EVENT_COLORS: Record<CalendarEventType, string> = {
+  exam: '#FF3B30',
+  deadline: '#FF9500',
+  holiday: '#34C759',
+  event: '#007AFF',
+  class: '#AF52DE',
 };
 
 function EventIcon({ type, size = 13, color }: { type: CalendarEventType; size?: number; color: string }) {
@@ -42,18 +44,36 @@ const CHANNEL_ICONS: Record<string, LucideIcon> = {
   'message-circle-question': MessageCircleQuestion,
 };
 
-function getGreeting(): string {
+function getGreetingKey(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Buenos días';
-  if (h < 20) return 'Buenas tardes';
-  return 'Buenas noches';
+  if (h < 12) return 'home.greeting_morning';
+  if (h < 20) return 'home.greeting_afternoon';
+  return 'home.greeting_evening';
 }
 
-function studyGroupToChannel(g: StudyGroup): Channel {
+const detectCategory = (subject: string): 'subjects' | 'departments' | 'cycles' => {
+  const subjectsKeys = ['math', 'physics', 'chemistry', 'history', 'english', 'french', 'philosophy', 'economics', 'technology', 'programming', 'other'];
+  const departmentsKeys = ['hospitality_tourism', 'health', 'informatics_comms', 'sports', 'admin_management', 'sociocultural', 'energy_water', 'wood_furniture', 'safety_environment', 'languages', 'fol', 'guidance', 'innovation_quality'];
+  
+  if (subjectsKeys.includes(subject)) return 'subjects';
+  if (departmentsKeys.includes(subject)) return 'departments';
+  return 'cycles';
+};
+
+const getTranslatedSubject = (subject: string, t: (key: string) => string): string => {
+  const category = detectCategory(subject);
+  const translation = t(`campus.groups_tab.${category}.${subject}`);
+  if (translation !== `campus.groups_tab.${category}.${subject}`) {
+    return translation;
+  }
+  return subject;
+};
+
+function studyGroupToChannel(g: StudyGroup, memberSingular: string, memberPlural: string, t: (key: string) => string): Channel {
   return {
     id: `sg_${g.id}`,
     name: g.name,
-    description: `${g.subject} · ${g.memberCount} miembro${g.memberCount !== 1 ? 's' : ''}`,
+    description: `${getTranslatedSubject(g.subject, t)} · ${g.memberCount} ${g.memberCount !== 1 ? memberPlural : memberSingular}`,
     type: g.isPrivate ? 'private' : 'public',
     createdBy: g.createdBy,
     createdAt: g.createdAt,
@@ -70,10 +90,8 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null);
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS);
-  const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>(
-    () => Object.fromEntries(MOCK_CHANNELS.map(ch => [ch.id, ch.unreadCount ?? 0]))
-  );
+  const channels = useSystemChannels();
+  const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>({});
   const [channelLastMessages, setChannelLastMessages] = useState<Record<string, string>>({});
   const [sgUnreads, setSgUnreads] = useState<Record<string, number>>({});
   const [showAllGroups, setShowAllGroups] = useState(false);
@@ -83,6 +101,15 @@ export default function Home() {
   const { setActiveConference, setActiveConferenceId } = useCall();
   const isDesktop = useWindowSize();
   const { events: allEvents } = useEvents(department);
+  const { t } = useTranslation();
+
+  const EVENT_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
+    exam: { label: t('home.event_types.exam'), color: EVENT_COLORS.exam },
+    deadline: { label: t('home.event_types.deadline'), color: EVENT_COLORS.deadline },
+    holiday: { label: t('home.event_types.holiday'), color: EVENT_COLORS.holiday },
+    event: { label: t('home.event_types.event'), color: EVENT_COLORS.event },
+    class: { label: t('home.event_types.class'), color: EVENT_COLORS.class },
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -95,29 +122,16 @@ export default function Home() {
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          setUserData(userDoc.data());
-          setDepartment(userDoc.data().department ?? null);
+          const data = userDoc.data();
+          setUserData(data);
+          setDepartment(data.department ?? null);
+          if (data.role === 'admin') seedSystemChannels().catch(() => {});
         }
-      } catch {}
+      } catch { }
       finally { setLoading(false); }
     });
     return unsubscribe;
   }, [navigate]);
-
-  useEffect(() => {
-    const unsubs = MOCK_CHANNELS.map(ch =>
-      onSnapshot(doc(db, 'channels', ch.id), snap => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        setChannels(prev => prev.map(c =>
-          c.id === ch.id
-            ? { ...c, photoURL: data.photoURL ?? null, name: data.name ?? c.name, description: data.description ?? c.description, icon: data.icon ?? c.icon }
-            : c
-        ));
-      })
-    );
-    return () => unsubs.forEach(u => u());
-  }, []);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -154,15 +168,16 @@ export default function Home() {
     if (!currentUser) return;
     let active = true;
     const unsubs: (() => void)[] = [];
+    const CHANNEL_IDS = ['1', '2', '3', '4'];
 
     (async () => {
-      for (const channel of MOCK_CHANNELS) {
-        const memberSnap = await getDoc(doc(db, 'channels', channel.id, 'members', currentUser.uid));
+      for (const channelId of CHANNEL_IDS) {
+        const memberSnap = await getDoc(doc(db, 'channels', channelId, 'members', currentUser.uid));
         if (!active) return;
         const lastRead: Timestamp | null = memberSnap.exists() ? memberSnap.data().lastRead ?? null : null;
 
         const msgsQuery = query(
-          collection(db, 'channels', channel.id, 'messages'),
+          collection(db, 'channels', channelId, 'messages'),
           orderBy('createdAt', 'desc'),
           limit(50)
         );
@@ -174,14 +189,12 @@ export default function Home() {
             const createdAt = data.createdAt as Timestamp;
             return createdAt && createdAt.seconds > lastRead.seconds;
           }).length;
-          setChannelUnreads(prev => ({ ...prev, [channel.id]: count }));
+          setChannelUnreads(prev => ({ ...prev, [channelId]: count }));
 
           if (snap.docs.length > 0) {
             const last = snap.docs[0].data();
-            const text = last.attachments?.length
-              ? '📎 Archivo adjunto'
-              : last.text || '';
-            setChannelLastMessages(prev => ({ ...prev, [channel.id]: text }));
+            const text = last.attachments?.length ? '📎 Media' : last.text || '';
+            setChannelLastMessages(prev => ({ ...prev, [channelId]: text }));
           }
         });
         unsubs.push(unsub);
@@ -272,9 +285,10 @@ export default function Home() {
         myUid: user.uid,
         myName: userData.displayName || user.displayName || 'Usuario',
         myPhoto: userData.photoURL || user.photoURL || null,
+        myRole: userData.role ?? 'teacher',
       });
       setActiveConferenceId(conferenceId);
-    } catch {}
+    } catch { }
   };
 
   const canStartConference = userData?.role === 'teacher' || userData?.role === 'admin';
@@ -302,7 +316,7 @@ export default function Home() {
   if (!isDesktop) {
     return (
       <Layout
-        title={`Bienvenido, ${displayName}!`}
+        title={`${t(getGreetingKey())}, ${displayName.split(' ')[0]}!`}
         rightAction={
           <>
             <NotificationBell categories={['channel', 'campus']} />
@@ -314,7 +328,7 @@ export default function Home() {
       >
         <div style={{ padding: '0 16px' }}>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>Canales</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>{t('home.channels')}</div>
             {channels.map((channel) => (
               <ChannelCard key={channel.id} channel={channel} onPress={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : channel.id === EVENTS_CHANNEL_ID ? navigate('/events') : navigate(`/chat/${channel.id}`)} />
             ))}
@@ -322,10 +336,10 @@ export default function Home() {
           {myGroups.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 4px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>Mis grupos</div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('home.my_groups')}</div>
                 {myGroups.length > 4 && (
                   <button onClick={() => setShowAllGroups(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{showAllGroups ? 'Ver menos' : `Ver todos (${myGroups.length})`}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{showAllGroups ? t('home.see_less') : t('home.see_all_count', { count: myGroups.length })}</span>
                     <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
                 )}
@@ -333,7 +347,7 @@ export default function Home() {
               {visibleGroups.map((group) => (
                 <div key={group.id} style={{ position: 'relative' }}>
                   <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
-                  <ChannelCard channel={studyGroupToChannel(group)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
+                  <ChannelCard channel={studyGroupToChannel(group, t('home.member_singular'), t('home.member_plural'), t)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
                   {(sgUnreads[group.id] ?? 0) > 0 && (
                     <div style={{ position: 'absolute', right: canStartConference ? 68 : 40, top: '50%', transform: 'translateY(-50%)', backgroundColor: colors.primary, borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
@@ -342,7 +356,7 @@ export default function Home() {
                   {canStartConference && (
                     <button
                       onClick={e => { e.stopPropagation(); handleStartConference(group); }}
-                      title="Iniciar conferencia"
+                      title={t('home.start_conference')}
                       style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <Presentation size={14} color={group.color} />
@@ -354,14 +368,14 @@ export default function Home() {
           )}
           <div style={{ paddingBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 8px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>Próximos eventos</div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('home.upcoming_events')}</div>
               <button onClick={() => navigate('/events')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>Ver todos</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{t('home.see_all')}</span>
                 <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} />
               </button>
             </div>
             {upcomingEvents.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 13, color: colors.textSecondary }}>Sin eventos próximos</div>
+              <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 13, color: colors.textSecondary }}>{t('home.no_upcoming_events')}</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {upcomingEvents.map(ev => {
@@ -382,7 +396,7 @@ export default function Home() {
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>{ev.title}</span>
                         <span style={{ fontSize: 12, color: colors.textSecondary }}>
-                          {new Date(ev.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {new Date(ev.date).toLocaleDateString(t('common.locale_code'), { weekday: 'short', day: 'numeric', month: 'short' })}
                           {ev.time ? ` · ${ev.time}` : ''}
                         </span>
                       </div>
@@ -399,7 +413,7 @@ export default function Home() {
 
   return (
     <Layout
-      title="Inicio"
+      title={t('home.title')}
       rightAction={
         <>
           <NotificationBell categories={['channel', 'campus']} />
@@ -420,12 +434,12 @@ export default function Home() {
         }}>
           <div>
             <div style={{ fontSize: 26, fontWeight: 800, color: colors.text }}>
-              {getGreeting()}, {displayName.split(' ')[0]}!
+              {t(getGreetingKey())}, {displayName.split(' ')[0]}!
             </div>
             <div style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>
               {totalUnread > 0
-                ? `Tienes ${totalUnread} mensaje${totalUnread !== 1 ? 's' : ''} sin leer`
-                : 'Estás al día con todos los mensajes'}
+                ? t(totalUnread !== 1 ? 'home.unread_count_plural' : 'home.unread_count', { count: totalUnread })
+                : t('home.up_to_date')}
             </div>
           </div>
           {(userData?.photoURL || user?.photoURL) ? (
@@ -450,7 +464,7 @@ export default function Home() {
 
           <div style={{ flex: '1 1 0', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary, marginBottom: 14 }}>
-              Canales
+              {t('home.channels')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
               {channels.map((channel) => {
@@ -505,13 +519,13 @@ export default function Home() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary }}>
-                  Mis grupos
+                  {t('home.my_groups')}
                 </div>
               </div>
               {myGroups.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 24px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 14 }}>
                   <Users size={32} strokeWidth={1.2} color={colors.border} style={{ marginBottom: 8, display: 'block', margin: '0 auto 12px' }} />
-                  No perteneces a ningún grupo todavía
+                  {t('home.no_groups')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -540,7 +554,7 @@ export default function Home() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
-                        <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{group.subject} · {group.memberCount} miembro{group.memberCount !== 1 ? 's' : ''}</div>
+                        <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{getTranslatedSubject(group.subject, t)} · {group.memberCount} {group.memberCount !== 1 ? t('home.member_plural') : t('home.member_singular')}</div>
                       </div>
                       {(sgUnreads[group.id] ?? 0) > 0 && (
                         <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', flexShrink: 0 }}>
@@ -550,7 +564,7 @@ export default function Home() {
                       {canStartConference && (
                         <button
                           onClick={e => { e.stopPropagation(); handleStartConference(group); }}
-                          title="Iniciar conferencia"
+                          title={t('home.start_conference')}
                           style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                           onMouseEnter={e => (e.currentTarget.style.backgroundColor = group.color + '44')}
                           onMouseLeave={e => (e.currentTarget.style.backgroundColor = group.color + '22')}
@@ -565,7 +579,7 @@ export default function Home() {
                       onClick={() => setShowAllGroups(v => !v)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px', borderRadius: 12, border: `1px solid ${colors.border}`, background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: colors.primary }}
                     >
-                      {showAllGroups ? 'Ver menos' : `Ver ${myGroups.length - 4} más`}
+                      {showAllGroups ? t('home.see_less') : t('home.see_count_more', { count: myGroups.length - 4 })}
                       <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(270deg)' : 'rotate(90deg)', transition: 'transform 0.2s' }} />
                     </button>
                   )}
@@ -576,19 +590,19 @@ export default function Home() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary }}>
-                  Próximos eventos
+                  {t('home.upcoming_events')}
                 </div>
                 <button
                   onClick={() => navigate('/events')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>Ver todos</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{t('home.see_all')}</span>
                   <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} />
                 </button>
               </div>
               {upcomingEvents.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '28px 16px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 13 }}>
-                  Sin eventos próximos
+                  {t('home.no_upcoming_events')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -610,7 +624,7 @@ export default function Home() {
                           </div>
                           <span style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>{ev.title}</span>
                           <span style={{ fontSize: 12, color: colors.textSecondary }}>
-                            {new Date(ev.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                            {new Date(ev.date).toLocaleDateString(t('common.locale_code'), { weekday: 'short', day: 'numeric', month: 'short' })}
                             {ev.time ? ` · ${ev.time}` : ''}
                           </span>
                         </div>

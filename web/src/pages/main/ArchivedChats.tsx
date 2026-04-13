@@ -7,6 +7,7 @@ import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
 import { Archive, Clock, ArchiveX, ArrowLeft, BellOff } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ConversationWithUser extends Conversation {
   otherUserData?: ConversationUser;
@@ -20,6 +21,7 @@ export default function ArchivedChats() {
   const [contextMenu, setContextMenu] = useState<{ convId: string; otherId: string; x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const userCacheRef = useRef<Record<string, ConversationUser>>({});
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function ArchivedChats() {
   }
 
   return (
-    <Layout title="Archivados">
+    <Layout title={t('dm.archived_title')}>
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '0 0 80px' }}>
         <div style={{
           display: 'flex',
@@ -123,7 +125,7 @@ export default function ArchivedChats() {
             <ArrowLeft size={22} />
           </button>
           <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text)', margin: 0 }}>
-            Archivados
+            {t('dm.archived_title')}
           </h1>
         </div>
 
@@ -185,10 +187,10 @@ export default function ArchivedChats() {
           }}>
             <Archive size={56} color="var(--text-secondary)" strokeWidth={1.5} />
             <p style={{ color: 'var(--text)', fontWeight: '600', fontSize: '18px', margin: 0 }}>
-              Sin chats archivados
+              {t('dm.no_archived')}
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, textAlign: 'center' }}>
-              Los chats que archives aparecerán aquí
+              {t('dm.no_archived_desc')}
             </p>
           </div>
         ) : (
@@ -270,7 +272,7 @@ export default function ArchivedChats() {
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
                     }}>
-                      {conv.lastMessage || 'Sin mensajes aún'}
+                      {conv.lastMessage || t('dm.no_messages')}
                     </p>
                   </div>
 

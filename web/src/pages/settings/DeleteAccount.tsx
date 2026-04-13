@@ -7,11 +7,13 @@ import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAccounts } from '../../contexts/AccountsContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function DeleteAccount() {
   const navigate = useNavigate();
   const { colors } = useTheme();
   const { removeAccount } = useAccounts();
+  const { t } = useTranslation();
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,9 +44,9 @@ export default function DeleteAccount() {
     } catch (err: any) {
       const code = err?.code ?? '';
       if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-        setError('Contraseña incorrecta.');
+        setError(t('delete_account.error_wrong_password'));
       } else {
-        setError('No se pudo eliminar la cuenta. Inténtalo de nuevo.');
+        setError(t('delete_account.error_generic'));
       }
     } finally {
       setLoading(false);
@@ -52,7 +54,7 @@ export default function DeleteAccount() {
   };
 
   return (
-    <Layout title="Eliminar cuenta" showBackButton>
+    <Layout title={t('delete_account.title')} showBackButton>
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         <div style={{
@@ -63,13 +65,13 @@ export default function DeleteAccount() {
         }}>
           <AlertTriangle size={22} color="#FF3B30" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 14, color: '#FF3B30', fontWeight: '600', lineHeight: '22px', margin: 0 }}>
-            Esta acción es permanente. Se eliminarán todos tus datos y no podrás recuperar la cuenta.
+            {t('delete_account.warning')}
           </p>
         </div>
 
         <div>
           <p style={{ fontSize: 13, color: colors.textSecondary, fontWeight: '600', marginBottom: 8 }}>
-            Confirma tu contraseña
+            {t('delete_account.confirm_password_label')}
           </p>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
@@ -79,7 +81,7 @@ export default function DeleteAccount() {
           }}>
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Contraseña"
+              placeholder={t('delete_account.confirm_password_label')}
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
               autoComplete="current-password"
@@ -118,7 +120,7 @@ export default function DeleteAccount() {
             {confirmed && <span style={{ color: '#fff', fontSize: 14, fontWeight: '800', lineHeight: 1 }}>✓</span>}
           </div>
           <span style={{ fontSize: 14, color: colors.text, lineHeight: '22px' }}>
-            Entiendo que esta acción no se puede deshacer
+            {t('delete_account.checkbox')}
           </span>
         </div>
 
@@ -136,7 +138,7 @@ export default function DeleteAccount() {
             cursor: canSubmit ? 'pointer' : 'not-allowed',
           }}
         >
-          {loading ? 'Eliminando...' : 'Eliminar cuenta definitivamente'}
+          {loading ? '...' : t('delete_account.confirm_btn')}
         </button>
 
       </div>

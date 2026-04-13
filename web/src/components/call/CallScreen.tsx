@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, memo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from '../../hooks/useTranslation';
 import { playRingback, stopRingback } from '../../utils/toneGenerator';
 import { auth } from '../../config/firebase';
 import {
@@ -391,6 +392,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     openDocPipRef.current();
   }, [location.pathname]);
 
+  const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 640);
@@ -576,7 +578,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         } catch {
           stream = new MediaStream();
-          setMediaError('No se detectó micrófono ni cámara. Comprueba los permisos del navegador y en Windows: Configuración → Privacidad → Micrófono/Cámara.');
+          setMediaError(t('call.error_no_devices_windows'));
         }
       }
 
@@ -1121,7 +1123,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                       {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
                     </div>
                     <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{otherUserName}</p>
-                    <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{mediaError ?? (callType === 'audio' ? statusLabel : (!remoteVideoReady ? statusLabel : 'Cámara desactivada'))}</p>
+                    <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{mediaError ?? (callType === 'audio' ? statusLabel : (!remoteVideoReady ? statusLabel : t('call.camera_disabled')))}</p>
                   </div>
                 )}
                 {label(otherUserName)}
@@ -1129,12 +1131,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
               <div style={{ ...tileStyle('remoteShare', { backgroundColor: '#111214' }), ...(!remoteSharing && { display: 'none' }) }} onClick={onTileClick('remoteShare')}>
                 <video ref={remoteShareVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
-                {label(`Pantalla de ${otherUserName}`)}
+                {label(t('call.screen_of', { name: otherUserName }))}
               </div>
 
               <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')}>
                 <video ref={screenShareVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
-                {label('Tu pantalla')}
+                {label(t('call.your_screen'))}
               </div>
 
               <div style={{ ...tileStyle('local'), ...(!showLocalVideo && { display: 'none' }), ...(localSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
@@ -1146,11 +1148,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                     <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
                       {currentUserPhoto ? <img src={currentUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{currentUserInitial}</div>}
                     </div>
-                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>Tú</p>
-                    {callType === 'video' && <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>Cámara desactivada</p>}
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{t('call.you')}</p>
+                    {callType === 'video' && <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{t('call.camera_disabled')}</p>}
                   </div>
                 )}
-                {label('Tú')}
+                {label(t('call.you'))}
               </div>
             </>
           );
@@ -1206,9 +1208,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           }}>
             <button className="dev-row" onClick={() => setSubPanel(p => p === 'input' ? null : 'input')}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Dispositivo de entrada</div>
+                <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.input_device')}</div>
                 <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>
-                  {devices.find(d => d.kind === 'audioinput' && d.deviceId === selectedMicId)?.label || 'Micrófono'}
+                  {devices.find(d => d.kind === 'audioinput' && d.deviceId === selectedMicId)?.label || t('call.microphone')}
                 </div>
               </div>
               <ChevronRight size={16} color="#72767d" style={{ flexShrink: 0, color: subPanel === 'input' ? '#5865f2' : '#72767d' }} />
@@ -1220,9 +1222,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               <>
                 <button className="dev-row" onClick={() => setSubPanel(p => p === 'output' ? null : 'output')}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Dispositivo de salida</div>
+                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.output_device')}</div>
                     <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>
-                      {devices.find(d => d.kind === 'audiooutput' && d.deviceId === selectedSpeakerId)?.label || 'Altavoz predeterminado'}
+                      {devices.find(d => d.kind === 'audiooutput' && d.deviceId === selectedSpeakerId)?.label || t('call.default_speaker')}
                     </div>
                   </div>
                   <ChevronRight size={16} color="#72767d" style={{ flexShrink: 0, color: subPanel === 'output' ? '#5865f2' : '#72767d' }} />
@@ -1232,14 +1234,14 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             )}
 
             <div style={{ padding: '11px 16px' }}>
-              <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>Volumen de entrada</div>
+              <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>{t('call.input_volume')}</div>
               <VolumeSlider initialValue={100} onChange={handleInputVolume} />
             </div>
 
             <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
 
             <div style={{ padding: '11px 16px' }}>
-              <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>Volumen de salida</div>
+              <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>{t('call.output_volume')}</div>
               <VolumeSlider initialValue={100} onChange={handleOutputVolume} />
             </div>
           </div>
@@ -1258,7 +1260,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             {subPanel === 'input' && devices.filter(d => d.kind === 'audioinput').map(d => (
               <button key={d.deviceId} className="dev-row" onClick={() => { changeAudioInput(d.deviceId); setSubPanel(null); }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Micrófono'}</div>
+                  <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.microphone')}</div>
                 </div>
                 <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${selectedMicId === d.deviceId ? '#5865f2' : 'rgba(255,255,255,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {selectedMicId === d.deviceId && <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#5865f2' }} />}
@@ -1268,7 +1270,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             {subPanel === 'output' && devices.filter(d => d.kind === 'audiooutput').map(d => (
               <button key={d.deviceId} className="dev-row" onClick={() => { changeAudioOutput(d.deviceId); setSubPanel(null); }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Altavoz'}</div>
+                  <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.speaker')}</div>
                 </div>
                 <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${selectedSpeakerId === d.deviceId ? '#5865f2' : 'rgba(255,255,255,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {selectedSpeakerId === d.deviceId && <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#5865f2' }} />}
@@ -1289,21 +1291,21 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             maxHeight: '60vh', overflowY: 'auto', overflowX: 'hidden'
           }}>
             <div style={{ padding: '11px 16px 4px' }}>
-              <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Cámara</div>
+              <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.camera')}</div>
               <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {devices.find(d => d.kind === 'videoinput' && d.deviceId === selectedCamId)?.label || 'Cámara predeterminada'}
+                {devices.find(d => d.kind === 'videoinput' && d.deviceId === selectedCamId)?.label || t('call.default_camera')}
               </div>
             </div>
             <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '8px 0 4px' }} />
             {devices.filter(d => d.kind === 'videoinput').map(d => (
               <button key={d.deviceId} className="dev-sub" style={{ padding: '9px 16px 9px 22px' }} onClick={() => changeVideoInput(d.deviceId)}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, backgroundColor: selectedCamId === d.deviceId ? '#5865f2' : 'transparent', border: '1.5px solid rgba(255,255,255,0.25)' }} />
-                <span style={{ fontSize: 13, color: selectedCamId === d.deviceId ? '#fff' : '#b9bbbe', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Cámara'}</span>
+                <span style={{ fontSize: 13, color: selectedCamId === d.deviceId ? '#fff' : '#b9bbbe', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.camera')}</span>
               </button>
             ))}
             <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '4px 0 0' }} />
             <button className="dev-row" onClick={() => setShowCamPicker(false)}>
-              <span style={{ fontSize: 13, color: '#fff' }}>Ajustes de vídeo</span>
+              <span style={{ fontSize: 13, color: '#fff' }}>{t('call.video_settings')}</span>
               <Settings size={15} color="#72767d" style={{ flexShrink: 0 }} />
             </button>
           </div>
@@ -1316,7 +1318,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
           <CompoundBtn
             icon={micOn ? <Mic size={isMobile ? 18 : 20} /> : <MicOff size={isMobile ? 18 : 20} />}
-            label={micOn ? 'Silenciar' : 'Activar mic'}
+            label={micOn ? t('call.mute') : t('call.unmute')}
             muted={!micOn}
             onClick={toggleMic}
             onChevron={openDevicePicker}
@@ -1325,7 +1327,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           />
           <CtrlBtn
             icon={deafened ? <HeadphoneOff size={isMobile ? 18 : 20} /> : <Headphones size={isMobile ? 18 : 20} />}
-            label={deafened ? 'Activar audio' : 'Ensordecer'}
+            label={deafened ? t('call.undeafen') : t('call.deafen')}
             muted={deafened}
             onClick={toggleDeafen}
             mobile={isMobile}
@@ -1333,7 +1335,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           {callType === 'video' && (
             <CompoundBtn
               icon={camOn ? <Video size={isMobile ? 18 : 20} /> : <VideoOff size={isMobile ? 18 : 20} />}
-              label={camOn ? 'Cámara off' : 'Cámara on'}
+              label={camOn ? t('call.video_off') : t('call.video_on')}
               muted={!camOn}
               onClick={toggleCam}
               onChevron={openCamPicker}
@@ -1344,7 +1346,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           {status === 'active' && typeof navigator.mediaDevices?.getDisplayMedia === 'function' && (
             <CtrlBtn
               icon={sharing ? <MonitorOff size={isMobile ? 18 : 20} /> : <Monitor size={isMobile ? 18 : 20} />}
-              label={sharing ? 'Dejar compartir' : 'Compartir pantalla'}
+              label={sharing ? t('call.stop_share') : t('call.screen_share')}
               green={sharing}
               onClick={toggleScreenShare}
               mobile={isMobile}
@@ -1352,7 +1354,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           )}
           <CtrlBtn
             icon={<PhoneOff size={isMobile ? 18 : 20} />}
-            label="Colgar"
+            label={t('call.hang_up')}
             danger
             onClick={handleHangUp}
             mobile={isMobile}
@@ -1370,7 +1372,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                     onClick={() => setShowLocalVideo(v => !v)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                   >
-                    <span style={{ fontSize: 14 }}>Mostrar mi propia cámara</span>
+                    <span style={{ fontSize: 14 }}>{t('call.show_own_camera')}</span>
                     <div style={{
                       width: 16, height: 16, borderRadius: 3, flexShrink: 0,
                       backgroundColor: showLocalVideo ? '#5865f2' : 'transparent',
@@ -1384,7 +1386,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                     onClick={() => setShowNoVideoParticipants(v => !v)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                   >
-                    <span style={{ fontSize: 14 }}>Mostrar participantes sin vídeo</span>
+                    <span style={{ fontSize: 14 }}>{t('call.show_no_video_participants')}</span>
                     <div style={{
                       width: 16, height: 16, borderRadius: 3, flexShrink: 0,
                       backgroundColor: showNoVideoParticipants ? '#5865f2' : 'transparent',
@@ -1400,13 +1402,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                     style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                   >
                     <Settings size={15} />
-                    <span style={{ fontSize: 14 }}>Ajustes de voz y vídeo</span>
+                    <span style={{ fontSize: 14 }}>{t('call.voice_video_settings')}</span>
                   </button>
                 </div>
               )}
               <CtrlBtn
                 icon={<MoreHorizontal size={isMobile ? 18 : 20} />}
-                label="Más"
+                label={t('common.more')}
                 active={showMoreMenu}
                 onClick={() => { setShowDevices(false); setShowMoreMenu(m => !m); }}
                 mobile={isMobile}
@@ -1416,7 +1418,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           {status === 'active' && (
             <CtrlBtn
               icon={<ExternalLink size={isMobile ? 18 : 20} />}
-              label="Sacar a ventana"
+              label={t('call.pop_out')}
               onClick={openDocPip}
               mobile={isMobile}
             />

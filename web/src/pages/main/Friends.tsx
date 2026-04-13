@@ -13,6 +13,7 @@ import {
 } from '../../services/firebase/friendsService';
 import { getOrCreateConversation } from '../../services/firebase/directMessageService';
 import { Star, UserX, MessageCircle, Users } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 
 const UserStarIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
@@ -38,6 +39,7 @@ export default function Friends() {
 
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => {
@@ -64,7 +66,8 @@ export default function Friends() {
   }, [currentUserId]);
 
   const handleRemoveFriend = async (friendId: string) => {
-    if (!currentUserId || !window.confirm('¿Eliminar a este amigo?')) return;
+    const friend = friends.find(f => f.id === friendId);
+    if (!currentUserId || !window.confirm(t('friends.remove_friend_confirm', { name: friend?.displayName ?? '' }))) return;
     setActionLoading(friendId);
     try {
       await removeFriend(currentUserId, friendId);
@@ -149,12 +152,12 @@ export default function Friends() {
         : <Users size={48} color={colors.primary} strokeWidth={1.5} style={{ margin: '0 auto 16px', display: 'block' }} />
       }
       <p style={{ color: 'var(--text)', fontWeight: '600', fontSize: '17px', margin: '0 0 8px' }}>
-        {tab === 'best' ? 'Sin mejores amigos' : 'Sin amigos aún'}
+        {tab === 'best' ? t('friends.empty.no_best') : t('friends.empty.no_friends')}
       </p>
       <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
         {tab === 'best'
-          ? 'Marca amigos con ★ para añadirlos aquí'
-          : 'Acepta solicitudes de amistad desde la campanita'}
+          ? t('friends.empty.mark_as_best')
+          : t('friends.empty.accept_from_bell')}
       </p>
     </div>
   );
@@ -162,11 +165,11 @@ export default function Friends() {
   if (loading) return <div className="loading-container"><div className="loading-spinner" /></div>;
 
   return (
-    <Layout title="Amigos" showBackButton onBack={() => navigate('/profile')}>
+    <Layout title={t('friends.title')} showBackButton onBack={() => navigate('/profile')}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--background)', position: 'sticky', top: '56px', zIndex: 5 }}>
-          {tabBtn('friends', 'Amigos')}
-          {tabBtn('best', 'Mejores Amigos')}
+          {tabBtn('friends', t('friends.tabs.all'))}
+          {tabBtn('best', t('friends.tabs.best'))}
         </div>
 
         {loadingFriends ? (
@@ -194,7 +197,7 @@ export default function Friends() {
                     color: bestFriendIds.includes(friend.id) ? colors.primary : 'var(--text-secondary)',
                     display: 'flex'
                   }}
-                  title={bestFriendIds.includes(friend.id) ? 'Quitar de mejores amigos' : 'Añadir a mejores amigos'}
+                  title={bestFriendIds.includes(friend.id) ? t('friends.remove_best') : t('friends.add_best')}
                 >
                   <Star size={18} fill={bestFriendIds.includes(friend.id) ? 'currentColor' : 'none'} />
                 </button>
@@ -202,7 +205,7 @@ export default function Friends() {
                   onClick={() => handleMessage(friend.id)}
                   disabled={actionLoading === 'msg_' + friend.id}
                   style={{ padding: '8px', borderRadius: '10px', backgroundColor: colors.primary + '20', border: 'none', cursor: 'pointer', color: colors.primary, display: 'flex' }}
-                  title="Enviar mensaje"
+                  title={t('dm.new_message')}
                 >
                   <MessageCircle size={18} />
                 </button>
@@ -210,7 +213,7 @@ export default function Friends() {
                   onClick={() => handleRemoveFriend(friend.id)}
                   disabled={actionLoading === friend.id}
                   style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'var(--background-secondary)', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}
-                  title="Eliminar amigo"
+                  title={t('friends.remove_friend')}
                 >
                   <UserX size={18} />
                 </button>

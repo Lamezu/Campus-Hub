@@ -34,7 +34,7 @@ const NotificationsContext = createContext<NotificationsContextType>({
   markAllRead: async () => {},
 });
 
-export function NotificationsProvider({ children }: { children: React.ReactNode }) {
+export function NotificationsProvider({ children, t }: { children: React.ReactNode; t: (key: string, options?: any) => string }) {
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [requestSenders, setRequestSenders] = useState<Record<string, any>>({});
   const [firestoreNotifs, setFirestoreNotifs] = useState<NotificationItem[]>([]);
@@ -108,7 +108,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         synth.push({
           id: `conv_${d.id}`,
           category: 'dm',
-          title: data.lastMessageSenderName ?? 'Mensaje nuevo',
+          title: data.lastMessageSenderName ?? t('notifications.new_message'),
           body: data.lastMessage ?? '',
           read: false,
           createdAt: at,
@@ -119,7 +119,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     });
 
     return unsub;
-  }, [userId]);
+  }, [userId, t]);
 
   useEffect(() => {
     if (!userId) return;
@@ -159,10 +159,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           if (cc.type !== 'added') return;
           const cData = cc.doc.data();
           if (cData.authorId === uid) return;
+          const title = cData.authorName ?? t('common.someone');
           addSocialNotif(
             `comment_${cc.doc.id}`,
-            cData.authorName ?? 'Alguien',
-            `comentó en tu post "${postStates.get(postId)?.title ?? postTitle}"`,
+            title,
+            t('notifications.commented_on_post', { title: postStates.get(postId)?.title ?? postTitle }),
             postId
           );
         });
@@ -198,10 +199,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             for (const likerUid of currLikes) {
               if (!prevLikes.has(likerUid) && likerUid !== uid) {
                 const notifId = `like_${postId}_${likerUid}`;
-                addSocialNotif(notifId, 'Alguien', `le dio like a tu post "${postTitle}"`, postId);
+                addSocialNotif(notifId, t('common.someone'), t('notifications.liked_your_post', { title: postTitle }), postId);
                 getDoc(doc(db, 'users', likerUid))
-                  .then(snap => snap.exists() ? (snap.data().displayName ?? 'Alguien') : 'Alguien')
-                  .catch(() => 'Alguien')
+                  .then(() => t('common.someone'))
+                  .catch(() => t('common.someone'))
                   .then(name => {
                     if (destroyed) return;
                     setSocialNotifs(prev => prev.map(n =>
@@ -222,7 +223,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       postsUnsub();
       commentUnsubs.forEach(u => u());
     };
-  }, [userId]);
+  }, [userId, t]);
 
   useEffect(() => {
     if (!userId) return;

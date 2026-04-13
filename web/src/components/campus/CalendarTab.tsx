@@ -1,20 +1,21 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, Megaphone, Users, Globe, Search, ChevronDown } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { auth } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { useCalendarEvents } from '../../hooks/campus/useCalendarEvents';
+import { useTranslation } from '../../hooks/useTranslation';
+import { useMySubjectKeys } from '../../hooks/campus/useMySubjectKeys';
+import { DEPARTMENTS, DEPARTMENT_SECTIONS, getDepartmentLabel } from '../../constants/departments';
 import type { CalendarEventType, CalendarEvent } from '../../types';
 
-const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const DAY_NAMES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-
-const EVENT_TYPE_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam:     { label: 'Examen',   color: '#FF3B30' },
-  deadline: { label: 'Entrega',  color: '#FF9500' },
-  holiday:  { label: 'Festivo',  color: '#34C759' },
-  event:    { label: 'Evento',   color: '#007AFF' },
-  class:    { label: 'Clase',    color: '#AF52DE' },
+const EVENT_TYPE_CONFIG: Record<CalendarEventType, { color: string }> = {
+  exam:     { color: '#FF3B30' },
+  deadline: { color: '#FF9500' },
+  holiday:  { color: '#34C759' },
+  event:    { color: '#007AFF' },
+  class:    { color: '#AF52DE' },
 };
 
 function EventTypeIcon({ type, size = 14, color: c }: { type: CalendarEventType; size?: number; color?: string }) {
@@ -31,22 +32,35 @@ function getFirstDayOfMonth(year: number, month: number) { return (new Date(year
 
 interface CalendarTabProps {
   eventTypes: CalendarEventType[];
-  department: string | null;
+  role: string | null;
   subrole: string | null;
+  department: string | null; // delegate's fixed department
   currentUserId: string;
 }
 
-export function CalendarTab({ eventTypes, department, subrole, currentUserId }: CalendarTabProps) {
+export function CalendarTab({ eventTypes, role, subrole, department, currentUserId }: CalendarTabProps) {
   const { colors } = useTheme();
+  const { t, language } = useTranslation();
   const isDesktop = useWindowSize();
+  const locale = language || 'es';
+  const dayLabels = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(2024, 0, 1 + i); // Jan 1, 2024 was a Monday
+    return d.toLocaleString(locale, { weekday: 'narrow' });
+  });
   const today = new Date();
   const { allEvents, saveEvent, deleteEvent } = useCalendarEvents();
 
-  const visibleEvents = allEvents.filter(ev => {
+  // Teachers and admins see all department events.
+  // Students only see global events (no departmentId) or events for
+  // study groups they are a member of.
+  const canSeeAll = role === 'teacher' || role === 'admin';
+  const mySubjectKeys = useMySubjectKeys(canSeeAll ? null : (auth.currentUser?.uid ?? null));
+
+  const visibleEvents = useMemo(() => allEvents.filter(ev => {
     if (!ev.departmentId) return true;
-    if (!department) return true;
-    return ev.departmentId === department;
-  });
+    if (canSeeAll) return true;
+    return mySubjectKeys.has(ev.departmentId);
+  }), [allEvents, canSeeAll, mySubjectKeys]);
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -56,6 +70,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
   const [formDate, setFormDate] = useState(today.toISOString().slice(0, 10));
   const [formTime, setFormTime] = useState('');
   const [form, setForm] = useState({ title: '', description: '', type: (eventTypes[0] ?? 'event') as CalendarEventType });
+  const [formDeptId, setFormDeptId] = useState<string>('');
+  const [deptSearch, setDeptSearch] = useState('');
 
   const prevMonth = () => { setViewMonth(m => { if (m === 0) { setViewYear(y => y - 1); return 11; } return m - 1; }); setSelectedDate(null); };
   const nextMonth = () => { setViewMonth(m => { if (m === 11) { setViewYear(y => y + 1); return 0; } return m + 1; }); setSelectedDate(null); };
@@ -80,6 +96,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
     setFormDate(base);
     setFormTime('');
     setForm({ title: '', description: '', type: eventTypes[0] ?? 'event' });
+    setFormDeptId('');
+    setDeptSearch('');
     setEditingEventId(null);
     setShowCreate(true);
   };
@@ -88,6 +106,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
     setForm({ title: ev.title, description: ev.description, type: ev.type });
     setFormDate(new Date(ev.date).toISOString().slice(0, 10));
     setFormTime(ev.time ?? '');
+    setFormDeptId(subrole !== 'delegate' ? (ev.departmentId ?? '') : (department ?? ''));
+    setDeptSearch('');
     setEditingEventId(ev.id);
     setShowCreate(true);
   };
@@ -95,6 +115,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
   const handleSave = async () => {
     if (!form.title.trim()) return;
     const date = new Date(formDate + (formTime ? `T${formTime}` : 'T00:00:00'));
+    const deptId = subrole === 'delegate' ? department : (formDeptId.trim() || null);
     await saveEvent({
       title: form.title.trim(),
       description: form.description.trim(),
@@ -102,7 +123,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
       allDay: !formTime,
       time: formTime || null,
       category: form.type,
-      departmentId: subrole === 'delegate' ? department : null,
+      departmentId: deptId,
     }, editingEventId);
     setShowCreate(false);
     setEditingEventId(null);
@@ -116,7 +137,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
         <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
           <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>{MONTH_NAMES[viewMonth]} {viewYear}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: colors.text }}>{new Date(viewYear, viewMonth, 1).toLocaleString(locale, { month: 'long' }).replace(/^\w/, c => c.toUpperCase())} {viewYear}</span>
         <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
           <ChevronRight size={20} color={colors.text} strokeWidth={2} />
         </button>
@@ -124,8 +145,8 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
 
       <div style={{ borderRadius: 12, border: `1px solid ${colors.border}`, padding: isDesktop ? 12 : 8, backgroundColor: colors.card }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isDesktop ? 4 : 0 }}>
-          {DAY_NAMES.map(d => (
-            <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textSecondary, paddingBottom: 6 }}>{d}</div>
+          {dayLabels.map((d, i) => (
+            <div key={i} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: colors.textSecondary, paddingBottom: 6 }}>{d}</div>
           ))}
           {calCells.map((day, i) => {
             if (!day) return <div key={`e_${i}`} />;
@@ -156,7 +177,9 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', borderRadius: 10, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
         >
           <Plus size={18} color="#fff" strokeWidth={2.5} />
-          {subrole === 'delegate' && department ? `Evento para ${department}` : 'Añadir evento'}
+          {subrole === 'delegate' && department
+            ? t('events.add_event_for_dept', { dept: (() => { const d = DEPARTMENTS.find(x => x.id === department); return d ? (language === 'en' ? d.en : d.es) : department; })() })
+            : t('events.add_event_label')}
         </button>
       )}
     </div>
@@ -165,11 +188,11 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
   const eventsPanel = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
-        {selectedDate ? `Eventos del día ${selectedDate}` : 'Próximos eventos'}
+        {selectedDate ? t('events.day_events', { day: selectedDate }) : t('events.upcoming_events')}
       </div>
 
       {selectedEvents.length === 0 ? (
-        <div style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 14, padding: '24px 0' }}>Sin eventos</div>
+        <div style={{ textAlign: 'center', color: colors.textSecondary, fontSize: 14, padding: '24px 0' }}>{t('events.no_events')}</div>
       ) : (
         selectedEvents.map(ev => {
           const cfg = EVENT_TYPE_CONFIG[ev.type];
@@ -184,14 +207,18 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, backgroundColor: cfg.color + '20' }}>
                     <EventTypeIcon type={ev.type} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: cfg.color }}>{t('events.types.' + ev.type)}</span>
                   </div>
-                  {ev.departmentId && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 6px', borderRadius: 6, backgroundColor: colors.backgroundSecondary }}>
-                      <Users size={10} color={colors.textSecondary} strokeWidth={2} />
-                      <span style={{ fontSize: 10, fontWeight: 500, color: colors.textSecondary }}>{ev.departmentId}</span>
-                    </div>
-                  )}
+                  {ev.departmentId && (() => {
+                    const dept = DEPARTMENTS.find(d => d.id === ev.departmentId);
+                    const deptLabel = dept ? (language === 'en' ? dept.en : dept.es) : ev.departmentId;
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 6px', borderRadius: 6, backgroundColor: colors.backgroundSecondary }}>
+                        <Users size={10} color={colors.textSecondary} strokeWidth={2} />
+                        <span style={{ fontSize: 10, fontWeight: 500, color: colors.textSecondary }}>{deptLabel}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {isAuthor && (
@@ -203,7 +230,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                     </button>
                   )}
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 12, color: colors.textSecondary }}>{new Date(ev.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</div>
+                    <div style={{ fontSize: 12, color: colors.textSecondary }}>{new Date(ev.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</div>
                     {ev.time && <div style={{ fontSize: 10, fontWeight: 600, color: colors.textSecondary }}>{ev.time}</div>}
                   </div>
                 </div>
@@ -213,7 +240,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
               {ev.linkedAnnouncementId && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 8, marginTop: 4, borderTop: `1px solid ${colors.border}` }}>
                   <Megaphone size={12} color={colors.primary} strokeWidth={2} />
-                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: colors.primary }}>Ver anuncio relacionado</span>
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: colors.primary }}>{t('events.related_announcement')}</span>
                   <ChevronRight size={12} color={colors.primary} strokeWidth={2} />
                 </div>
               )}
@@ -248,13 +275,13 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
               <button onClick={() => { setShowCreate(false); setEditingEventId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
                 <X size={20} color={colors.textSecondary} strokeWidth={2} />
               </button>
-              <span style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>{editingEventId ? 'Editar evento' : 'Nuevo evento'}</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>{editingEventId ? t('events.edit_event') : t('events.new_event')}</span>
               <button
                 onClick={handleSave}
                 disabled={!form.title.trim()}
                 style={{ padding: '8px 16px', borderRadius: 20, border: 'none', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 16, fontWeight: 700, color: colors.primary, background: 'none', opacity: form.title.trim() ? 1 : 0.5 }}
               >
-                {editingEventId ? 'Guardar' : 'Crear'}
+                {editingEventId ? t('common.save') : t('common.create')}
               </button>
             </div>
 
@@ -263,14 +290,14 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Nombre del evento..."
+                  placeholder={t('events.placeholders.title')}
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   style={{ fontSize: 20, fontWeight: 700, border: 'none', outline: 'none', background: 'transparent', color: colors.text, width: '100%', fontFamily: 'inherit', padding: '8px 0' }}
                 />
                 <div style={{ height: 1, backgroundColor: colors.border, marginBottom: 4 }} />
                 <textarea
-                  placeholder="Notas adicionales (opcional)"
+                  placeholder={t('events.placeholders.desc')}
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   rows={3}
@@ -278,7 +305,7 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                 />
               </div>
 
-              <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: colors.textSecondary, opacity: 0.6, marginBottom: 10 }}>Fecha y hora</div>
+              <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: colors.textSecondary, opacity: 0.6, marginBottom: 10 }}>{t('events.date_time')}</div>
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                 <input
                   type="date"
@@ -294,25 +321,112 @@ export function CalendarTab({ eventTypes, department, subrole, currentUserId }: 
                 />
               </div>
 
-              {subrole === 'delegate' && department && (
+              {subrole === 'delegate' && department ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: `1px solid ${colors.primary}30`, backgroundColor: colors.primary + '10', marginBottom: 16 }}>
                   <Users size={14} color={colors.primary} strokeWidth={2} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.primary }}>Visible para: {department}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: colors.primary }}>
+                    {t('events.visible_for_dept', { dept: (() => { const d = DEPARTMENTS.find(x => x.id === department); return d ? (language === 'en' ? d.en : d.es) : (department ?? ''); })() })}
+                  </span>
                 </div>
-              )}
+              ) : subrole !== 'delegate' && (() => {
+                const search = deptSearch.trim().toLowerCase();
+                const selectedDept = DEPARTMENTS.find(d => d.id === formDeptId);
+                const selectedLabel = selectedDept ? (language === 'en' ? selectedDept.en : selectedDept.es) : '';
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: colors.textSecondary, opacity: 0.6, marginBottom: 8 }}>
+                      {t('events.target_department')}
+                    </div>
+
+                    {/* Search input */}
+                    <div style={{ position: 'relative', marginBottom: 10 }}>
+                      <Search size={14} color={colors.textSecondary} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                      <input
+                        type="text"
+                        value={deptSearch}
+                        onChange={e => setDeptSearch(e.target.value)}
+                        placeholder={t('events.dept_search_placeholder')}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px 8px 32px', borderRadius: 10, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                      />
+                    </div>
+
+                    {/* Sectioned department list */}
+                    <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
+                      {/* "All" option */}
+                      {!search && (
+                        <button
+                          type="button"
+                          onClick={() => setFormDeptId('')}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', border: 'none', backgroundColor: !formDeptId ? colors.primary + '20' : 'transparent', cursor: 'pointer', textAlign: 'left', color: !formDeptId ? colors.primary : colors.text, fontWeight: !formDeptId ? 700 : 400, fontSize: 13 }}
+                        >
+                          <Globe size={14} color={!formDeptId ? colors.primary : colors.textSecondary} strokeWidth={2} />
+                          {t('events.dept_all')}
+                        </button>
+                      )}
+
+                      {DEPARTMENT_SECTIONS.map((section, sIdx) => {
+                        const items = DEPARTMENTS.filter(d =>
+                          d.section === section.id &&
+                          (!search || d.es.toLowerCase().includes(search) || d.en.toLowerCase().includes(search))
+                        );
+                        if (items.length === 0) return null;
+                        const sectionLabel = language === 'en' ? section.en : section.es;
+                        return (
+                          <div key={section.id}>
+                            {(sIdx > 0 || !search) && (
+                              <div style={{ padding: '6px 12px 4px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: colors.textSecondary, opacity: 0.55, borderTop: sIdx > 0 ? `1px solid ${colors.border}` : undefined }}>
+                                {sectionLabel}
+                              </div>
+                            )}
+                            {items.map(dept => {
+                              const label = language === 'en' ? dept.en : dept.es;
+                              const active = formDeptId === dept.id;
+                              return (
+                                <button
+                                  key={dept.id}
+                                  type="button"
+                                  onClick={() => setFormDeptId(dept.id)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', backgroundColor: active ? colors.primary + '20' : 'transparent', cursor: 'pointer', textAlign: 'left', color: active ? colors.primary : colors.text, fontWeight: active ? 700 : 400, fontSize: 13 }}
+                                >
+                                  <Users size={14} color={active ? colors.primary : colors.textSecondary} strokeWidth={2} />
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+
+                      {search && DEPARTMENTS.filter(d => d.es.toLowerCase().includes(search) || d.en.toLowerCase().includes(search)).length === 0 && (
+                        <div style={{ padding: '16px 12px', fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>—</div>
+                      )}
+                    </div>
+
+                    {/* Selected department indicator */}
+                    {formDeptId && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, backgroundColor: colors.primary + '10', border: `1px solid ${colors.primary}30`, marginTop: 8 }}>
+                        <Users size={12} color={colors.primary} strokeWidth={2} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>
+                          {t('events.visible_for_dept', { dept: selectedLabel })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {eventTypes.map(t => {
-                  const cfg = EVENT_TYPE_CONFIG[t];
-                  const active = form.type === t;
+                {eventTypes.map(evtType => {
+                  const cfg = EVENT_TYPE_CONFIG[evtType];
+                  const active = form.type === evtType;
                   return (
                     <button
-                      key={t}
-                      onClick={() => setForm(f => ({ ...f, type: t }))}
+                      key={evtType}
+                      onClick={() => setForm(f => ({ ...f, type: evtType }))}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 12, border: `1px solid ${active ? cfg.color : colors.border}`, backgroundColor: active ? cfg.color : colors.backgroundSecondary, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: active ? '#fff' : colors.text }}
                     >
-                      <EventTypeIcon type={t} size={14} color={active ? '#fff' : cfg.color} />
-                      {cfg.label}
+                      <EventTypeIcon type={evtType} size={14} color={active ? '#fff' : cfg.color} />
+                      {t('events.types.' + evtType)}
                     </button>
                   );
                 })}

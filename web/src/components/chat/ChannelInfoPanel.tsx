@@ -3,6 +3,7 @@ import { doc, getDoc, getDocs, collection, updateDoc, arrayRemove, increment, wr
 import { db } from '../../config/firebase';
 import { X, Bell, BellOff, Trash2, LogOut, Camera } from 'lucide-react';
 import { uploadProfilePhoto } from '../../config/cloudinary';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface MemberInfo {
   uid: string;
@@ -24,6 +25,7 @@ interface ChannelInfoPanelProps {
 }
 
 export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userRole, colors, onClose, onClearChat, onLeave }: ChannelInfoPanelProps) {
+  const { t } = useTranslation();
   const [channelName, setChannelName] = useState('');
   const [channelDescription, setChannelDescription] = useState('');
   const [channelPhoto, setChannelPhoto] = useState<string | null>(null);
@@ -147,7 +149,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
 
   const clearForEveryone = async () => {
     setShowClearOptions(false);
-    if (!window.confirm('¿Eliminar todos los mensajes para todos los miembros? Esta acción no se puede deshacer.')) return;
+    if (!window.confirm(t('chat.info.clear_all_confirm'))) return;
     const collPath = isGroup && groupId
       ? collection(db, 'studyGroups', groupId, 'messages')
       : collection(db, 'channels', chatId, 'messages');
@@ -165,7 +167,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
   };
 
   const handleLeave = async () => {
-    if (!window.confirm(`¿Salir del ${isGroup ? 'grupo' : 'canal'}?`)) return;
+    if (!window.confirm(t('chat.info.leave_channel_confirm'))) return;
     if (isGroup && groupId) {
       await updateDoc(doc(db, 'studyGroups', groupId), {
         memberIds: arrayRemove(currentUserId),
@@ -212,7 +214,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
           />
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>Información</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{t('chat.info.title')}</span>
           <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6 }}>
             <X size={20} color={colors.textSecondary} />
           </button>
@@ -244,7 +246,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
 
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, marginBottom: 12 }}>
-            Miembros{!loadingMembers && ` · ${members.length}`}
+            {t('chat.info.members')}{!loadingMembers && ` · ${members.length}`}
           </div>
           {loadingMembers ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
@@ -282,7 +284,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
             style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
           >
             {muted ? <BellOff size={18} color={colors.textSecondary} /> : <Bell size={18} color={colors.textSecondary} />}
-            <span style={{ fontSize: 14, color: colors.text }}>{muted ? 'Activar notificaciones' : 'Silenciar notificaciones'}</span>
+            <span style={{ fontSize: 14, color: colors.text }}>{muted ? t('dm.unmute') : t('dm.mute')}</span>
           </button>
         </div>
 
@@ -295,7 +297,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
             >
               <Trash2 size={18} color="#ed4245" />
-              <span style={{ fontSize: 14, color: '#ed4245' }}>Vaciar chat</span>
+              <span style={{ fontSize: 14, color: '#ed4245' }}>{t('dm.info.clear_chat')}</span>
             </button>
             {isAdmin && showClearOptions && (
               <>
@@ -307,7 +309,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
                     onMouseEnter={e => (e.currentTarget.style.background = '#ed424512')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
-                    Solo para mí
+                    {t('chat.info.only_for_me')}
                   </button>
                   <div style={{ height: 1, backgroundColor: colors.border }} />
                   <button
@@ -316,7 +318,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
                     onMouseEnter={e => (e.currentTarget.style.background = '#ed424512')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
-                    Para todos
+                    {t('chat.info.for_everyone')}
                   </button>
                 </div>
               </>
@@ -329,7 +331,7 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
             style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
           >
             <LogOut size={18} color="#ed4245" />
-            <span style={{ fontSize: 14, color: '#ed4245' }}>Salir del {isGroup ? 'grupo' : 'canal'}</span>
+            <span style={{ fontSize: 14, color: '#ed4245' }}>{t('chat.info.leave_channel')}</span>
           </button>
         </div>
       </div>

@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download, ChevronRight } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import AudioMessage from './AudioMessage';
 import type { Message } from '../../types';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { auth } from '../../config/firebase';
 import { getOrCreateConversation } from '../../services/firebase/directMessageService';
@@ -69,6 +70,7 @@ export default function MessageBubble({
   onAvatarClick,
 }: MessageBubbleProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const chatTheme = colors.chat;
   const settings = colors.chatSettings;
 
@@ -101,34 +103,57 @@ export default function MessageBubble({
       navigate('/messages/' + convId);
     } catch { }
   };
-  const poll = (message.poll && typeof message.poll === 'object' && !Array.isArray(message.poll) && typeof message.poll.question === 'string' && Array.isArray(message.poll.options))
-    ? message.poll
-    : null;
+  const poll = (() => {
+    const raw = message.poll;
+    if (!raw || typeof raw !== 'object' || typeof raw.question !== 'string' || !Array.isArray(raw.options)) return null;
+    const options = (raw.options as any[]).map((o: any, i: number) => {
+      if (typeof o === 'string') {
+        const oldVotes = raw.votes?.[i] ?? raw.votes?.[String(i)] ?? [];
+        return { id: String(i), text: o, votes: Array.isArray(oldVotes) ? oldVotes : [] };
+      }
+      return { id: o.id ?? String(i), text: o.text ?? o.label ?? o.value ?? '', votes: Array.isArray(o.votes) ? o.votes : [] };
+    });
+    const totalVotes = typeof raw.totalVotes === 'number'
+      ? raw.totalVotes
+      : options.reduce((s: number, o: any) => s + o.votes.length, 0);
+    return { question: raw.question, options, multipleAnswers: raw.multipleAnswers ?? false, totalVotes, closed: raw.closed ?? false };
+  })();
 
-  const handleVote = async (optionIndex: number) => {
+  const handleVote = async (optionId: string) => {
     if (!poll || !chatId || !currentUid) return;
     const collection_ = chatCollection ?? (isConversation ? 'conversations' : 'channels');
     const msgRef = doc(db, collection_, chatId, 'messages', message.id);
-    const key = `poll.votes.${optionIndex}`;
-    const pollVotes = poll.votes || {};
-    const alreadyVoted = ((pollVotes[optionIndex] ?? pollVotes[String(optionIndex)]) ?? []).includes(currentUid);
-    if (alreadyVoted) {
-      await updateDoc(msgRef, { [key]: arrayRemove(currentUid) });
-    } else {
-      if (!poll.multipleAnswers) {
-        const updates: Record<string, any> = {};
-        poll.options.forEach((_, i) => {
-          const v = ((pollVotes)[i] ?? (pollVotes)[String(i)]) ?? [];
-          if (v.includes(currentUid)) {
-            updates[`poll.votes.${i}`] = arrayRemove(currentUid);
-          }
-        });
-        updates[key] = arrayUnion(currentUid);
-        await updateDoc(msgRef, updates);
+
+    // Read fresh state to avoid race conditions with concurrent votes
+    const snap = await getDoc(msgRef);
+    if (!snap.exists()) return;
+    const rawPoll = snap.data().poll;
+    if (!rawPoll || !Array.isArray(rawPoll.options)) return;
+
+    const newOptions = rawPoll.options.map((opt: any, idx: number) => {
+      const isThisOption = opt.id === optionId || idx.toString() === optionId;
+      let votes: string[] = Array.isArray(opt.votes) ? [...opt.votes] : [];
+
+      if (poll.multipleAnswers) {
+        if (isThisOption) {
+          votes = votes.includes(currentUid)
+            ? votes.filter(v => v !== currentUid)
+            : [...votes, currentUid];
+        }
       } else {
-        await updateDoc(msgRef, { [key]: arrayUnion(currentUid) });
+        if (isThisOption) {
+          votes = votes.includes(currentUid)
+            ? votes.filter(v => v !== currentUid)
+            : [...votes, currentUid];
+        } else {
+          votes = votes.filter(v => v !== currentUid);
+        }
       }
-    }
+      return { ...opt, votes };
+    });
+
+    const totalVotes = newOptions.reduce((s: number, o: any) => s + o.votes.length, 0);
+    await updateDoc(msgRef, { 'poll.options': newOptions, 'poll.totalVotes': totalVotes });
   };
 
   const downloadFile = async (url: string, name: string) => {
@@ -452,7 +477,7 @@ export default function MessageBubble({
       {isOwnMessage && audioAttachment && onAudioReply && (
         <button
           onClick={(e) => { e.stopPropagation(); onAudioReply(message); }}
-          title="Responder con audio"
+          title={t('chat.audio_reply')}
           style={{
             alignSelf: 'center',
             background: colors.backgroundSecondary,
@@ -482,7 +507,7 @@ export default function MessageBubble({
           <div style={forwardedStyle}>
             <Forward size={12} />
             <span>
-              Reenviado {message.originalSender && `de ${message.originalSender}`}
+              {t('chat.forwarded')}{message.originalSender && ` ${t('chat.forwarded_from', { name: message.originalSender })}`}
             </span>
           </div>
         )}
@@ -495,7 +520,15 @@ export default function MessageBubble({
             >
               <div style={replyStyle}>
                 <div style={replyNameStyle}>{message.replyTo.senderName}</div>
-                <div style={replyTextStyle}>{message.replyTo.text}</div>
+                <div style={replyTextStyle}>
+                  {message.replyTo.text || (() => {
+                    const at = message.replyTo.attachmentType;
+                    if (at === 'audio' || message.replyTo.isAudio) return '🎵 ' + t('dm.voice_message');
+                    if (at === 'file') return '📎 ' + t('common.file');
+                    if (at === 'contact') return '👤 ' + t('common.contact');
+                    return '📷 ' + t('dm.image');
+                  })()}
+                </div>
               </div>
             </div>
           )}
@@ -528,7 +561,7 @@ export default function MessageBubble({
               <button
                 onClick={e => { e.stopPropagation(); downloadFile(fileAttachment.url, fileAttachment.name); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', opacity: 0.7 }}
-                title="Descargar"
+                title={t('common.download')}
               >
                 <Download size={16} color={bubbleText} />
               </button>
@@ -607,27 +640,27 @@ export default function MessageBubble({
             <div style={{ minWidth: 220 }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{poll.question}</div>
               {poll.options.map((opt, i) => {
-                const pollVotes = poll.votes || {};
-                const votes = (pollVotes[i] ?? pollVotes[String(i)]) ?? [];
-                const totalVotes = Object.values(pollVotes).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0);
+                const votes: string[] = Array.isArray(opt.votes) ? opt.votes : [];
+                const totalVotes = poll.totalVotes ?? poll.options.reduce((s, o) => s + (o.votes?.length ?? 0), 0);
                 const pct = totalVotes > 0 ? Math.round((votes.length / totalVotes) * 100) : 0;
-                const voted = Array.isArray(votes) && votes.includes(currentUid);
+                const voted = votes.includes(currentUid ?? '');
+                const optId = opt.id ?? String(i);
                 return (
                   <div
-                    key={i}
-                    onClick={() => handleVote(i)}
+                    key={optId}
+                    onClick={() => handleVote(optId)}
                     style={{ position: 'relative', marginBottom: 8, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: `1.5px solid ${voted ? (isOwnMessage ? 'rgba(255,255,255,0.6)' : colors.primary) : 'rgba(128,128,128,0.3)'}`, padding: '8px 12px' }}
                   >
                     <div style={{ position: 'absolute', inset: 0, backgroundColor: voted ? (isOwnMessage ? 'rgba(255,255,255,0.15)' : colors.primary + '22') : 'transparent', width: `${pct}%`, transition: 'width 0.3s' }} />
                     <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13 }}>{opt}</span>
+                      <span style={{ fontSize: 13 }}>{opt.text}</span>
                       <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.8 }}>{pct}%</span>
                     </div>
                   </div>
                 );
               })}
               <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-                {Object.values(poll.votes || {}).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0)} voto{Object.values(poll.votes || {}).reduce((s: number, v: any) => s + (Array.isArray(v) ? v.length : 0), 0) !== 1 ? 's' : ''}
+                {poll.totalVotes ?? poll.options.reduce((s, o) => s + (o.votes?.length ?? 0), 0)} voto{(poll.totalVotes ?? 0) !== 1 ? 's' : ''}
                 {poll.multipleAnswers ? ' · Varias respuestas' : ''}
               </div>
             </div>
@@ -665,7 +698,7 @@ export default function MessageBubble({
       {!isOwnMessage && audioAttachment && onAudioReply && (
         <button
           onClick={(e) => { e.stopPropagation(); onAudioReply(message); }}
-          title="Responder con audio"
+          title={t('chat.audio_reply')}
           style={{
             alignSelf: 'center',
             background: colors.backgroundSecondary,
@@ -699,7 +732,7 @@ export default function MessageBubble({
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <CornerDownRight size={16} color={colors.primary} />
-            <span>Responder</span>
+            <span>{t('chat.reply')}</span>
           </div>
 
           <div
@@ -709,7 +742,7 @@ export default function MessageBubble({
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <Smile size={16} color={colors.warning} />
-            <span>Reaccionar</span>
+            <span>{t('chat.react')}</span>
           </div>
 
           <div
@@ -722,7 +755,7 @@ export default function MessageBubble({
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <Copy size={16} color={colors.textSecondary} />
-            <span>Copiar</span>
+            <span>{t('chat.copy')}</span>
           </div>
 
           <div
@@ -736,7 +769,7 @@ export default function MessageBubble({
           >
             <Bookmark size={16} color={colors.primary} fill={isSaved ? colors.primary : 'none'} />
             <span style={{ color: isSaved ? colors.primary : colors.text }}>
-              {isSaved ? 'Quitar de guardados' : 'Guardar mensaje'}
+              {isSaved ? t('chat.unsave') : t('chat.save')}
             </span>
           </div>
 
@@ -750,7 +783,7 @@ export default function MessageBubble({
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <Forward size={16} color={colors.success} />
-            <span>Reenviar</span>
+            <span>{t('chat.forward')}</span>
           </div>
 
           {(isOwnMessage || isAdmin) && (
@@ -761,7 +794,7 @@ export default function MessageBubble({
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <Trash2 size={16} color={colors.danger} />
-              <span>{isOwnMessage ? 'Eliminar' : 'Eliminar'}</span>
+              <span>{t('chat.delete')}</span>
             </div>
           )}
         </div>,
@@ -775,7 +808,7 @@ export default function MessageBubble({
             autoFocusSearch={false}
             width={320}
             height={400}
-            searchPlaceholder="Buscar emoji..."
+            searchPlaceholder={t('chat.emoji_search')}
             previewConfig={{ showPreview: false }}
           />
         </div>,
@@ -787,7 +820,7 @@ export default function MessageBubble({
           <div style={deleteModalOverlayStyle} />
           <div ref={deleteModalRef} style={deleteModalStyle}>
             <h3 style={{ fontSize: '18px', fontWeight: '600', color: colors.text, marginBottom: '16px', textAlign: 'center' }}>
-              Eliminar mensaje
+              {t('chat.delete_title')}
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -802,7 +835,7 @@ export default function MessageBubble({
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.border}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
               >
-                Eliminar para mí
+                {t('chat.delete_for_me')}
               </button>
 
               {(isOwnMessage || isAdmin) && (
@@ -817,7 +850,7 @@ export default function MessageBubble({
                   onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
-                  Eliminar para todos
+                  {t('chat.delete_for_everyone')}
                 </button>
               )}
 

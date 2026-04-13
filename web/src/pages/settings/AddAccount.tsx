@@ -6,11 +6,13 @@ import { inMemoryPersistence, initializeAuth, signInWithEmailAndPassword, signOu
 import Layout from '../../components/Layout';
 import { useAccounts } from '../../contexts/AccountsContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import defaultApp from '../../config/firebase';
 
 export default function AddAccount() {
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { addAccount, activeUid, accounts } = useAccounts();
 
   const [email, setEmail] = useState('');
@@ -35,13 +37,13 @@ export default function AddAccount() {
       const { uid, displayName, photoURL } = credential.user;
 
       if (uid === activeUid) {
-        setError('Esta cuenta ya está activa.');
+        setError(t('accounts.error_already_active'));
         await signOut(tempAuth);
         return;
       }
 
       if (accounts.some(a => a.uid === uid)) {
-        setError('Esta cuenta ya está guardada.');
+        setError(t('accounts.error_already_added'));
         await signOut(tempAuth);
         return;
       }
@@ -59,11 +61,11 @@ export default function AddAccount() {
     } catch (err: any) {
       const code = err?.code ?? '';
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        setError('Credenciales incorrectas.');
+        setError(t('accounts.error_invalid_credentials'));
       } else if (code === 'auth/invalid-email') {
-        setError('El email no es válido.');
+        setError(t('accounts.error_invalid_email'));
       } else {
-        setError('No se pudo añadir la cuenta. Inténtalo de nuevo.');
+        setError(t('accounts.add_error'));
       }
     } finally {
       setLoading(false);
@@ -92,11 +94,11 @@ export default function AddAccount() {
   };
 
   return (
-    <Layout title="Añadir cuenta" showBackButton>
+    <Layout title={t('accounts.add_account')} showBackButton>
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         <p style={{ fontSize: 14, color: colors.textSecondary, lineHeight: '22px', margin: 0 }}>
-          Inicia sesión con otra cuenta de Campus Hub para cambiar entre ellas sin cerrar sesión.
+          {t('accounts.add_account_hint')}
         </p>
 
         <div style={fieldStyle}>
@@ -113,7 +115,7 @@ export default function AddAccount() {
         <div style={fieldStyle}>
           <input
             type={showPassword ? 'text' : 'password'}
-            placeholder="Contraseña"
+            placeholder={t('auth.password')}
             value={password}
             onChange={e => { setPassword(e.target.value); setError(''); }}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
@@ -151,7 +153,7 @@ export default function AddAccount() {
             marginTop: 4,
           }}
         >
-          {loading ? 'Verificando...' : 'Añadir cuenta'}
+          {loading ? t('accounts.verifying') : t('accounts.add_account')}
         </button>
 
       </div>

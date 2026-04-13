@@ -6,17 +6,19 @@ import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAccounts } from '../../contexts/AccountsContext';
 import Layout from '../../components/Layout';
-import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMinus } from 'lucide-react';
+import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMinus, Globe } from 'lucide-react';
 import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
 import { uploadCallTone } from '../../config/cloudinary';
+import { useTranslation } from '../../hooks/useTranslation';
 
 type MuteDuration = '8h' | '1w' | 'always' | 'off';
+type Language = 'es' | 'en';
 
-const MUTE_OPTIONS: { value: MuteDuration; label: string }[] = [
-  { value: '8h', label: '8 horas' },
-  { value: '1w', label: '1 semana' },
-  { value: 'always', label: 'Siempre' },
-  { value: 'off', label: 'No silenciar' },
+const MUTE_OPTIONS_BASE: { value: MuteDuration }[] = [
+  { value: '8h' },
+  { value: '1w' },
+  { value: 'always' },
+  { value: 'off' },
 ];
 
 const PRESET_COLORS = [
@@ -31,6 +33,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
   const { accounts, activeUid } = useAccounts();
+  const { t, language, setLanguage } = useTranslation();
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
@@ -116,7 +119,7 @@ export default function Settings() {
       a.addEventListener('error', () => { URL.revokeObjectURL(url); reject(); });
     }).catch(() => 0);
     if (duration > 60) {
-      alert('El tono no puede durar más de 1 minuto.');
+      alert(t('settings.tone_too_long'));
       e.target.value = '';
       return;
     }
@@ -133,7 +136,7 @@ export default function Settings() {
         'settings.callToneUrl': url,
       });
     } catch {
-      alert('No se pudo subir el tono. Inténtalo de nuevo.');
+      alert(t('settings.tone_upload_error'));
     } finally {
       setUploadingTone(false);
       e.target.value = '';
@@ -141,28 +144,38 @@ export default function Settings() {
   };
 
   const handleLogout = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres cerrar sesión?')) return;
+    if (!window.confirm(t('common.logout_confirm'))) return;
     try {
       await signOut(auth);
       navigate('/login');
     } catch {
-      alert('No se pudo cerrar sesión');
+      alert(t('settings.logout_error'));
     }
   };
 
-  const appThemes = [
-    { id: 'light', label: 'Modo Claro', bg: '#FFFFFF', fg: '#1C1C1E' },
-    { id: 'dark', label: 'Modo Oscuro', bg: '#1C1C1E', fg: '#FFFFFF' },
-    { id: 'high-contrast', label: 'Alto Contraste', bg: '#000000', fg: '#FFFFFF' },
-    { id: 'pastel', label: 'Pastel', bg: '#EEE8FA', fg: '#18103A' },
+  const MUTE_OPTIONS = MUTE_OPTIONS_BASE.map(o => ({
+    ...o,
+    label: t(`settings.mute_options.${o.value}`),
+  }));
+
+  const LANG_OPTIONS: { id: Language; label: string; flag: string }[] = [
+    { id: 'es', label: t('common.spanish'), flag: '🇪🇸' },
+    { id: 'en', label: t('common.english'), flag: '🇬🇧' },
   ];
 
-  const displayName = userData?.displayName || currentUser?.displayName || 'Usuario';
+  const appThemes = [
+    { id: 'light', label: t('common.theme_light'), bg: '#FFFFFF', fg: '#1C1C1E' },
+    { id: 'dark', label: t('common.theme_dark'), bg: '#1C1C1E', fg: '#FFFFFF' },
+    { id: 'high-contrast', label: t('common.theme_high_contrast'), bg: '#000000', fg: '#FFFFFF' },
+    { id: 'pastel', label: t('common.theme_pastel'), bg: '#EEE8FA', fg: '#18103A' },
+  ];
+
+  const displayName = userData?.displayName || currentUser?.displayName || t('common.user');
   const email = userData?.email || currentUser?.email || '';
   const photoURL = userData?.photoURL || currentUser?.photoURL;
 
   return (
-    <Layout title="Ajustes">
+    <Layout title={t('settings.title')}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
 
         <div className="settings-section">
@@ -176,8 +189,8 @@ export default function Settings() {
               {photoURL
                 ? <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={{ fontSize: '26px', fontWeight: 'bold', color: colors.textSecondary }}>
-                    {displayName[0]?.toUpperCase()}
-                  </span>
+                  {displayName[0]?.toUpperCase()}
+                </span>
               }
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -199,18 +212,18 @@ export default function Settings() {
         </div>
 
         <div className="settings-section">
-          <h2 className="settings-section-title">Cuentas</h2>
+          <h2 className="settings-section-title">{t('settings.account')}</h2>
           {[
             {
               icon: <Users size={18} color={colors.primary} strokeWidth={1.8} />,
-              label: 'Gestionar cuentas',
-              sublabel: `${accounts.filter(a => a.uid === activeUid || !!a._pw).length} cuenta${accounts.filter(a => a.uid === activeUid || !!a._pw).length !== 1 ? 's' : ''} guardada${accounts.filter(a => a.uid === activeUid || !!a._pw).length !== 1 ? 's' : ''}`,
+              label: t('settings.manage_accounts'),
+              sublabel: t('settings.saved_accounts_count', { count: accounts.filter(a => a.uid === activeUid || !!a._pw).length }),
               onClick: () => navigate('/settings/accounts'),
             },
             {
               icon: <UserMinus size={18} color="#FF3B30" strokeWidth={1.8} />,
-              label: 'Eliminar cuenta',
-              sublabel: 'Eliminar permanentemente tu cuenta',
+              label: t('settings.delete_account'),
+              sublabel: t('settings.delete_account_desc'),
               onClick: () => navigate('/settings/delete-account'),
               danger: true,
             },
@@ -244,7 +257,38 @@ export default function Settings() {
         </div>
 
         <div className="settings-section">
-          <h2 className="settings-section-title">Tema General</h2>
+          <h2 className="settings-section-title">{t('common.language')}</h2>
+          <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px', marginBottom: '14px' }}>
+            {t('settings.language_subtitle')}
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {LANG_OPTIONS.map(opt => {
+              const isSelected = language === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => setLanguage(opt.id)}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    padding: '14px 12px', borderRadius: '14px', cursor: 'pointer',
+                    border: isSelected ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                    backgroundColor: isSelected ? colors.primary + '14' : 'transparent',
+                    color: isSelected ? colors.primary : colors.text,
+                    fontWeight: isSelected ? '700' : '400', fontSize: 15,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: 22 }}>{opt.flag}</span>
+                  <span>{opt.label}</span>
+                  {isSelected && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h2 className="settings-section-title">{t('theme.title')}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
             {appThemes.map(t => (
               <button
@@ -268,9 +312,9 @@ export default function Settings() {
         </div>
 
         <div className="settings-section">
-          <h2 className="settings-section-title">Color Personalizado</h2>
+          <h2 className="settings-section-title">{t('settings.custom_color')}</h2>
           <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px', marginBottom: '14px' }}>
-            Selecciona un color para personalizar la interfaz instantáneamente.
+            {t('settings.custom_color_desc')}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
             {PRESET_COLORS.map(color => (
@@ -292,9 +336,9 @@ export default function Settings() {
         </div>
 
         <div className="settings-section">
-          <h2 className="settings-section-title">Notificaciones</h2>
+          <h2 className="settings-section-title">{t('settings.notifications')}</h2>
           <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px', marginBottom: '14px' }}>
-            Silenciar todas las notificaciones de la aplicación.
+            {t('settings.mute_description')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {MUTE_OPTIONS.map(opt => (
@@ -317,7 +361,7 @@ export default function Settings() {
             ))}
           </div>
           <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '20px', marginBottom: '14px' }}>
-            Tono de alerta global.
+            {t('settings.global_alert_tone')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {MESSAGE_TONE_NAMES.map(tone => (
@@ -333,14 +377,26 @@ export default function Settings() {
                 }}
               >
                 <span style={{ fontSize: '15px', fontWeight: globalTone === tone ? '600' : '400' }}>
-                  {tone}
+                  {(() => {
+                    const messageToneKeys: Record<string, string> = {
+                      'Predeterminado': 'default',
+                      'Clásico': 'classic',
+                      'Suave': 'soft',
+                      'Melodía': 'melody',
+                      'Campana': 'bell',
+                      'Pulso': 'pulse',
+                      'Sin tono': 'none'
+                    };
+                    const key = messageToneKeys[tone];
+                    return key ? t(`settings.alert_tones.${key}`) : tone;
+                  })()}
                 </span>
                 {globalTone === tone && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
               </button>
             ))}
           </div>
           <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '20px', marginBottom: '14px' }}>
-            Tono de llamada entrante.
+            {t('settings.call_tone')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {CALL_TONE_NAMES.map(tone => (
@@ -356,7 +412,16 @@ export default function Settings() {
                 }}
               >
                 <span style={{ fontSize: '15px', fontWeight: callTone === tone ? '600' : '400' }}>
-                  {tone}
+                  {(() => {
+                    const callToneKeys: Record<string, string> = {
+                      'Trompeta': 'trumpet',
+                      'Dembow': 'dembow',
+                      'Navideño': 'christmas',
+                      'Spooky': 'spooky'
+                    };
+                    const key = callToneKeys[tone];
+                    return key ? t(`settings.call_tones.${key}`) : tone;
+                  })()}
                 </span>
                 {callTone === tone && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
               </button>
@@ -378,19 +443,19 @@ export default function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 10 }}>
                   <Music size={15} color={callTone === 'Personalizado' ? colors.primary : colors.textSecondary} />
                   <span style={{ flex: 1, fontSize: '15px', fontWeight: callTone === 'Personalizado' ? '600' : '400', color: callTone === 'Personalizado' ? colors.primary : colors.text }}>
-                    Tono personalizado
+                    {t('profile.custom_tone')}
                   </span>
                   <button
                     onClick={handlePreviewCustomTone}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
-                    title="Escuchar"
+                    title={t('profile.tone_preview')}
                   >
                     <Play size={15} color={colors.textSecondary} />
                   </button>
                   <button
                     onClick={handleDeleteCustomTone}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}
-                    title="Eliminar"
+                    title={t('common.delete')}
                   >
                     <Trash2 size={15} color={colors.danger ?? '#FF3B30'} />
                   </button>
@@ -401,7 +466,7 @@ export default function Settings() {
                     onClick={handleSelectCustomTone}
                     style={{ width: '100%', padding: '8px 16px', background: 'none', border: 'none', borderTop: `1px solid ${colors.border}`, cursor: 'pointer', fontSize: '13px', color: colors.primary, fontWeight: '600', textAlign: 'left' }}
                   >
-                    Usar este tono
+                    {t('settings.use_this_tone')}
                   </button>
                 )}
               </div>
@@ -418,7 +483,7 @@ export default function Settings() {
             >
               <Upload size={15} color={colors.textSecondary} />
               <span style={{ fontSize: '15px' }}>
-                {uploadingTone ? 'Subiendo...' : callToneUrl ? 'Cambiar tono...' : 'Subir tono personalizado...'}
+                {uploadingTone ? t('chat.info.uploading_photo') : callToneUrl ? t('profile.upload_tone') : t('profile.upload_tone')}
               </span>
             </button>
           </div>
@@ -436,7 +501,7 @@ export default function Settings() {
             }}
           >
             <LogOut size={18} color="#FFFFFF" />
-            Cerrar Sesión
+            {t('common.logout')}
           </button>
         </div>
 

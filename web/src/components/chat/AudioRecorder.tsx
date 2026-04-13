@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Send, X } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface AudioRecorderProps {
   onSend: (audioBlob: Blob, duration: number) => void;
@@ -15,6 +16,7 @@ const formatTime = (seconds: number): string => {
 
 export default function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -90,7 +92,7 @@ export default function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) 
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      setRecordingError('No se pudo acceder al micrófono. Verifica los permisos.');
+      setRecordingError(t('chat.mic_error'));
     }
   };
 
@@ -171,7 +173,7 @@ export default function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) 
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        title="Grabar audio"
+        title={t('chat.audio_reply')}
       >
         <Mic size={20} />
       </button>

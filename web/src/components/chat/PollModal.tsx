@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { PollData } from '../../types';
 
 interface PollModalProps {
@@ -11,6 +12,7 @@ interface PollModalProps {
 
 export function PollModal({ visible, onClose, onSend }: PollModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [multipleAnswers, setMultipleAnswers] = useState(false);
@@ -57,37 +59,37 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
     >
       <div style={{ width: '100%', maxWidth: 540, backgroundColor: colors.background, borderRadius: '20px 20px 0 0', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: colors.primary, fontWeight: 500 }}>Cancelar</button>
-          <span style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>Crear encuesta</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: colors.primary, fontWeight: 500 }}>{t('common.cancel')}</button>
+          <span style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>{t('chat.poll.title')}</span>
           <button
             onClick={handleSend}
             disabled={!canSend}
             style={{ background: 'none', border: 'none', cursor: canSend ? 'pointer' : 'default', fontSize: 14, fontWeight: 700, color: colors.primary, opacity: canSend ? 1 : 0.4 }}
           >
-            Enviar
+            {t('common.send')}
           </button>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>Pregunta</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('chat.poll.question')}</span>
             <textarea
               value={question}
               onChange={e => setQuestion(e.target.value)}
-              placeholder="Escribe tu pregunta..."
+              placeholder={t('chat.poll.question_placeholder')}
               rows={2}
               style={{ backgroundColor: colors.backgroundSecondary, border: `1px solid ${colors.border}`, borderRadius: 12, padding: '12px 14px', fontSize: 15, color: colors.text, resize: 'none', outline: 'none', fontFamily: 'inherit' }}
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>Opciones</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('chat.poll.options')}</span>
             {options.map((opt, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
                   value={opt}
                   onChange={e => updateOption(e.target.value, i)}
-                  placeholder={`Opción ${i + 1}`}
+                  placeholder={t('chat.poll.option_placeholder', { n: i + 1 })}
                   style={{ flex: 1, backgroundColor: colors.backgroundSecondary, border: `1px solid ${colors.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 14, color: colors.text, outline: 'none', fontFamily: 'inherit' }}
                 />
                 {options.length > 2 && (
@@ -103,13 +105,13 @@ export function PollModal({ visible, onClose, onSend }: PollModalProps) {
                 style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px', fontSize: 14, color: colors.primary, fontWeight: 600 }}
               >
                 <Plus size={18} color={colors.primary} />
-                Añadir opción
+                {t('chat.poll.add_option')}
               </button>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: '14px 16px', border: `1px solid ${colors.border}` }}>
-            <span style={{ fontSize: 15, color: colors.text, fontWeight: 500 }}>Permitir varias respuestas</span>
+            <span style={{ fontSize: 15, color: colors.text, fontWeight: 500 }}>{t('chat.poll.multiple_answers')}</span>
             <div
               onClick={() => setMultipleAnswers(v => !v)}
               style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: multipleAnswers ? colors.primary : colors.border, cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}

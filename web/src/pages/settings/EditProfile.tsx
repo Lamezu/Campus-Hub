@@ -5,6 +5,7 @@ import { updateProfile } from 'firebase/auth';
 import { auth, db } from '../../config/firebase';
 import { uploadProfilePhoto } from '../../config/cloudinary';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function EditProfile() {
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,7 @@ export default function EditProfile() {
   const { colors } = useTheme();
 
   const currentUser = auth.currentUser;
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadUserProfile();
@@ -105,7 +107,7 @@ export default function EditProfile() {
       <div className="chat-loading-container">
         <div className="chat-header">
           <button className="chat-back-button" onClick={() => navigate(-1)}>←</button>
-          <h1 className="chat-header-title">Editar Perfil</h1>
+          <h1 className="chat-header-title">{t('profile.edit_profile')}</h1>
         </div>
         <div className="loading-container">
           <div className="loading-spinner"></div>
@@ -118,14 +120,14 @@ export default function EditProfile() {
     <div className="chat-loading-container">
       <div className="chat-header">
         <button className="chat-back-button" onClick={() => navigate(-1)}>←</button>
-        <h1 className="chat-header-title">Editar Perfil</h1>
+        <h1 className="chat-header-title">{t('profile.edit_profile')}</h1>
         <button
           onClick={handleSave}
           disabled={saving}
           className="chat-back-button"
           style={{ color: colors.primary, fontSize: '16px', fontWeight: 'bold' }}
         >
-          {saving ? 'Guardando...' : 'Guardar'}
+          {saving ? '...' : t('common.save')}
         </button>
       </div>
 
@@ -189,12 +191,12 @@ export default function EditProfile() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Biografía</label>
+            <label className="form-label">{t('profile.bio_label')}</label>
             <textarea
               className="form-input"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Cuéntanos sobre ti..."
+              placeholder={t('profile.describe_yourself')}
               rows={4}
               style={{ resize: 'vertical' }}
             />
@@ -212,15 +214,15 @@ export default function EditProfile() {
             color: colors.text,
             marginBottom: '8px'
           }}>
-            Cuenta y Privacidad
+            {t('profile.account_privacy')}
           </h2>
-          <p className="text-subtitle" style={{ 
-            fontSize: '14px', 
+          <p className="text-subtitle" style={{
+            fontSize: '14px',
             color: colors.textSecondary,
             marginBottom: '16px',
             lineHeight: '1.4'
           }}>
-            Gestiona tu correo electrónico y seguridad desde una sección protegida.
+            {t('profile.manage_account_desc')}
           </p>
 
           <div

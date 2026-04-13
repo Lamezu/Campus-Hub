@@ -8,6 +8,7 @@ import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { Ticket, TicketReply, TicketStatus } from '../../types';
 
 const STATUS_COLORS: Record<TicketStatus, string> = {
@@ -16,22 +17,24 @@ const STATUS_COLORS: Record<TicketStatus, string> = {
   resolved: '#34C759',
 };
 
-const STATUS_LABELS: Record<TicketStatus, string> = {
-  open: 'Abierto',
-  in_progress: 'En curso',
-  resolved: 'Resuelto',
-};
 
 type FilterStatus = 'all' | TicketStatus;
 
-function formatDate(ts: any): string {
+function formatDate(ts: any, language: string = 'es'): string {
   if (!ts) return '';
   const d = ts?.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  const locale = language === 'en' ? 'en-US' : 'es-ES';
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function StatusBadge({ status }: { status: TicketStatus }) {
   const color = STATUS_COLORS[status];
+  const { t } = useTranslation();
+  const STATUS_LABELS: Record<TicketStatus, string> = {
+    open: t('support.status_open'),
+    in_progress: t('support.status_in_progress'),
+    resolved: t('support.status_resolved'),
+  };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -45,7 +48,7 @@ function StatusBadge({ status }: { status: TicketStatus }) {
   );
 }
 
-function ReplyBubble({ reply, colors }: { reply: TicketReply; colors: any }) {
+function ReplyBubble({ reply, colors, language }: { reply: TicketReply; colors: any; language: string }) {
   return (
     <div className="msg-enter" style={{
       display: 'flex',
@@ -76,7 +79,7 @@ function ReplyBubble({ reply, colors }: { reply: TicketReply; colors: any }) {
           {reply.text}
         </div>
         <div style={{ fontSize: 11, marginTop: 4, color: reply.isStaff ? 'rgba(255,255,255,0.65)' : colors.textSecondary }}>
-          {formatDate(reply.createdAt)}
+          {formatDate(reply.createdAt, language)}
         </div>
       </div>
     </div>
@@ -97,6 +100,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const currentUser = auth.currentUser;
+  const { t, language } = useTranslation();
 
   const handleScroll = () => {
     const el = scrollAreaRef.current;
@@ -127,7 +131,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
     try {
       await addDoc(collection(db, 'tickets', ticket.id, 'replies'), {
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || currentUser.email || 'Usuario',
+        authorName: currentUser.displayName || currentUser.email || t('common.user'),
         authorPhoto: currentUser.photoURL ?? null,
         text: txt,
         isStaff,
@@ -176,7 +180,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
           backgroundColor: colors.backgroundSecondary,
         }}>
           <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 6 }}>
-            {ticket.userName} · {formatDate(ticket.createdAt)}
+            {ticket.userName} · {formatDate(ticket.createdAt, language)}
           </div>
           <div style={{ fontSize: 14, color: colors.text, lineHeight: '22px', wordBreak: 'break-word', overflowWrap: 'break-word', maxHeight: 200, overflowY: 'auto' }}>
             {ticket.description}
@@ -190,7 +194,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
                 onClick={() => handleStatusChange('in_progress')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20, padding: '7px 12px', border: '1px solid #007AFF44', backgroundColor: '#007AFF18', cursor: 'pointer', fontSize: 13, fontWeight: '600', color: '#007AFF' }}
               >
-                <Clock size={14} strokeWidth={2} color="#007AFF" /> En curso
+                <Clock size={14} strokeWidth={2} color="#007AFF" /> {t('support.status_in_progress')}
               </button>
             )}
             {ticket.status !== 'resolved' && (
@@ -198,7 +202,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
                 onClick={() => handleStatusChange('resolved')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20, padding: '7px 12px', border: '1px solid #34C75944', backgroundColor: '#34C75918', cursor: 'pointer', fontSize: 13, fontWeight: '600', color: '#34C759' }}
               >
-                <CheckCircle size={14} strokeWidth={2} color="#34C759" /> Resuelto
+                <CheckCircle size={14} strokeWidth={2} color="#34C759" /> {t('support.status_resolved')}
               </button>
             )}
             {ticket.status === 'resolved' && (
@@ -206,7 +210,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
                 onClick={() => handleStatusChange('open')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20, padding: '7px 12px', border: '1px solid #FF950044', backgroundColor: '#FF950018', cursor: 'pointer', fontSize: 13, fontWeight: '600', color: '#FF9500' }}
               >
-                <Circle size={14} strokeWidth={2} color="#FF9500" /> Reabrir
+                <Circle size={14} strokeWidth={2} color="#FF9500" /> {t('support.mark_open')}
               </button>
             )}
           </div>
@@ -214,10 +218,10 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
 
         {replies.length === 0 ? (
           <p style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', padding: '16px 0' }}>
-            Sin respuestas todavía
+            {t('support.no_replies')}
           </p>
         ) : (
-          replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} />)
+          replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} language={language} />)
         )}
         <div ref={bottomRef} />
       </div>
@@ -251,7 +255,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
           value={replyText}
           onChange={e => setReplyText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder="Escribe una respuesta..."
+          placeholder={t('support.reply_placeholder')}
           rows={1}
           style={{
             flex: 1, resize: 'none', border: `1px solid ${colors.border}`,
@@ -296,6 +300,7 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const currentUser = auth.currentUser;
+  const { t } = useTranslation();
   const canSubmit = title.trim().length > 0 && description.trim().length > 0 && !submitting;
 
   const handleSubmit = async () => {
@@ -304,7 +309,7 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
     try {
       await addDoc(collection(db, 'tickets'), {
         userId: currentUser.uid,
-        userName: currentUser.displayName || currentUser.email || 'Usuario',
+        userName: currentUser.displayName || currentUser.email || t('common.user'),
         userPhoto: currentUser.photoURL ?? null,
         title: title.trim(),
         description: description.trim(),
@@ -339,17 +344,17 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
         boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Nuevo ticket</span>
+          <span style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{t('support.new_ticket')}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
             <X size={20} color={colors.text} strokeWidth={2} />
           </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>Título</label>
+          <label style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>{t('support.ticket_title')}</label>
           <input
             type="text"
-            placeholder="Describe brevemente el problema"
+            placeholder={t('support.ticket_title_placeholder')}
             value={title}
             onChange={e => setTitle(e.target.value)}
             maxLength={120}
@@ -358,9 +363,9 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>Descripción</label>
+          <label style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>{t('support.ticket_description')}</label>
           <textarea
-            placeholder="Explica con detalle tu consulta o problema..."
+            placeholder={t('support.ticket_description_placeholder')}
             value={description}
             onChange={e => setDescription(e.target.value)}
             maxLength={2000}
@@ -380,7 +385,7 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
             cursor: canSubmit ? 'pointer' : 'not-allowed',
           }}
         >
-          {submitting ? 'Enviando...' : 'Enviar ticket'}
+          {submitting ? '...' : t('support.submit')}
         </button>
       </div>
     </div>
@@ -398,13 +403,14 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
   onSelect: (id: string) => void;
   colors: any;
 }) {
-  const countFor = (s: TicketStatus) => tickets.filter(t => t.status === s).length;
+  const { t, language } = useTranslation();
+  const countFor = (s: TicketStatus) => tickets.filter(tk => tk.status === s).length;
 
   const FILTERS: { key: FilterStatus; label: string }[] = [
-    { key: 'all', label: 'Todos' },
-    { key: 'open', label: 'Abiertos' },
-    { key: 'in_progress', label: 'En curso' },
-    { key: 'resolved', label: 'Resueltos' },
+    { key: 'all', label: t('support.all_tickets') },
+    { key: 'open', label: t('support.status_open') },
+    { key: 'in_progress', label: t('support.status_in_progress') },
+    { key: 'resolved', label: t('support.status_resolved') },
   ];
 
   return (
@@ -452,11 +458,11 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 24px', gap: 12 }}>
             <TicketCheck size={44} color={colors.textSecondary} strokeWidth={1.2} />
             <span style={{ fontSize: 16, fontWeight: '600', color: colors.text, textAlign: 'center' }}>
-              {isStaff ? 'No hay tickets' : 'No tienes tickets abiertos'}
+              {t('support.no_tickets')}
             </span>
             {!isStaff && (
               <span style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', lineHeight: '20px' }}>
-                Si tienes algún problema o consulta, abre un ticket y el equipo de soporte te ayudará.
+                {t('support.subtitle')}
               </span>
             )}
           </div>
@@ -492,12 +498,12 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
                       {ticket.userPhoto
                         ? <img src={ticket.userPhoto} style={{ width: 14, height: 14, borderRadius: 7, objectFit: 'cover' }} alt="" />
                         : <div style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: 8, color: '#fff', fontWeight: '700' }}>{(ticket.userName || '?')[0].toUpperCase()}</span>
-                          </div>
+                          <span style={{ fontSize: 8, color: '#fff', fontWeight: '700' }}>{(ticket.userName || '?')[0].toUpperCase()}</span>
+                        </div>
                       }
                       <span style={{ fontSize: 11, color: colors.textSecondary }}>{ticket.userName}</span>
                       <span style={{ fontSize: 11, color: colors.textSecondary }}>·</span>
-                      <span style={{ fontSize: 11, color: colors.textSecondary }}>{formatDate(ticket.createdAt)}</span>
+                      <span style={{ fontSize: 11, color: colors.textSecondary }}>{formatDate(ticket.createdAt, language)}</span>
                     </div>
                   </div>
                 </div>
@@ -513,6 +519,7 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
 export default function Support() {
   const { colors } = useTheme();
   const isDesktop = useWindowSize();
+  const { t, language } = useTranslation();
   const currentUser = auth.currentUser;
   const [userData, setUserData] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -557,7 +564,7 @@ export default function Support() {
 
   if (isDesktop) {
     return (
-      <Layout title="Ayuda y Soporte" showBackButton>
+      <Layout title={t('support.title')} showBackButton>
         <div style={{ display: 'flex', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
           <div style={{
             width: 380, flexShrink: 0, borderRight: `1px solid ${colors.border}`,
@@ -585,7 +592,7 @@ export default function Support() {
                 }}
               >
                 <Plus size={18} color="#fff" strokeWidth={2.5} />
-                Nuevo ticket
+                {t('support.new_ticket')}
               </button>
             </div>
           </div>
@@ -603,7 +610,7 @@ export default function Support() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 40 }}>
                 <TicketCheck size={56} color={colors.border} strokeWidth={1.2} />
                 <span style={{ fontSize: 17, fontWeight: '600', color: colors.textSecondary }}>
-                  Selecciona un ticket para verlo
+                  {t('support.select_ticket')}
                 </span>
               </div>
             )}
@@ -618,7 +625,7 @@ export default function Support() {
   }
 
   return (
-    <Layout title="Ayuda y Soporte" showBackButton>
+    <Layout title={t('support.title')} showBackButton>
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 80px' }}>
 
         <div style={{
@@ -626,10 +633,10 @@ export default function Support() {
           borderBottom: `1px solid ${colors.border}`, overflowX: 'auto',
         }}>
           {([
-            { key: 'all', label: 'Todos' },
-            { key: 'open', label: 'Abiertos' },
-            { key: 'in_progress', label: 'En curso' },
-            { key: 'resolved', label: 'Resueltos' },
+            { key: 'all', label: t('support.all_tickets') },
+            { key: 'open', label: t('support.status_open') },
+            { key: 'in_progress', label: t('support.status_in_progress') },
+            { key: 'resolved', label: t('support.status_resolved') },
           ] as { key: FilterStatus; label: string }[]).map(f => {
             const count = f.key === 'all' ? tickets.length : tickets.filter(t => t.status === f.key).length;
             const active = filter === f.key;
@@ -668,11 +675,11 @@ export default function Support() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 32px', gap: 12 }}>
             <TicketCheck size={52} color={colors.textSecondary} strokeWidth={1.2} />
             <span style={{ fontSize: 17, fontWeight: '600', color: colors.text, textAlign: 'center' }}>
-              {isStaff ? 'No hay tickets' : 'No tienes tickets abiertos'}
+              {t('support.no_tickets')}
             </span>
             {!isStaff && (
               <span style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: '22px' }}>
-                Si tienes algún problema o consulta, abre un ticket y el equipo de soporte te ayudará.
+                {t('support.subtitle')}
               </span>
             )}
           </div>
@@ -706,12 +713,12 @@ export default function Support() {
                     {ticket.userPhoto
                       ? <img src={ticket.userPhoto} style={{ width: 16, height: 16, borderRadius: 8, objectFit: 'cover' }} alt="" />
                       : <div style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: 9, color: '#fff', fontWeight: '700' }}>{(ticket.userName || '?')[0].toUpperCase()}</span>
-                        </div>
+                        <span style={{ fontSize: 9, color: '#fff', fontWeight: '700' }}>{(ticket.userName || '?')[0].toUpperCase()}</span>
+                      </div>
                     }
                     <span style={{ fontSize: 12, color: colors.textSecondary }}>{ticket.userName}</span>
                     <span style={{ fontSize: 12, color: colors.textSecondary }}>·</span>
-                    <span style={{ fontSize: 12, color: colors.textSecondary }}>{formatDate(ticket.createdAt)}</span>
+                    <span style={{ fontSize: 12, color: colors.textSecondary }}>{formatDate(ticket.createdAt, language)}</span>
                   </div>
                 </div>
               </div>
@@ -732,7 +739,7 @@ export default function Support() {
         }}
       >
         <Plus size={20} color="#fff" strokeWidth={2.5} />
-        Nuevo ticket
+        {t('support.new_ticket')}
       </button>
 
       {selectedTicket && (

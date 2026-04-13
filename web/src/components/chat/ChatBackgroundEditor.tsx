@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { X, Check, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ChatBackgroundEditorProps {
@@ -10,6 +11,7 @@ interface ChatBackgroundEditorProps {
 
 export default function ChatBackgroundEditor({ imageUrl, onClose, onSave }: ChatBackgroundEditorProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragging = useRef(false);
@@ -89,13 +91,13 @@ export default function ChatBackgroundEditor({ imageUrl, onClose, onSave }: Chat
 
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px 24px 180px', gap: 10 }}>
         <div style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: '18px 18px 18px 4px', padding: '10px 14px', fontSize: 14, color: '#1c1c1c', maxWidth: '70%' }}>
-          ¿Cómo estás hoy?
+          {t('chat.settings.sample_message')}
         </div>
         <div style={{ alignSelf: 'flex-end', backgroundColor: `${colors.primary}EE`, borderRadius: '18px 18px 4px 18px', padding: '10px 14px', fontSize: 14, color: '#fff', maxWidth: '70%' }}>
-          ¡Todo bien, gracias! 😊
+          {t('chat.settings.background_editor.sample_reply')}
         </div>
         <div style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: '18px 18px 18px 4px', padding: '10px 14px', fontSize: 14, color: '#1c1c1c', maxWidth: '70%' }}>
-          Arrastra para ajustar
+          {t('chat.settings.background_editor.drag_to_adjust')}
         </div>
       </div>
 
@@ -116,8 +118,8 @@ export default function ChatBackgroundEditor({ imageUrl, onClose, onSave }: Chat
 
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 32px 36px', backgroundColor: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', borderRadius: '28px 28px 0 0' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Ajustar fondo</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Arrastra para mover · Scroll o botones para hacer zoom</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{t('chat.settings.background_editor.title')}</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{t('chat.settings.background_editor.hint')}</div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 28 }}>
           <button

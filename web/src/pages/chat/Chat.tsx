@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit, startAfter, getDocs, doc, getDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
-import { MOCK_CHANNELS } from '../../constants/mockData';
+import { useSystemChannels } from '../../hooks/useSystemChannels';
 import type { Message } from '../../types';
 import MessageBubble from '../../components/chat/MessageBubble';
 import SharePostModal from '../../components/SharePostModal';
@@ -15,6 +15,7 @@ import DMInfoPanel from '../../components/chat/DMInfoPanel';
 import { useCall } from '../../contexts/CallContext';
 import { createConference, subscribeToActiveConferenceForGroup } from '../../services/firebase/studyGroupConferenceService';
 import type { GroupCall } from '../../services/firebase/groupCallService';
+import { useTranslation } from '../../hooks/useTranslation';
 import { PollModal } from '../../components/chat/PollModal';
 import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
 import type { PollData } from '../../types';
@@ -56,6 +57,7 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
   const [showPoll, setShowPoll] = useState(false);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,10 +78,10 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
   };
 
   const attachItems = [
-    { label: 'Fotos', icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
-    { label: 'Documento', icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
-    { label: 'Encuesta', icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
-    { label: 'Contacto', icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
+    { label: t('chat.photos'), icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
+    { label: t('chat.document'), icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
+    { label: t('chat.poll'), icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+    { label: t('chat.contact'), icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
   ];
 
   return (
@@ -131,7 +133,7 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
             <button
               onClick={() => setShowAttachMenu(v => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }}
-              title="Adjuntar"
+              title={t('chat.attach')}
             >
               <Plus size={22} strokeWidth={2} style={{ transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)', transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }} />
             </button>
@@ -140,13 +142,13 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder={replyingTo ? `Responder a ${replyingTo.senderName}...` : "Escribe un mensaje..."}
+              placeholder={replyingTo ? t('chat.reply_to', { name: replyingTo.senderName }) : t('chat.type_message')}
               className="chat-textarea"
               style={themeStyle ? { color: themeStyle.text, backgroundColor: 'transparent' } : {}}
               disabled={disabled}
               rows={1}
             />
-            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Grabar audio">
+            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={t('chat.record_audio')}>
               <Mic size={20} />
             </button>
             <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button btn-press">
@@ -160,6 +162,23 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
 }
 
 const SUPPORT_CHANNEL_ID = '5';
+
+/** Normalizes both old web format (options: string[], votes: {}) and
+ *  new shared format (options: {id,text,votes}[], totalVotes) into the shared format. */
+function normalizePoll(raw: any): import('../../types').PollData | null {
+  if (!raw || typeof raw !== 'object' || typeof raw.question !== 'string' || !Array.isArray(raw.options)) return null;
+  const options = (raw.options as any[]).map((o: any, i: number) => {
+    if (typeof o === 'string') {
+      const oldVotes = raw.votes?.[i] ?? raw.votes?.[String(i)] ?? [];
+      return { id: String(i), text: o, votes: Array.isArray(oldVotes) ? oldVotes : [] };
+    }
+    return { id: o.id ?? String(i), text: o.text ?? o.label ?? o.value ?? '', votes: Array.isArray(o.votes) ? o.votes : [] };
+  });
+  const totalVotes = typeof raw.totalVotes === 'number'
+    ? raw.totalVotes
+    : options.reduce((s: number, o: any) => s + o.votes.length, 0);
+  return { question: raw.question, options, multipleAnswers: raw.multipleAnswers ?? false, totalVotes, closed: raw.closed ?? false };
+}
 
 export default function Chat() {
   const { id } = useParams<{ id: string }>();
@@ -186,12 +205,15 @@ export default function Chat() {
   const navigate = useNavigate();
 
   const { setActiveConference, setActiveConferenceId, activeConferenceId, requestConferenceJoin } = useCall();
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const chatTheme = colors.chat;
   const isDesktop = useWindowSize();
+  const systemChannels = useSystemChannels();
 
-  const channel = MOCK_CHANNELS.find(ch => ch.id === id);
+  const channel = systemChannels.find(ch => ch.id === id);
   const channelName = groupName ?? channel?.name ?? id ?? '';
+  const isAnnouncementChannel = channel?.type === 'announcement';
   const currentUser = auth.currentUser;
 
   useEffect(() => {
@@ -207,13 +229,13 @@ export default function Chat() {
   }, [id]);
 
   useEffect(() => {
-    if (!id?.startsWith('sg_')) return;
+    if (!id?.startsWith('sg_') || !currentUser) return;
     const groupId = id.slice(3);
-    const unsub = subscribeToActiveConferenceForGroup(groupId, (call) => {
+    const unsub = subscribeToActiveConferenceForGroup(groupId, currentUser.uid, (call) => {
       setActiveGroupConference(call);
     });
     return unsub;
-  }, [id]);
+  }, [id, currentUser]);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -258,9 +280,7 @@ export default function Chat() {
             originalSender: data.originalSender || null,
             forwardedFrom: data.forwardedFrom || null,
             replyTo: data.replyTo || null,
-            poll: (data.poll && typeof data.poll === 'object' && !Array.isArray(data.poll) && typeof data.poll.question === 'string' && Array.isArray(data.poll.options))
-              ? { ...data.poll, options: (data.poll.options as any[]).map((o: any) => typeof o === 'string' ? o : (o?.text ?? o?.label ?? o?.value ?? String(o))), votes: data.poll.votes || {} }
-              : null,
+            poll: normalizePoll(data.poll),
           };
         }).reverse();
 
@@ -318,7 +338,9 @@ export default function Chat() {
           originalSender: data.originalSender || null,
           forwardedFrom: data.forwardedFrom || null,
           replyTo: data.replyTo || null,
-          poll: data.poll || null,
+          poll: (data.poll && typeof data.poll === 'object' && !Array.isArray(data.poll) && typeof data.poll.question === 'string' && Array.isArray(data.poll.options))
+            ? { ...data.poll, options: (data.poll.options as any[]).map((o: any) => typeof o === 'string' ? o : (o?.text ?? o?.label ?? o?.value ?? String(o))), votes: data.poll.votes || {} }
+            : null,
         };
       }).reverse();
 
@@ -412,7 +434,7 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
 
   try {
     if (!audioBlob || audioBlob.size === 0) {
-      throw new Error('El audio está vacío');
+      throw new Error('Empty audio');
     }
 
     const tempId = `temp_${Date.now()}`;
@@ -484,14 +506,20 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     setSending(true);
     try {
       await addDoc(collection(db, 'channels', id, 'messages'), {
-        text: poll.question,
+        text: '',
         senderId: currentUser.uid,
         senderName: userData?.displayName || currentUser.displayName || 'User',
         senderPhoto: userData?.photoURL || currentUser.photoURL || null,
         createdAt: serverTimestamp(),
         edited: false, editedAt: null,
         attachments: null, reactions: {}, deletedForUsers: [],
-        poll: { ...poll, votes: {} },
+        poll: {
+          question: poll.question,
+          options: poll.options.map((opt: string, i: number) => ({ id: String(i), text: opt, votes: [] })),
+          multipleAnswers: poll.multipleAnswers,
+          totalVotes: 0,
+          closed: false,
+        },
       });
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
@@ -535,9 +563,9 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
   const handleDelete = async (message: any, forEveryone: boolean) => {
     if (!id || !message) return;
     
-    const confirmMessage = forEveryone 
-      ? '¿Eliminar este mensaje para todos?' 
-      : '¿Eliminar este mensaje para ti?';
+    const confirmMessage = forEveryone
+      ? t('chat.delete_confirm_for_all')
+      : t('chat.delete_confirm_for_me');
       
     if (!window.confirm(confirmMessage)) return;
 
@@ -601,9 +629,35 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     }
   };
 
-  const filteredMessages = messages.filter(msg => 
+  const filteredMessages = messages.filter(msg =>
     !msg.deletedForUsers?.includes(currentUser?.uid || '')
   );
+
+  const isStudyGroupChat = !!id?.startsWith('sg_');
+  const canStartConference = userData?.role === 'teacher' || userData?.role === 'admin';
+  const isAlreadyInConference = !!activeConferenceId && activeConferenceId === activeGroupConference?.id;
+
+  const handleStartConference = async () => {
+    if (!currentUser || !id || !studyGroupData) return;
+    const groupId = id.slice(3);
+    const myName = userData?.displayName || currentUser.displayName || 'User';
+    const myPhoto = userData?.photoURL || currentUser.photoURL || null;
+    try {
+      await createConference(
+        groupId,
+        studyGroupData.name,
+        studyGroupData.photo ?? null,
+        currentUser.uid,
+        myName,
+        myPhoto,
+        'video',
+        studyGroupData.memberIds,
+        { [currentUser.uid]: { name: myName, photo: myPhoto } },
+      );
+    } catch {
+      alert(t('chat.conference_error'));
+    }
+  };
 
   const isCustomTheme = chatTheme.id?.startsWith('custom_');
   const isNonDefaultTheme = colors.chatSettings.themeId !== 'default';
@@ -664,23 +718,24 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         }}>
           <button
             className="chat-back-button"
+            style={{ color: colors.text }}
             onClick={() => navigate('/home')}
           >
             ←
           </button>
-          <h1 className="chat-header-title">{channelName}</h1>
+          <h1 className="chat-header-title" style={{ color: colors.text }}>{channelName}</h1>
           <button
             className="chat-back-button"
             onClick={() => navigate('/settings/theme')}
-            style={{ fontSize: '20px' }}
-            title="Personalizar tema"
+            style={{ fontSize: '20px', color: colors.text }}
+            title={t('chat.customize')}
           >
-            <Settings size={20} />
+            <Settings size={20} color={colors.text} />
           </button>
         </div>
         <div className="chat-loading-content">
           <div className="loading-spinner"></div>
-          <p className="chat-loading-text">Cargando mensajes...</p>
+          <p className="chat-loading-text">{t('chat.loading')}</p>
         </div>
       </div>
     );
@@ -703,38 +758,48 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
       }}>
         <button
           className="chat-back-button"
-          style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}
+          style={{ color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}
           onClick={() => navigate('/home')}
         >
           ←
         </button>
-        <h1 className="chat-header-title" style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}>{channelName}</h1>
+        <h1 className="chat-header-title" style={{ color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}>{channelName}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {activeGroupConference && (
+          {isStudyGroupChat && activeGroupConference && !isAlreadyInConference && (
             <button
               className="chat-back-button"
               onClick={() => requestConferenceJoin(activeGroupConference)}
-              style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
-              title="Unirse a la conferencia"
+              style={{ fontSize: '20px', color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}
+              title={t('chat.join_conference')}
             >
-              <Presentation size={20} color="#34C759" />
+              <Presentation size={20} color="#34C759" style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+            </button>
+          )}
+          {isStudyGroupChat && !activeGroupConference && canStartConference && (
+            <button
+              className="chat-back-button"
+              onClick={handleStartConference}
+              style={{ fontSize: '20px', color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}
+              title={t('home.start_conference')}
+            >
+              <Presentation size={20} color={desktopThemeStyle ? desktopThemeStyle.text : colors.text} />
             </button>
           )}
           <button
             className="chat-back-button"
             onClick={() => setShowInfoPanel(v => !v)}
-            style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
-            title="Información"
+            style={{ fontSize: '20px', color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}
+            title={t('common.info')}
           >
-            <Info size={20} color={showInfoPanel ? colors.primary : (desktopThemeStyle ? desktopThemeStyle.text : undefined)} />
+            <Info size={20} color={showInfoPanel ? colors.primary : (desktopThemeStyle ? desktopThemeStyle.text : colors.text)} />
           </button>
           <button
             className="chat-back-button"
             onClick={() => navigate('/settings/theme')}
-            style={{ fontSize: '20px', ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}) }}
-            title="Personalizar tema"
+            style={{ fontSize: '20px', color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}
+            title={t('chat.customize')}
           >
-            <Settings size={20} color={desktopThemeStyle ? desktopThemeStyle.text : undefined} />
+            <Settings size={20} color={desktopThemeStyle ? desktopThemeStyle.text : colors.text} />
           </button>
         </div>
       </div>
@@ -758,7 +823,7 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         {filteredMessages.length === 0 ? (
           <div className="chat-empty-state">
             <p className="chat-empty-text" style={{ backgroundColor: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
-              No hay mensajes aún. ¡Comienza la conversación! 💬
+              {t('chat.no_messages')}
             </p>
           </div>
         ) : (
@@ -813,19 +878,31 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         <ChevronsDown size={22} color={colors.text} strokeWidth={2.5} />
       </button>
 
-      <MessageInput
-        onSend={handleSendMessage}
-        onSendAudio={handleSendAudio}
-        onSendAttachment={handleSendAttachment}
-        onSendPoll={handleSendPoll}
-        onSendContact={handleSendContact}
-        disabled={sending}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-        themeStyle={desktopThemeStyle}
-        showRecorder={showRecorder}
-        setShowRecorder={setShowRecorder}
-      />
+      {isAnnouncementChannel && userData?.role !== 'admin' ? (
+        <div style={{
+          padding: '12px 16px', borderTop: `1px solid ${colors.border}`,
+          backgroundColor: colors.backgroundSecondary,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center' }}>
+            {t('channels.announcements.readonly_hint')}
+          </span>
+        </div>
+      ) : (
+        <MessageInput
+          onSend={handleSendMessage}
+          onSendAudio={handleSendAudio}
+          onSendAttachment={handleSendAttachment}
+          onSendPoll={handleSendPoll}
+          onSendContact={handleSendContact}
+          disabled={sending}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          themeStyle={desktopThemeStyle}
+          showRecorder={showRecorder}
+          setShowRecorder={setShowRecorder}
+        />
+      )}
 
       {showInfoPanel && id && (
         <ChannelInfoPanel

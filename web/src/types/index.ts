@@ -50,11 +50,18 @@ export interface ForwardedFrom {
   senderName: string;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: string[]; // array of userIds
+}
+
 export interface PollData {
   question: string;
-  options: string[];
+  options: PollOption[];
   multipleAnswers: boolean;
-  votes: Record<string, string[]>;
+  totalVotes: number;
+  closed?: boolean;
 }
 
 export interface Message {
@@ -182,6 +189,7 @@ export interface StudyGroup {
   name: string;
   description: string;
   subject: string;
+  subjectCategory?: 'subjects' | 'departments' | 'cycles';
   createdBy: string;
   createdByName: string;
   memberIds: string[];

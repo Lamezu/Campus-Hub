@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useAccounts } from '../../contexts/AccountsContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -14,23 +15,24 @@ export default function Register() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { addAccount } = useAccounts();
+  const { t } = useTranslation();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!email || !password || !confirmPassword || !name) {
-      setError('Por favor completa todos los campos');
+      setError(t('roles.errors.all_fields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError(t('roles.errors.passwords_dont_match'));
       return;
     }
 
     if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError(t('roles.errors.password_too_short'));
       return;
     }
 
@@ -40,9 +42,7 @@ export default function Register() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      await updateProfile(user, {
-        displayName: name,
-      });
+      await updateProfile(user, { displayName: name });
 
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
@@ -66,9 +66,9 @@ export default function Register() {
       navigate('/home');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        setError('Este email ya está registrado');
+        setError(t('roles.errors.email_exists'));
       } else {
-        setError('No se pudo crear la cuenta');
+        setError(t('roles.errors.create_failed'));
       }
     } finally {
       setLoading(false);
@@ -79,18 +79,18 @@ export default function Register() {
     <div className="login-container">
       <div className="login-card">
         <h1 className="login-title">CampusHub</h1>
-        
+
         <p className="text-subtitle" style={{ textAlign: 'center', marginBottom: '24px', fontSize: '14px' }}>
-          Únete a CampusHub
+          {t('auth.signup_sub')}
         </p>
 
         <form onSubmit={handleRegister}>
           <div className="form-group">
-            <label className="form-label">Nombre completo</label>
+            <label className="form-label">{t('auth.full_name')}</label>
             <input
               type="text"
               className="form-input"
-              placeholder="Tu nombre"
+              placeholder={t('auth.full_name_placeholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -98,7 +98,7 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">{t('auth.email')}</label>
             <input
               type="email"
               className="form-input"
@@ -110,7 +110,7 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Contraseña</label>
+            <label className="form-label">{t('auth.password')}</label>
             <input
               type="password"
               className="form-input"
@@ -122,7 +122,7 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirmar contraseña</label>
+            <label className="form-label">{t('auth.confirm_password')}</label>
             <input
               type="password"
               className="form-input"
@@ -135,18 +135,21 @@ export default function Register() {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="btn"
             disabled={loading}
             style={{ opacity: loading ? 0.6 : 1 }}
           >
-            {loading ? 'Creando cuenta...' : 'Registrarse'}
+            {loading ? t('auth.creating_account') : t('common.signup')}
           </button>
         </form>
 
         <p className="text-subtitle" style={{ textAlign: 'center', marginTop: '20px' }}>
-          ¿Ya tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>Inicia sesión</a>
+          {t('auth.already_have_account')}{' '}
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>
+            {t('auth.login_here')}
+          </a>
         </p>
       </div>
     </div>

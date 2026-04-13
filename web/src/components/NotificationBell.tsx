@@ -133,7 +133,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
     const req = pendingRequests.find(r => r.fromUserId === friendRequestItem.meta!.fromUserId);
     if (req) {
       setActionLoading(req.id);
-      try { await acceptRequest(req); } catch {}
+      try { await acceptRequest(req); } catch { }
       setActionLoading(null);
     }
     setFriendRequestItem(null);

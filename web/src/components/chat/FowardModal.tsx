@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { 
   X, Check, Forward, Search, Lock, Users, 
   MessagesSquare, CodeXml, Folders, CalendarFold, 
   MessageCircleQuestion, type LucideIcon 
 } from 'lucide-react';
-import { MOCK_CHANNELS } from '../../constants/mockData';
+import { useSystemChannels } from '../../hooks/useSystemChannels';
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
   'messages-square': MessagesSquare,
@@ -36,72 +35,17 @@ interface ForwardModalProps {
 
 export default function ForwardModal({ isOpen, onClose, onForward, message }: ForwardModalProps) {
   const { colors } = useTheme();
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const { t } = useTranslation();
+  const systemChannels = useSystemChannels();
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [usingMockData, setUsingMockData] = useState(false);
+
+  // Only public channels can receive forwarded messages
+  const channels: Channel[] = systemChannels.filter(ch => ch.type !== 'announcement');
 
   useEffect(() => {
-    const loadChannels = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      try {
-        setLoading(true);
-        
-        const channelsRef = collection(db, 'channels');
-        const publicQuery = query(channelsRef, where('type', '==', 'public'));
-        const snapshot = await getDocs(publicQuery);
-        
-        if (!snapshot.empty) {
-          const channelsData: Channel[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            channelsData.push({
-              id: doc.id,
-              name: data.name || 'Sin nombre',
-              description: data.description || '',
-              icon: data.icon || '💬',
-              type: data.type || 'public',
-              memberCount: data.memberCount || 0,
-              lastMessageAt: data.lastMessageAt
-            });
-          });
-          setChannels(channelsData);
-          setUsingMockData(false);
-        } else {
-          const mockChannels: Channel[] = MOCK_CHANNELS.map(ch => ({
-            id: ch.id,
-            name: ch.name,
-            description: ch.description,
-            icon: ch.icon || '💬',
-            type: ch.type,
-            memberCount: ch.memberCount,
-            lastMessageAt: ch.lastMessageAt || undefined
-          }));
-          setChannels(mockChannels);
-          setUsingMockData(true);
-        }
-      } catch (error) {
-        const mockChannels: Channel[] = MOCK_CHANNELS.map(ch => ({
-          id: ch.id,
-          name: ch.name,
-          description: ch.description,
-          icon: ch.icon || '💬',
-          type: ch.type,
-          memberCount: ch.memberCount,
-          lastMessageAt: ch.lastMessageAt || undefined
-        }));
-        setChannels(mockChannels);
-        setUsingMockData(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (isOpen) {
-      loadChannels();
       setSelectedChannels([]);
       setSearchTerm('');
     }
@@ -179,7 +123,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           alignItems: 'center',
         }}>
           <h2 style={{ fontSize: '18px', fontWeight: '600', color: colors.text, margin: 0 }}>
-            Reenviar mensaje
+            {t('chat.forward_modal.title')}
           </h2>
           <button
             onClick={onClose}
@@ -213,7 +157,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
               gap: '6px',
             }}>
               <Forward size={14} />
-              <span>Mensaje a reenviar:</span>
+              <span>{t('chat.forward_modal.message_label')}</span>
             </div>
             <div style={{
               fontSize: '14px',
@@ -236,7 +180,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
             color: colors.warning,
             textAlign: 'center',
           }}>
-            Modo desarrollo - Usando datos de ejemplo
+            {t('chat.forward_modal.dev_mode')}
           </div>
         )}
 
@@ -249,7 +193,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
           }} />
           <input
             type="text"
-            placeholder="Buscar chats..."
+            placeholder={t('chat.forward_modal.search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -301,10 +245,10 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
                   <Check size={14} color="#FFF" />
                 )}
               </div>
-              Seleccionar todos
+              {t('chat.forward_modal.select_all')}
             </button>
             <span style={{ color: colors.textSecondary, fontSize: '13px' }}>
-              ({selectedChannels.length} seleccionados)
+              {t('chat.forward_modal.selected_count', { count: selectedChannels.length })}
             </span>
           </div>
         )}
@@ -316,11 +260,11 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
         }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '32px', color: colors.textSecondary }}>
-              Cargando chats...
+              {t('chat.forward_modal.loading')}
             </div>
           ) : filteredChannels.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px', color: colors.textSecondary }}>
-              {searchTerm ? 'No se encontraron chats' : 'No hay chats disponibles'}
+              {searchTerm ? t('chat.forward_modal.no_results') : t('chat.forward_modal.no_chats')}
             </div>
           ) : (
             filteredChannels.map((channel) => (
@@ -387,7 +331,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
                         gap: '2px',
                       }}>
                         <Lock size={10} />
-                        Privado
+                        {t('chat.forward_modal.private')}
                       </span>
                     )}
                   </div>
@@ -402,7 +346,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
                     gap: '4px',
                   }}>
                     <Users size={12} />
-                    <span>{channel.description || 'Sin descripción'}</span>
+                    <span>{channel.description || t('common.no_description')}</span>
                   </div>
                 </div>
               </div>
@@ -430,7 +374,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
               cursor: 'pointer',
             }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleForward}
@@ -451,7 +395,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, message }: Fo
             }}
           >
             <Forward size={16} />
-            Reenviar ({selectedChannels.length})
+            {t('chat.forward_modal.forward_btn', { count: selectedChannels.length })}
           </button>
         </div>
       </div>

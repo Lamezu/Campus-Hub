@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle, BookOpen, CalendarDays, Check,
@@ -7,19 +7,12 @@ import {
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useEvents } from '../../hooks/useEvents';
 import { auth, db } from '../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { useEffect } from 'react';
+import { DEPARTMENTS } from '../../constants/departments';
 import type { CalendarEventType } from '../../types';
-
-const EVENT_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
-  exam:     { label: 'Examen',  color: '#FF3B30' },
-  deadline: { label: 'Entrega', color: '#FF9500' },
-  holiday:  { label: 'Festivo', color: '#34C759' },
-  event:    { label: 'Evento',  color: '#007AFF' },
-  class:    { label: 'Clase',   color: '#AF52DE' },
-};
 
 function EventIcon({ type, size = 14, color }: { type: CalendarEventType; size?: number; color: string }) {
   if (type === 'exam') return <BookOpen size={size} color={color} strokeWidth={2} />;
@@ -29,37 +22,47 @@ function EventIcon({ type, size = 14, color }: { type: CalendarEventType; size?:
   return <AlertCircle size={size} color={color} strokeWidth={2} />;
 }
 
-function formatEventDate(date: string, time: string | null | undefined, allDay: boolean): string {
+function formatEventDate(date: string, time: string | null | undefined, allDay: boolean, language: string = 'es'): string {
   const d = new Date(date);
-  const dateStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const locale = language === 'en' ? 'en-US' : 'es-ES';
+  const dateStr = d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   if (allDay || !time) return dateStr;
   return `${dateStr} · ${time}`;
 }
 
 type FilterType = CalendarEventType | 'all';
 
-const FILTERS: { id: FilterType; label: string }[] = [
-  { id: 'all', label: 'Todos' },
-  { id: 'event', label: 'Eventos' },
-  { id: 'exam', label: 'Exámenes' },
-  { id: 'deadline', label: 'Entregas' },
-  { id: 'holiday', label: 'Festivos' },
-  { id: 'class', label: 'Clases' },
-];
-
 export default function Events() {
   const { colors } = useTheme();
   const isDesktop = useWindowSize();
   const navigate = useNavigate();
-  const [department, setDepartment] = useState<string | null>(null);
+  const { t, language } = useTranslation();
+
+  const EVENT_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
+    exam:     { label: t('events.types.exam'),     color: '#FF3B30' },
+    deadline: { label: t('events.types.deadline'), color: '#FF9500' },
+    holiday:  { label: t('events.types.holiday'),  color: '#34C759' },
+    event:    { label: t('events.types.event'),    color: '#007AFF' },
+    class:    { label: t('events.types.class'),    color: '#AF52DE' },
+  };
+
+  const FILTERS: { id: FilterType; label: string }[] = [
+    { id: 'all', label: t('events.filter_all') },
+    { id: 'event', label: t('events.types.event') },
+    { id: 'exam', label: t('events.types.exam') },
+    { id: 'deadline', label: t('events.types.deadline') },
+    { id: 'holiday', label: t('events.types.holiday') },
+    { id: 'class', label: t('events.types.class') },
+  ];
+  const [role, setRole] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const { events, rsvpMap, rsvp, loading } = useEvents(department);
+  const { events, rsvpMap, rsvp, loading } = useEvents(role);
 
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
     getDoc(doc(db, 'users', user.uid)).then(snap => {
-      if (snap.exists()) setDepartment(snap.data().department ?? null);
+      if (snap.exists()) setRole(snap.data().role ?? 'student');
     });
   }, []);
 
@@ -104,10 +107,10 @@ export default function Events() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 32px', gap: 12 }}>
           <CalendarDays size={52} color={colors.textSecondary} strokeWidth={1.2} />
           <span style={{ fontSize: 17, fontWeight: 600, color: colors.text, textAlign: 'center' }}>
-            No hay eventos
+            {t('events.empty_title')}
           </span>
           <span style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: '22px' }}>
-            Cuando se añadan eventos aparecerán aquí.
+            {t('events.no_events_body')}
           </span>
         </div>
       ) : (
@@ -132,12 +135,16 @@ export default function Events() {
                       <EventIcon type={ev.type} size={12} color={cfg.color} />
                       <span style={{ fontSize: 11, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
                     </div>
-                    {ev.departmentId && (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 8, backgroundColor: colors.backgroundSecondary }}>
-                        <Users size={10} color={colors.textSecondary} strokeWidth={2} />
-                        <span style={{ fontSize: 11, fontWeight: 500, color: colors.textSecondary }}>{ev.departmentId}</span>
-                      </div>
-                    )}
+                    {ev.departmentId && (() => {
+                      const dept = DEPARTMENTS.find(d => d.id === ev.departmentId);
+                      const deptLabel = dept ? (language === 'en' ? dept.en : dept.es) : ev.departmentId;
+                      return (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 8, backgroundColor: colors.backgroundSecondary }}>
+                          <Users size={10} color={colors.textSecondary} strokeWidth={2} />
+                          <span style={{ fontSize: 11, fontWeight: 500, color: colors.textSecondary }}>{deptLabel}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, lineHeight: '20px' }}>
@@ -145,7 +152,7 @@ export default function Events() {
                   </div>
 
                   <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: '16px' }}>
-                    {formatEventDate(ev.date, ev.time, ev.allDay)}
+                    {formatEventDate(ev.date, ev.time, ev.allDay, language)}
                   </div>
 
                   {!!ev.description && (
@@ -160,13 +167,13 @@ export default function Events() {
                       style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       <CalendarDays size={13} color={colors.primary} strokeWidth={2} />
-                      <span style={{ fontSize: 12, fontWeight: 500, color: colors.primary }}>Ver en calendario</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: colors.primary }}>{t('events.view_in_calendar')}</span>
                     </button>
 
                     {!isPast && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {ev.attendeesCount > 0 && (
-                          <span style={{ fontSize: 12, color: colors.textSecondary }}>{ev.attendeesCount} van</span>
+                          <span style={{ fontSize: 12, color: colors.textSecondary }}>{t('events.going', { count: ev.attendeesCount })}</span>
                         )}
                         <button
                           className="btn-press"
@@ -181,7 +188,7 @@ export default function Events() {
                           }}
                         >
                           <Check size={13} color={myRsvp === 'going' ? '#fff' : '#34C759'} strokeWidth={2.5} />
-                          Voy
+                          {t('events.rsvp_going')}
                         </button>
                         <button
                           className="btn-press"
@@ -196,7 +203,7 @@ export default function Events() {
                           }}
                         >
                           <X size={13} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
-                          No voy
+                          {t('events.rsvp_not_going')}
                         </button>
                       </div>
                     )}
@@ -211,7 +218,7 @@ export default function Events() {
   );
 
   return (
-    <Layout title="Eventos" showBackButton>
+    <Layout title={t('events.title')} showBackButton>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {filterBar}
         {eventList}

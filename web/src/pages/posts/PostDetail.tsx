@@ -10,23 +10,24 @@ import { notificationService } from '../../services/notificationService';
 import { auth, db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
 import { PostCard } from '../../components/PostCards';
 import SharePostModal from '../../components/SharePostModal';
 import Layout from '../../components/Layout';
 import type { Post, Comment } from '../../types';
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string, t: (key: string) => string): string {
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Ahora';
+  if (isNaN(date.getTime())) return t('post.now');
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return 'Ahora';
+  if (minutes < 1) return t('post.now');
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   if (days < 30) return `${days}d`;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 interface ReplyingTo {
@@ -41,6 +42,7 @@ export default function PostDetail() {
   const { id } = useParams<{ id: string }>();
   const currentUser = auth.currentUser;
   const isDesktop = useWindowSize();
+  const { t } = useTranslation();
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -134,7 +136,7 @@ export default function PostDetail() {
         notificationService.write(post.authorId, {
           category: 'social',
           title: currentUser.displayName ?? 'Alguien',
-          body: `comentó en tu post "${post?.title}"`,
+          body: t('post.commented_on', { title: post?.title ?? '' }),
           meta: { postId: id },
         }).catch(() => {});
       }
@@ -146,7 +148,7 @@ export default function PostDetail() {
   };
 
   const handleDelete = async () => {
-    if (!id || !window.confirm('¿Eliminar este post? Esta acción no se puede deshacer.')) return;
+    if (!id || !window.confirm(t('post.delete_confirm'))) return;
     await deleteDoc(doc(db, 'posts', id));
     navigate('/explore');
   };
@@ -291,7 +293,7 @@ export default function PostDetail() {
             <div style={{ flex: 1, display: 'flex', gap: 8 }}>
               <input
                 type="text"
-                placeholder={replyingTo ? `Responder a ${replyingTo.authorName}...` : 'Escribe un comentario...'}
+                placeholder={replyingTo ? t('post.reply_to_placeholder', { name: replyingTo.authorName }) : t('post.add_comment')}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
@@ -336,7 +338,7 @@ export default function PostDetail() {
 
           {comments.length === 0 && (
             <p style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', padding: '16px 0' }}>
-              Sé el primero en comentar
+              {t('post.no_comments')}
             </p>
           )}
 
@@ -373,7 +375,7 @@ export default function PostDetail() {
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
                       <span style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>{comment.authorName}</span>
-                      <span style={{ fontSize: 11, color: colors.textSecondary }}>{getTimeAgo(comment.createdAt)}</span>
+                      <span style={{ fontSize: 11, color: colors.textSecondary }}>{getTimeAgo(comment.createdAt, t)}</span>
                     </div>
                     <p style={{ fontSize: 14, color: colors.text, margin: 0, lineHeight: '20px' }}>{comment.content}</p>
                   </div>
@@ -400,7 +402,7 @@ export default function PostDetail() {
                       }}
                     >
                       <CornerDownRight size={13} strokeWidth={1.8} />
-                      Responder
+                      {t('post.reply')}
                     </button>
                   </div>
                 </div>

@@ -55,6 +55,7 @@ export interface DMReplyTo {
   text: string;
   isAudio?: boolean;
   audioDuration?: number;
+  attachmentType?: 'image' | 'audio' | 'file' | 'contact';
 }
 
 export interface Conversation {
@@ -172,6 +173,16 @@ export async function loadMoreMessages(
   return { messages, lastDoc };
 }
 
+function lastMessagePreview(text: string, attachments?: DMAttachment[] | null): string {
+  if (text?.trim()) return text.trim().substring(0, 100);
+  const type = attachments?.[0]?.type;
+  if (type === 'image') return '📷 Imagen';
+  if (type === 'audio') return '🎵 Audio';
+  if (type === 'file') return `📎 ${attachments![0].name || 'Archivo'}`;
+  if (type === 'contact') return `👤 ${attachments![0].name || 'Contacto'}`;
+  return '';
+}
+
 export async function sendMessage(
   conversationId: string,
   text: string,
@@ -216,7 +227,7 @@ export async function sendMessage(
     otherUserId = convData.participants.find((id: string) => id !== senderId);
     batch.update(convRef, {
       lastMessageAt: serverTimestamp(),
-      lastMessage: text ? text.substring(0, 100) : '🎵 Audio',
+      lastMessage: lastMessagePreview(text, attachments),
       lastMessageSenderName: senderName,
       lastMessageSenderId: senderId,
       [`unreadCount.${otherUserId}`]: (otherUserId ? (convData.unreadCount?.[otherUserId] || 0) : 0) + 1
@@ -229,7 +240,7 @@ export async function sendMessage(
     notificationService.write(otherUserId, {
       category: 'dm',
       title: senderName,
-      body: text || (attachments?.length ? 'Archivo adjunto' : ''),
+      body: lastMessagePreview(text, attachments),
       meta: { participantId: senderId, conversationId },
     }).catch(() => {});
   }

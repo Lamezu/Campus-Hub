@@ -6,25 +6,20 @@ import { getFriendRequest, areFriends, sendFriendRequest, acceptFriendRequest } 
 import { auth } from '../../config/firebase';
 import { subscribeToSavedMessages, type SavedMessage } from '../../services/firebase/savedItemsService';
 import { MESSAGE_TONE_NAMES, previewTone } from '../../utils/toneGenerator';
+import { useTranslation } from '../../hooks/useTranslation';
 
 type MuteDuration = 'off' | '8h' | '1w' | 'always';
-
-const muteDurationLabel: Record<MuteDuration, string> = {
-  off: 'Activas',
-  '8h': 'Silenciadas 8h',
-  '1w': 'Silenciadas 1 sem.',
-  always: 'Silenciadas',
-};
 
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
 interface SharedFile { messageId: string; url: string; name: string; size: number; type: 'image' | 'file' | 'audio'; }
 interface SharedLink { messageId: string; url: string; text: string; }
 
-function roleBadgeLabel(role: string): string {
-  if (role === 'teacher') return 'Profesor/a';
-  if (role === 'admin') return 'Admin';
-  return 'Alumno/a';
+// roleBadgeLabel is called with t injected inside the component
+function roleBadgeLabel(role: string, t: (key: string) => string): string {
+  if (role === 'teacher') return t('roles.teacher');
+  if (role === 'admin') return t('roles.admin');
+  return t('roles.student');
 }
 
 function roleBadgeColor(role: string): string {
@@ -48,6 +43,15 @@ interface DMInfoPanelProps {
 }
 
 export default function DMInfoPanel({ otherUserId, conversationId, currentUserId, userRole = 'student', colors, onClose, onClearChat, onDeleteChat, onCall }: DMInfoPanelProps) {
+  const { t } = useTranslation();
+
+  const muteDurationLabel: Record<MuteDuration, string> = {
+    off: t('dm.info.mute_duration.off'),
+    '8h': t('dm.info.mute_duration.8h'),
+    '1w': t('dm.info.mute_duration.1w'),
+    always: t('dm.info.mute_duration.always'),
+  };
+
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [role, setRole] = useState('student');
@@ -144,7 +148,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         const others = (data.memberIds as string[]).filter((id: string) => id !== currentUserId && id !== otherUserId).slice(0, 2);
         const profiles = await Promise.all(others.map((id: string) => getDoc(doc(db, 'users', id))));
         let preview = profiles.filter(p => p.exists()).map(p => p.data()?.displayName?.split(' ')[0] || 'Usuario').join(', ');
-        if (!preview) preview = 'Tú y este contacto';
+        if (!preview) preview = t('dm.info.you_and_contact');
         mutual.push({ id: d.id, name: data.name ?? 'Grupo', photo: data.photoURL ?? null, memberCount: data.memberIds.length, memberPreview: preview });
       }
       setMutualGroups(mutual);
@@ -204,7 +208,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         if (Array.isArray(data.attachments)) {
           data.attachments.forEach((a: any) => {
             if (a.type === 'image' || a.type === 'file' || a.type === 'audio') {
-              files.push({ messageId: d.id, url: a.url, name: a.name || 'Archivo', size: a.size || 0, type: a.type });
+              files.push({ messageId: d.id, url: a.url, name: a.name || t('common.file'), size: a.size || 0, type: a.type });
             }
           });
         }
@@ -236,7 +240,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
       setIsFriend(true); setFriendStatus('none');
     } else if (!isFriend && friendStatus === 'none') {
       const me = auth.currentUser;
-      await sendFriendRequest(currentUserId, otherUserId, me?.displayName ?? 'Tú', me?.photoURL ?? null).catch(() => {});
+      await sendFriendRequest(currentUserId, otherUserId, me?.displayName ?? t('common.you'), me?.photoURL ?? null).catch(() => {});
       setFriendStatus('sent');
     } else if (isFriend) {
       const next = !isBestFriend;
@@ -264,7 +268,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
 
   const clearForEveryone = async () => {
     setShowClearOptions(false);
-    if (!window.confirm('¿Eliminar todos los mensajes para ambos participantes?')) return;
+    if (!window.confirm(t('dm.info.clear_everyone_confirm'))) return;
     if (!conversationId) return;
     try {
       const snap = await getDocs(collection(db, 'conversations', conversationId, 'messages'));
@@ -278,15 +282,15 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   };
 
   const handleBlock = async () => {
-    if (!window.confirm(`¿Bloquear a ${name.split(' ')[0]}?`)) return;
+    if (!window.confirm(t('dm.info.block_confirm', { name: name.split(' ')[0] }))) return;
     await updateDoc(doc(db, 'users', currentUserId), { blockedUsers: arrayUnion(otherUserId), friends: arrayRemove(otherUserId) }).catch(() => {});
     close();
   };
 
   const handleReport = async () => {
-    if (!window.confirm(`¿Reportar a ${name.split(' ')[0]}?`)) return;
+    if (!window.confirm(t('dm.info.report_confirm', { name: name.split(' ')[0] }))) return;
     await addDoc(collection(db, 'reports'), { reporterId: currentUserId, reportedId: otherUserId, createdAt: serverTimestamp(), status: 'pending' }).catch(() => {});
-    window.alert('Reporte enviado. Gracias por ayudarnos a mantener la comunidad segura.');
+    window.alert(t('dm.info.report_sent'));
   };
 
   const rowHover = (e: React.MouseEvent<HTMLElement>, enter: boolean, danger?: boolean) => {
@@ -297,10 +301,10 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const displayedGroups = showAllGroups ? mutualGroups : mutualGroups.slice(0, 3);
 
   const friendBtnLabel = isFriend
-    ? (isBestFriend ? 'Quitar de mejores amigos' : 'Añadir a mejores amigos')
-    : friendStatus === 'received' ? 'Aceptar solicitud'
-    : friendStatus === 'sent' ? 'Solicitud enviada'
-    : 'Enviar solicitud de amistad';
+    ? (isBestFriend ? t('dm.info.best_friend_remove') : t('dm.info.best_friend_add'))
+    : friendStatus === 'received' ? t('common.accept')
+    : friendStatus === 'sent' ? t('friends.request_sent')
+    : t('friends.send_request');
 
   const FriendIcon = isFriend
     ? (isBestFriend ? Heart : UserCheck)
@@ -335,7 +339,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>Info. del contacto</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{t('dm.info.title')}</span>
           <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6 }}>
             <X size={20} color={colors.textSecondary} />
           </button>
@@ -349,14 +353,14 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, textAlign: 'center' }}>{name}</div>
           <div style={{ padding: '4px 12px', borderRadius: 20, backgroundColor: roleBadgeColor(role) + '22' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: roleBadgeColor(role) }}>{roleBadgeLabel(role)}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: roleBadgeColor(role) }}>{roleBadgeLabel(role, t)}</span>
           </div>
           {!!bio && <div style={{ fontSize: 13, color: colors.textSecondary, textAlign: 'center', lineHeight: '18px' }}>{bio}</div>}
           <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
             {[
-              { icon: <MessageSquare size={22} color={colors.primary} strokeWidth={1.8} />, label: 'Mensaje', action: close, always: true },
-              { icon: <Phone size={22} color={colors.primary} strokeWidth={1.8} />, label: 'Llamar', action: () => { close(); onCall?.('audio'); }, always: false },
-              { icon: <Video size={22} color={colors.primary} strokeWidth={1.8} />, label: 'Video', action: () => { close(); onCall?.('video'); }, always: false },
+              { icon: <MessageSquare size={22} color={colors.primary} strokeWidth={1.8} />, label: t('dm.info.message_btn'), action: close, always: true },
+              { icon: <Phone size={22} color={colors.primary} strokeWidth={1.8} />, label: t('dm.info.call_btn'), action: () => { close(); onCall?.('audio'); }, always: false },
+              { icon: <Video size={22} color={colors.primary} strokeWidth={1.8} />, label: t('dm.info.video_btn'), action: () => { close(); onCall?.('video'); }, always: false },
             ].filter(btn => btn.always || !!onCall).map(btn => (
               <button key={btn.label} onClick={btn.action} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 14, backgroundColor: colors.backgroundSecondary, border: 'none', cursor: 'pointer', minWidth: 72 }}>
                 {btn.icon}
@@ -383,13 +387,13 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
           <div style={{ borderBottom: `1px solid ${colors.border}` }}>
             <button onClick={openMediaPanel} onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <ImageIcon size={18} color={colors.textSecondary} strokeWidth={1.8} />
-              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>Archivos, enlaces y docs</span>
+              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>{t('dm.info.files_links_docs')}</span>
               <span style={{ fontSize: 13, color: colors.textSecondary }}>{sharedMediaCount}</span>
               <ChevronRight size={15} color={colors.textSecondary} />
             </button>
             <button onClick={openSavedPanel} onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderTop: `1px solid ${colors.border}` }}>
               <Star size={18} color={colors.textSecondary} strokeWidth={1.8} />
-              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>Destacados</span>
+              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>{t('dm.info.starred')}</span>
               <ChevronRight size={15} color={colors.textSecondary} />
             </button>
           </div>
@@ -403,7 +407,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
             >
               {mute === 'off' ? <Bell size={18} color={colors.textSecondary} strokeWidth={1.8} /> : <BellOff size={18} color={colors.textSecondary} strokeWidth={1.8} />}
-              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>Notificaciones</span>
+              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>{t('dm.info.notifications')}</span>
               <span style={{ fontSize: 13, color: colors.textSecondary }}>{muteDurationLabel[mute]}</span>
               <ChevronRight size={15} color={colors.textSecondary} />
             </button>
@@ -433,7 +437,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
             >
               <Music size={18} color={colors.textSecondary} strokeWidth={1.8} />
-              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>Tono de alerta</span>
+              <span style={{ flex: 1, fontSize: 14, color: colors.text }}>{t('dm.info.alert_tone')}</span>
               <span style={{ fontSize: 13, color: colors.textSecondary }}>{alertTone}</span>
               <ChevronRight size={15} color={colors.textSecondary} />
             </button>
@@ -459,7 +463,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
 
         <div style={{ borderBottom: `1px solid ${colors.border}` }}>
           <div style={{ padding: '12px 20px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
-            {mutualGroups.length} {mutualGroups.length === 1 ? 'grupo en común' : 'grupos en común'}
+            {mutualGroups.length === 1 ? t('dm.info.mutual_groups_one', { count: mutualGroups.length }) : t('dm.info.mutual_groups_other', { count: mutualGroups.length })}
           </div>
           {displayedGroups.map(group => (
             <button key={group.id} onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)}
@@ -469,7 +473,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
-                <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>{group.memberCount} miembros · {group.memberPreview}</div>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>{t('common.members_count', { count: group.memberCount })} · {group.memberPreview}</div>
               </div>
               <ChevronRight size={15} color={colors.textSecondary} />
             </button>
@@ -478,7 +482,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
             <button onClick={() => setShowAllGroups(v => !v)} onMouseEnter={e => rowHover(e, true)} onMouseLeave={e => rowHover(e, false)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 20px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <span style={{ fontSize: 14, color: colors.primary, fontWeight: 500 }}>
-                {showAllGroups ? 'Ver menos' : `Ver todos (${mutualGroups.length})`}
+                {showAllGroups ? t('common.see_less') : t('common.see_all_count', { count: mutualGroups.length })}
               </span>
             </button>
           )}
@@ -492,15 +496,15 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
             >
               <Trash2 size={18} color="#FF9500" />
-              <span style={{ fontSize: 14, color: '#FF9500' }}>Vaciar chat</span>
+              <span style={{ fontSize: 14, color: '#FF9500' }}>{t('dm.info.clear_chat')}</span>
             </button>
             {isAdmin && showClearOptions && (
               <>
                 <div onClick={() => setShowClearOptions(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
                 <div style={{ position: 'absolute', bottom: 'calc(100% + 4px)', left: 8, zIndex: 20, backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: 10, overflow: 'hidden', minWidth: 200, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
-                  <button onClick={clearForMe} style={{ display: 'block', width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF9500' }} onMouseEnter={e => (e.currentTarget.style.background = '#FF950012')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>Solo para mí</button>
+                  <button onClick={clearForMe} style={{ display: 'block', width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF9500' }} onMouseEnter={e => (e.currentTarget.style.background = '#FF950012')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>{t('dm.info.only_for_me')}</button>
                   <div style={{ height: 1, backgroundColor: colors.border }} />
-                  <button onClick={clearForEveryone} style={{ display: 'block', width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF9500', fontWeight: 600 }} onMouseEnter={e => (e.currentTarget.style.background = '#FF950012')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>Para todos</button>
+                  <button onClick={clearForEveryone} style={{ display: 'block', width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF9500', fontWeight: 600 }} onMouseEnter={e => (e.currentTarget.style.background = '#FF950012')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>{t('chat.info.for_everyone')}</button>
                 </div>
               </>
             )}
@@ -510,12 +514,12 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         {onDeleteChat && (
           <div style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.border}` }}>
             <button
-              onClick={() => { if (!window.confirm('¿Eliminar este chat? Dejará de aparecer en tu lista.')) return; close(); onDeleteChat(); }}
+              onClick={() => { if (!window.confirm(t('dm.info.delete_chat_confirm'))) return; close(); onDeleteChat(); }}
               onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}
             >
               <Trash2 size={18} color="#FF3B30" />
-              <span style={{ fontSize: 14, color: '#FF3B30' }}>Eliminar chat</span>
+              <span style={{ fontSize: 14, color: '#FF3B30' }}>{t('dm.info.delete_chat')}</span>
             </button>
           </div>
         )}
@@ -523,11 +527,11 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         <div style={{ padding: '8px 12px' }}>
           <button onClick={handleBlock} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>
             <Shield size={18} color="#FF3B30" />
-            <span style={{ fontSize: 14, color: '#FF3B30' }}>Bloquear a {name.split(' ')[0]}</span>
+            <span style={{ fontSize: 14, color: '#FF3B30' }}>{t('dm.block_label', { name: name.split(' ')[0] })}</span>
           </button>
           <button onClick={handleReport} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>
             <AlertTriangle size={18} color="#FF3B30" />
-            <span style={{ fontSize: 14, color: '#FF3B30' }}>Reportar a {name.split(' ')[0]}</span>
+            <span style={{ fontSize: 14, color: '#FF3B30' }}>{t('dm.report_label', { name: name.split(' ')[0] })}</span>
           </button>
         </div>
 
@@ -539,17 +543,17 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               <button onClick={() => setActiveSubPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
                 <ArrowLeft size={20} color={colors.text} />
               </button>
-              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>Archivos, enlaces y docs</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{t('dm.info.files_links_docs')}</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {loadingMedia ? (
-                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>Cargando…</div>
+                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>{t('common.loading')}</div>
               ) : (
                 <>
                   {sharedFiles.length > 0 && (
                     <div>
                       <div style={{ padding: '12px 20px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
-                        Archivos ({sharedFiles.length})
+                        {t('dm.info.files_count', { count: sharedFiles.length })}
                       </div>
                       {sharedFiles.map((f, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${colors.border}` }}>
@@ -568,7 +572,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
                           <button
                             onClick={() => downloadFile(f.url, f.name)}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', borderRadius: 8, flexShrink: 0 }}
-                            title="Descargar"
+                            title={t('common.download')}
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                           >
@@ -581,7 +585,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
                   {sharedLinks.length > 0 && (
                     <div>
                       <div style={{ padding: '12px 20px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>
-                        Enlaces ({sharedLinks.length})
+                        {t('dm.info.links_count', { count: sharedLinks.length })}
                       </div>
                       {sharedLinks.map((l, i) => (
                         <a key={i} href={l.url} target="_blank" rel="noreferrer"
@@ -601,7 +605,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
                     </div>
                   )}
                   {sharedFiles.length === 0 && sharedLinks.length === 0 && (
-                    <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>No hay archivos ni enlaces compartidos</div>
+                    <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>{t('dm.info.no_shared_files')}</div>
                   )}
                 </>
               )}
@@ -615,13 +619,13 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
               <button onClick={() => setActiveSubPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
                 <ArrowLeft size={20} color={colors.text} />
               </button>
-              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>Destacados</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{t('dm.info.starred')}</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {loadingSaved ? (
-                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>Cargando…</div>
+                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>{t('common.loading')}</div>
               ) : savedMessages.length === 0 ? (
-                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>No tienes mensajes guardados de esta conversación</div>
+                <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>{t('dm.info.no_saved_messages')}</div>
               ) : (
                 savedMessages.map((msg, i) => (
                   <div key={i} style={{ padding: '12px 20px', borderBottom: `1px solid ${colors.border}` }}>
@@ -636,7 +640,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
                       <div style={{ fontSize: 13, color: colors.text, lineHeight: '18px' }}>{msg.text}</div>
                     ) : msg.attachments?.[0] ? (
                       <div style={{ fontSize: 13, color: colors.textSecondary, fontStyle: 'italic' }}>
-                        {msg.attachments[0].type === 'image' ? '🖼 Imagen' : msg.attachments[0].type === 'audio' ? '🎵 Audio' : '📄 Archivo'}
+                        {msg.attachments[0].type === 'image' ? `🖼 ${t('dm.image')}` : msg.attachments[0].type === 'audio' ? `🎵 ${t('dm.voice_message')}` : `📄 ${t('common.file')}`}
                       </div>
                     ) : null}
                   </div>

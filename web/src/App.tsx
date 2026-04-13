@@ -16,6 +16,7 @@ import Campus from './pages/main/Campus';
 import AnnouncementDetail from './pages/campus/AnnouncementDetail';
 import DirectChat from './pages/chat/DirectChat';
 import { CallProvider, useCall } from './contexts/CallContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessageSoundProvider } from './contexts/MessageSoundContext';
 import { AccountsProvider } from './contexts/AccountsContext';
@@ -32,6 +33,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
 import GroupCallScreen, { IncomingGroupCallModal } from './components/call/GroupCallScreen';
 import ConferenceScreen, { IncomingConferenceModal } from './components/call/ConferenceScreen';
+import { useTranslation } from './hooks/useTranslation';
 
 function GlobalCallOverlay() {
   const location = useLocation();
@@ -110,8 +112,8 @@ function GlobalCallOverlay() {
             {awaitingConference.groupPhoto
               ? <img src={awaitingConference.groupPhoto} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
               : <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#fff' }}>
-                  {awaitingConference.groupName.charAt(0).toUpperCase()}
-                </div>
+                {awaitingConference.groupName.charAt(0).toUpperCase()}
+              </div>
             }
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>
               {awaitingConference.groupName}
@@ -120,7 +122,7 @@ function GlobalCallOverlay() {
               Esperando que el host te admita…
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              {[0,1,2].map(i => (
+              {[0, 1, 2].map(i => (
                 <div key={i} style={{
                   width: 8, height: 8, borderRadius: '50%', background: '#7c3aed',
                   animation: `pulse 1.2s ease-in-out ${i * 0.4}s infinite`
@@ -144,6 +146,7 @@ function GlobalCallOverlay() {
         <ConferenceScreen
           callId={activeConference.callId}
           isInitiator={activeConference.isInitiator}
+          canApprove={activeConference.isInitiator || activeConference.myRole === 'teacher' || activeConference.myRole === 'admin'}
           callType={activeConference.type}
           groupName={activeConference.groupName}
           groupPhoto={activeConference.groupPhoto}
@@ -161,48 +164,52 @@ function GlobalCallOverlay() {
 }
 
 function App() {
+  const { t } = useTranslation();
+
   return (
     <AccountsProvider>
-    <NotificationsProvider>
-      <CallProvider>
-        <BrowserRouter>
-          <MessageSoundProvider>
-          <GlobalCallOverlay />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/campus" element={<Campus />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/messages/archived" element={<ArchivedChats />} />
-            <Route path="/messages/group/:groupId" element={<GroupChat />} />
-            <Route path="/messages/:conversationId" element={<DirectChat />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="/chat/:id" element={<Chat />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/theme" element={<ThemeSettings />} />
-            <Route path="/edit-profile" element={<EditProfile />} />
-            <Route path="/account-details" element={<AccountDetails />} />
-            <Route path="/post/:id" element={<PostDetail />} />
-            <Route path="/post/:id/edit" element={<EditPost />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
-            <Route path="/saved-items" element={<SavedItems />} />
-            <Route path="/settings/accounts" element={<Accounts />} />
-            <Route path="/settings/add-account" element={<AddAccount />} />
-            <Route path="/settings/delete-account" element={<DeleteAccount />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/support" element={<Support />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/chat/3" element={<Navigate to="/events" replace />} />
-            <Route path="/chat/4" element={<Navigate to="/support" replace />} />
-          </Routes>
-          </MessageSoundProvider>
-        </BrowserRouter>
-      </CallProvider>
-    </NotificationsProvider>
+      <LanguageProvider>
+        <NotificationsProvider t={t}>
+          <CallProvider>
+            <BrowserRouter>
+              <MessageSoundProvider>
+                <GlobalCallOverlay />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/explore" element={<Explore />} />
+                  <Route path="/campus" element={<Campus />} />
+                  <Route path="/messages" element={<Messages />} />
+                  <Route path="/messages/archived" element={<ArchivedChats />} />
+                  <Route path="/messages/group/:groupId" element={<GroupChat />} />
+                  <Route path="/messages/:conversationId" element={<DirectChat />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/" element={<Navigate to="/login" />} />
+                  <Route path="/chat/:id" element={<Chat />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/theme" element={<ThemeSettings />} />
+                  <Route path="/edit-profile" element={<EditProfile />} />
+                  <Route path="/account-details" element={<AccountDetails />} />
+                  <Route path="/post/:id" element={<PostDetail />} />
+                  <Route path="/post/:id/edit" element={<EditPost />} />
+                  <Route path="/friends" element={<Friends />} />
+                  <Route path="/campus/announcement/:id" element={<AnnouncementDetail />} />
+                  <Route path="/saved-items" element={<SavedItems />} />
+                  <Route path="/settings/accounts" element={<Accounts />} />
+                  <Route path="/settings/add-account" element={<AddAccount />} />
+                  <Route path="/settings/delete-account" element={<DeleteAccount />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/support" element={<Support />} />
+                  <Route path="/events" element={<Events />} />
+                  <Route path="/chat/3" element={<Navigate to="/events" replace />} />
+                  <Route path="/chat/4" element={<Navigate to="/support" replace />} />
+                </Routes>
+              </MessageSoundProvider>
+            </BrowserRouter>
+          </CallProvider>
+        </NotificationsProvider>
+      </LanguageProvider>
     </AccountsProvider>
   );
 }

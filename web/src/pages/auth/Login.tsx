@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAccounts } from '../../contexts/AccountsContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { addAccount } = useAccounts();
+  const { t } = useTranslation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +31,7 @@ export default function Login() {
       });
       navigate('/home');
     } catch {
-      setError('Email o contraseña incorrectos');
+      setError(t('auth.login_error'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function Login() {
         await setDoc(userRef, {
           uid: user.uid,
           email: user.email,
-          displayName: user.displayName || 'Usuario',
+          displayName: user.displayName || t('common.user'),
           photoURL: user.photoURL || null,
           role: 'student',
           department: null,
@@ -60,7 +62,7 @@ export default function Login() {
       navigate('/home');
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') {
-        setError('No se pudo iniciar sesión con Google');
+        setError(t('auth.google_error'));
       }
     } finally {
       setLoading(false);
@@ -73,16 +75,16 @@ export default function Login() {
         <h1 className="login-title">CampusHub</h1>
 
         <p className="text-subtitle" style={{ textAlign: 'center', marginBottom: '24px' }}>
-          Bienvenido de nuevo
+          {t('common.welcome')}
         </p>
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">{t('auth.email')}</label>
             <input
               type="email"
               className="form-input"
-              placeholder="tu@email.com"
+              placeholder={t('auth.email_placeholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -90,11 +92,11 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Contraseña</label>
+            <label className="form-label">{t('auth.password')}</label>
             <input
               type="password"
               className="form-input"
-              placeholder="••••••••"
+              placeholder={t('auth.password_placeholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -104,20 +106,23 @@ export default function Login() {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" className="btn" disabled={loading} style={{ opacity: loading ? 0.6 : 1 }}>
-            {loading ? 'Entrando...' : 'Iniciar Sesión'}
+            {loading ? t('auth.logging_in') : t('common.login')}
           </button>
         </form>
 
         <p className="text-subtitle" style={{ textAlign: 'center', margin: '24px 0 16px' }}>
-          O continuar con
+          {t('auth.or_continue_with')}
         </p>
 
         <button className="btn btn-google" onClick={handleGoogleLogin} disabled={loading}>
-          Continuar con Google
+          {t('auth.login_with_google')}
         </button>
 
         <p className="text-subtitle" style={{ textAlign: 'center' }}>
-          ¿No tienes cuenta? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>Registrate</a>
+          {t('auth.no_account')}{' '}
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>
+            {t('auth.register_here')}
+          </a>
         </p>
       </div>
     </div>

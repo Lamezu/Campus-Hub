@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Pin, CalendarDays, Users, GraduationCap } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCurrentUser } from '../../hooks/campus/useCurrentUser';
@@ -8,21 +8,29 @@ import { AnnouncementsTab } from '../../components/campus/AnnouncementsTab';
 import { CalendarTab } from '../../components/campus/CalendarTab';
 import { GroupsTab } from '../../components/campus/GroupsTab';
 import { auth } from '../../config/firebase';
+import { useTranslation } from '../../hooks/useTranslation';
 
-const SUBTABS = ['Tablón', 'Calendario', 'Grupos'] as const;
+const SUBTABS = ['board', 'calendar', 'groups'] as const;
 type Subtab = typeof SUBTABS[number];
 
-const TAB_ICONS = {
-  'Tablón': Pin,
-  'Calendario': CalendarDays,
-  'Grupos': Users,
+const TAB_ICONS: Record<Subtab, React.ElementType> = {
+  board: Pin,
+  calendar: CalendarDays,
+  groups: Users,
 };
 
 export default function CampusScreen() {
   const { colors } = useTheme();
-  const { can, subrole, department, isAdmin, eventTypes } = useCurrentUser();
-  const [activeTab, setActiveTab] = useState<Subtab>('Tablón');
+  const { t } = useTranslation();
+  const { can, role, subrole, department, isAdmin, eventTypes } = useCurrentUser();
+  const [activeTab, setActiveTab] = useState<Subtab>('board');
   const [slideDir, setSlideDir] = useState<'right' | 'left' | null>(null);
+
+  const TAB_LABELS: Record<Subtab, string> = {
+    board: t('campus.tabs.board'),
+    calendar: t('campus.tabs.calendar'),
+    groups: t('campus.tabs.groups'),
+  };
 
   const handleTabChange = (tab: Subtab) => {
     if (tab === activeTab) return;
@@ -54,7 +62,7 @@ export default function CampusScreen() {
               </div>
               <div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: colors.text }}>Campus</div>
-                <div style={{ fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>Tablón de anuncios, calendario y grupos de estudio</div>
+                <div style={{ fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>{t('campus.subtitle')}</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
@@ -77,7 +85,7 @@ export default function CampusScreen() {
                     }}
                   >
                     <Icon size={15} strokeWidth={active ? 2.5 : 2} />
-                    {tab}
+                    {TAB_LABELS[tab]}
                   </button>
                 );
               })}
@@ -103,7 +111,7 @@ export default function CampusScreen() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingBottom: 12 }}>
                     <Icon size={16} color={activeTab === tab ? colors.primary : colors.textSecondary} strokeWidth={activeTab === tab ? 2.5 : 2} />
                     <span style={{ fontSize: 14, fontWeight: activeTab === tab ? 700 : 600, color: activeTab === tab ? colors.primary : colors.textSecondary }}>
-                      {tab}
+                      {TAB_LABELS[tab]}
                     </span>
                   </div>
                   {activeTab === tab && (
@@ -116,13 +124,13 @@ export default function CampusScreen() {
         )}
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div className={activeTab === 'Tablón' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Tablón' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className={activeTab === 'board' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'board' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <AnnouncementsTab canCreateAnnouncement={can('createAnnouncement')} />
           </div>
-          <div className={activeTab === 'Calendario' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Calendario' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-            <CalendarTab eventTypes={eventTypes} department={department} subrole={subrole} currentUserId={currentUser?.uid ?? ''} />
+          <div className={activeTab === 'calendar' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'calendar' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <CalendarTab eventTypes={eventTypes} role={role} department={department} subrole={subrole} currentUserId={currentUser?.uid ?? ''} />
           </div>
-          <div className={activeTab === 'Grupos' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'Grupos' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className={activeTab === 'groups' && slideDir ? `animate-tab-slide-${slideDir}` : ''} style={{ display: activeTab === 'groups' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <GroupsTab canCreate={can('createStudyGroup')} isAdmin={isAdmin} />
           </div>
         </div>

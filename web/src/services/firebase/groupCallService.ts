@@ -270,7 +270,7 @@ export function subscribeToIncomingGroupCalls(
       .find(c =>
         (c.status === 'ringing' || c.status === 'active') &&
         c.initiatorId !== userId &&
-        (c.status === 'ringing' || !c.activeParticipants.includes(userId))
+        !c.activeParticipants.includes(userId)
       ) ?? null;
     callback(relevant);
   });

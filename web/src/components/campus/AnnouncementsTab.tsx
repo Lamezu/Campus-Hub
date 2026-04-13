@@ -6,6 +6,7 @@ import { useWindowSize } from '../../hooks/useWindowSize';
 import { useAnnouncements } from '../../hooks/campus/useAnnouncements';
 import { AnnouncementCard } from './AnnouncementCard';
 import { ANNOUNCEMENT_CATEGORIES } from '../../constants/announcementCategories';
+import { useTranslation } from '../../hooks/useTranslation';
 import { uploadAnnouncementImage } from '../../config/cloudinary';
 import { auth } from '../../config/firebase';
 
@@ -16,12 +17,10 @@ interface AnnouncementsTabProps {
   highlightId?: string | null;
 }
 
-const PIN_DURATION_LABELS: Record<PinDuration, string> = {
-  '1d': '1 día', '3d': '3 días', '1w': '1 sem', '1m': '1 mes', permanent: 'Siempre',
-};
 
 export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: AnnouncementsTabProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentUser = auth.currentUser;
   const isDesktop = useWindowSize();
@@ -121,7 +120,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
               }}
             >
               <Plus size={16} color="#fff" strokeWidth={2.5} />
-              Nuevo anuncio
+              {t('campus.announcement.new_btn')}
             </button>
           )}
         </div>
@@ -151,10 +150,10 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
         flex: 1,
         alignItems: isDesktop ? 'start' : undefined,
       }}>
-        {loading && <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, gridColumn: '1 / -1' }}>Cargando...</div>}
+        {loading && <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, gridColumn: '1 / -1' }}>{t('common.loading')}</div>}
         {!loading && announcements.length === 0 && (
           <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, fontSize: 14, gridColumn: '1 / -1' }}>
-            {canCreateAnnouncement ? 'Crea el primer anuncio.' : 'No hay anuncios aún.'}
+            {canCreateAnnouncement ? t('campus.announcement.first_announcement') : t('campus.announcement.no_announcements')}
           </div>
         )}
         {announcements.map(item => (
@@ -178,13 +177,13 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
                 <X size={22} color={colors.text} strokeWidth={2} />
               </button>
-              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{editingPostId ? 'Editar anuncio' : 'Nuevo anuncio'}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{editingPostId ? t('campus.edit_announcement') : t('campus.announcement.new_btn')}</span>
               <button
                 onClick={handleSave}
                 disabled={!canSave}
                 style={{ background: 'none', border: 'none', cursor: canSave ? 'pointer' : 'not-allowed', fontSize: 16, fontWeight: 600, color: canSave ? colors.primary : colors.textSecondary }}
               >
-                {uploadingImage ? '...' : editingPostId ? 'Guardar' : 'Publicar'}
+                {uploadingImage ? '...' : editingPostId ? t('common.save') : t('campus.announcement.publish')}
               </button>
             </div>
 
@@ -207,12 +206,12 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                   style={{ border: `1px solid ${colors.border}`, borderRadius: 12, height: 100, backgroundColor: colors.backgroundSecondary, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
                   <ImagePlus size={22} color={colors.textSecondary} strokeWidth={1.5} />
-                  <span style={{ fontSize: 13, color: colors.textSecondary }}>Añadir imagen de portada (opcional)</span>
+                  <span style={{ fontSize: 13, color: colors.textSecondary }}>{t('campus.announcement.add_cover')}</span>
                 </button>
               )}
 
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, marginBottom: 8 }}>Categoría</div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, marginBottom: 8 }}>{t('campus.announcement.category')}</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {ANNOUNCEMENT_CATEGORIES.map(cat => (
                     <button
@@ -233,14 +232,14 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
 
               <input
                 type="text"
-                placeholder="Título del anuncio"
+                placeholder={t('campus.announcement.title_placeholder')}
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 style={{ fontSize: 18, fontWeight: 700, border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', background: 'transparent', color: colors.text, padding: '8px 0', fontFamily: 'inherit' }}
               />
 
               <textarea
-                placeholder="Escribe el contenido del anuncio..."
+                placeholder={t('campus.announcement.content_placeholder')}
                 value={form.content}
                 onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                 rows={5}
@@ -250,7 +249,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Pin size={16} color={colors.text} strokeWidth={2} />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: colors.text }}>Fijar anuncio</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: colors.text }}>{t('campus.announcement.pin')}</span>
                 </div>
                 <button
                   onClick={() => setForm(f => ({ ...f, pinned: !f.pinned }))}
@@ -280,7 +279,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
                         fontSize: 12, fontWeight: 600, cursor: 'pointer',
                       }}
                     >
-                      {PIN_DURATION_LABELS[opt]}
+                      {t('campus.announcement.pin_durations.' + opt)}
                     </button>
                   ))}
                 </div>

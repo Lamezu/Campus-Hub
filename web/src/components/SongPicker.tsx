@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, X, Play, Pause, Check, Music } from 'lucide-react';
 import { searchTracks } from '../config/jamendo';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 import type { JamendoTrack } from '../types';
 
 interface SongPickerProps {
@@ -13,6 +14,7 @@ interface SongPickerProps {
 
 export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [tracks, setTracks] = useState<JamendoTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,13 +115,13 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
           }}
         >
           <span style={{ fontSize: 18, fontWeight: '600', color: colors.text }}>
-            Elegir canción
+            {t('song_picker.title')}
           </span>
           <button
             onClick={handleClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontWeight: '600', fontSize: 15 }}
           >
-            Cerrar
+            {t('common.close')}
           </button>
         </div>
 
@@ -138,7 +140,7 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
           <input
             autoFocus
             type="text"
-            placeholder="Buscar canción o artista..."
+            placeholder={t('song_picker.search_placeholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{
@@ -172,7 +174,7 @@ export function SongPicker({ visible, onClose, onSelect, selected }: SongPickerP
             </div>
           ) : tracks.length === 0 ? (
             <p style={{ textAlign: 'center', color: colors.textSecondary, padding: 32, fontSize: 14 }}>
-              {query.trim() ? 'No se encontraron canciones' : 'Busca una canción para añadir a tu post'}
+              {query.trim() ? t('song_picker.no_results') : t('song_picker.search_prompt')}
             </p>
           ) : (
             tracks.map((track) => {

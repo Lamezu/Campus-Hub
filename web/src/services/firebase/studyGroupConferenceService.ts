@@ -9,7 +9,6 @@ import {
   query,
   where,
   runTransaction,
-  arrayRemove,
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -268,9 +267,14 @@ export async function denyConferenceParticipant(callId: string, uid: string): Pr
 
 export function subscribeToActiveConferenceForGroup(
   groupId: string,
+  userId: string,
   callback: (call: GroupCall | null) => void
 ): Unsubscribe {
-  const q = query(collection(db, COL), where('groupId', '==', groupId));
+  const q = query(
+    collection(db, COL),
+    where('groupId', '==', groupId),
+    where('memberIds', 'array-contains', userId)
+  );
   return onSnapshot(q, snap => {
     const active = snap.docs
       .map(d => ({ id: d.id, ...d.data() } as GroupCall))
@@ -289,7 +293,9 @@ export function subscribeToIncomingConferences(
       .map(d => ({ id: d.id, ...d.data() } as GroupCall))
       .find(c =>
         (c.status === 'ringing' || c.status === 'active') &&
-        c.initiatorId !== userId
+        c.initiatorId !== userId &&
+        !c.activeParticipants.includes(userId) &&
+        !c.rejectedParticipants?.includes(userId)
       ) ?? null;
     callback(relevant);
   });

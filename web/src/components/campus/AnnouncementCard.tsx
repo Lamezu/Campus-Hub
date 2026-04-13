@@ -1,6 +1,7 @@
 import { Pin, CalendarDays, MoreVertical } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { getCategoryConfig } from '../../constants/announcementCategories';
 import type { Post } from '../../types';
 
@@ -20,6 +21,7 @@ function getDateLabel(iso: string) {
 
 export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPublishSocial, highlighted }: AnnouncementCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const hasOptions = !!(onEdit || onPin || onDelete);
   const category = getCategoryConfig(post.category);
@@ -88,25 +90,25 @@ export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPub
                       {onEdit && (
                         <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
                           style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: colors.text }}>
-                          Editar anuncio
+                          {t('campus.announcement.edit_announcement')}
                         </button>
                       )}
                       {onPin && (
                         <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onPin(); }}
                           style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: colors.text }}>
-                          {post.pinned ? 'Desfijar' : 'Fijar en el tablón'}
+                          {post.pinned ? t('campus.announcement.unpin') : t('campus.announcement.pin_board')}
                         </button>
                       )}
                       {onPublishSocial && !post.socialId && (
                         <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onPublishSocial(); }}
                           style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: colors.text }}>
-                          Publicar como post
+                          {t('campus.announcement.publish_as_post')}
                         </button>
                       )}
                       {onDelete && (
                         <button onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
                           style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#FF3B30' }}>
-                          Eliminar anuncio
+                          {t('campus.announcement.delete_announcement')}
                         </button>
                       )}
                     </div>

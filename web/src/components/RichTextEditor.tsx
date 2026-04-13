@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWindowSize } from '../hooks/useWindowSize';
+import { useTranslation } from '../hooks/useTranslation';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -52,6 +53,7 @@ function TableGridPicker({
   colors: Colors;
 }) {
   const [hover, setHover] = useState({ row: -1, col: -1 });
+  const { t } = useTranslation();
 
   const pickerW = GRID_COLS * (CELL + GAP) + 20;
   const pickerH = GRID_ROWS * (CELL + GAP) + 52;
@@ -98,7 +100,7 @@ function TableGridPicker({
           ))}
         </div>
         <div style={{ marginTop: 9, textAlign: 'center', fontSize: 13, fontWeight: 700, color: hover.row >= 0 ? colors.primary : colors.textSecondary }}>
-          {hover.row >= 0 ? `${hover.row + 1} × ${hover.col + 1} tabla` : 'Selecciona tamaño'}
+          {hover.row >= 0 ? `${hover.row + 1} × ${hover.col + 1} ${t('rich_text.table')}` : t('rich_text.select_size')}
         </div>
       </div>
     </>,
@@ -135,6 +137,7 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
   const [tableAnchor, setTableAnchor] = useState<DOMRect | null>(null);
   const tableButtonRef = useRef<HTMLButtonElement>(null);
   const inTable = editor.isActive('table');
+  const { t } = useTranslation();
 
   return (
     <div style={{
@@ -150,27 +153,27 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
       boxShadow: pageMode ? '0 1px 3px rgba(0,0,0,0.08)' : undefined,
       zIndex: 1,
     }}>
-      <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Deshacer"><Undo2 size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Rehacer"><Redo2 size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title={t('rich_text.undo')}><Undo2 size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title={t('rich_text.redo')}><Redo2 size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Negrita"><Bold size={15} strokeWidth={2.5} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Cursiva"><Italic size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Subrayado"><UnderlineIcon size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado"><Strikethrough size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title={t('rich_text.bold')}><Bold size={15} strokeWidth={2.5} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title={t('rich_text.italic')}><Italic size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title={t('rich_text.underline')}><UnderlineIcon size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title={t('rich_text.strikethrough')}><Strikethrough size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="Título 1"><Heading1 size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Título 2"><Heading2 size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="Título 3"><Heading3 size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title={t('rich_text.heading1')}><Heading1 size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title={t('rich_text.heading2')}><Heading2 size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title={t('rich_text.heading3')}><Heading3 size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Lista de viñetas"><List size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Lista numerada"><ListOrdered size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title={t('rich_text.bullet_list')}><List size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title={t('rich_text.ordered_list')}><ListOrdered size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="Alinear izquierda"><AlignLeft size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="Centrar"><AlignCenter size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title="Alinear derecha"><AlignRight size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title={t('rich_text.align_left')}><AlignLeft size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title={t('rich_text.align_center')}><AlignCenter size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title={t('rich_text.align_right')}><AlignRight size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Cita"><Quote size={15} strokeWidth={2} /></ToolbarBtn>
-      <ToolbarBtn onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} title="Código"><Code size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title={t('rich_text.blockquote')}><Quote size={15} strokeWidth={2} /></ToolbarBtn>
+      <ToolbarBtn onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} title={t('rich_text.code')}><Code size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
       <button
         ref={tableButtonRef}
@@ -178,7 +181,7 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
           e.preventDefault();
           setTableAnchor(a => a ? null : tableButtonRef.current!.getBoundingClientRect());
         }}
-        title="Insertar tabla"
+        title={t('rich_text.insert_table')}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 32, height: 32, borderRadius: 6, border: 'none',
@@ -200,11 +203,11 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
       {inTable && (
         <>
           <Sep />
-          <ToolbarBtn onClick={() => editor.chain().focus().addRowAfter().run()} title="Añadir fila abajo"><Rows3 size={15} strokeWidth={2} /></ToolbarBtn>
-          <ToolbarBtn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Añadir columna derecha"><Columns3 size={15} strokeWidth={2} /></ToolbarBtn>
-          <ToolbarBtn onClick={() => editor.chain().focus().deleteRow().run()} title="Eliminar fila"><Minus size={15} strokeWidth={2} /></ToolbarBtn>
-          <ToolbarBtn onClick={() => editor.chain().focus().deleteColumn().run()} title="Eliminar columna"><Minus size={13} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} /></ToolbarBtn>
-          <ToolbarBtn onClick={() => editor.chain().focus().deleteTable().run()} title="Eliminar tabla"><Trash2 size={13} strokeWidth={2} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => editor.chain().focus().addRowAfter().run()} title={t('rich_text.add_row')}><Rows3 size={15} strokeWidth={2} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => editor.chain().focus().addColumnAfter().run()} title={t('rich_text.add_column')}><Columns3 size={15} strokeWidth={2} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => editor.chain().focus().deleteRow().run()} title={t('rich_text.delete_row')}><Minus size={15} strokeWidth={2} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => editor.chain().focus().deleteColumn().run()} title={t('rich_text.delete_column')}><Minus size={13} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} /></ToolbarBtn>
+          <ToolbarBtn onClick={() => editor.chain().focus().deleteTable().run()} title={t('rich_text.delete_table')}><Trash2 size={13} strokeWidth={2} /></ToolbarBtn>
         </>
       )}
     </div>

@@ -11,12 +11,14 @@ import {
 } from '../services/firebase/callService';
 import {
   subscribeToIncomingGroupCalls,
+  leaveGroupCall as leaveGroupCallDM,
   type GroupCall
 } from '../services/firebase/groupCallService';
 import {
   subscribeToIncomingConferences,
   requestToJoinConference,
   subscribeToGroupCall as subscribeToConference,
+  leaveGroupCall as leaveConferenceCall,
 } from '../services/firebase/studyGroupConferenceService';
 import { playCallTone, stopCallTone } from '../utils/toneGenerator';
 
@@ -37,6 +39,7 @@ export interface ActiveGroupCall {
   myUid: string;
   myName: string;
   myPhoto: string | null;
+  myRole?: string;
 }
 
 export interface AwaitingConference {
@@ -121,13 +124,33 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [activeConferenceId, setActiveConferenceId] = useState<string | null>(null);
   const [awaitingConference, setAwaitingConference] = useState<AwaitingConference | null>(null);
 
+  // Stable refs that mirror state — used inside subscription callbacks to avoid re-subscribing
+  const activeCallIdRef = useRef<string | null>(null);
+  const activeGroupCallIdRef = useRef<string | null>(null);
+  const activeConferenceIdRef = useRef<string | null>(null);
+  const incomingCallRef = useRef<Call | null>(null);
+  const userIdRef = useRef<string | null>(null);
+
+  // Dismissed call id sets — prevents re-showing after user dismisses
+  const dismissedGroupCallIdsRef = useRef<Set<string>>(new Set());
+  const dismissedConferenceIdsRef = useRef<Set<string>>(new Set());
+
   const callToneRef = useRef<string>('Trompeta');
   const callToneUrlRef = useRef<string | null>(null);
   const userNameRef = useRef<string>('Usuario');
   const userPhotoRef = useRef<string | null>(null);
+  const userRoleRef = useRef<string>('student');
   const customAudioRef = useRef<HTMLAudioElement | null>(null);
   const missTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const groupDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conferenceDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => { activeCallIdRef.current = activeCallId; }, [activeCallId]);
+  useEffect(() => { activeGroupCallIdRef.current = activeGroupCallId; }, [activeGroupCallId]);
+  useEffect(() => { activeConferenceIdRef.current = activeConferenceId; }, [activeConferenceId]);
+  useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => setUserId(user?.uid ?? null));
@@ -143,15 +166,37 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         callToneUrlRef.current = data.settings?.callToneUrl ?? null;
         if (data.displayName) userNameRef.current = data.displayName;
         if (data.photoURL !== undefined) userPhotoRef.current = data.photoURL ?? null;
+        if (data.role) userRoleRef.current = data.role;
       }
     });
     return unsub;
   }, [userId]);
 
+  // Auto-leave on tab/browser close
+  useEffect(() => {
+    function handleUnload() {
+      const uid = userIdRef.current;
+      if (!uid) return;
+      const callId = activeCallIdRef.current;
+      const groupCallId = activeGroupCallIdRef.current;
+      const conferenceId = activeConferenceIdRef.current;
+      if (callId) endCall(callId).catch(() => {});
+      if (groupCallId) leaveGroupCallDM(groupCallId, uid).catch(() => {});
+      if (conferenceId) leaveConferenceCall(conferenceId, uid).catch(() => {});
+    }
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, []);
+
+  // Incoming 1-to-1 calls — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingCalls(userId, (call) => {
-      if (call && !activeCallId && !activeGroupCallId) {
+      if (call && !activeCallIdRef.current && !activeGroupCallIdRef.current) {
         if (call.callerId === userId) return;
         setIncomingCall(call);
         if (customAudioRef.current) {
@@ -181,43 +226,88 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return unsub;
-  }, [userId, activeCallId, activeGroupCallId]);
+  }, [userId]);
 
+  // Incoming group DM calls — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingGroupCalls(userId, (call) => {
-      if (call && !activeCallId && !activeGroupCallId && !incomingCall) {
+      if (
+        call &&
+        !activeCallIdRef.current &&
+        !activeGroupCallIdRef.current &&
+        !incomingCallRef.current &&
+        !dismissedGroupCallIdsRef.current.has(call.id)
+      ) {
         setIncomingGroupCall(call);
+        if (customAudioRef.current) {
+          customAudioRef.current.pause();
+          customAudioRef.current.currentTime = 0;
+          customAudioRef.current = null;
+        }
+        if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
+          const audio = new Audio(callToneUrlRef.current);
+          audio.loop = true;
+          audio.play().catch(() => {});
+          customAudioRef.current = audio;
+        } else {
+          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          playCallTone(preset);
+        }
         if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
         groupDismissTimerRef.current = setTimeout(() => {
           setIncomingGroupCall(null);
+          stopRinging();
         }, 45000);
       } else if (!call) {
         setIncomingGroupCall(null);
+        stopRinging();
         if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
       }
     });
     return unsub;
-  }, [userId, activeCallId, activeGroupCallId, incomingCall]);
+  }, [userId]);
 
-  const conferenceDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  // Incoming conferences — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingConferences(userId, (call) => {
-      if (call && !activeCallId && !activeGroupCallId && !activeConferenceId && !incomingCall) {
+      if (
+        call &&
+        !activeCallIdRef.current &&
+        !activeGroupCallIdRef.current &&
+        !activeConferenceIdRef.current &&
+        !incomingCallRef.current &&
+        !dismissedConferenceIdsRef.current.has(call.id)
+      ) {
         setIncomingConference(call);
+        if (customAudioRef.current) {
+          customAudioRef.current.pause();
+          customAudioRef.current.currentTime = 0;
+          customAudioRef.current = null;
+        }
+        if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
+          const audio = new Audio(callToneUrlRef.current);
+          audio.loop = true;
+          audio.play().catch(() => {});
+          customAudioRef.current = audio;
+        } else {
+          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          playCallTone(preset);
+        }
         if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
         conferenceDismissTimerRef.current = setTimeout(() => {
           setIncomingConference(null);
+          stopRinging();
         }, 45000);
       } else if (!call) {
         setIncomingConference(null);
+        stopRinging();
         if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
       }
     });
     return unsub;
-  }, [userId, activeCallId, activeGroupCallId, activeConferenceId, incomingCall]);
+  }, [userId]);
 
   function stopRinging() {
     if (customAudioRef.current) {
@@ -253,7 +343,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }
 
   function dismissGroupIncoming() {
+    if (incomingGroupCall) dismissedGroupCallIdsRef.current.add(incomingGroupCall.id);
     setIncomingGroupCall(null);
+    stopRinging();
     if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
   }
 
@@ -267,21 +359,30 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       groupPhoto: incomingGroupCall.groupPhoto ?? null,
       myUid: userId,
       myName: userNameRef.current,
-      myPhoto: userPhotoRef.current
+      myPhoto: userPhotoRef.current,
+      myRole: userRoleRef.current,
     });
     setActiveGroupCallId(incomingGroupCall.id);
-    dismissGroupIncoming();
+    dismissedGroupCallIdsRef.current.add(incomingGroupCall.id);
+    setIncomingGroupCall(null);
+    stopRinging();
+    if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
   }
 
   function dismissConferenceIncoming() {
+    if (incomingConference) dismissedConferenceIdsRef.current.add(incomingConference.id);
     setIncomingConference(null);
+    stopRinging();
     if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
   }
 
   function joinConferenceIncoming() {
     if (!incomingConference || !userId) return;
+    dismissedConferenceIdsRef.current.add(incomingConference.id);
     requestConferenceJoin(incomingConference);
-    dismissConferenceIncoming();
+    setIncomingConference(null);
+    stopRinging();
+    if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);
   }
 
   function requestConferenceJoin(call: GroupCall) {
@@ -313,7 +414,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           groupPhoto: call.groupPhoto ?? null,
           myUid: userId,
           myName: userNameRef.current,
-          myPhoto: userPhotoRef.current
+          myPhoto: userPhotoRef.current,
+          myRole: userRoleRef.current,
         });
         setActiveConferenceId(call.id);
         setAwaitingConference(null);

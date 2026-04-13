@@ -5,6 +5,7 @@ import { Images, Video, Music, X, VolumeX, Volume2 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { uploadPostMedia } from '../../config/cloudinary';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { SongPicker } from '../../components/SongPicker';
 import Layout from '../../components/Layout';
 import type { JamendoTrack } from '../../types';
@@ -22,6 +23,7 @@ export default function EditPostScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
@@ -121,7 +123,7 @@ export default function EditPostScreen() {
 
       navigate(-1);
     } catch {
-      alert('No se pudo guardar el post. Inténtalo de nuevo.');
+      alert(t('post.save_error'));
     } finally {
       setSaving(false);
     }
@@ -134,7 +136,7 @@ export default function EditPostScreen() {
 
   if (loading) {
     return (
-      <Layout title="Editar Post" showBackButton>
+      <Layout title={t('common.edit')} showBackButton>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 48 }}>
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
@@ -149,7 +151,7 @@ export default function EditPostScreen() {
 
   return (
     <Layout
-      title="Editar Post"
+      title={t('common.edit')}
       showBackButton
       rightAction={
         <button
@@ -170,7 +172,7 @@ export default function EditPostScreen() {
               borderTopColor: '#FFF',
               animation: 'spin 0.8s linear infinite',
             }} />
-          ) : 'Guardar'}
+          ) : t('common.save')}
         </button>
       }
     >
@@ -179,7 +181,7 @@ export default function EditPostScreen() {
         <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 16px', backgroundColor: colors.card }}>
           <input
             type="text"
-            placeholder="Título del post"
+            placeholder={t('post.title_placeholder')}
             value={title}
             onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
             maxLength={TITLE_MAX}
@@ -195,7 +197,7 @@ export default function EditPostScreen() {
 
         <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 16px', backgroundColor: colors.card }}>
           <textarea
-            placeholder="Escribe tu post aquí..."
+            placeholder={t('post.write_something')}
             value={content}
             onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
             maxLength={CONTENT_MAX}
@@ -240,7 +242,7 @@ export default function EditPostScreen() {
                 }}>
                   <Video size={32} color={colors.textSecondary} />
                   <span style={{ fontSize: 14, color: colors.textSecondary }}>
-                    {newMedia ? 'Vídeo seleccionado' : 'Vídeo actual'}
+                    {newMedia ? t('post.video_selected') : t('post.video_current')}
                   </span>
                   <button
                     onClick={() => setMuteOriginalAudio(prev => !prev)}
@@ -252,8 +254,8 @@ export default function EditPostScreen() {
                     }}
                   >
                     {muteOriginalAudio
-                      ? <><VolumeX size={14} /><span>Sin audio</span></>
-                      : <><Volume2 size={14} /><span>Con audio</span></>
+                      ? <><VolumeX size={14} /><span>{t('post.mute_audio')}</span></>
+                      : <><Volume2 size={14} /><span>{t('post.unmute_audio')}</span></>
                     }
                   </button>
                 </div>
@@ -277,7 +279,7 @@ export default function EditPostScreen() {
                     fontWeight: '600', fontSize: 14, cursor: 'pointer',
                   }}
                 >
-                  Eliminar
+                  {t('common.delete')}
                 </button>
               </div>
             </>
@@ -287,7 +289,7 @@ export default function EditPostScreen() {
               justifyContent: 'center', padding: 32, gap: 8,
             }}>
               <Images size={28} color={colors.textSecondary} />
-              <span style={{ fontSize: 14, color: colors.textSecondary }}>Añadir foto o vídeo</span>
+              <span style={{ fontSize: 14, color: colors.textSecondary }}>{t('post.add_media')}</span>
             </div>
           )}
         </div>
@@ -332,7 +334,7 @@ export default function EditPostScreen() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Music size={22} color={colors.textSecondary} />
-                <span style={{ fontSize: 14, color: colors.textSecondary }}>Añadir canción</span>
+                <span style={{ fontSize: 14, color: colors.textSecondary }}>{t('post.add_song')}</span>
               </div>
             )}
           </button>

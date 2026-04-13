@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, increment, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, increment, addDoc, serverTimestamp, getDoc, limit, startAfter, getDocs, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { Images, Video, Music, X, VolumeX, Volume2, Plus } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import { auth, db } from '../../config/firebase';
@@ -12,9 +12,11 @@ import SharePostModal from '../../components/SharePostModal';
 import Layout from '../../components/Layout';
 import { notificationService } from '../../services/notificationService';
 import type { JamendoTrack, Post } from '../../types';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const TITLE_MAX = 50;
 const CONTENT_MAX = 500;
+const POSTS_PER_PAGE = 10;
 
 interface MediaAsset {
   file: File;
@@ -29,12 +31,17 @@ interface UserProfile {
 
 export default function ExploreScreen() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const currentUser = auth.currentUser;
   const [showCreate, setShowCreate] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [sharePost, setSharePost] = useState<Post | null>(null);
 
   const [title, setTitle] = useState('');
@@ -47,7 +54,7 @@ export default function ExploreScreen() {
   const [profile, setProfile] = useState<UserProfile>({ displayName: '', photoURL: null });
 
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(POSTS_PER_PAGE));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data: Post[] = snapshot.docs
         .map((d) => {
@@ -61,6 +68,8 @@ export default function ExploreScreen() {
         })
         .filter((p) => p.postType !== 'announcement');
       setPosts(data);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1] ?? null);
+      setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
       setLoading(false);
     }, () => {
       setLoading(false);
@@ -68,6 +77,50 @@ export default function ExploreScreen() {
 
     return unsubscribe;
   }, []);
+
+  const loadMorePosts = useCallback(async () => {
+    if (loadingMore || !hasMore || !lastDoc) return;
+    setLoadingMore(true);
+    try {
+      const q = query(
+        collection(db, 'posts'),
+        orderBy('createdAt', 'desc'),
+        startAfter(lastDoc),
+        limit(POSTS_PER_PAGE),
+      );
+      const snapshot = await getDocs(q);
+      const newPosts: Post[] = snapshot.docs
+        .map((d) => {
+          const post = d.data();
+          return {
+            id: d.id,
+            ...post,
+            createdAt: post.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+            updatedAt: post.updatedAt?.toDate?.()?.toISOString() ?? null,
+          } as Post;
+        })
+        .filter((p) => p.postType !== 'announcement');
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        return [...prev, ...newPosts.filter((p) => !existingIds.has(p.id))];
+      });
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1] ?? null);
+      setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, lastDoc]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMorePosts(); },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMorePosts]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -181,7 +234,7 @@ export default function ExploreScreen() {
       setSong(null);
       setShowCreate(false);
     } catch {
-      alert('No se pudo publicar el post. Inténtalo de nuevo.');
+      alert(t('explore.publish_error'));
     } finally {
       setPublishing(false);
     }
@@ -196,7 +249,7 @@ export default function ExploreScreen() {
       <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 14px', backgroundColor: colors.card }}>
         <input
           type="text"
-          placeholder="Título del post"
+          placeholder={t('explore.social_placeholders.post_title')}
           value={title}
           onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
           maxLength={TITLE_MAX}
@@ -207,7 +260,7 @@ export default function ExploreScreen() {
 
       <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: '8px 14px', backgroundColor: colors.card }}>
         <textarea
-          placeholder="Escribe tu post aquí..."
+          placeholder={t('explore.social_placeholders.post_content')}
           value={content}
           onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
           maxLength={CONTENT_MAX}
@@ -227,12 +280,12 @@ export default function ExploreScreen() {
             ) : (
               <div style={{ height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.backgroundSecondary }}>
                 <Video size={28} color={colors.textSecondary} />
-                <span style={{ fontSize: 13, color: colors.textSecondary }}>Vídeo seleccionado</span>
+                <span style={{ fontSize: 13, color: colors.textSecondary }}>{t('explore.video_selected')}</span>
                 <button
                   onClick={() => setMuteOriginalAudio(prev => !prev)}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', backgroundColor: muteOriginalAudio ? '#FF3B30' : colors.primary, color: '#FFF', fontSize: 12, fontWeight: '600' }}
                 >
-                  {muteOriginalAudio ? <><VolumeX size={13} /><span>Sin audio</span></> : <><Volume2 size={13} /><span>Con audio</span></>}
+                  {muteOriginalAudio ? <><VolumeX size={13} /><span>{t('explore.mute_audio')}</span></> : <><Volume2 size={13} /><span>{t('explore.unmute_audio')}</span></>}
                 </button>
               </div>
             )}
@@ -243,7 +296,7 @@ export default function ExploreScreen() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 6 }}>
             <Images size={24} color={colors.textSecondary} />
-            <span style={{ fontSize: 13, color: colors.textSecondary }}>Añadir foto o vídeo</span>
+            <span style={{ fontSize: 13, color: colors.textSecondary }}>{t('explore.add_media')}</span>
           </div>
         )}
       </div>
@@ -270,7 +323,7 @@ export default function ExploreScreen() {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Music size={20} color={colors.textSecondary} />
-              <span style={{ fontSize: 13, color: colors.textSecondary }}>Añadir canción</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>{t('explore.add_song')}</span>
             </div>
           )}
         </button>
@@ -283,14 +336,14 @@ export default function ExploreScreen() {
       >
         {publishing
           ? <div style={{ width: 18, height: 18, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#FFF', animation: 'spin 0.8s linear infinite' }} />
-          : 'Publicar'
+          : t('explore.publish_btn')
         }
       </button>
     </div>
   );
 
   return (
-    <Layout title="Explorar" rightAction={<NotificationBell categories={['social']} />}>
+    <Layout title={t('tabs.explore')} rightAction={<NotificationBell categories={['social']} />}>
       <div style={{ position: 'relative', minHeight: '100%' }}>
         {!showCreate ? (
           <>
@@ -307,20 +360,27 @@ export default function ExploreScreen() {
               </div>
             ) : posts.length === 0 ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 48 }}>
-                <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>No hay posts todavía.{'\n'}¡Sé el primero en publicar!</p>
+                <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>{t('explore.no_posts')}</p>
               </div>
             ) : (
               <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: '80px' }}>
                 {posts.map((post) => (
                   <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} onLikePress={() => handleLikeToggle(post.id)} onShare={() => setSharePost(post)} currentUserId={currentUser?.uid} />
                 ))}
+                {hasMore && (
+                  <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
+                    {loadingMore && (
+                      <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </>
         ) : (
           <div style={{ maxWidth: 600, margin: '0 auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: '80px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>Crear Post</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>{t('explore.create_post')}</h2>
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: colors.textSecondary, padding: '4px 8px' }}>✕</button>
             </div>
             {createForm}

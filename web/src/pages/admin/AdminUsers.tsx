@@ -5,6 +5,7 @@ import { Search, X, Check, ChevronLeft, Users, ShieldCheck } from 'lucide-react'
 import { db } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
 import type { UserRole, UserSubrole } from '../../types';
 
 interface AppUser {
@@ -24,29 +25,11 @@ const ROLE_COLORS: Record<UserRole, string> = {
   admin: '#FF9500',
 };
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  student: 'Alumno/a',
-  teacher: 'Profesor/a',
-  admin: 'Administrador',
-};
-
-const SUBROLE_LABELS: Record<string, string> = {
-  delegate: 'Delegado/a',
-  coordinator: 'Coordinador/a',
-};
-
 const SUBROLES_FOR_ROLE: Record<UserRole, (UserSubrole)[]> = {
   student: [null, 'delegate'],
   teacher: [null, 'coordinator'],
   admin: [null],
 };
-
-const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'student', label: 'Alumnos' },
-  { value: 'teacher', label: 'Profesores' },
-  { value: 'admin', label: 'Admins' },
-];
 
 function Avatar({ user, size = 40 }: { user: AppUser; size?: number }) {
   const { colors } = useTheme();
@@ -80,6 +63,7 @@ interface EditModalProps {
 
 function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [selectedSubrole, setSelectedSubrole] = useState<UserSubrole>(null);
   const [saving, setSaving] = useState(false);
@@ -125,14 +109,14 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
         <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, margin: '0 auto 16px' }} />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>Cambiar rol</span>
+          <span style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>{t('admin.change_role.title')}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
             <X size={20} color={colors.textSecondary} />
           </button>
         </div>
         <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>{user.displayName}</div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, opacity: 0.7, marginBottom: 8 }}>Rol</div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, opacity: 0.7, marginBottom: 8 }}>{t('admin.change_role.role_label')}</div>
         {(['student', 'teacher', 'admin'] as UserRole[]).map(role => (
           <button
             key={role}
@@ -154,7 +138,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
                 <div style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: ROLE_COLORS[role] }} />
               </div>
               <span style={{ fontSize: 15, fontWeight: 500, color: selectedRole === role ? colors.primary : colors.text }}>
-                {ROLE_LABELS[role]}
+                {t(`roles.${role}`)}
               </span>
             </div>
             {selectedRole === role && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
@@ -163,7 +147,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
 
         {hasSubroles && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, opacity: 0.7, marginTop: 16, marginBottom: 8 }}>Subrol</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, opacity: 0.7, marginTop: 16, marginBottom: 8 }}>{t('admin.change_role.subrole_label')}</div>
             {availableSubroles.map(subrole => (
               <button
                 key={subrole ?? 'none'}
@@ -177,7 +161,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
                 }}
               >
                 <span style={{ fontSize: 15, fontWeight: 500, color: selectedSubrole === subrole ? colors.primary : colors.text }}>
-                  {subrole ? SUBROLE_LABELS[subrole] : 'Ninguno'}
+                  {subrole ? t(`roles.labels.${subrole}`) : t('roles.labels.none')}
                 </span>
                 {selectedSubrole === subrole && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
               </button>
@@ -194,7 +178,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
               fontSize: 15, fontWeight: 600, cursor: 'pointer',
             }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -206,7 +190,7 @@ function EditRoleModal({ user, onClose, onSave }: EditModalProps) {
               opacity: saving ? 0.7 : 1,
             }}
           >
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? '...' : t('common.save')}
           </button>
         </div>
       </div>
@@ -218,6 +202,14 @@ export default function AdminUsers() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const isDesktop = useWindowSize();
+  const { t } = useTranslation();
+
+  const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
+    { value: 'all', label: t('admin.filters.all') },
+    { value: 'student', label: t('admin.filters.students') },
+    { value: 'teacher', label: t('admin.filters.teachers') },
+    { value: 'admin', label: t('admin.filters.admins') },
+  ];
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -267,8 +259,8 @@ export default function AdminUsers() {
             <ShieldCheck size={20} color={colors.primary} strokeWidth={2} />
           </div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>Gestión de usuarios</div>
-            <div style={{ fontSize: 12, color: colors.textSecondary }}>{users.length} usuarios</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>{t('admin.user_mgmt_title')}</div>
+            <div style={{ fontSize: 12, color: colors.textSecondary }}>{t('admin.user_count', { count: users.length })}</div>
           </div>
         </div>
       </div>
@@ -284,7 +276,7 @@ export default function AdminUsers() {
             <Search size={16} color={colors.textSecondary} />
             <input
               type="text"
-              placeholder="Buscar por nombre o email..."
+              placeholder={t('admin.search_placeholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -320,12 +312,12 @@ export default function AdminUsers() {
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading && (
-            <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 60, fontSize: 14 }}>Cargando...</div>
+            <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 60, fontSize: 14 }}>{t('common.loading')}</div>
           )}
           {!loading && filtered.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 60, gap: 10 }}>
               <Users size={36} color={colors.textSecondary} strokeWidth={1.5} />
-              <div style={{ fontSize: 14, color: colors.textSecondary }}>{search ? 'Sin resultados' : 'No hay usuarios'}</div>
+              <div style={{ fontSize: 14, color: colors.textSecondary }}>{search ? t('common.no_results') : t('admin.no_users')}</div>
             </div>
           )}
           {filtered.map((u, i) => (
@@ -355,7 +347,7 @@ export default function AdminUsers() {
                     border: `1px solid ${ROLE_COLORS[u.role || 'student']}50`,
                     color: ROLE_COLORS[u.role || 'student'],
                   }}>
-                    {ROLE_LABELS[u.role || 'student']}
+                    {t(`roles.${u.role || 'student'}`)}
                   </span>
                   {u.subrole && (
                     <span style={{
@@ -365,7 +357,7 @@ export default function AdminUsers() {
                       border: `1px solid ${colors.border}`,
                       color: colors.textSecondary,
                     }}>
-                      {SUBROLE_LABELS[u.subrole]}
+                      {t(`roles.labels.${u.subrole}`)}
                     </span>
                   )}
                 </div>

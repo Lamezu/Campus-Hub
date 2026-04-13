@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { auth } from '../../config/firebase';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { getFriends, type FriendUser } from '../../services/firebase/friendsService';
 import { createGroupConversation } from '../../services/firebase/groupDMService';
 import { X, Search, Check, Users, ChevronRight, ArrowLeft } from 'lucide-react';
@@ -14,6 +15,7 @@ type Step = 'select' | 'name';
 
 export default function CreateGroupModal({ onClose, onCreated }: Props) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>('select');
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -24,7 +26,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    getFriends(uid).then(setFriends).catch(() => {});
+    getFriends(uid).then(setFriends).catch(() => { });
   }, []);
 
   const filtered = friends.filter(f =>
@@ -46,7 +48,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
     try {
       const me: { id: string; name: string; photo: string | null } = {
         id: currentUser.uid,
-        name: currentUser.displayName || 'Tú',
+        name: currentUser.displayName || t('common.you'),
         photo: currentUser.photoURL || null,
       };
       const memberFriends = friends
@@ -57,7 +59,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
       const name = groupName.trim() || members.filter(m => m.id !== currentUser.uid).map(m => m.name.split(' ')[0]).slice(0, 3).join(', ');
       const groupId = await createGroupConversation(members, name, null, currentUser.uid);
       onCreated(groupId);
-    } catch {} finally { setCreating(false); }
+    } catch { } finally { setCreating(false); }
   };
 
   const selectedFriends = friends.filter(f => selected.has(f.id));
@@ -81,7 +83,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
             </button>
           )}
           <span style={{ flex: 1, fontWeight: '700', fontSize: '17px', color: 'var(--text)' }}>
-            {step === 'select' ? 'Nuevo grupo' : 'Nombre del grupo'}
+            {step === 'select' ? t('chat.group.new_group') : t('chat.group.name_step')}
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
             <X size={22} />
@@ -120,7 +122,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
                 <Search size={16} color="var(--text-secondary)" />
                 <input
                   type="text"
-                  placeholder="Buscar amigos..."
+                  placeholder={t('chat.group.search_friends_placeholder')}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   style={{ border: 'none', background: 'none', outline: 'none', color: 'var(--text)', fontSize: '15px', flex: 1 }}
@@ -133,7 +135,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {filtered.length === 0 ? (
                 <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '32px 16px', fontSize: '14px' }}>
-                  {friends.length === 0 ? 'No tienes amigos aún' : 'Sin resultados'}
+                  {friends.length === 0 ? t('chat.group.no_friends') : t('common.no_results')}
                 </p>
               ) : (
                 filtered.map(f => {
@@ -183,7 +185,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
                   transition: 'background 0.15s',
                 }}
               >
-                Siguiente
+                {t('chat.group.next')}
                 <ChevronRight size={18} />
               </button>
             </div>
@@ -198,7 +200,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
 
               <div style={{ width: '100%' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  Nombre del grupo (opcional)
+                  {t('chat.group.group_name_label')}
                 </label>
                 <input
                   type="text"
@@ -219,7 +221,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
 
               <div style={{ width: '100%' }}>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 8px', fontWeight: '600' }}>
-                  {selected.size} {selected.size === 1 ? 'participante' : 'participantes'}
+                  {selected.size === 1 ? t('chat.group.participant_one', { count: selected.size }) : t('chat.group.participant_other', { count: selected.size })}
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {selectedFriends.map(f => (
@@ -246,7 +248,7 @@ export default function CreateGroupModal({ onClose, onCreated }: Props) {
                   fontWeight: '700', fontSize: '15px', cursor: creating ? 'default' : 'pointer',
                 }}
               >
-                {creating ? 'Creando...' : 'Crear grupo'}
+                {creating ? t('chat.group.creating') : t('chat.group.create')}
               </button>
             </div>
           </>

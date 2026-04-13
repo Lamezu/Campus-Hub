@@ -192,7 +192,8 @@ export async function sendGroupMessage(
   senderPhoto: string | null,
   text: string,
   attachments?: any[] | null,
-  replyTo?: any | null
+  replyTo?: any | null,
+  poll?: any | null
 ): Promise<string> {
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
@@ -209,6 +210,7 @@ export async function sendGroupMessage(
     attachments: attachments ?? null,
     reactions: {},
     replyTo: replyTo ?? null,
+    poll: poll ?? null,
     deletedForUsers: [],
     type: 'text',
   });
@@ -326,4 +328,54 @@ export async function updateGroupInfo(
   photoURL: string | null
 ): Promise<void> {
   await updateDoc(doc(db, 'groupConversations', groupId), { name: name.trim(), photoURL });
+}
+
+export async function clearGroupChatForUser(groupId: string, userId: string): Promise<void> {
+  const messagesRef = collection(db, 'groupConversations', groupId, 'messages');
+  const snap = await getDocs(messagesRef);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => {
+    const deletedFor: string[] = d.data().deletedForUsers || [];
+    if (!deletedFor.includes(userId)) {
+      batch.update(d.ref, { deletedForUsers: [...deletedFor, userId] });
+    }
+  });
+  await batch.commit();
+}
+
+export async function reportGroup(
+  groupId: string,
+  reporterId: string,
+  reason: string
+): Promise<void> {
+  await addDoc(collection(db, 'reports'), {
+    type: 'group',
+    targetId: groupId,
+    reporterId,
+    reason,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteGroupConversation(groupId: string): Promise<void> {
+  const messagesRef = collection(db, 'groupConversations', groupId, 'messages');
+  const snap = await getDocs(messagesRef);
+  if (!snap.empty) {
+    for (let i = 0; i < snap.docs.length; i += 500) {
+      const batch = writeBatch(db);
+      snap.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+  await deleteDoc(doc(db, 'groupConversations', groupId));
+}
+
+export async function kickMemberFromGroup(groupId: string, userId: string): Promise<void> {
+  await updateDoc(doc(db, 'groupConversations', groupId), {
+    members: arrayRemove(userId),
+    [`memberNames.${userId}`]: deleteField(),
+    [`memberPhotos.${userId}`]: deleteField(),
+    [`unreadCount.${userId}`]: deleteField(),
+  });
 }

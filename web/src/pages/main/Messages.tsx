@@ -11,6 +11,7 @@ import { getFriends, searchUsers, sendFriendRequest, cancelFriendRequest, areFri
 import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight, Bell, BellOff, Star, UserMinus, UserPlus, Eraser, Ban, Trash2, Users, PenSquare, AlertTriangle } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import CreateGroupModal from '../../components/messages/CreateGroupModal';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ConversationWithUser extends Conversation {
   otherUserData?: ConversationUser;
@@ -39,6 +40,7 @@ export default function Messages() {
   const [isBestFriendMap, setIsBestFriendMap] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t, language } = useTranslation();
   const userCacheRef = useRef<Record<string, ConversationUser>>({});
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,7 +57,7 @@ export default function Messages() {
         if (snap.exists()) {
           setCurrentUserData({ displayName: snap.data().displayName || '', photoURL: snap.data().photoURL || null });
         }
-      } catch {}
+      } catch { }
     });
     return unsubscribe;
   }, [navigate]);
@@ -98,7 +100,7 @@ export default function Messages() {
               userCacheRef.current[otherId] = user;
               return { ...conv, otherUserData: user };
             }
-          } catch {}
+          } catch { }
 
           return conv;
         })
@@ -111,7 +113,7 @@ export default function Messages() {
 
   useEffect(() => {
     if (!currentUserId || !showNewChat) return;
-    getFriends(currentUserId).then(setFriends).catch(() => {});
+    getFriends(currentUserId).then(setFriends).catch(() => { });
   }, [currentUserId, showNewChat]);
 
   useEffect(() => {
@@ -157,7 +159,7 @@ export default function Messages() {
       setSearchResults(prev =>
         prev.map(r => r.user.id === result.user.id ? { ...r, status: 'sent' } : r)
       );
-    } catch {}
+    } catch { }
     setRequestStates(prev => { const s = { ...prev }; delete s[result.user.id]; return s; });
   };
 
@@ -169,7 +171,7 @@ export default function Messages() {
       setSearchResults(prev =>
         prev.map(r => r.user.id === result.user.id ? { ...r, status: 'none', requestId: undefined } : r)
       );
-    } catch {}
+    } catch { }
     setRequestStates(prev => { const s = { ...prev }; delete s[result.user.id]; return s; });
   };
 
@@ -179,15 +181,16 @@ export default function Messages() {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const locale = language || 'es';
 
     if (days === 0) {
-      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     } else if (days === 1) {
-      return 'Ayer';
+      return t('time_ago.yesterday');
     } else if (days < 7) {
-      return date.toLocaleDateString('es-ES', { weekday: 'short' });
+      return date.toLocaleDateString(locale, { weekday: 'short' });
     }
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+    return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
   };
 
   const filteredFriends = friends.filter(f =>
@@ -258,8 +261,8 @@ export default function Messages() {
 
   const handleRemoveFriend = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    const name = conv.otherUserData?.displayName || 'Usuario';
-    if (!window.confirm(`¿Eliminar a ${name} de tus amigos?`)) return;
+    const name = conv.otherUserData?.displayName || t('common.user');
+    if (!window.confirm(t('messages.remove_friend_confirm', { name }))) return;
     const otherId = getOtherId(conv);
     closeAll();
     removeFriend(currentUserId, otherId).then(() => {
@@ -270,29 +273,29 @@ export default function Messages() {
   const handleAddFriend = (conv: ConversationWithUser) => {
     if (!currentUserId || !currentUserData) return;
     closeAll();
-    sendFriendRequest(currentUserId, getOtherId(conv), currentUserData.displayName, currentUserData.photoURL).catch(() => {});
+    sendFriendRequest(currentUserId, getOtherId(conv), currentUserData.displayName, currentUserData.photoURL).catch(() => { });
   };
 
   const handleClearChat = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    const name = conv.otherUserData?.displayName || 'Usuario';
-    if (!window.confirm(`¿Vaciar el chat con ${name}? No se puede deshacer.`)) return;
+    const name = conv.otherUserData?.displayName || t('common.user');
+    if (!window.confirm(t('messages.clear_chat_confirm', { name }))) return;
     closeAll();
     clearChatForMe(conv.id, currentUserId);
   };
 
   const handleBlock = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    const name = conv.otherUserData?.displayName || 'Usuario';
-    if (!window.confirm(`¿Bloquear a ${name}?`)) return;
+    const name = conv.otherUserData?.displayName || t('common.user');
+    if (!window.confirm(t('messages.block_confirm', { name }))) return;
     closeAll();
     blockUser(currentUserId, getOtherId(conv));
   };
 
   const handleDeleteChat = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    const name = conv.otherUserData?.displayName || 'Usuario';
-    if (!window.confirm(`¿Eliminar el chat con ${name}? No aparecerá en tu lista.`)) return;
+    const name = conv.otherUserData?.displayName || t('common.user');
+    if (!window.confirm(t('messages.delete_chat_confirm', { name }))) return;
     const otherId = getOtherId(conv);
     setContactSettings(prev => ({ ...prev, [otherId]: { ...prev[otherId], deleted: true } }));
     closeAll();
@@ -301,12 +304,12 @@ export default function Messages() {
 
   const handleReport = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    const name = conv.otherUserData?.displayName || 'Usuario';
-    if (!window.confirm(`¿Reportar a ${name}? Enviaremos tu reporte para revisión.`)) return;
+    const name = conv.otherUserData?.displayName || t('common.user');
+    if (!window.confirm(t('messages.report_confirm', { name }))) return;
     closeAll();
     reportUser(currentUserId, getOtherId(conv))
-      .then(() => window.alert('Reporte enviado. Gracias por ayudarnos a mantener la comunidad segura.'))
-      .catch(() => {});
+      .then(() => window.alert(t('messages.report_success')))
+      .catch(() => { });
   };
 
   const DropdownBtn = ({ icon, label, onClick, danger = false }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
@@ -337,7 +340,7 @@ export default function Messages() {
   }
 
   return (
-    <Layout title="Mensajes" rightAction={<NotificationBell categories={['dm']} />}>
+    <Layout title={t('messages.title')} rightAction={<NotificationBell categories={['dm']} />}>
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '0 0 80px' }}>
         <div style={{
           display: 'flex',
@@ -351,7 +354,7 @@ export default function Messages() {
           borderBottom: '1px solid var(--border)'
         }}>
           <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text)', margin: 0 }}>
-            Mensajes
+            {t('messages.title')}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
@@ -386,7 +389,7 @@ export default function Messages() {
             >
               <DropdownBtn
                 icon={<Archive size={16} />}
-                label={contactSettings[getOtherId(ctxMenu.conv)]?.archived ? 'Desarchivar' : 'Archivar'}
+                label={contactSettings[getOtherId(ctxMenu.conv)]?.archived ? t('messages.unarchive_label') : t('messages.archive_label')}
                 onClick={() => handleArchive(ctxMenu.conv)}
               />
               <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
@@ -403,11 +406,11 @@ export default function Messages() {
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ color: 'var(--text-secondary)', display: 'flex' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
                   </span>
-                  Más opciones
+                  {t('messages.more_options')}
                 </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
               </button>
             </div>
           </>
@@ -437,7 +440,7 @@ export default function Messages() {
                   <>
                     <DropdownBtn
                       icon={isMuted ? <Bell size={16} /> : <BellOff size={16} />}
-                      label={isMuted ? 'Activar notificaciones' : 'Silenciar'}
+                      label={isMuted ? t('messages.unmute_label') : t('messages.mute_label')}
                       onClick={() => handleMuteToggle(conv)}
                     />
                     <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
@@ -445,12 +448,12 @@ export default function Messages() {
                       <>
                         <DropdownBtn
                           icon={<Star size={16} color={isBestFriend ? '#FFD60A' : undefined} fill={isBestFriend ? '#FFD60A' : 'none'} />}
-                          label={isBestFriend ? 'Quitar mejor amigo' : 'Añadir mejor amigo'}
+                          label={isBestFriend ? t('messages.best_friend_remove') : t('messages.best_friend_add')}
                           onClick={() => handleBestFriendToggle(conv)}
                         />
                         <DropdownBtn
                           icon={<UserMinus size={16} />}
-                          label="Eliminar amigo"
+                          label={t('messages.remove_friend_label')}
                           onClick={() => handleRemoveFriend(conv)}
                           danger
                         />
@@ -458,31 +461,31 @@ export default function Messages() {
                     ) : (
                       <DropdownBtn
                         icon={<UserPlus size={16} />}
-                        label="Añadir amigo"
+                        label={t('messages.add_friend_label')}
                         onClick={() => handleAddFriend(conv)}
                       />
                     )}
                     <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
                     <DropdownBtn
                       icon={<Eraser size={16} />}
-                      label="Vaciar chat"
+                      label={t('messages.clear_chat_label')}
                       onClick={() => handleClearChat(conv)}
                     />
                     <DropdownBtn
                       icon={<Ban size={16} />}
-                      label={`Bloquear a ${firstName}`}
+                      label={t('messages.block_label', { name: firstName })}
                       onClick={() => handleBlock(conv)}
                       danger
                     />
                     <DropdownBtn
                       icon={<Trash2 size={16} />}
-                      label="Eliminar chat"
+                      label={t('messages.delete_chat_label')}
                       onClick={() => handleDeleteChat(conv)}
                       danger
                     />
                     <DropdownBtn
                       icon={<AlertTriangle size={16} />}
-                      label={`Reportar a ${firstName}`}
+                      label={t('messages.report_label', { name: firstName })}
                       onClick={() => handleReport(conv)}
                       danger
                     />
@@ -504,10 +507,10 @@ export default function Messages() {
           }}>
             <MessageCircle size={56} color={colors.primary} strokeWidth={1.5} />
             <p style={{ color: 'var(--text)', fontWeight: '600', fontSize: '18px', margin: 0 }}>
-              Sin conversaciones
+              {t('messages.no_conversations_title')}
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, textAlign: 'center' }}>
-              Inicia una conversación con un amigo
+              {t('messages.no_conversations_desc')}
             </p>
             <button
               onClick={() => setShowNewChat(true)}
@@ -523,7 +526,7 @@ export default function Messages() {
                 marginTop: '8px'
               }}
             >
-              Nueva conversación
+              {t('messages.new_conversation_btn')}
             </button>
           </div>
         ) : (
@@ -557,10 +560,10 @@ export default function Messages() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontWeight: '600', color: 'var(--text)', fontSize: '15px' }}>
-                    Archivados
+                    {t('messages.archived_label')}
                   </span>
                   <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    {archivedCount} {archivedCount === 1 ? 'conversación' : 'conversaciones'}
+                    {archivedCount} {archivedCount === 1 ? t('messages.archived_count_one') : t('messages.archived_count_other')}
                   </p>
                 </div>
                 <ChevronRight size={18} color="var(--text-secondary)" />
@@ -585,7 +588,7 @@ export default function Messages() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: totalUnread > 0 ? '700' : '600', color: 'var(--text)', fontSize: '15px' }}>
-                        {group.name || 'Grupo'}
+                        {group.name || t('common.group')}
                       </span>
                       <span style={{ fontSize: '12px', color: totalUnread > 0 ? colors.primary : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={11} />
@@ -595,7 +598,7 @@ export default function Messages() {
                     <p style={{ margin: '2px 0 0', fontSize: '13px', color: totalUnread > 0 ? 'var(--text)' : 'var(--text-secondary)', fontWeight: totalUnread > 0 ? '500' : '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {group.lastMessageSenderName && group.lastMessage
                         ? `${group.lastMessageSenderName.split(' ')[0]}: ${group.lastMessage}`
-                        : group.lastMessage || `${group.members.length} miembros`}
+                        : group.lastMessage || t('dm.group.member_count', { count: String(group.members.length) })}
                     </p>
                   </div>
                   {totalUnread > 0 && (
@@ -659,7 +662,7 @@ export default function Messages() {
                           fontSize: '15px',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                         }}>
-                          {other?.displayName || 'Usuario'}
+                          {other?.displayName || t('common.user')}
                         </span>
                         {isMuted && <BellOff size={13} color="var(--text-secondary)" style={{ flexShrink: 0 }} />}
                       </span>
@@ -685,7 +688,7 @@ export default function Messages() {
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
                     }}>
-                      {conv.lastMessage || 'Sin mensajes aún'}
+                      {conv.lastMessage || t('messages.no_messages_yet')}
                     </p>
                   </div>
 
@@ -754,7 +757,7 @@ export default function Messages() {
               borderBottom: '1px solid var(--border)'
             }}>
               <span style={{ fontWeight: '700', fontSize: '17px', color: 'var(--text)' }}>
-                {modalTab === 'friends' ? 'Nueva conversación' : 'Buscar personas'}
+                {modalTab === 'friends' ? t('messages.new_chat_friends_title') : t('messages.new_chat_search_title')}
               </span>
               <button
                 onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter(undefined); }}
@@ -782,7 +785,7 @@ export default function Messages() {
                     transition: 'all 0.15s'
                   }}
                 >
-                  {tab === 'friends' ? 'Amigos' : 'Buscar personas'}
+                  {tab === 'friends' ? t('messages.tab_friends') : t('messages.tab_search')}
                 </button>
               ))}
             </div>
@@ -799,7 +802,7 @@ export default function Messages() {
                 <Search size={16} color="var(--text-secondary)" />
                 <input
                   type="text"
-                  placeholder={modalTab === 'friends' ? 'Buscar amigo...' : 'Buscar por nombre...'}
+                  placeholder={modalTab === 'friends' ? t('messages.search_friend_placeholder') : t('messages.search_people_placeholder')}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   style={{
@@ -816,10 +819,10 @@ export default function Messages() {
               {modalTab === 'search' && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                   {([
-                    { label: 'Todos', value: undefined },
-                    { label: 'Alumnos', value: 'student' },
-                    { label: 'Profesores', value: 'teacher' },
-                    { label: 'Administradores', value: 'admin' },
+                    { label: t('messages.role_all'), value: undefined },
+                    { label: t('messages.role_students'), value: 'student' },
+                    { label: t('messages.role_teachers'), value: 'teacher' },
+                    { label: t('messages.role_admins'), value: 'admin' },
                   ] as const).map(opt => (
                     <button
                       key={opt.label}
@@ -847,7 +850,7 @@ export default function Messages() {
               {modalTab === 'friends' ? (
                 filteredFriends.length === 0 ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
-                    {friends.length === 0 ? 'Aún no tienes amigos' : 'Sin resultados'}
+                    {friends.length === 0 ? t('messages.no_friends_yet') : t('dm.no_results')}
                   </p>
                 ) : (
                   filteredFriends.map(friend => (
@@ -892,15 +895,15 @@ export default function Messages() {
               ) : (
                 (!search.trim() && !roleFilter) ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
-                    Escribe un nombre o selecciona un filtro
+                    {t('messages.search_prompt')}
                   </p>
                 ) : searchLoading ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
-                    Buscando...
+                    {t('messages.searching')}
                   </p>
                 ) : searchResults.length === 0 ? (
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 16px', fontSize: '14px' }}>
-                    Sin resultados
+                    {t('dm.no_results')}
                   </p>
                 ) : (
                   searchResults.map(result => {
@@ -945,7 +948,7 @@ export default function Messages() {
                               fontWeight: '600', cursor: 'pointer', flexShrink: 0
                             }}
                           >
-                            Mensaje
+                            {t('messages.send_message_btn')}
                           </button>
                         ) : result.status === 'sent' ? (
                           <button
@@ -958,11 +961,11 @@ export default function Messages() {
                               cursor: busy ? 'default' : 'pointer', flexShrink: 0
                             }}
                           >
-                            {busy ? '...' : 'Cancelar'}
+                            {busy ? '...' : t('messages.cancel_request_btn')}
                           </button>
                         ) : result.status === 'received' ? (
                           <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flexShrink: 0 }}>
-                            Te envió solicitud
+                            {t('messages.request_received')}
                           </span>
                         ) : (
                           <button
@@ -975,7 +978,7 @@ export default function Messages() {
                               opacity: busy ? 0.7 : 1
                             }}
                           >
-                            {busy ? '...' : 'Añadir'}
+                            {busy ? '...' : t('messages.add_btn')}
                           </button>
                         )}
                       </div>

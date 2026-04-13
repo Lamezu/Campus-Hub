@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { auth } from '../config/firebase';
 import { getFriends, type FriendUser } from '../services/firebase/friendsService';
 
@@ -20,6 +21,7 @@ interface ContactPickerModalProps {
 
 export default function ContactPickerModal({ visible, onClose, onSelect }: ContactPickerModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export default function ContactPickerModal({ visible, onClose, onSelect }: Conta
     setLoading(true);
     getFriends(uid)
       .then(setFriends)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
     setSearch('');
   }, [visible]);
@@ -77,7 +79,7 @@ export default function ContactPickerModal({ visible, onClose, onSelect }: Conta
         overflow: 'hidden',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
-          <span style={{ fontWeight: '700', fontSize: 17, color: colors.text }}>Compartir contacto</span>
+          <span style={{ fontWeight: '700', fontSize: 17, color: colors.text }}>{t('chat.contact.share_title')}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: colors.textSecondary }}>
             <X size={22} />
           </button>
@@ -90,7 +92,7 @@ export default function ContactPickerModal({ visible, onClose, onSelect }: Conta
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar contacto..."
+              placeholder={t('chat.contact.search_placeholder')}
               autoFocus
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: colors.text }}
             />
@@ -99,10 +101,10 @@ export default function ContactPickerModal({ visible, onClose, onSelect }: Conta
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 32, color: colors.textSecondary, fontSize: 14 }}>Cargando...</div>
+            <div style={{ textAlign: 'center', padding: 32, color: colors.textSecondary, fontSize: 14 }}>{t('common.loading')}</div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: colors.textSecondary, fontSize: 14 }}>
-              {search ? 'Sin resultados' : 'No tienes contactos aún'}
+              {search ? t('common.no_results') : t('chat.contact.no_contacts')}
             </div>
           ) : (
             filtered.map(friend => (

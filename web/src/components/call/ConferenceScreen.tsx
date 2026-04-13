@@ -1,6 +1,7 @@
 import './ConferenceScreen.css';
 import { useEffect, useRef, useState, useCallback, memo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from '../../hooks/useTranslation';
 import { playRingback, stopRingback } from '../../utils/toneGenerator';
 import {
   PhoneOff, Video, VideoOff, Mic, MicOff, PhoneIncoming,
@@ -151,6 +152,7 @@ interface PeerState {
 interface ConferenceScreenProps {
   callId: string;
   isInitiator: boolean;
+  canApprove?: boolean;
   callType: CallType;
   groupName: string;
   groupPhoto: string | null;
@@ -161,7 +163,7 @@ interface ConferenceScreenProps {
 }
 
 export default function ConferenceScreen({
-  callId, isInitiator, callType, groupName, groupPhoto,
+  callId, isInitiator, canApprove, callType, groupName, groupPhoto,
   myUid, myName, myPhoto, onClose
 }: ConferenceScreenProps) {
   const [status, setStatus] = useState<'connecting' | 'waiting' | 'active' | 'ended'>('connecting');
@@ -237,7 +239,7 @@ export default function ConferenceScreen({
   const docPipWinRef = useRef<Window | null>(null);
   const docPipAreaRef = useRef<Element | null>(null);
   const pipRafRef = useRef<number | null>(null);
-  const openDocPipRef = useRef<() => void>(() => {});
+  const openDocPipRef = useRef<() => void>(() => { });
   const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
   const peersRef = useRef<PeerState[]>([]);
   const sharingRef = useRef(false);
@@ -258,6 +260,7 @@ export default function ConferenceScreen({
     }
   }, [sharing, peers, focusedTile]);
 
+  const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 640);
@@ -324,7 +327,7 @@ export default function ConferenceScreen({
     connectedPeersRef.current.delete(peerUid);
 
     const ctx = remoteAudioCtxsRef.current.get(peerUid);
-    if (ctx) ctx.close().catch(() => {});
+    if (ctx) ctx.close().catch(() => { });
     remoteAudioCtxsRef.current.delete(peerUid);
     remoteAnalysersRef.current.delete(peerUid);
 
@@ -365,18 +368,18 @@ export default function ConferenceScreen({
     }
     gainSourceRef.current?.disconnect();
     gainNodeRef.current?.disconnect();
-    gainCtxRef.current?.close().catch(() => {});
+    gainCtxRef.current?.close().catch(() => { });
     gainCtxRef.current = null; gainNodeRef.current = null;
     gainSourceRef.current = null; gainDestRef.current = null;
     if (speakingRafRef.current) { cancelAnimationFrame(speakingRafRef.current); speakingRafRef.current = null; }
     if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
     pipVideoRef.current?.remove();
-    if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+    if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => { });
   }, []);
 
   const handleLeave = useCallback(async () => {
     cleanup();
-    try { await leaveGroupCall(callId, myUid); } catch {}
+    try { await leaveGroupCall(callId, myUid); } catch { }
     onClose();
   }, [callId, myUid, cleanup, onClose]);
 
@@ -419,7 +422,7 @@ export default function ConferenceScreen({
       if (event.track.kind === 'audio') {
         if (!remoteStream.getTracks().find(t => t.id === event.track.id)) remoteStream.addTrack(event.track);
         audioEl.srcObject = remoteStream;
-        audioEl.play().catch(() => {});
+        audioEl.play().catch(() => { });
         if (!remoteAudioCtxsRef.current.has(peerUid)) {
           try {
             const ctx = new AudioContext();
@@ -428,14 +431,14 @@ export default function ConferenceScreen({
             analyser.fftSize = 256;
             ctx.createMediaStreamSource(new MediaStream([event.track])).connect(analyser);
             remoteAnalysersRef.current.set(peerUid, analyser);
-          } catch {}
+          } catch { }
         }
         return;
       }
       const attachShareTrack = (track: MediaStreamTrack) => {
         if (!remoteShareStream.getTracks().find(t => t.id === track.id)) remoteShareStream.addTrack(track);
         const shareEl = remoteShareVideoElsRef.current.get(peerUid);
-        if (shareEl && !shareEl.srcObject) { shareEl.srcObject = remoteShareStream; shareEl.play().catch(() => {}); }
+        if (shareEl && !shareEl.srcObject) { shareEl.srcObject = remoteShareStream; shareEl.play().catch(() => { }); }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
         track.addEventListener('ended', () => {
           remoteShareStream.removeTrack(track);
@@ -456,7 +459,7 @@ export default function ConferenceScreen({
           const t = shareMuteTimersRef.current.get(peerUid);
           if (t) { clearTimeout(t); shareMuteTimersRef.current.delete(peerUid); }
           const el = remoteShareVideoElsRef.current.get(peerUid);
-          if (el) { el.srcObject = remoteShareStream; el.play().catch(() => {}); }
+          if (el) { el.srcObject = remoteShareStream; el.play().catch(() => { }); }
           setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
         });
       };
@@ -469,7 +472,7 @@ export default function ConferenceScreen({
       if (!alreadyHasCam) {
         remoteStream.addTrack(event.track);
         const videoEl = remoteVideoElsRef.current.get(peerUid);
-        if (videoEl) { videoEl.srcObject = remoteStream; videoEl.play().catch(() => {}); }
+        if (videoEl) { videoEl.srcObject = remoteStream; videoEl.play().catch(() => { }); }
       } else {
         attachShareTrack(event.track);
       }
@@ -485,7 +488,7 @@ export default function ConferenceScreen({
 
     if (iAmCaller) {
       pc.onicecandidate = (e) => {
-        if (e.candidate) addConnectionCallerCandidate(callId, connId, e.candidate.toJSON()).catch(() => {});
+        if (e.candidate) addConnectionCallerCandidate(callId, connId, e.candidate.toJSON()).catch(() => { });
       };
 
       await createConnection(callId, connId, myUid, peerUid);
@@ -502,14 +505,14 @@ export default function ConferenceScreen({
           lastVideoSignalsByPeerRef.current.set(peerUid, peerSig);
           const el = remoteVideoElsRef.current.get(peerUid);
           const rs = remoteStreamsRef.current.get(peerUid);
-          if (el && rs) { el.srcObject = rs; el.play().catch(() => {}); }
+          if (el && rs) { el.srcObject = rs; el.play().catch(() => { }); }
         }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: peerCamOff } : p));
 
         if (conn.answer && pc.signalingState === 'have-local-offer') {
-          await pc.setRemoteDescription(new RTCSessionDescription(conn.answer)).catch(() => {});
+          await pc.setRemoteDescription(new RTCSessionDescription(conn.answer)).catch(() => { });
           const pending = pendingCandidatesRef.current.get(peerUid) ?? [];
-          for (const c of pending) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+          for (const c of pending) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
           pendingCandidatesRef.current.set(peerUid, []);
           connectedPeersRef.current.add(peerUid);
           setStatus('active');
@@ -520,7 +523,7 @@ export default function ConferenceScreen({
                 const newOffer = await pc.createOffer();
                 await pc.setLocalDescription(newOffer);
                 await updateConnectionOffer(callId, connId, newOffer);
-              } catch {}
+              } catch { }
             }
           };
         }
@@ -533,7 +536,7 @@ export default function ConferenceScreen({
             const reanswer = await pc.createAnswer();
             await pc.setLocalDescription(reanswer);
             await updateConnectionCallerReanswer(callId, connId, reanswer);
-          } catch {}
+          } catch { }
         }
       });
 
@@ -541,7 +544,7 @@ export default function ConferenceScreen({
         const currentPc = pcsRef.current.get(peerUid);
         if (!currentPc) return;
         if (currentPc.remoteDescription) {
-          await currentPc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+          await currentPc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => { });
         } else {
           const pending = pendingCandidatesRef.current.get(peerUid) ?? [];
           pending.push(candidate);
@@ -553,7 +556,7 @@ export default function ConferenceScreen({
 
     } else {
       pc.onicecandidate = (e) => {
-        if (e.candidate) addConnectionReceiverCandidate(callId, connId, e.candidate.toJSON()).catch(() => {});
+        if (e.candidate) addConnectionReceiverCandidate(callId, connId, e.candidate.toJSON()).catch(() => { });
       };
 
       const unsubConn = subscribeToConnection(callId, connId, async (conn) => {
@@ -565,7 +568,7 @@ export default function ConferenceScreen({
           lastVideoSignalsByPeerRef.current.set(peerUid, peerSig);
           const el = remoteVideoElsRef.current.get(peerUid);
           const rs = remoteStreamsRef.current.get(peerUid);
-          if (el && rs) { el.srcObject = rs; el.play().catch(() => {}); }
+          if (el && rs) { el.srcObject = rs; el.play().catch(() => { }); }
         }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: peerCamOff } : p));
 
@@ -576,7 +579,7 @@ export default function ConferenceScreen({
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(conn.offer));
               const pending = pendingCandidatesRef.current.get(peerUid) ?? [];
-              for (const c of pending) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+              for (const c of pending) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
               pendingCandidatesRef.current.set(peerUid, []);
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
@@ -591,18 +594,18 @@ export default function ConferenceScreen({
                       const newOffer = await pc.createOffer();
                       await pc.setLocalDescription(newOffer);
                       await updateConnectionReceiverOffer(callId, connId, newOffer);
-                    } catch {}
+                    } catch { }
                   }
                 };
               }
-            } catch {}
+            } catch { }
           }
         }
 
         const callerReanswer = conn.callerReanswer;
         if (callerReanswer?.sdp && callerReanswer.sdp !== (lastCallerReanswerSdpsByPeerRef.current.get(peerUid) ?? '') && pc.signalingState === 'have-local-offer') {
           lastCallerReanswerSdpsByPeerRef.current.set(peerUid, callerReanswer.sdp);
-          await pc.setRemoteDescription(new RTCSessionDescription(callerReanswer)).catch(() => {});
+          await pc.setRemoteDescription(new RTCSessionDescription(callerReanswer)).catch(() => { });
         }
       });
 
@@ -610,7 +613,7 @@ export default function ConferenceScreen({
         const currentPc = pcsRef.current.get(peerUid);
         if (!currentPc) return;
         if (currentPc.remoteDescription) {
-          await currentPc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+          await currentPc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => { });
         } else {
           const pending = pendingCandidatesRef.current.get(peerUid) ?? [];
           pending.push(candidate);
@@ -641,7 +644,7 @@ export default function ConferenceScreen({
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         } catch {
           stream = new MediaStream();
-          setMediaError('No se detectó micrófono ni cámara. Comprueba los permisos del navegador.');
+          setMediaError(t('call.error_no_devices'));
         }
       }
 
@@ -656,7 +659,7 @@ export default function ConferenceScreen({
 
       if (localVideoRef.current && callType === 'video') {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(() => {});
+        localVideoRef.current.play().catch(() => { });
       }
 
       const audioTracks = stream.getAudioTracks();
@@ -679,7 +682,7 @@ export default function ConferenceScreen({
           gainNode.connect(localAnalyser);
           localAnalyserRef.current = localAnalyser;
           pcAudioTracks = dest.stream.getAudioTracks();
-        } catch {}
+        } catch { }
       }
       pcAudioTracksRef.current = pcAudioTracks;
 
@@ -691,7 +694,7 @@ export default function ConferenceScreen({
         if (!call || cancelledRef.current) return;
         if (call.status === 'ended') { cleanup(); onClose(); return; }
 
-        if (isInitiator) {
+        if (isInitiator || canApprove) {
           const pending = call.pendingParticipants ?? [];
           setPendingApprovals(pending.map(uid => ({
             uid,
@@ -787,24 +790,24 @@ export default function ConferenceScreen({
         if (!track) return;
         activeVideoTrackRef.current = track;
         for (const [uid, sender] of videoSendersByPeerRef.current) {
-          await sender.replaceTrack(track).catch(() => {});
+          await sender.replaceTrack(track).catch(() => { });
           const connId = getConnectionId(myUid, uid);
           const iAmCaller = myUid < uid;
-          updateConnectionCamState(callId, connId, iAmCaller, false).catch(() => {});
-          signalConnectionVideo(callId, connId, iAmCaller).catch(() => {});
+          updateConnectionCamState(callId, connId, iAmCaller, false).catch(() => { });
+          signalConnectionVideo(callId, connId, iAmCaller).catch(() => { });
         }
-        if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => {}); }
+        if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => { }); }
         setSelectedCamId(track.getSettings().deviceId ?? selectedCamId);
         setCamOn(true);
-      } catch {}
+      } catch { }
     } else {
       activeVideoTrackRef.current?.stop();
       activeVideoTrackRef.current = null;
       for (const [uid, sender] of videoSendersByPeerRef.current) {
-        await sender.replaceTrack(null).catch(() => {});
+        await sender.replaceTrack(null).catch(() => { });
         const connId = getConnectionId(myUid, uid);
         const iAmCaller = myUid < uid;
-        updateConnectionCamState(callId, connId, iAmCaller, true).catch(() => {});
+        updateConnectionCamState(callId, connId, iAmCaller, true).catch(() => { });
       }
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setCamOn(false);
@@ -861,20 +864,20 @@ export default function ConferenceScreen({
           gainSourceRef.current = newSrc;
           newSrc.connect(gainNodeRef.current);
           trackForSender = gainDestRef.current.stream.getAudioTracks()[0] ?? track;
-        } catch {}
+        } catch { }
       }
       for (const pc of pcsRef.current.values()) {
         const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
         if (sender) await sender.replaceTrack(trackForSender);
       }
       if (!micOn) track.enabled = false;
-    } catch {}
+    } catch { }
   };
 
   const changeAudioOutput = (deviceId: string) => {
     setSelectedSpeakerId(deviceId);
     for (const audioEl of remoteAudioElsRef.current.values()) {
-      (audioEl as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(deviceId).catch(() => {});
+      (audioEl as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(deviceId).catch(() => { });
     }
   };
 
@@ -893,9 +896,9 @@ export default function ConferenceScreen({
       }
       activeVideoTrackRef.current?.stop();
       activeVideoTrackRef.current = track;
-      if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => {}); }
+      if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => { }); }
       if (!camOn) track.enabled = false;
-    } catch {}
+    } catch { }
   };
 
   const stopScreenShare = useCallback(() => {
@@ -924,14 +927,14 @@ export default function ConferenceScreen({
       }
       if (screenShareVideoRef.current) {
         screenShareVideoRef.current.srcObject = screenStream;
-        screenShareVideoRef.current.play().catch(() => {});
+        screenShareVideoRef.current.play().catch(() => { });
       }
       setSharing(true);
-    } catch {}
+    } catch { }
   };
 
   const handleInputVolume = useCallback((v: number) => {
-    if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
+    if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => { });
     if (gainNodeRef.current) gainNodeRef.current.gain.value = v / 100;
   }, []);
 
@@ -1047,7 +1050,7 @@ export default function ConferenceScreen({
           lastShowVideo = showVideo;
           if (targetStream && showVideo) {
             pipVideo.srcObject = targetStream;
-            pipVideo.play().catch(() => {});
+            pipVideo.play().catch(() => { });
             pipVideo.style.display = 'block';
             pipAvatar.style.display = 'none';
           } else {
@@ -1085,7 +1088,7 @@ export default function ConferenceScreen({
         docPipWinRef.current = null; docPipAreaRef.current = null;
         setInPip(false); setMinimized(false);
       });
-    } catch {}
+    } catch { }
   }, [callType, handleLeave]);
   useEffect(() => { openDocPipRef.current = openDocPip; }, [openDocPip]);
 
@@ -1094,7 +1097,7 @@ export default function ConferenceScreen({
       docPipWinRef.current.close();
       docPipWinRef.current = null; docPipAreaRef.current = null;
     }
-    if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(() => {});
+    if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(() => { });
     if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
     setInPip(false);
     setMinimized(false);
@@ -1104,8 +1107,8 @@ export default function ConferenceScreen({
 
   const statusLabel =
     status === 'waiting' ? 'Esperando participantes...' :
-    status === 'connecting' ? 'Conectando...' :
-    status === 'active' ? formatDuration(duration) : 'Conferencia finalizada';
+      status === 'connecting' ? 'Conectando...' :
+        status === 'active' ? formatDuration(duration) : 'Conferencia finalizada';
 
   const sinkIdSupported = typeof (document.createElement('audio') as HTMLAudioElement & { setSinkId?: unknown }).setSinkId === 'function';
 
@@ -1218,7 +1221,7 @@ export default function ConferenceScreen({
                     remoteShareVideoElsRef.current.set(peer.uid, el);
                     if (el && !el.srcObject) {
                       const rs = remoteShareStreamsRef.current.get(peer.uid);
-                      if (rs && rs.getTracks().length > 0) { el.srcObject = rs; el.play().catch(() => {}); }
+                      if (rs && rs.getTracks().length > 0) { el.srcObject = rs; el.play().catch(() => { }); }
                     }
                   }}
                   autoPlay playsInline
@@ -1238,10 +1241,10 @@ export default function ConferenceScreen({
                     <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
                       {localPhoto ? <img src={localPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: '#fff', fontWeight: 700 }}>{localInitial}</div>}
                     </div>
-                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '8px 0 2px' }}>Tú</p>
+                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '8px 0 2px' }}>{t('call.you')}</p>
                   </div>
                 )}
-                {tileLabel('Tú')}
+                {tileLabel(t('call.you'))}
               </div>
             )}
 
@@ -1270,7 +1273,7 @@ export default function ConferenceScreen({
         </div>
       )}
 
-      {isInitiator && pendingApprovals.length > 0 && !minimized && (
+      {(isInitiator || canApprove) && pendingApprovals.length > 0 && !minimized && (
         <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
           {pendingApprovals.map(p => (
             <div key={p.uid} style={{ display: 'flex', alignItems: 'center', gap: 10, backgroundColor: '#18191c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.7)', pointerEvents: 'auto', minWidth: 260 }}>
@@ -1285,14 +1288,14 @@ export default function ConferenceScreen({
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                 <button
-                  onClick={() => denyConferenceParticipant(callId, p.uid).catch(() => {})}
+                  onClick={() => denyConferenceParticipant(callId, p.uid).catch(() => { })}
                   style={{ width: 30, height: 30, borderRadius: '50%', backgroundColor: '#ed4245', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
                   title="Denegar"
                 >
                   ✕
                 </button>
                 <button
-                  onClick={() => approveConferenceParticipant(callId, p.uid).catch(() => {})}
+                  onClick={() => approveConferenceParticipant(callId, p.uid).catch(() => { })}
                   style={{ width: 30, height: 30, borderRadius: '50%', backgroundColor: '#23a55a', border: 'none', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
                   title="Admitir"
                 >
@@ -1314,9 +1317,9 @@ export default function ConferenceScreen({
             }}>
               <button className="dev-row" onClick={() => setSubPanel(p => p === 'input' ? null : 'input')}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Dispositivo de entrada</div>
+                  <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.input_device')}</div>
                   <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>
-                    {devices.find(d => d.kind === 'audioinput' && d.deviceId === selectedMicId)?.label || 'Micrófono'}
+                    {devices.find(d => d.kind === 'audioinput' && d.deviceId === selectedMicId)?.label || t('call.microphone')}
                   </div>
                 </div>
                 <ChevronRight size={16} color="#72767d" style={{ flexShrink: 0 }} />
@@ -1326,9 +1329,9 @@ export default function ConferenceScreen({
                 <>
                   <button className="dev-row" onClick={() => setSubPanel(p => p === 'output' ? null : 'output')}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Dispositivo de salida</div>
+                      <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.output_device')}</div>
                       <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>
-                        {devices.find(d => d.kind === 'audiooutput' && d.deviceId === selectedSpeakerId)?.label || 'Altavoz predeterminado'}
+                        {devices.find(d => d.kind === 'audiooutput' && d.deviceId === selectedSpeakerId)?.label || t('call.default_speaker')}
                       </div>
                     </div>
                     <ChevronRight size={16} color="#72767d" style={{ flexShrink: 0 }} />
@@ -1337,12 +1340,12 @@ export default function ConferenceScreen({
                 </>
               )}
               <div style={{ padding: '11px 16px' }}>
-                <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>Volumen de entrada</div>
+                <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>{t('call.input_volume')}</div>
                 <VolumeSlider initialValue={100} onChange={handleInputVolume} />
               </div>
               <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
               <div style={{ padding: '11px 16px' }}>
-                <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>Volumen de salida</div>
+                <div style={{ fontSize: 13, color: '#b9bbbe', marginBottom: 10 }}>{t('call.output_volume')}</div>
                 <VolumeSlider initialValue={100} onChange={handleOutputVolume} />
               </div>
             </div>
@@ -1358,7 +1361,7 @@ export default function ConferenceScreen({
               {subPanel === 'input' && devices.filter(d => d.kind === 'audioinput').map(d => (
                 <button key={d.deviceId} className="dev-row" onClick={() => { changeAudioInput(d.deviceId); setSubPanel(null); }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Micrófono'}</div>
+                    <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.microphone')}</div>
                   </div>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${selectedMicId === d.deviceId ? '#5865f2' : 'rgba(255,255,255,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {selectedMicId === d.deviceId && <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#5865f2' }} />}
@@ -1368,7 +1371,7 @@ export default function ConferenceScreen({
               {subPanel === 'output' && devices.filter(d => d.kind === 'audiooutput').map(d => (
                 <button key={d.deviceId} className="dev-row" onClick={() => { changeAudioOutput(d.deviceId); setSubPanel(null); }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Altavoz'}</div>
+                    <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.speaker')}</div>
                   </div>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${selectedSpeakerId === d.deviceId ? '#5865f2' : 'rgba(255,255,255,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {selectedSpeakerId === d.deviceId && <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#5865f2' }} />}
@@ -1386,21 +1389,21 @@ export default function ConferenceScreen({
               maxHeight: '60vh', overflowY: 'auto', overflowX: 'hidden'
             }}>
               <div style={{ padding: '11px 16px 4px' }}>
-                <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Cámara</div>
+                <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{t('call.camera')}</div>
                 <div style={{ fontSize: 12, color: '#72767d', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {devices.find(d => d.kind === 'videoinput' && d.deviceId === selectedCamId)?.label || 'Cámara predeterminada'}
+                  {devices.find(d => d.kind === 'videoinput' && d.deviceId === selectedCamId)?.label || t('call.default_camera')}
                 </div>
               </div>
               <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '8px 0 4px' }} />
               {devices.filter(d => d.kind === 'videoinput').map(d => (
                 <button key={d.deviceId} className="dev-sub" onClick={() => changeVideoInput(d.deviceId)}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, backgroundColor: selectedCamId === d.deviceId ? '#5865f2' : 'transparent', border: '1.5px solid rgba(255,255,255,0.25)' }} />
-                  <span style={{ fontSize: 13, color: selectedCamId === d.deviceId ? '#fff' : '#b9bbbe', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || 'Cámara'}</span>
+                  <span style={{ fontSize: 13, color: selectedCamId === d.deviceId ? '#fff' : '#b9bbbe', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || t('call.camera')}</span>
                 </button>
               ))}
               <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', margin: '4px 0 0' }} />
               <button className="dev-row" onClick={() => setShowCamPicker(false)}>
-                <span style={{ fontSize: 13, color: '#fff' }}>Ajustes de vídeo</span>
+                <span style={{ fontSize: 13, color: '#fff' }}>{t('call.video_settings')}</span>
                 <Settings size={15} color="#72767d" style={{ flexShrink: 0 }} />
               </button>
             </div>
@@ -1413,7 +1416,7 @@ export default function ConferenceScreen({
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
             <CompoundBtn
               icon={micOn ? <Mic size={isMobile ? 18 : 20} /> : <MicOff size={isMobile ? 18 : 20} />}
-              label={micOn ? 'Silenciar' : 'Activar mic'}
+              label={micOn ? t('call.mute') : t('call.unmute')}
               muted={!micOn}
               onClick={toggleMic}
               onChevron={openDevicePicker}
@@ -1422,7 +1425,7 @@ export default function ConferenceScreen({
             />
             <CtrlBtn
               icon={deafened ? <HeadphoneOff size={isMobile ? 18 : 20} /> : <Headphones size={isMobile ? 18 : 20} />}
-              label={deafened ? 'Activar audio' : 'Ensordecer'}
+              label={deafened ? t('call.undeafen') : t('call.deafen')}
               muted={deafened}
               onClick={toggleDeafen}
               mobile={isMobile}
@@ -1430,7 +1433,7 @@ export default function ConferenceScreen({
             {callType === 'video' && (
               <CompoundBtn
                 icon={camOn ? <Video size={isMobile ? 18 : 20} /> : <VideoOff size={isMobile ? 18 : 20} />}
-                label={camOn ? 'Cámara off' : 'Cámara on'}
+                label={camOn ? t('call.video_off') : t('call.video_on')}
                 muted={!camOn}
                 onClick={toggleCam}
                 onChevron={openCamPicker}
@@ -1441,7 +1444,7 @@ export default function ConferenceScreen({
             {status === 'active' && typeof navigator.mediaDevices?.getDisplayMedia === 'function' && (
               <CtrlBtn
                 icon={sharing ? <MonitorOff size={isMobile ? 18 : 20} /> : <Monitor size={isMobile ? 18 : 20} />}
-                label={sharing ? 'Dejar compartir' : 'Compartir pantalla'}
+                label={sharing ? t('call.stop_share') : t('call.screen_share')}
                 green={sharing}
                 onClick={toggleScreenShare}
                 mobile={isMobile}
@@ -1449,7 +1452,7 @@ export default function ConferenceScreen({
             )}
             <CtrlBtn
               icon={<PhoneOff size={isMobile ? 18 : 20} />}
-              label="Salir"
+              label={t('common.leave')}
               danger
               onClick={handleLeave}
               mobile={isMobile}
@@ -1467,7 +1470,7 @@ export default function ConferenceScreen({
                       onClick={() => setShowLocalVideo(v => !v)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                     >
-                      <span style={{ fontSize: 14 }}>Mostrar mi propia cámara</span>
+                      <span style={{ fontSize: 14 }}>{t('call.show_own_camera')}</span>
                       <div style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, backgroundColor: showLocalVideo ? '#5865f2' : 'transparent', border: `1.5px solid ${showLocalVideo ? '#5865f2' : 'rgba(255,255,255,0.35)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {showLocalVideo && <Check size={10} color="#fff" />}
                       </div>
@@ -1476,7 +1479,7 @@ export default function ConferenceScreen({
                       onClick={() => setShowNoVideoParticipants(v => !v)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                     >
-                      <span style={{ fontSize: 14 }}>Mostrar participantes sin vídeo</span>
+                      <span style={{ fontSize: 14 }}>{t('call.show_no_video_participants')}</span>
                       <div style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, backgroundColor: showNoVideoParticipants ? '#5865f2' : 'transparent', border: `1.5px solid ${showNoVideoParticipants ? '#5865f2' : 'rgba(255,255,255,0.35)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {showNoVideoParticipants && <Check size={10} color="#fff" />}
                       </div>
@@ -1487,13 +1490,13 @@ export default function ConferenceScreen({
                       style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#dcddde', textAlign: 'left' }}
                     >
                       <Settings size={15} />
-                      <span style={{ fontSize: 14 }}>Ajustes de voz y vídeo</span>
+                      <span style={{ fontSize: 14 }}>{t('call.voice_video_settings')}</span>
                     </button>
                   </div>
                 )}
                 <CtrlBtn
                   icon={<MoreHorizontal size={isMobile ? 18 : 20} />}
-                  label="Más"
+                  label={t('common.more')}
                   active={showMoreMenu}
                   onClick={() => { setShowDevices(false); setShowMoreMenu(m => !m); }}
                   mobile={isMobile}
@@ -1503,7 +1506,7 @@ export default function ConferenceScreen({
             {status === 'active' && (
               <CtrlBtn
                 icon={<ExternalLink size={isMobile ? 18 : 20} />}
-                label="Sacar a ventana"
+                label={t('call.pop_out')}
                 onClick={openDocPip}
                 mobile={isMobile}
               />

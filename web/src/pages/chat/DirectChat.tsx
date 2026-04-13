@@ -34,8 +34,25 @@ import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../serv
 import SharePostModal from '../../components/SharePostModal';
 import ContactPickerModal, { type ContactData } from '../../components/ContactPickerModal';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const MESSAGES_PER_PAGE = 50;
+
+function replyAttachmentType(msg: DMMessage): DMReplyTo['attachmentType'] | undefined {
+  const type = msg.attachments?.[0]?.type as string | undefined;
+  if (type === 'image' || type === 'audio' || type === 'file' || type === 'contact') return type;
+  return undefined;
+}
+
+function replyPreviewText(msg: DMMessage): string {
+  if (msg.text?.trim()) return msg.text.trim().substring(0, 40);
+  const type = msg.attachments?.[0]?.type;
+  if (type === 'image') return '📷 Imagen';
+  if (type === 'audio') return '🎵 Audio';
+  if (type === 'file') return `📎 ${msg.attachments![0].name || 'Archivo'}`;
+  if (type === 'contact') return `👤 ${msg.attachments![0].name || 'Contacto'}`;
+  return '';
+}
 
 function getLuminance(hex: string): number {
   if (!hex || !hex.startsWith('#')) return 1;
@@ -72,6 +89,7 @@ function MessageInput({
   const [showPoll, setShowPoll] = useState(false);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,10 +107,10 @@ function MessageInput({
   };
 
   const attachItems = [
-    { label: 'Fotos', icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
-    { label: 'Documento', icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
-    { label: 'Encuesta', icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
-    { label: 'Contacto', icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
+    { label: t('chat.photos'), icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
+    { label: t('chat.document'), icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
+    { label: t('chat.poll_label'), icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+    { label: t('chat.contact_label'), icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
   ];
 
   return (
@@ -120,7 +138,7 @@ function MessageInput({
             <CornerDownRight size={16} color={themeStyle ? themeStyle.text : colors.primary} />
             <span>
               <span style={{ color: themeStyle ? themeStyle.text : colors.primary, fontWeight: '600' }}>{replyingTo.senderName}</span>
-              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyingTo.text?.substring(0, 30) || '🎵 Audio'}</span>
+              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyPreviewText(replyingTo)}</span>
             </span>
           </div>
           <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: themeStyle ? themeStyle.text : colors.textSecondary, display: 'flex', padding: '4px' }}>
@@ -133,11 +151,11 @@ function MessageInput({
           <AudioRecorder onSend={(blob, duration) => { onSendAudio(blob, duration); setShowRecorder(false); }} onCancel={() => setShowRecorder(false)} />
         ) : (
           <>
-            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }} title="Adjuntar">
+            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }} title={t('chat.attach')}>
               <Plus size={22} strokeWidth={2} style={{ transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)', transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }} />
             </button>
-            <textarea ref={textareaRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} placeholder={replyingTo ? `Responder a ${replyingTo.senderName}...` : 'Escribe un mensaje...'} className="chat-textarea" style={themeStyle ? { color: themeStyle.text, backgroundColor: 'transparent' } : {}} disabled={disabled} rows={1} />
-            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center' }} title="Grabar audio">
+            <textarea ref={textareaRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} placeholder={replyingTo ? t('chat.reply_to', { name: replyingTo.senderName }) : t('chat.type_message')} className="chat-textarea" style={themeStyle ? { color: themeStyle.text, backgroundColor: 'transparent' } : {}} disabled={disabled} rows={1} />
+            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center' }} title={t('chat.record_audio')}>
               <Mic size={20} />
             </button>
             <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button btn-press">
@@ -168,6 +186,7 @@ export default function DirectChat() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [forwardMessage, setForwardMessage] = useState<any>(null);
   const { setActiveCall, setActiveCallId } = useCall();
+  const { t } = useTranslation();
 
   const handleStartCall = async (type: CallType) => {
     if (!currentUser || !otherUser) return;
@@ -190,7 +209,7 @@ export default function DirectChat() {
       });
       setActiveCallId(callId);
     } catch {
-      alert('No se pudo iniciar la llamada.');
+      alert(t('call.start_failed'));
     }
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -286,7 +305,7 @@ export default function DirectChat() {
     setSending(true);
     try {
       const replyTo: DMReplyTo | null = replyingTo
-        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio' }
+        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio', attachmentType: replyAttachmentType(replyingTo) }
         : null;
       await sendMessage(
         conversationId,
@@ -300,7 +319,7 @@ export default function DirectChat() {
       setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch {
-      alert('Error al enviar el mensaje');
+      alert(t('chat.send_failed'));
     } finally {
       setSending(false);
     }
@@ -312,7 +331,7 @@ export default function DirectChat() {
     try {
       const audioUrl = await uploadAudio(audioBlob, `temp_${Date.now()}`);
       const replyTo: DMReplyTo | null = replyingTo
-        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio' }
+        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio', attachmentType: replyAttachmentType(replyingTo) }
         : null;
       await sendMessage(
         conversationId,
@@ -327,7 +346,7 @@ export default function DirectChat() {
       setShowRecorder(false);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (err) {
-      alert(`Error al enviar el audio: ${err instanceof Error ? err.message : 'Error'}`);
+      alert(t('chat.send_audio_error', { error: err instanceof Error ? err.message : 'Error' }));
     } finally {
       setSending(false);
     }
@@ -341,7 +360,7 @@ export default function DirectChat() {
 
   const handleDelete = async (message: any, forEveryone: boolean) => {
     if (!conversationId) return;
-    const ok = window.confirm(forEveryone ? '¿Eliminar para todos?' : '¿Eliminar para ti?');
+    const ok = window.confirm(forEveryone ? t('chat.delete_confirm_for_all') : t('chat.delete_confirm_for_me'));
     if (!ok) return;
     try {
       if (forEveryone) {
@@ -350,7 +369,7 @@ export default function DirectChat() {
         await deleteMessageForMe(conversationId, message.id, currentUser!.uid);
       }
     } catch {
-      alert('Error al eliminar el mensaje');
+      alert(t('chat.delete_error'));
     }
   };
 
@@ -412,17 +431,27 @@ export default function DirectChat() {
         userData?.photoURL || currentUser.photoURL || null,
         [{ url, type, name: file.name, size: file.size }], null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch { alert('Error al enviar el archivo'); } finally { setSending(false); }
+    } catch { alert(t('chat.send_file_error')); } finally { setSending(false); }
   };
 
-  const handleSendPoll = async (poll: Omit<PollData, 'votes'>) => {
+  const handleSendPoll = async (poll: Omit<PollData, 'totalVotes'>) => {
     if (!currentUser || !conversationId || sending) return;
     setSending(true);
     try {
       await sendMessage(conversationId, poll.question, currentUser.uid,
         userData?.displayName || currentUser.displayName || 'Usuario',
         userData?.photoURL || currentUser.photoURL || null,
-        null, null, { ...poll, votes: {} });
+        null, null, {
+          question: poll.question,
+          options: (poll.options as any[]).map((opt: any, i: number) => ({
+            id: String(i),
+            text: typeof opt === 'string' ? opt : opt.text,
+            votes: [],
+          })),
+          multipleAnswers: poll.multipleAnswers,
+          totalVotes: 0,
+          closed: false,
+        });
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
   };
@@ -473,7 +502,7 @@ export default function DirectChat() {
     }}>
       <button
         className="chat-back-button"
-        style={desktopThemeStyle ? { color: desktopThemeStyle.text } : {}}
+        style={{ color: desktopThemeStyle?.text ?? colors.text }}
         onClick={() => navigate('/messages')}
       >
         <ArrowLeft size={22} />
@@ -506,14 +535,14 @@ export default function DirectChat() {
         className="chat-header-title"
         style={{ ...(desktopThemeStyle ? { color: desktopThemeStyle.text } : {}), flex: 1 }}
       >
-        {otherUser?.displayName || 'Conversación'}
+        {otherUser?.displayName || t('dm.title')}
       </h1>
       <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
         <button
           onClick={() => handleStartCall('audio')}
           className="chat-back-button"
           style={{ color: desktopThemeStyle?.text ?? 'var(--text)' }}
-          title="Llamada de voz"
+          title={t('call.audio_call')}
         >
           <Phone size={20} />
         </button>
@@ -521,7 +550,7 @@ export default function DirectChat() {
           onClick={() => handleStartCall('video')}
           className="chat-back-button"
           style={{ color: desktopThemeStyle?.text ?? 'var(--text)' }}
-          title="Videollamada"
+          title={t('call.video_call')}
         >
           <Video size={20} />
         </button>
@@ -529,7 +558,7 @@ export default function DirectChat() {
           onClick={() => setShowInfoPanel(v => !v)}
           className="chat-back-button"
           style={{ color: desktopThemeStyle?.text ?? 'var(--text)' }}
-          title="Información"
+          title={t('common.info')}
         >
           <Info size={20} color={showInfoPanel ? colors.primary : (desktopThemeStyle ? desktopThemeStyle.text : undefined)} />
         </button>
@@ -562,7 +591,7 @@ export default function DirectChat() {
         {headerContent}
         <div className="chat-loading-content">
           <div className="loading-spinner" />
-          <p className="chat-loading-text">Cargando mensajes...</p>
+          <p className="chat-loading-text">{t('chat.loading')}</p>
         </div>
       </div>
     );
@@ -588,7 +617,7 @@ export default function DirectChat() {
         {filteredMessages.length === 0 ? (
           <div className="chat-empty-state">
             <p className="chat-empty-text" style={{ backgroundColor: 'rgba(255,255,255,0.8)', padding: '12px', borderRadius: '8px' }}>
-              No hay mensajes aún. ¡Inicia la conversación! 💬
+              {t('chat.no_messages_start')}
             </p>
           </div>
         ) : (

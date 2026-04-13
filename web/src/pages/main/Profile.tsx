@@ -6,6 +6,7 @@ import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { SaveAll, Users, UserStar, ShieldCheck, ChevronRight } from 'lucide-react';
 
 export default function Profile() {
@@ -16,6 +17,7 @@ export default function Profile() {
   const [friendsCount, setFriendsCount] = useState(0);
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -90,7 +92,7 @@ export default function Profile() {
   );
 
   return (
-    <Layout title="Perfil" rightAction={<NotificationBell categories={['friend']} />}>
+    <Layout title={t('tabs.profile')} rightAction={<NotificationBell categories={['friend']} />}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '16px' }}>
         <div style={{
           display: 'flex',
@@ -135,7 +137,7 @@ export default function Profile() {
             }}
             onClick={() => navigate('/edit-profile')}
           >
-            Editar Perfil
+            {t('profile.edit_profile')}
           </button>
         </div>
 
@@ -149,45 +151,45 @@ export default function Profile() {
         }}>
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{channelsCount}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Canales</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('profile.groups')}</div>
           </div>
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{userData?.messageCount || 0}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Mensajes</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('profile.messages_sent')}</div>
           </div>
           <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text)' }}>{friendsCount}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Amigos</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('profile.friends')}</div>
           </div>
         </div>
 
         <div style={{ padding: '0 16px 16px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text)', marginBottom: '12px' }}>
-            Acciones Rápidas
+            {t('profile.quick_actions')}
           </h3>
 
           {actionItem(
             <SaveAll size={20} color={colors.primary} />,
-            'Mensajes Guardados',
-            'Ver tu contenido guardado',
+            t('profile.saved_messages'),
+            t('profile.manage_friends'),
             () => navigate('/saved-items')
           )}
           {actionItem(
             <Users size={20} color={colors.primary} />,
-            'Amigos',
-            'Administrar tu lista de amigos',
+            t('profile.friends'),
+            t('profile.manage_friends'),
             () => navigate('/friends')
           )}
           {actionItem(
             <UserStar size={20} color={colors.primary} />,
-            'Mejores Amigos',
-            'Tus conexiones más cercanas',
+            t('profile.best_friends'),
+            t('profile.best_friends'),
             () => navigate('/friends?tab=best')
           )}
           {isAdmin && actionItem(
             <ShieldCheck size={20} color={colors.primary} />,
-            'Gestión de usuarios',
-            'Asignar roles y subroles',
+            t('profile.user_management'),
+            t('profile.administration'),
             () => navigate('/admin/users')
           )}
         </div>

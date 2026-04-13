@@ -21,6 +21,7 @@ export function useStudyGroups(isAdmin: boolean) {
             name: data.name ?? '',
             description: data.description ?? '',
             subject: data.subject ?? '',
+            subjectCategory: data.subjectCategory ?? 'subjects',
             createdBy: data.createdBy ?? '',
             createdByName: data.createdByName ?? '',
             memberIds: data.memberIds ?? [],
@@ -66,6 +67,7 @@ export function useStudyGroups(isAdmin: boolean) {
     name: string;
     description: string;
     subject: string;
+    subjectCategory: string;
     color: string;
     isPrivate: boolean;
     allowedRoles: string[];
@@ -73,7 +75,14 @@ export function useStudyGroups(isAdmin: boolean) {
   }) => {
     if (!currentUser) return;
     await addDoc(collection(db, 'studyGroups'), {
-      ...form,
+      name: form.name,
+      description: form.description,
+      subject: form.subject,
+      subjectCategory: form.subjectCategory,
+      color: form.color,
+      isPrivate: form.isPrivate,
+      allowedRoles: form.allowedRoles,
+      invitedUserIds: form.invitedUserIds,
       createdBy: currentUser.uid,
       createdByName: currentUser.displayName ?? '',
       memberIds: [currentUser.uid, ...(form.invitedUserIds || [])],

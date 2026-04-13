@@ -5,6 +5,7 @@ import { auth } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { MessageSquare, Bookmark, Trash2, Image as ImageIcon, PlayCircle } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 import {
   subscribeToSavedMessages,
   subscribeToSavedPosts,
@@ -24,6 +25,7 @@ export default function SavedItems() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, user => {
@@ -82,7 +84,7 @@ export default function SavedItems() {
   });
 
   return (
-    <Layout title="Guardados">
+    <Layout title={t('saved.title')}>
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '0 0 80px' }}>
         <div style={{ padding: '12px 16px' }}>
           <div style={{
@@ -94,11 +96,11 @@ export default function SavedItems() {
           }}>
             <button style={tabStyle('messages')} onClick={() => setTab('messages')}>
               <MessageSquare size={16} />
-              Mensajes
+              {t('saved.tabs.messages')}
             </button>
             <button style={tabStyle('posts')} onClick={() => setTab('posts')}>
               <Bookmark size={16} />
-              Posts
+              {t('saved.tabs.posts')}
             </button>
           </div>
         </div>
@@ -107,7 +109,7 @@ export default function SavedItems() {
           <div className="loading-container"><div className="loading-spinner" /></div>
         ) : tab === 'messages' ? (
           savedMessages.length === 0 ? (
-            <EmptyState label="No tienes mensajes guardados" />
+            <EmptyState label={t('saved.no_items')} />
           ) : (
             <div style={{ padding: '0 16px' }}>
               {savedMessages.map(msg => (
@@ -176,7 +178,7 @@ export default function SavedItems() {
           )
         ) : (
           savedPosts.length === 0 ? (
-            <EmptyState label="No tienes posts guardados" />
+            <EmptyState label={t('saved.no_items')} />
           ) : (
             <div style={{ padding: '0 16px' }}>
               {savedPosts.map(post => (
@@ -236,12 +238,13 @@ export default function SavedItems() {
 }
 
 function EmptyState({ label }: { label: string }) {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 24px', gap: '12px' }}>
       <Bookmark size={56} strokeWidth={1.2} color="var(--border)" />
       <p style={{ fontSize: '17px', fontWeight: '600', color: 'var(--text)', margin: 0 }}>{label}</p>
       <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>
-        Los elementos que guardes aparecerán aquí
+        {t('saved.no_items_desc')}
       </p>
     </div>
   );

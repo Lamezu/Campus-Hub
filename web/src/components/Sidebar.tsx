@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Compass, GraduationCap, MessagesSquare, User, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface SidebarProps {
   isDesktop: boolean;
@@ -11,13 +12,14 @@ interface SidebarProps {
 export default function Sidebar({ isDesktop, collapsed, onToggle }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const menuItems = [
-    { path: '/home', icon: Home, label: 'Inicio' },
-    { path: '/campus', icon: GraduationCap, label: 'Campus' },
-    { path: '/explore', icon: Compass, label: 'Explorar' },
-    { path: '/messages', icon: MessagesSquare, label: 'Mensajes' },
-    { path: '/profile', icon: User, label: 'Perfil' },
+    { path: '/home', icon: Home, label: t('tabs.home') },
+    { path: '/campus', icon: GraduationCap, label: t('tabs.campus') },
+    { path: '/explore', icon: Compass, label: t('tabs.explore') },
+    { path: '/messages', icon: MessagesSquare, label: t('tabs.messages') },
+    { path: '/profile', icon: User, label: t('tabs.profile') },
   ];
 
   if (!isDesktop) return null;
@@ -63,7 +65,7 @@ export default function Sidebar({ isDesktop, collapsed, onToggle }: SidebarProps
           }}
           onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          title={collapsed ? 'Expandir' : 'Colapsar'}
+          title={collapsed ? t('common.expand') : t('common.collapse')}
         >
           {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
         </button>

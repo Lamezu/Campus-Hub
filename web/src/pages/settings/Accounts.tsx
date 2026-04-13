@@ -6,11 +6,13 @@ import { auth } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useAccounts, type StoredAccount } from '../../contexts/AccountsContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function Accounts() {
   const navigate = useNavigate();
   const { colors } = useTheme();
   const { accounts, activeUid, switching, switchAccount, addAccount, removeAccount } = useAccounts();
+  const { t } = useTranslation();
 
   const [confirmRemove, setConfirmRemove] = useState<StoredAccount | null>(null);
   const [switchError, setSwitchError] = useState('');
@@ -35,7 +37,7 @@ export default function Accounts() {
       await switchAccount(account);
       navigate('/home');
     } catch {
-      setSwitchError('No se pudo cambiar de cuenta. Inténtalo de nuevo.');
+      setSwitchError(t('accounts.error_switch_retry'));
     }
   };
 
@@ -49,7 +51,7 @@ export default function Accounts() {
       setReAuthAccount(null);
       navigate('/home');
     } catch {
-      setReAuthError('Contraseña incorrecta.');
+      setReAuthError(t('accounts.wrong_password'));
     } finally {
       setReAuthLoading(false);
     }
@@ -62,7 +64,7 @@ export default function Accounts() {
   };
 
   return (
-    <Layout title="Cuentas" showBackButton>
+    <Layout title={t('accounts.title')} showBackButton>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '16px' }}>
 
         <div style={{ border: `1px solid ${colors.border}`, borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
@@ -149,7 +151,7 @@ export default function Accounts() {
           }}
         >
           <Plus size={18} color={colors.primary} strokeWidth={2.5} />
-          Añadir cuenta
+          {t('accounts.add_account')}
         </button>
       </div>
 
@@ -164,17 +166,17 @@ export default function Accounts() {
           >
             <div>
               <div style={{ fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 4 }}>
-                Confirmar identidad
+                {t('accounts.confirm_identity')}
               </div>
               <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: '20px' }}>
-                Introduce la contraseña de <strong>{reAuthAccount.displayName || reAuthAccount.email}</strong> para cambiar a esta cuenta.
+                {t('accounts.reauth_hint', { name: reAuthAccount.displayName || reAuthAccount.email })}
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
               <input
                 type={reAuthShowPw ? 'text' : 'password'}
-                placeholder="Contraseña"
+                placeholder={t('auth.password')}
                 value={reAuthPassword}
                 onChange={e => { setReAuthPassword(e.target.value); setReAuthError(''); }}
                 onKeyDown={e => { if (e.key === 'Enter') handleReAuth(); }}
@@ -199,14 +201,14 @@ export default function Accounts() {
                 onClick={() => setReAuthAccount(null)}
                 style={{ flex: 1, padding: 11, borderRadius: 10, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, fontWeight: '600', cursor: 'pointer' }}
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleReAuth}
                 disabled={!reAuthPassword || reAuthLoading}
                 style={{ flex: 1, padding: 11, borderRadius: 10, border: 'none', backgroundColor: reAuthPassword && !reAuthLoading ? colors.primary : colors.border, color: '#fff', fontSize: 14, fontWeight: '600', cursor: reAuthPassword && !reAuthLoading ? 'pointer' : 'not-allowed' }}
               >
-                {reAuthLoading ? 'Verificando...' : 'Continuar'}
+                {reAuthLoading ? t('accounts.verifying') : t('accounts.continue_btn')}
               </button>
             </div>
           </div>
@@ -222,22 +224,22 @@ export default function Accounts() {
             style={{ backgroundColor: colors.background, borderRadius: 16, padding: 24, width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 12 }}
             onClick={e => e.stopPropagation()}
           >
-            <span style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Eliminar cuenta</span>
+            <span style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{t('accounts.title')}</span>
             <span style={{ fontSize: 14, color: colors.textSecondary, lineHeight: '22px' }}>
-              ¿Eliminar <strong>{confirmRemove.displayName || confirmRemove.email}</strong> de la lista de cuentas guardadas?
+              {t('accounts.remove_confirm_body', { name: confirmRemove.displayName || confirmRemove.email })}
             </span>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button
                 onClick={() => setConfirmRemove(null)}
                 style={{ flex: 1, padding: 11, borderRadius: 10, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, fontWeight: '600', cursor: 'pointer' }}
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleRemoveConfirm}
                 style={{ flex: 1, padding: 11, borderRadius: 10, border: 'none', backgroundColor: '#FF3B30', color: '#fff', fontSize: 14, fontWeight: '600', cursor: 'pointer' }}
               >
-                Eliminar
+                {t('common.delete')}
               </button>
             </div>
           </div>
