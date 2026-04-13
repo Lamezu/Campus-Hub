@@ -135,6 +135,10 @@ export async function sendGroupMessage(
   const groupSnap = await getDoc(groupRef);
   const members: string[] = groupSnap.data()?.members ?? [];
 
+  const cleanReplyTo = replyTo
+    ? Object.fromEntries(Object.entries(replyTo).filter(([, v]) => v !== undefined))
+    : null;
+
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
   batch.set(msgRef, {
@@ -145,7 +149,7 @@ export async function sendGroupMessage(
     createdAt: serverTimestamp(),
     attachments: attachments ?? null,
     reactions: {},
-    replyTo: replyTo ?? null,
+    replyTo: cleanReplyTo,
     deletedForUsers: [],
     type: 'text',
   });
