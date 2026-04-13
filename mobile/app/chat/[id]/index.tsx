@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView, StatusBar, Image, Animated, TextInput, Clipboard, Alert, Keyboard } from 'react-native';
 import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
@@ -597,6 +597,31 @@ export default function ChatScreen() {
   const pillEmojis = [...PRESET_REACTIONS, ...userCustomEmojis];
 
 
+  const renderChatItem = useCallback(({ item }: { item: Message }) => (
+    <MessageBubble
+      message={item}
+      isOwnMessage={item.senderId === currentUser?.uid}
+      currentUserId={currentUser?.uid}
+      onReply={handleReply}
+      onLongPress={setMenuMessage}
+      onDoubleTap={() => handleMessageDoubleTap(item.id, item.reactions ?? {})}
+      onSwipeStart={onMessageSwipeStart}
+      onSwipeEnd={onMessageSwipeEnd}
+      onQuickAudioReply={handleQuickAudioReply}
+      onReplyPreviewPress={handleReplyPreviewPress}
+      onSenderPress={setPreviewUserId}
+      highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
+      onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
+      onFilePress={(url, name) => {
+        downloadAndOpenFile(url, name).catch(() => {
+          Alert.alert(t('common.error'), t('dm.file_open_error'));
+        });
+      }}
+      searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
+    />
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [currentUser?.uid, highlightedMessageId, currentSearchMatchId, showSearch, searchQuery]);
+
   if (id === '4') {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -718,34 +743,15 @@ export default function ChatScreen() {
               ref={flatListRef}
               data={messages}
               keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <MessageBubble
-                  message={item}
-                  isOwnMessage={item.senderId === currentUser?.uid}
-                  currentUserId={currentUser?.uid}
-                  onReply={handleReply}
-                  onLongPress={setMenuMessage}
-                  onDoubleTap={() => handleMessageDoubleTap(item.id, item.reactions ?? {})}
-                  onSwipeStart={onMessageSwipeStart}
-                  onSwipeEnd={onMessageSwipeEnd}
-                  onQuickAudioReply={handleQuickAudioReply}
-                  onReplyPreviewPress={handleReplyPreviewPress}
-                  onSenderPress={setPreviewUserId}
-                  highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
-                  onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                  onFilePress={(url, name) => {
-                    downloadAndOpenFile(url, name);
-                  }}
-                  searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
-                />
-              )}
+              renderItem={renderChatItem}
+              extraData={[currentUser?.uid, highlightedMessageId, currentSearchMatchId, showSearch, searchQuery]}
               contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
               onEndReached={loadMoreMessages}
               onEndReachedThreshold={0.5}
               scrollEnabled={!isSwipingMessage}
               onScrollToIndexFailed={() => { }}
               ListHeaderComponent={loadingMore ? <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
-              ListEmptyComponent={<View style={{ flex: 1, transform: [{ scaleY: -1 }] }}><EmptyState icon={MessageCircle} title={t('chat.no_messages')} fill /></View>}
+              ListEmptyComponent={<View style={[{ flex: 1 }, Platform.OS === 'ios' && { transform: [{ scaleY: -1 }] }]}><EmptyState icon={MessageCircle} title={t('chat.no_messages')} fill /></View>}
               inverted
               onScroll={handleListScroll}
               scrollEventThrottle={100}

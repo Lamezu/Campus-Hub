@@ -5,7 +5,7 @@ import {
   Modal, Pressable, ScrollView, Platform, KeyboardAvoidingView, Clipboard,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { ChevronLeft, Users, Phone, Video, Settings, Search, X, ChevronDown, Star, Reply, Copy, Trash2, Forward, Bookmark } from 'lucide-react-native';
+import { ChevronLeft, Users, Phone, Video, Settings, Search, X, ChevronDown, Star, Reply, Copy, Trash2, Forward, Bookmark, MessageCircle } from 'lucide-react-native';
 import { KeyboardAwareView } from '@/components/KeyboardAwareView';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,7 @@ import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { auth } from '@/config/firebase';
+import { downloadAndOpenFile } from '@/utils/fileDownload';
 import type { Message, GroupConversation, ReplyPreview } from '@/types';
 import {
   subscribeToGroupMessages,
@@ -34,6 +35,7 @@ import {
 import { starMessage, unstarMessage, getStarredIdsForGroup } from '@/services/starredMessagesService';
 import { saveMessage } from '@/services/savedItemsService';
 import { avatarColor } from '@/utils/avatarColor';
+import { EmptyState } from '@/components/EmptyState';
 
 const PRESET_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -77,8 +79,7 @@ export default function GroupChatScreen() {
       setMessages(msgs);
       setLoading(false);
     }, (err) => {
-      // Permission denied = user is no longer a member, go back to messages tab
-      if (err?.code === 'permission-denied') {
+            if (err?.code === 'permission-denied') {
         router.replace('/(tabs)/messages' as any);
       }
       setLoading(false);
@@ -326,6 +327,28 @@ export default function GroupChatScreen() {
     || t('dm.group.new_group') || 'New Group';
   const memberCount = groupInfo?.members.length ?? 0;
 
+  const renderGroupItem = useCallback(({ item }: { item: Message }) => (
+    <MessageBubble
+      message={item}
+      isOwnMessage={item.senderId === currentUser?.uid}
+      currentUserId={currentUser?.uid}
+      onLongPress={handleLongPress}
+      onReply={() => handleReply(item)}
+      onDoubleTap={() => handleReaction('❤️', item)}
+      onVotePoll={(optId) => handleVotePoll(item.id, optId)}
+      onReplyPreviewPress={handleReplyPreviewPress}
+      isStarred={starredIds.has(item.id)}
+      highlighted={item.id === highlightedMessageId || item.id === currentSearchMatchId}
+      searchHighlight={showSearch && !!searchQuery && item.id === currentSearchMatchId ? searchQuery : undefined}
+      onFilePress={(url, name) => {
+        downloadAndOpenFile(url, name).catch(() => {
+          Alert.alert(t('common.error'), t('dm.file_open_error'));
+        });
+      }}
+    />
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [currentUser?.uid, highlightedMessageId, currentSearchMatchId, starredIds, showSearch, searchQuery]);
+
   if (loading) {
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -435,22 +458,10 @@ export default function GroupChatScreen() {
             contentContainerStyle={styles.messageList}
             onScroll={handleListScroll}
             scrollEventThrottle={16}
-            renderItem={({ item }) => (
-              <MessageBubble
-                message={item}
-                isOwnMessage={item.senderId === currentUser?.uid}
-                currentUserId={currentUser?.uid}
-                onLongPress={handleLongPress}
-                onReply={() => handleReply(item)}
-                onDoubleTap={() => handleReaction('❤️', item)}
-                onVotePoll={(optId) => handleVotePoll(item.id, optId)}
-                onReplyPreviewPress={handleReplyPreviewPress}
-                isStarred={starredIds.has(item.id)}
-                highlighted={item.id === highlightedMessageId || item.id === currentSearchMatchId}
-                searchHighlight={showSearch && !!searchQuery && item.id === currentSearchMatchId ? searchQuery : undefined}
-              />
-            )}
+            renderItem={renderGroupItem}
+            extraData={[currentUser?.uid, highlightedMessageId, currentSearchMatchId, starredIds, showSearch, searchQuery]}
             keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={<View style={[{ flex: 1 }, Platform.OS === 'ios' && { transform: [{ scaleY: -1 }] }]}><EmptyState icon={MessageCircle} title={t('dm.no_messages_yet')} fill /></View>}
           />
 
           {showScrollDown && (

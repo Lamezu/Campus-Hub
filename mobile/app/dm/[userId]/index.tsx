@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image,
     ActivityIndicator, TouchableOpacity, Pressable, Modal, ScrollView,
@@ -474,6 +474,35 @@ export default function DMChatScreen() {
     const participantName = participant?.displayName || 'Usuario';
     const headerName = participantName.length > 13 ? participantName.slice(0, 13).trimEnd() + '...' : participantName;
 
+    const renderDmItem = useCallback(({ item }: { item: DirectMessage }) => (
+        <MessageBubble
+            message={item}
+            isOwnMessage={item.senderId === currentUser?.uid}
+            currentUserId={currentUser?.uid}
+            onReply={handleReply}
+            onLongPress={setMenuMessage}
+            onDoubleTap={() => handleReaction('❤️', item)}
+            onSwipeStart={() => setIsSwipingMessage(true)}
+            onSwipeEnd={() => setIsSwipingMessage(false)}
+            onQuickAudioReply={(msg) => {
+                handleReply(msg);
+                setTimeout(() => messageInputRef.current?.startRecordingLocked(), 150);
+            }}
+            onReplyPreviewPress={handleReplyPreviewPress}
+            highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
+            isStarred={starredIds.has(item.id)}
+            showReadReceipt
+            onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
+            onFilePress={(url, name) => {
+                downloadAndOpenFile(url, name).catch(() => {
+                    Alert.alert(t('common.error'), t('dm.file_open_error'));
+                });
+            }}
+            searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
+        />
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ), [currentUser?.uid, highlightedMessageId, currentSearchMatchId, starredIds, showSearch, searchQuery]);
+
     if (error) {
         return (
             <ThemedView style={[styles.container, styles.centerContent]}>
@@ -608,37 +637,14 @@ export default function DMChatScreen() {
                             data={messages}
                             keyExtractor={item => item.id}
                             scrollEnabled={!isSwipingMessage}
-                            renderItem={({ item }) => (
-                                <MessageBubble
-                                    message={item}
-                                    isOwnMessage={item.senderId === currentUser?.uid}
-                                    currentUserId={currentUser?.uid}
-                                    onReply={handleReply}
-                                    onLongPress={setMenuMessage}
-                                    onDoubleTap={() => handleReaction('❤️', item)}
-                                    onSwipeStart={() => setIsSwipingMessage(true)}
-                                    onSwipeEnd={() => setIsSwipingMessage(false)}
-                                    onQuickAudioReply={(msg) => {
-                                        handleReply(msg);
-                                        setTimeout(() => messageInputRef.current?.startRecordingLocked(), 150);
-                                    }}
-                                    onReplyPreviewPress={handleReplyPreviewPress}
-                                    highlighted={highlightedMessageId === item.id || currentSearchMatchId === item.id}
-                                    isStarred={starredIds.has(item.id)}
-                                    showReadReceipt
-                                    onVotePoll={(optionId) => handleVotePoll(item.id, optionId)}
-                                    onFilePress={(url, name) => {
-                                        downloadAndOpenFile(url, name);
-                                    }}
-                                    searchHighlight={showSearch && searchQuery ? searchQuery : undefined}
-                                />
-                            )}
+                            renderItem={renderDmItem}
+                            extraData={[currentUser?.uid, highlightedMessageId, currentSearchMatchId, starredIds, showSearch, searchQuery]}
                             contentContainerStyle={[styles.messageList, { paddingBottom: spacing.md }]}
                             onScroll={handleListScroll}
                             scrollEventThrottle={100}
                             inverted
                             ListEmptyComponent={
-                                <View style={{ flex: 1, transform: [{ scaleY: -1 }] }}><EmptyState icon={MessageCircle} title={t('dm.no_messages_yet')} fill /></View>
+                                <View style={[{ flex: 1 }, Platform.OS === 'ios' && { transform: [{ scaleY: -1 }] }]}><EmptyState icon={MessageCircle} title={t('dm.no_messages_yet')} fill /></View>
                             }
                         />
 
