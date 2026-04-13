@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/config/firebase';
 
 const CLOUD_NAME = 'dcwzlpg7m';
 const UPLOAD_PRESET = 'campushub-profiles';
@@ -85,17 +87,11 @@ export async function uploadChatVideo(uri: string): Promise<string> {
 }
 
 export async function uploadChatFile(uri: string, filename: string, mimeType?: string): Promise<string> {
-  const formData = new FormData();
-  await appendFileToForm(formData, 'file', uri, mimeType || 'application/octet-stream', filename);
-  formData.append('upload_preset', UPLOAD_PRESET);
-  formData.append('folder', 'campushub/files');
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`;
-  const response = await axios.post(endpoint, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-
-  if (!response.data?.secure_url) throw new Error('Upload failed: missing secure_url');
-  return response.data.secure_url as string;
+  const MIME = mimeType || 'application/octet-stream';
+  const path = `campushub/files/${Date.now()}_${filename}`;
+  const storageRef = ref(storage, path);
+  const blob = await fetch(uri).then(r => r.blob());
+  await uploadBytes(storageRef, blob, { contentType: MIME });
+  return getDownloadURL(storageRef);
 }
 

@@ -11,6 +11,7 @@ import {
   Modal,
   Image,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -532,8 +533,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
         try {
           const url = await uploadChatFile(asset.uri, asset.name, asset.mimeType || undefined);
           onSendFile?.(asset.name, url, asset.size || 0);
-        } catch {
-          alert(t('dm.file_error') || 'File Error');
+        } catch (err) {
+          Alert.alert(t('common.error'), t('dm.file_error'));
+          console.error('[uploadChatFile]', err);
         } finally {
           setIsUploading(false);
         }
