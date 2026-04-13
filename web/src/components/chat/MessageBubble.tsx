@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTranslation } from '../../hooks/useTranslation';
-import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download, ChevronRight } from 'lucide-react';
+import { CornerDownRight, Copy, Trash2, Forward, Smile, Mic, Bookmark, FileText, Download, ChevronRight, Check } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import AudioMessage from './AudioMessage';
 import type { Message } from '../../types';
@@ -669,8 +669,16 @@ export default function MessageBubble({
               {message.text}
             </div>
           )}
-          <div style={timeStyle}>
-            {formatTimestamp(message.createdAt)}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: '4px' }}>
+            <span style={{ fontSize: '11px', color: hexToRgba(bubbleText, 0.7) }}>
+              {formatTimestamp(message.createdAt)}
+            </span>
+            {isOwnMessage && isConversation && (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Check size={12} color={message.read || message.status === 'read' ? '#007AFF' : '#8E8E93'} />
+                <Check size={12} color={message.read || message.status === 'read' ? '#007AFF' : '#8E8E93'} style={{ marginLeft: -6 }} />
+              </div>
+            )}
           </div>
         </div>
 

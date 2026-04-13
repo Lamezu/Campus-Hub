@@ -42,6 +42,7 @@ export interface ReplyTo {
   text: string;
   isAudio?: boolean;
   audioDuration?: number;
+  attachmentType?: 'image' | 'audio' | 'file' | 'contact';
 }
 
 export interface ForwardedFrom {
@@ -53,7 +54,7 @@ export interface ForwardedFrom {
 export interface PollOption {
   id: string;
   text: string;
-  votes: string[]; // array of userIds
+  votes: string[];
 }
 
 export interface PollData {
@@ -62,6 +63,7 @@ export interface PollData {
   multipleAnswers: boolean;
   totalVotes: number;
   closed?: boolean;
+  votes?: Record<string, string[]>;
 }
 
 export interface Message {
@@ -76,6 +78,9 @@ export interface Message {
   attachments: Attachment[] | null;
   reactions: Record<string, string[]>;
   replyTo?: ReplyTo | null;
+  read?: boolean;
+  readAt?: string | null;
+  status?: 'sent' | 'delivered' | 'read';
   deletedForUsers?: string[];
   isForwarded?: boolean;
   originalSender?: string | null;

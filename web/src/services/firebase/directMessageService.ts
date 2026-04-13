@@ -43,10 +43,12 @@ export interface DMMessage {
 
 export interface DMAttachment {
   url: string;
-  type: 'image' | 'file' | 'audio';
+  type: 'image' | 'file' | 'audio' | 'contact';
   name: string;
   size: number;
   duration?: number;
+  bio?: string;
+  userId?: string;
 }
 
 export interface DMReplyTo {
@@ -183,6 +185,52 @@ function lastMessagePreview(text: string, attachments?: DMAttachment[] | null): 
   return '';
 }
 
+async function sendDMNotification(
+  conversationId: string,
+  senderId: string,
+  senderName: string,
+  messageText: string,
+  attachments: DMAttachment[] | null
+) {
+  try {
+    const convSnap = await getDoc(doc(db, 'conversations', conversationId));
+    if (!convSnap.exists()) return;
+    
+    const participants = convSnap.data().participants;
+    const recipientId = participants.find((id: string) => id !== senderId);
+    if (!recipientId) return;
+
+    const settingsSnap = await getDoc(
+      doc(db, 'users', recipientId, 'contactSettings', senderId)
+    );
+    const settings = settingsSnap.exists() ? settingsSnap.data() : { mute: 'off' };
+    
+    const now = new Date();
+    const mutedUntil = settings.mutedUntil?.toDate?.() ?? null;
+    const isMuted = settings.mute !== 'off' && (
+      settings.mute === 'always' ||
+      (mutedUntil ? mutedUntil > now : true)
+    );
+
+    if (isMuted) return;
+
+    const body = messageText || (attachments && attachments.length > 0 ? 'Archivo adjunto' : '');
+    await addDoc(collection(db, 'notifications', recipientId, 'items'), {
+      category: 'dm',
+      title: senderName,
+      body: body,
+      read: false,
+      createdAt: serverTimestamp(),
+      meta: {
+        participantId: senderId,
+        conversationId: conversationId,
+      }
+    });
+  } catch (error) {
+    console.error('Error sending DM notification:', error);
+  }
+}
+
 export async function sendMessage(
   conversationId: string,
   text: string,
@@ -210,6 +258,7 @@ export async function sendMessage(
     reactions: {},
     read: false,
     readAt: null,
+    status: 'sent',
     deletedForUsers: []
   };
 
@@ -237,12 +286,7 @@ export async function sendMessage(
   await batch.commit();
 
   if (otherUserId) {
-    notificationService.write(otherUserId, {
-      category: 'dm',
-      title: senderName,
-      body: lastMessagePreview(text, attachments),
-      meta: { participantId: senderId, conversationId },
-    }).catch(() => {});
+    sendDMNotification(conversationId, senderId, senderName, text, attachments).catch(() => {});
   }
 
   return messageRef.id;
@@ -251,6 +295,40 @@ export async function sendMessage(
 export async function markAsRead(conversationId: string, userId: string): Promise<void> {
   const convRef = doc(db, 'conversations', conversationId);
   await updateDoc(convRef, { [`unreadCount.${userId}`]: 0 });
+}
+
+export async function markDMAsRead(conversationId: string, currentUserId: string): Promise<void> {
+  try {
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const q = query(messagesRef, where('read', '==', false));
+    const snapshot = await getDocs(q);
+
+    const batch = writeBatch(db);
+    let hasUpdates = false;
+
+    snapshot.docs.forEach(docSnap => {
+      const msg = docSnap.data();
+      if (msg.senderId !== currentUserId) {
+        batch.update(docSnap.ref, {
+          read: true,
+          readAt: serverTimestamp(),
+          status: 'read',
+        });
+        hasUpdates = true;
+      }
+    });
+
+    const convRef = doc(db, 'conversations', conversationId);
+    batch.update(convRef, {
+      [`unreadCount.${currentUserId}`]: 0
+    });
+
+    if (hasUpdates || true) {
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error('Error marking DM as read:', error);
+  }
 }
 
 export async function deleteMessage(conversationId: string, messageId: string): Promise<void> {

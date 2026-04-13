@@ -22,6 +22,7 @@ import {
   loadMoreMessages as loadMoreDMs,
   sendMessage,
   markAsRead,
+  markDMAsRead,
   deleteMessage,
   deleteMessageForMe,
   addReaction,
@@ -270,7 +271,7 @@ export default function DirectChat() {
       } else if (wasFirst) {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
       }
-      markAsRead(conversationId, uid).catch(() => {});
+      markDMAsRead(conversationId, uid).catch(() => {});
     });
 
     return () => unsubscribe();
