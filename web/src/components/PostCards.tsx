@@ -212,11 +212,9 @@ export function PostCard({ post, onPress, onDoubleTap, onLikePress, onShare, cur
                   onClick={e => { e.stopPropagation(); onShare(); }}
                 >
                   <Share2 size={14} color={colors.textSecondary} strokeWidth={1.8} />
-                  {(post.sharesCount ?? 0) > 0 && (
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                      {post.sharesCount}
-                    </span>
-                  )}
+                  <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                    {post.sharesCount || 0}
+                  </span>
                 </div>
               )}
             </div>

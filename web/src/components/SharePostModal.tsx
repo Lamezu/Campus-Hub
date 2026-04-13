@@ -138,7 +138,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
       const senderName = auth.currentUser?.displayName || 'Usuario';
       const senderPhoto = auth.currentUser?.photoURL || null;
 
-      // Build what to send depending on mode
       const msgText = isMessageMode ? (message.text || '') : '';
       const msgAttachments = isMessageMode
         ? (message.attachments || null)
@@ -177,7 +176,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           if (target.type === 'channel') {
             await addDoc(collection(db, 'channels', '1', 'messages'), baseDoc);
           } else if (target.type === 'studyGroup') {
-            // Chat.tsx usa channels/sg_{groupId}/messages para grupos de estudio
             await addDoc(collection(db, 'channels', `sg_${targetId}`, 'messages'), baseDoc);
           } else if (target.type === 'dm') {
             await sendMessage(targetId, msgText, uid, senderName, senderPhoto, msgAttachments as any);
@@ -189,12 +187,14 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
         }
       }
 
-      // Track shares only for posts
-      if (!isMessageMode && post?.id) {
-        await updateDoc(doc(db, 'posts', post.id), {
-          sharesCount: increment(selected.length),
-          sharedBy: arrayUnion(uid),
-        }).catch(() => {});
+      if (!isMessageMode && post?.id && auth.currentUser) {
+        const alreadyShared = post.sharedBy?.includes(auth.currentUser.uid);
+        if (!alreadyShared) {
+          await updateDoc(doc(db, 'posts', post.id), {
+            sharesCount: increment(1),
+            sharedBy: arrayUnion(auth.currentUser.uid)
+          });
+        }
       }
 
       onClose();
@@ -249,7 +249,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           </button>
         </div>
 
-        {/* Preview */}
         <div style={{
           padding: '10px 16px',
           backgroundColor: colors.backgroundSecondary,
@@ -282,7 +281,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           </div>
         </div>
 
-        {/* Tabs */}
         <div style={{
           display: 'flex',
           borderBottom: `1px solid ${colors.border}`,
@@ -315,7 +313,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           ))}
         </div>
 
-        {/* Search */}
         {tab !== 'general' && (
           <div style={{ padding: '10px 16px', position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 28, top: '50%', transform: 'translateY(-50%)', color: colors.textSecondary }} />
@@ -339,7 +336,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           </div>
         )}
 
-        {/* List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {loading ? (
             <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>
@@ -364,7 +360,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
                 onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = colors.backgroundSecondary; }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
-                {/* Checkbox */}
+
                 <div style={{
                   width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                   border: `2px solid ${isSelected ? colors.primary : colors.border}`,
@@ -375,7 +371,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
                   {isSelected && <Check size={13} color="#fff" />}
                 </div>
 
-                {/* Avatar */}
                 {target.photo !== undefined ? (
                   target.photo ? (
                     <img src={target.photo} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
@@ -392,7 +387,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
                   </div>
                 )}
 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: '500', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {target.name}
@@ -408,7 +402,6 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           })}
         </div>
 
-        {/* Footer */}
         <div style={{
           padding: '12px 16px',
           borderTop: `1px solid ${colors.border}`,
