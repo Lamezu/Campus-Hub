@@ -567,6 +567,7 @@
         "audio_error": "Error sending audio.",
         "image_error": "Error sending image",
         "file_error": "Error uploading file",
+        "file_open_error": "Could not open the file",
         "write_placeholder": "Type a message...",
         "voice_message": "Voice message",
         "image_msg": "Image",
