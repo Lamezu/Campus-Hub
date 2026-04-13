@@ -21,6 +21,7 @@ import {
 } from '@/services/dmService';
 import { messageService, forumService } from '@/services/shared';
 import { useStudyGroups } from '@/hooks/explore/useStudyGroups';
+import { useCurrentUser } from '@/contexts/UserContext';
 import type { DMConversation, Channel, StudyGroup } from '@/types';
 
 type ForwardTab = 'channels' | 'dms' | 'groups';
@@ -159,6 +160,7 @@ function GroupRow({
 export default function ForwardScreen() {
   const { colors, theme } = useTheme();
   const { t } = useTranslation();
+  const { role, subrole } = useCurrentUser();
   const {
     messageText, audioUrl, audioDuration,
     imageUrl, imageWidth, imageHeight,
@@ -214,14 +216,20 @@ export default function ForwardScreen() {
 
   const totalSelected = selectedChannels.size + selectedDMs.size + selectedGroups.size;
 
+  const canWriteAnnouncements = role === 'admin' || subrole === 'coordinator';
+
   const filteredChannels = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const forwardable = CHANNELS.filter(c => !FORWARD_EXCLUDED_CHANNEL_IDS.has(c.id));
+    const forwardable = CHANNELS.filter(c => {
+      if (FORWARD_EXCLUDED_CHANNEL_IDS.has(c.id)) return false;
+      if (c.type === 'announcement' && !canWriteAnnouncements) return false;
+      return true;
+    });
     if (!q) return forwardable;
     return forwardable.filter(c =>
       c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, canWriteAnnouncements]);
 
   const filteredDMs = useMemo(() => {
     const q = query.trim().toLowerCase();
