@@ -167,7 +167,8 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff());
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll', 'votes', 'voters', 'attendeesCount']));
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff());
     }
 
     match /rsvps/{rsvpId} {
