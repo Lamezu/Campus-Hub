@@ -416,7 +416,6 @@ export default function Messages() {
           </>
         )}
 
-        {/* More options submenu */}
         {moreMenu && (
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAll} />

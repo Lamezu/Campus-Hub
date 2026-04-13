@@ -217,8 +217,6 @@
     "record_audio": "Record audio",
     "photos": "Photos",
     "document": "Document",
-    "poll": "Poll",
-    "contact": "Contact",
     "send_audio_error": "Error sending audio: {{error}}",
     "send_file_error": "Error sending file",
     "scroll_to_bottom": "Scroll to bottom",
@@ -1375,6 +1373,17 @@
     "support": {
       "name": "Help & Support",
       "description": "Technical support and user help"
-    }
+    },
+  "share": {
+  "general": "General",
+  "my_groups": "My groups",
+  "messages": "Messages",
+  "group_dms": "Group DMs",
+  "group_dm_default": "Group DM",
+  "forward_message": "Forward message",
+  "share_post": "Share post",
+  "share": "Share",
+  "no_destinations": "No destinations available"
+}
   }
 }

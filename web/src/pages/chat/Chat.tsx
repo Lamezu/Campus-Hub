@@ -80,8 +80,8 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
   const attachItems = [
     { label: t('chat.photos'), icon: <Image size={22} color="#5856D6" />, bg: '#5856D622', action: () => { setShowAttachMenu(false); imageInputRef.current?.click(); } },
     { label: t('chat.document'), icon: <FileText size={22} color="#007AFF" />, bg: '#007AFF22', action: () => { setShowAttachMenu(false); fileInputRef.current?.click(); } },
-    { label: t('chat.poll'), icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
-    { label: t('chat.contact'), icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
+    { label: t('chat.poll_label'), icon: <BarChart3 size={22} color="#FF2D55" />, bg: '#FF2D5522', action: () => { setShowAttachMenu(false); setShowPoll(true); } },
+    { label: t('chat.contact_label'), icon: <UserRound size={22} color="#34C759" />, bg: '#34C75922', action: () => { setShowAttachMenu(false); setShowContactPicker(true); } },
   ];
 
   return (
@@ -163,8 +163,6 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
 
 const SUPPORT_CHANNEL_ID = '5';
 
-/** Normalizes both old web format (options: string[], votes: {}) and
- *  new shared format (options: {id,text,votes}[], totalVotes) into the shared format. */
 function normalizePoll(raw: any): import('../../types').PollData | null {
   if (!raw || typeof raw !== 'object' || typeof raw.question !== 'string' || !Array.isArray(raw.options)) return null;
   const options = (raw.options as any[]).map((o: any, i: number) => {

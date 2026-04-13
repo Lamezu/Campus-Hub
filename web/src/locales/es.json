@@ -1383,6 +1383,17 @@
     "support": {
       "name": "Ayuda y Soporte",
       "description": "Soporte técnico y ayuda al usuario"
+    },
+    "share": {
+      "general": "General",
+      "my_groups": "Mis grupos",
+      "messages": "Mensajes",
+      "group_dms": "Grupos DM",
+      "group_dm_default": "Grupo DM",
+      "forward_message": "Reenviar mensaje",
+      "share_post": "Compartir post",
+      "share": "Compartir",
+      "no_destinations": "No hay destinos disponibles"
     }
   }
 }
