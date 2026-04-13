@@ -1393,7 +1393,8 @@
       "forward_message": "Reenviar mensaje",
       "share_post": "Compartir post",
       "share": "Compartir",
-      "no_destinations": "No hay destinos disponibles"
+      "no_destinations": "No hay destinos disponibles",
+      "official_annoucement_channel": "Anuncios Oficiales"
     }
   }
 }

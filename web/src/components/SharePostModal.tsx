@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from '../hooks/useTranslation';
 import { X, Search, Check, Send, Hash, Users, MessageCircle, MessagesSquare } from 'lucide-react';
 import { sendMessage } from '../services/firebase/directMessageService';
 import { sendGroupMessage } from '../services/firebase/groupDMService';
@@ -27,17 +28,18 @@ interface SharePostModalProps {
   message?: any;
 }
 
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'general',  label: 'General',    icon: <Hash size={15} /> },
-  { key: 'grupos',   label: 'Mis grupos', icon: <Users size={15} /> },
-  { key: 'mensajes', label: 'Mensajes',   icon: <MessageCircle size={15} /> },
-  { key: 'gruposDM', label: 'Grupos DM',  icon: <MessagesSquare size={15} /> },
-];
-
 export default function SharePostModal({ isOpen, onClose, post, message }: SharePostModalProps) {
   const isMessageMode = !!message && !post;
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('general');
+  
+  const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    { key: 'general',  label: t('chat.info.title'),    icon: <Hash size={15} /> },
+    { key: 'grupos',   label: t('chat.info.study_group'), icon: <Users size={15} /> },
+    { key: 'mensajes', label: t('chat.contact_label'),   icon: <MessageCircle size={15} /> },
+    { key: 'gruposDM', label: t('channels.share.group_dms'),  icon: <MessagesSquare size={15} /> },
+  ];
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [targets, setTargets] = useState<ShareTarget[]>([]);
@@ -52,31 +54,44 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
     loadTargets('general');
   }, [isOpen]);
 
-  const loadTargets = async (t: Tab) => {
+  const loadTargets = async (tabKey: Tab) => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     setLoading(true);
     try {
       let newTargets: ShareTarget[] = [];
 
-      if (t === 'general') {
-        newTargets = [{
+      if (tabKey === 'general') {
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        const isAdmin = userDoc.data()?.isAdmin || userDoc.data()?.role === 'admin';
+
+        const generalChannels = [{
           id: '1',
-          name: 'Canal General',
-          type: 'channel',
-          subtitle: 'Canal general para todos',
+          name: t('channels.share.general'),
+          type: 'channel' as const,
+          subtitle: t('chat.info.all_members'),
         }];
-      } else if (t === 'grupos') {
+
+        if (isAdmin) {
+          generalChannels.push({
+            id: '2',
+            name: t('channels.share.official_annoucement_channel'),
+            type: 'channel' as const,
+            subtitle: t('chat.read_only_announcement'),
+          });
+        }
+        newTargets = generalChannels;
+      } else if (tabKey === 'grupos') {
         const snap = await getDocs(
           query(collection(db, 'studyGroups'), where('memberIds', 'array-contains', uid))
         );
         newTargets = snap.docs.map(d => ({
           id: d.id,
-          name: d.data().name || 'Grupo',
+          name: d.data().name || t('chat.info.study_group'),
           type: 'studyGroup' as const,
-          subtitle: `${d.data().memberIds?.length ?? 0} miembros`,
+          subtitle: `${d.data().memberIds?.length ?? 0} ${t('chat.info.members')}`,
         }));
-      } else if (t === 'mensajes') {
+      } else if (tabKey === 'mensajes') {
         const snap = await getDocs(
           query(collection(db, 'conversations'), where('participants', 'array-contains', uid))
         );
@@ -89,22 +104,22 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
             const userData = userSnap.data();
             return {
               id: d.id,
-              name: userData?.displayName || 'Usuario',
+              name: userData?.displayName || t('user'),
               type: 'dm' as const,
               photo: userData?.photoURL || null,
             };
           })
         );
         newTargets = enriched.filter(Boolean) as ShareTarget[];
-      } else if (t === 'gruposDM') {
+      } else if (tabKey === 'gruposDM') {
         const snap = await getDocs(
           query(collection(db, 'groupConversations'), where('members', 'array-contains', uid))
         );
         newTargets = snap.docs.map(d => ({
           id: d.id,
-          name: d.data().name || 'Grupo DM',
+          name: d.data().name || t('chat.group.new_group'),
           type: 'groupDM' as const,
-          subtitle: `${d.data().members?.length ?? 0} miembros`,
+          subtitle: `${d.data().members?.length ?? 0} ${t('chat.info.members')}`,
         }));
       }
 
@@ -135,7 +150,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
     if (!post && !message) return;
     setSending(true);
     try {
-      const senderName = auth.currentUser?.displayName || 'Usuario';
+      const senderName = auth.currentUser?.displayName || t('user');
       const senderPhoto = auth.currentUser?.photoURL || null;
 
       const msgText = isMessageMode ? (message.text || '') : '';
@@ -174,7 +189,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
 
         try {
           if (target.type === 'channel') {
-            await addDoc(collection(db, 'channels', '1', 'messages'), baseDoc);
+            await addDoc(collection(db, 'channels', target.id, 'messages'), baseDoc);
           } else if (target.type === 'studyGroup') {
             await addDoc(collection(db, 'channels', `sg_${targetId}`, 'messages'), baseDoc);
           } else if (target.type === 'dm') {
@@ -239,7 +254,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <h2 style={{ fontSize: '17px', fontWeight: '700', color: colors.text, margin: 0 }}>
-            {isMessageMode ? 'Reenviar mensaje' : 'Compartir post'}
+            {isMessageMode ? t('chat.forward_modal.title') : t('share_post')}
           </h2>
           <button
             onClick={onClose}
@@ -265,7 +280,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
                   {message.senderName}
                 </div>
                 <div style={{ fontSize: 13, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {message.text || (message.attachments?.length ? '📎 Adjunto' : '')}
+                  {message.text || (message.attachments?.length ? t('attached_file') : '')}
                 </div>
               </>
             ) : (
@@ -318,7 +333,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
             <Search size={15} style={{ position: 'absolute', left: 28, top: '50%', transform: 'translateY(-50%)', color: colors.textSecondary }} />
             <input
               type="text"
-              placeholder="Buscar..."
+              placeholder={t('chat.forward_modal.search_placeholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -339,11 +354,11 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {loading ? (
             <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>
-              Cargando...
+              {t('loading')}
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>
-              {search ? 'Sin resultados' : 'No hay destinos disponibles'}
+              {search ? t('no_results') : t('chat.forward_modal.no_chats')}
             </div>
           ) : filtered.map(target => {
             const isSelected = selected.includes(target.id);
@@ -416,7 +431,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
               fontSize: 14, fontWeight: '500', cursor: 'pointer',
             }}
           >
-            Cancelar
+            {t('chat.settings.clear_chat_cancel')}
           </button>
           <button
             onClick={handleShare}
@@ -432,7 +447,7 @@ export default function SharePostModal({ isOpen, onClose, post, message }: Share
             }}
           >
             <Send size={15} />
-            {sending ? 'Enviando...' : `Compartir${selected.length > 0 ? ` (${selected.length})` : ''}`}
+            {sending ? t('dm.sending') : `${t('chat.forward')}${selected.length > 0 ? ` (${selected.length})` : ''}`}
           </button>
         </div>
       </div>

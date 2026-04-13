@@ -1383,7 +1383,8 @@
   "forward_message": "Forward message",
   "share_post": "Share post",
   "share": "Share",
-  "no_destinations": "No destinations available"
+  "no_destinations": "No destinations available",
+  "official_annoucement_channel": "Official Annoucements"
 }
   }
 }
