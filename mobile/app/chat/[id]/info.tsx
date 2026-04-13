@@ -631,7 +631,9 @@ export default function ChannelInfoScreen() {
                     </TouchableOpacity>
                     <ThemedText style={styles.heroName}>{channel?.name}</ThemedText>
                     <ThemedText style={[styles.heroSub, { color: colors.textSecondary }]}>
-                        {isSG ? (t('chat.info.study_group') || 'Study Group') : (t('chat.info.campus_channel') || 'Campus Channel')} • {members.length === 1 ? t('chat.info.member_count_one') : t('chat.info.member_count_other', { count: members.length })}
+                        {isSG ? (t('chat.info.study_group') || 'Study Group') : (t('chat.info.campus_channel') || 'Campus Channel')} • {isPublicChannel
+                            ? (t('chat.info.all_users') || 'All users')
+                            : (members.length === 1 ? t('chat.info.member_count_one') : t('chat.info.member_count_other', { count: members.length }))}
                     </ThemedText>
                     {isEditingDesc ? (
                         <View style={{ width: '100%', paddingHorizontal: spacing.md, marginTop: 8 }}>
@@ -685,7 +687,7 @@ export default function ChannelInfoScreen() {
                             </View>
                             <View style={[styles.infoRow, { borderBottomColor: colors.border }]}>
                                 <ThemedText style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.members_label') || 'Members'}</ThemedText>
-                                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{(channel?.memberCount ?? null) !== null ? String(channel.memberCount) : (t('chat.info.all_users') || 'All users')}</ThemedText>
+                                <ThemedText style={[styles.infoValue, { color: colors.text }]}>{t('chat.info.all_users') || 'All users'}</ThemedText>
                             </View>
                             {createdAtStr && (
                                 <View style={styles.infoRow}>
