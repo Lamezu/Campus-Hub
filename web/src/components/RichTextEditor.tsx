@@ -68,7 +68,7 @@ function TableGridPicker({
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1998 }} />
       <div
         style={{
-          position: 'fixed', top, left, zIndex: 1999,
+          position: 'fixed', top, left, zIndex: 9999,
           backgroundColor: colors.background,
           border: `1px solid ${colors.border}`,
           borderRadius: 12, padding: 10,
@@ -175,11 +175,17 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
       <ToolbarBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title={t('rich_text.blockquote')}><Quote size={15} strokeWidth={2} /></ToolbarBtn>
       <ToolbarBtn onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive('code')} title={t('rich_text.code')}><Code size={15} strokeWidth={2} /></ToolbarBtn>
       <Sep />
-      <button
+       <button
         ref={tableButtonRef}
         onMouseDown={e => {
           e.preventDefault();
-          setTableAnchor(a => a ? null : tableButtonRef.current!.getBoundingClientRect());
+          e.stopPropagation();
+          if (tableAnchor) {
+            setTableAnchor(null);
+          } else {
+            const rect = tableButtonRef.current?.getBoundingClientRect();
+            setTableAnchor(rect || null);
+          }
         }}
         title={t('rich_text.insert_table')}
         style={{
@@ -194,7 +200,10 @@ function Toolbar({ editor, colors, pageMode, isMobile }: { editor: Editor; color
       </button>
       {tableAnchor && (
         <TableGridPicker
-          onPick={(r, c) => editor.chain().focus().insertTable({ rows: r, cols: c, withHeaderRow: true }).run()}
+          onPick={(r, c) => {
+            editor.chain().focus().insertTable({ rows: r, cols: c, withHeaderRow: true }).run();
+            setTableAnchor(null);
+          }}
           onClose={() => setTableAnchor(null)}
           anchorRect={tableAnchor}
           colors={colors}
@@ -220,13 +229,17 @@ export default function RichTextEditor({ content, onChange, colors, placeholder,
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Underline,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: true }),
+      StarterKit,
+      Table.configure({
+        resizable: true,
+      }),
       TableRow,
       TableHeader,
       TableCell,
+      Underline,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
     ],
     content: content || '',
     onUpdate: ({ editor }) => {
@@ -238,7 +251,7 @@ export default function RichTextEditor({ content, onChange, colors, placeholder,
   useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
-    if (current !== content) editor.commands.setContent(content || '', false);
+    if (current !== content) editor.commands.setContent(content || '');
   }, [content]);
 
   if (!editor) return null;
@@ -246,27 +259,26 @@ export default function RichTextEditor({ content, onChange, colors, placeholder,
   const isEmpty = !editor.getText().trim();
 
   const editorStyles = `
-    .ch-editor .tiptap { outline: none; }
-    .ch-editor .tiptap table { border-collapse: collapse; width: 100%; }
-    .ch-editor .tiptap td, .ch-editor .tiptap th {
-      border: 1px solid ${colors.border}; padding: 7px 11px;
-      min-width: 80px; position: relative; vertical-align: top;
+    .ch-prose table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
+      margin: 16px 0;
+      overflow: hidden;
     }
-    .ch-editor .tiptap th { background: ${colors.backgroundSecondary}; font-weight: 700; }
-    .ch-editor .tiptap .selectedCell::after {
-      content: ''; position: absolute; inset: 0;
-      background: ${colors.primary}22; pointer-events: none; z-index: 2;
+    .ch-prose td, .ch-prose th {
+      min-width: 1em;
+      border: 1px solid ${colors.border};
+      padding: 6px 10px;
+      vertical-align: top;
+      box-sizing: border-box;
+      position: relative;
     }
-    .ch-editor .tiptap .column-resize-handle {
-      position: absolute; right: -2px; top: 0; bottom: 0; width: 4px;
-      background: ${colors.primary}; cursor: col-resize; z-index: 20; opacity: 0; transition: opacity 0.15s;
+    .ch-prose th {
+      font-weight: bold;
+      text-align: left;
+      background-color: ${colors.backgroundSecondary};
     }
-    .ch-editor .tiptap td:hover .column-resize-handle,
-    .ch-editor .tiptap th:hover .column-resize-handle,
-    .ch-editor .tiptap .column-resize-handle:hover,
-    .ch-editor .resize-cursor .column-resize-handle { opacity: 1; }
-    .ch-editor .tiptap .tableWrapper { overflow-x: auto; margin: 10px 0; }
-    .ch-editor .resize-cursor { cursor: col-resize; }
   `;
 
   if (pageMode) {
