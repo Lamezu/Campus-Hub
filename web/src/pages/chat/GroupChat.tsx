@@ -45,13 +45,13 @@ function getLuminance(hex: string): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-function replyPreviewText(msg: GroupMessage): string {
+function replyPreviewText(msg: GroupMessage, t: (key: string, options?: any) => string): string {
   if (msg.text?.trim()) return msg.text.trim().substring(0, 40);
   const type = msg.attachments?.[0]?.type;
-  if (type === 'image') return '📷 Imagen';
-  if (type === 'audio') return '🎵 Audio';
-  if (type === 'file') return `📎 ${msg.attachments![0].name || 'Archivo'}`;
-  if (type === 'contact') return `👤 ${msg.attachments![0].name || 'Contacto'}`;
+  if (type === 'image') return `📷 ${t('chat.image')}`;
+  if (type === 'audio') return `🎵 ${t('chat.voice_message')}`;
+  if (type === 'file') return `📎 ${msg.attachments![0].name || t('common.file')}`;
+  if (type === 'contact') return `👤 ${msg.attachments![0].name || t('common.contact')}`;
   return '';
 }
 
@@ -128,7 +128,7 @@ function MessageInput({
             <CornerDownRight size={16} color={themeStyle ? themeStyle.text : colors.primary} />
             <span>
               <span style={{ color: themeStyle ? themeStyle.text : colors.primary, fontWeight: '600' }}>{replyingTo.senderName}</span>
-              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyPreviewText(replyingTo)}</span>
+              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyPreviewText(replyingTo, tMsg)}</span>
             </span>
           </div>
           <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: themeStyle ? themeStyle.text : colors.textSecondary, display: 'flex', padding: '4px' }}>
@@ -181,7 +181,7 @@ function GroupInfoPanel({
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [mute, setMute] = useState<MuteDuration>('off');
-  const [tone, setTone] = useState<string>('Predeterminado');
+  const [tone, setTone] = useState<string>(t('settings.alert_tones.default'));
 
   const [starred, setStarred] = useState<SavedMessage[]>([]);
 
@@ -225,7 +225,7 @@ function GroupInfoPanel({
       if (!snap.exists()) return;
       const d = snap.data();
       setMute(d.mute ?? 'off');
-      setTone(d.alertTone ?? 'Predeterminado');
+      setTone(d.alertTone ?? t('settings.alert_tones.default'));
     }).catch(() => {});
 
     getDocs(collection(db, 'groupConversations', group.id, 'messages')).then(snap => {
@@ -236,7 +236,7 @@ function GroupInfoPanel({
       });
       setSharedMediaCount(count);
     }).catch(() => {});
-  }, [currentUserId, settingsKey, group.id]);
+  }, [currentUserId, settingsKey, group.id, t]);
 
   const saveSetting = async (partial: Record<string, any>) => {
     await setDoc(doc(db, 'users', currentUserId, 'contactSettings', settingsKey), { ...partial, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
@@ -263,7 +263,7 @@ function GroupInfoPanel({
 
   const loadFriends = async () => {
     const all = await getFriends(currentUserId).catch(() => []);
-    setFriends((all as any[]).filter((f: any) => !group.members.includes(f.id)).map((f: any) => ({ id: f.id, name: f.displayName || f.name || 'Usuario', photo: f.photoURL || null })));
+    setFriends((all as any[]).filter((f: any) => !group.members.includes(f.id)).map((f: any) => ({ id: f.id, name: f.displayName || f.name || t('common.user'), photo: f.photoURL || null })));
   };
 
   const handleOpenAddMember = () => { loadFriends(); setSubPanel('addMember'); };
@@ -363,7 +363,7 @@ function GroupInfoPanel({
   };
 
   const memberList = group.members.map(id => ({
-    id, name: group.memberNames[id] || 'Usuario',
+    id, name: group.memberNames[id] || t('common.user'),
     photo: group.memberPhotos[id] || null,
     isCreator: id === group.createdBy,
   }));
@@ -455,7 +455,7 @@ function GroupInfoPanel({
               colors.text,
               mute !== 'off' ? muteDurationLabel[mute] : undefined,
             )}
-            {actionRow(<Bell size={20} />, t('dm.group.alert_tone'), () => setSubPanel('tone'), colors.text, tone !== 'Predeterminado' ? tone : undefined)}
+            {actionRow(<Bell size={20} />, t('dm.group.alert_tone'), () => setSubPanel('tone'), colors.text, tone !== t('settings.alert_tones.default') ? tone : undefined)}
           </div>
 
           <div style={{ padding: '16px 20px 8px' }}>
@@ -850,7 +850,7 @@ export default function GroupChat() {
           replyData.attachmentType = attachmentType;
         }
       }
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, text, null, replyData);
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, text, null, replyData);
       setReplyingTo(null);
     } catch {} finally { setSending(false); }
   };
@@ -860,7 +860,7 @@ export default function GroupChat() {
     setSending(true);
     try {
       const url = await uploadAudio(blob, `group_${groupId}_${Date.now()}`);
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, '', [{ url, type: 'audio', name: 'audio.webm', size: blob.size, duration }]);
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type: 'audio', name: 'audio.webm', size: blob.size, duration }]);
       setShowRecorder(false);
     } catch {} finally { setSending(false); }
   };
@@ -870,7 +870,7 @@ export default function GroupChat() {
     setSending(true);
     try {
       const url = type === 'image' ? await uploadChatImage(file, `group_${groupId}_${Date.now()}`) : await uploadChatFile(file, `group_${groupId}_${Date.now()}`);
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, '', [{ url, type, name: file.name, size: file.size }]);
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type, name: file.name, size: file.size }]);
     } catch {} finally { setSending(false); }
   };
 
@@ -889,7 +889,7 @@ export default function GroupChat() {
         totalVotes: 0,
         closed: false,
       };
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, poll.question, null, null, pollData);
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, poll.question, null, null, pollData);
     } catch {} finally { setSending(false); }
   };
 
@@ -897,7 +897,7 @@ export default function GroupChat() {
     if (!currentUser || !groupId || sending) return;
     setSending(true);
     try {
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, `👤 ${contact.name}`, [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }]);
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, `👤 ${contact.name}`, [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }]);
     } catch {} finally { setSending(false); }
   };
 
@@ -920,7 +920,7 @@ export default function GroupChat() {
     if (!currentUser || !group) return;
     const participantData: Record<string, { name: string; photo: string | null }> = {};
     for (const uid of group.members) {
-      participantData[uid] = { name: group.memberNames[uid] || 'Usuario', photo: group.memberPhotos[uid] || null };
+      participantData[uid] = { name: group.memberNames[uid] || t('common.user'), photo: group.memberPhotos[uid] || null };
     }
     try {
       const callId = await createGroupCall(
@@ -928,7 +928,7 @@ export default function GroupChat() {
         group.name,
         group.photoURL,
         currentUser.uid,
-        userData?.displayName || currentUser.displayName || 'Usuario',
+        userData?.displayName || currentUser.displayName || t('common.user'),
         userData?.photoURL || currentUser.photoURL || null,
         type,
         group.members,
@@ -941,7 +941,7 @@ export default function GroupChat() {
         groupName: group.name,
         groupPhoto: group.photoURL,
         myUid: currentUser.uid,
-        myName: userData?.displayName || currentUser.displayName || 'Usuario',
+        myName: userData?.displayName || currentUser.displayName || t('common.user'),
         myPhoto: userData?.photoURL || currentUser.photoURL || null,
       });
       setActiveGroupCallId(callId);

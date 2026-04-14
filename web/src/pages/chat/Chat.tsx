@@ -33,6 +33,33 @@ function getLuminance(hex: string): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
+function replyAttachmentType(msg: Message): string | null {
+  if (msg.poll) return 'poll';
+  if (msg.attachments && msg.attachments.length > 0) return msg.attachments[0].type;
+  return null;
+}
+
+function replyPreviewText(msg: Message, t: (key: string, options?: any) => string): string {
+  if (msg.poll) {
+    return msg.poll.question.length > 40 
+      ? msg.poll.question.substring(0, 40) + "..." 
+      : msg.poll.question;
+  }
+  if (msg.text?.trim()) {
+    return msg.text.trim().length > 40 
+      ? msg.text.trim().substring(0, 40) + "..." 
+      : msg.text.trim();
+  }
+  if (msg.attachments && msg.attachments.length > 0) {
+    const type = msg.attachments[0].type;
+    if (type === 'image') return t('chat.image');
+    if (type === 'audio') return t('chat.voice_message');
+    if (type === 'file') return msg.attachments![0].name || t('common.file');
+    if (type === 'contact') return msg.attachments![0].name || t('common.contact');
+  }
+  return '';
+}
+
 interface ThemeStyle {
   bg: string;
   border: string;
@@ -117,7 +144,7 @@ function MessageInput({ onSend, onSendAudio, onSendAttachment, onSendPoll, onSen
             <CornerDownRight size={16} color={themeStyle ? themeStyle.text : colors.primary} />
             <span>
               <span style={{ color: themeStyle ? themeStyle.text : colors.primary, fontWeight: '600' }}>{replyingTo.senderName}</span>
-              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyingTo.text.substring(0, 30)}...</span>
+              <span style={{ color: themeStyle ? themeStyle.text : colors.textSecondary, opacity: 0.7, marginLeft: '8px' }}>{replyPreviewText(replyingTo, t)}</span>
             </span>
           </div>
           <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: themeStyle ? themeStyle.text : colors.textSecondary, display: 'flex', alignItems: 'center', padding: '4px' }}>
@@ -408,7 +435,8 @@ export default function Chat() {
         messageData.replyTo = {
           id: replyingTo.id,
           senderName: replyingTo.senderName,
-          text: replyingTo.text
+          text: replyPreviewText(replyingTo, t),
+          attachmentType: replyAttachmentType(replyingTo)
         };
       }
 
@@ -425,67 +453,68 @@ export default function Chat() {
     }
   };
 
-const handleSendAudio = async (audioBlob: Blob, duration: number) => {
-  if (!currentUser || !id || sending) return;
+  const handleSendAudio = async (audioBlob: Blob, duration: number) => {
+    if (!currentUser || !id || sending) return;
 
-  setSending(true);
+    setSending(true);
 
-  try {
-    if (!audioBlob || audioBlob.size === 0) {
-      throw new Error('Empty audio');
-    }
+    try {
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error('Empty audio');
+      }
 
-    const tempId = `temp_${Date.now()}`;
-    const audioUrl = await uploadAudio(audioBlob, tempId);
-    
-    const messagesRef = collection(db, 'channels', id, 'messages');
+      const tempId = `temp_${Date.now()}`;
+      const audioUrl = await uploadAudio(audioBlob, tempId);
+      
+      const messagesRef = collection(db, 'channels', id, 'messages');
 
-    const messageData: any = {
-      text: '',
-      senderId: currentUser.uid,
-      senderName: userData?.displayName || currentUser.displayName || 'User',
-      senderPhoto: userData?.photoURL || currentUser.photoURL || null,
-      createdAt: serverTimestamp(),
-      edited: false,
-      editedAt: null,
-      attachments: [{
-        url: audioUrl,
-        type: 'audio',
-        name: `audio_${Date.now()}.webm`,
-        size: audioBlob.size,
-        duration: duration
-      }],
-      reactions: {},
-      deletedForUsers: [],
-    };
-
-    if (replyingTo) {
-      messageData.replyTo = {
-        id: replyingTo.id,
-        senderName: replyingTo.senderName,
-        text: replyingTo.text
+      const messageData: any = {
+        text: '',
+        senderId: currentUser.uid,
+        senderName: userData?.displayName || currentUser.displayName || 'User',
+        senderPhoto: userData?.photoURL || currentUser.photoURL || null,
+        createdAt: serverTimestamp(),
+        edited: false,
+        editedAt: null,
+        attachments: [{
+          url: audioUrl,
+          type: 'audio',
+          name: `audio_${Date.now()}.webm`,
+          size: audioBlob.size,
+          duration: duration
+        }],
+        reactions: {},
+        deletedForUsers: [],
       };
+
+      if (replyingTo) {
+        messageData.replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyPreviewText(replyingTo, t),
+          attachmentType: replyAttachmentType(replyingTo)
+        };
+      }
+
+      await addDoc(messagesRef, messageData);
+
+      setReplyingTo(null);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (error) {
+      alert(`Error al enviar el audio: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setSending(false);
     }
-
-    await addDoc(messagesRef, messageData);
-
-    setReplyingTo(null);
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  } catch (error) {
-    alert(`Error al enviar el audio: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-  } finally {
-    setSending(false);
-  }
-};
+  };
 
   const handleSendAttachment = async (file: File, type: 'image' | 'file') => {
     if (!currentUser || !id || sending) return;
     setSending(true);
     try {
       const url = type === 'image' ? await uploadChatImage(file, `${id}_${Date.now()}`) : await uploadChatFile(file, `${id}_${Date.now()}`);
-      await addDoc(collection(db, 'channels', id, 'messages'), {
+      const messageData: any = {
         text: '',
         senderId: currentUser.uid,
         senderName: userData?.displayName || currentUser.displayName || 'User',
@@ -494,7 +523,17 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         edited: false, editedAt: null,
         attachments: [{ url, type, name: file.name, size: file.size }],
         reactions: {}, deletedForUsers: [],
-      });
+      };
+      if (replyingTo) {
+        messageData.replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyPreviewText(replyingTo, t),
+          attachmentType: replyAttachmentType(replyingTo)
+        };
+      }
+      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { alert('Error al enviar el archivo'); } finally { setSending(false); }
   };
@@ -503,7 +542,7 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
     try {
-      await addDoc(collection(db, 'channels', id, 'messages'), {
+      const messageData: any = {
         text: '',
         senderId: currentUser.uid,
         senderName: userData?.displayName || currentUser.displayName || 'User',
@@ -513,12 +552,26 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         attachments: null, reactions: {}, deletedForUsers: [],
         poll: {
           question: poll.question,
-          options: poll.options.map((opt: string, i: number) => ({ id: String(i), text: opt, votes: [] })),
+          options: poll.options.map((opt: any, i: number) => ({ 
+            id: String(i), 
+            text: typeof opt === 'string' ? opt : opt.text || opt.label || opt.value || '', 
+            votes: [] 
+          })),
           multipleAnswers: poll.multipleAnswers,
           totalVotes: 0,
           closed: false,
         },
-      });
+      };
+      if (replyingTo) {
+        messageData.replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyPreviewText(replyingTo, t),
+          attachmentType: replyAttachmentType(replyingTo)
+        };
+      }
+      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
   };
@@ -527,7 +580,7 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
     try {
-      await addDoc(collection(db, 'channels', id, 'messages'), {
+      const messageData: any = {
         text: `👤 ${contact.name}`,
         senderId: currentUser.uid,
         senderName: userData?.displayName || currentUser.displayName || 'User',
@@ -536,7 +589,20 @@ const handleSendAudio = async (audioBlob: Blob, duration: number) => {
         edited: false, editedAt: null,
         attachments: [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }],
         reactions: {}, deletedForUsers: [],
-      });
+      };
+      if (replyingTo) {
+        messageData.replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        const attachmentType = replyAttachmentType(replyingTo);
+        if (attachmentType !== undefined) {
+          messageData.replyTo.attachmentType = attachmentType;
+        }
+      }
+      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
   };

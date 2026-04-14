@@ -216,6 +216,7 @@
     "record_audio": "Grabar audio",
     "photos": "Fotos",
     "document": "Documento",
+    "recording": "Grabando...",
     "poll": "Encuesta",
     "contact": "Contacto",
     "send_audio_error": "Error al enviar el audio: {{error}}",
@@ -1206,7 +1207,10 @@
     "new_notifications": "{{count}} notificaciones nuevas",
     "new_message": "Mensaje nuevo",
     "commented_on_post": "comentó en tu post \"{{title}}\"",
-    "liked_your_post": "le dio like a tu post \"{{title}}\""
+    "liked_your_post": "le dio like a tu post \"{{title}}\"",
+    "new_interactions": "interacciones nuevas",
+    "wants_to_be_friend": "quiere ser tu amigo",
+    "friend_request": "Solicitud de amistad"
   },
   "time_ago": {
     "now": "Ahora",

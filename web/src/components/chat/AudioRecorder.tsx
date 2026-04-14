@@ -253,7 +253,7 @@ export default function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) 
         animation: 'pulse 1s infinite',
       }} />
       <span style={{ color: colors.danger, fontSize: '14px', fontWeight: '500', flex: 1 }}>
-        Grabando... {formatTime(recordingTime)}
+        {t('chat.recording')} {formatTime(recordingTime)}
       </span>
       <button
         onClick={stopRecording}

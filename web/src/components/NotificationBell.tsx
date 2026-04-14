@@ -5,10 +5,11 @@ import { Bell, MessageSquare, Heart, Users, Megaphone } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { useTheme } from '../contexts/ThemeContext';
 import type { NotificationItem, NotificationCategory } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string) => string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'ahora';
+  if (diff < 60) return t('time_ago.now');
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   return `${Math.floor(diff / 86400)}d`;
@@ -30,12 +31,14 @@ interface NotificationBellProps {
 export default function NotificationBell({ categories }: NotificationBellProps = {}) {
   const { notifications, pendingRequests, acceptRequest, rejectRequest, markRead, markAllRead } = useNotifications();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const bellRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [panelRect, setPanelRect] = useState<{ top: number; right: number; vw: number } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
+  const [processedRequestIds, setProcessedRequestIds] = useState<Set<string>>(new Set());
 
   const filtered = categories
     ? notifications.filter(n => categories.includes(n.category))
@@ -70,10 +73,10 @@ export default function NotificationBell({ categories }: NotificationBellProps =
         const unread = unreadItems.length;
         let body = latest.body;
         if (items.length > 1) {
-          if (latest.category === 'channel') body = `${unread > 0 ? unread : items.length} mensaje${items.length !== 1 ? 's' : ''} nuevo${items.length !== 1 ? 's' : ''}`;
-          else if (latest.category === 'social') body = `${items.length} interacciones nuevas`;
-          else if (latest.category === 'campus') body = `${items.length} anuncios`;
-          else body = `${items.length} notificaciones nuevas`;
+          if (latest.category === 'channel') body = t('home.new_messages', { count: unread > 0 ? unread : items.length });
+          else if (latest.category === 'social') body = t('notifications.new_interactions', { count: items.length });
+          else if (latest.category === 'campus') body = t('explore.new_announcement', { count: items.length });
+          else body = t('notifications.new_notifications', { count: items.length });
         }
         return {
           ...latest,
@@ -87,17 +90,14 @@ export default function NotificationBell({ categories }: NotificationBellProps =
   }, [filtered]);
 
   const handlePress = async (item: NotificationItem & { allIds: string[] }) => {
-    await Promise.all(item.allIds.map(id => markRead(id)));
-
-    if (item.category === 'friend') {
-      if (item.meta?.isRequest === 'true' && item.meta?.fromUserId) {
-        setFriendRequestItem(item);
-      } else {
-        setOpen(false);
-        navigate('/friends');
-      }
+    if (item.category === 'friend' && item.meta?.isRequest === 'true' && item.meta?.fromUserId) {
+      const requestKey = `friend_${item.meta.fromUserId}`;
+      if (processedRequestIds.has(requestKey)) return;
+      setFriendRequestItem(item);
       return;
     }
+
+    await Promise.all(item.allIds.map(id => markRead(id)));
 
     if (item.category === 'social' && item.meta?.postId) {
       setOpen(false);
@@ -130,10 +130,35 @@ export default function NotificationBell({ categories }: NotificationBellProps =
 
   const handleAccept = async () => {
     if (!friendRequestItem?.meta?.fromUserId) return;
+    const requestKey = `friend_${friendRequestItem.meta.fromUserId}`;
+    if (processedRequestIds.has(requestKey)) return;
+    
     const req = pendingRequests.find(r => r.fromUserId === friendRequestItem.meta!.fromUserId);
     if (req) {
       setActionLoading(req.id);
-      try { await acceptRequest(req); } catch { }
+      try {
+        await acceptRequest(req);
+        processedRequestIds.add(requestKey);
+        await markRead(friendRequestItem.id);
+      } catch { }
+      setActionLoading(null);
+    }
+    setFriendRequestItem(null);
+  };
+
+  const handleReject = async () => {
+    if (!friendRequestItem?.meta?.fromUserId) return;
+    const requestKey = `friend_${friendRequestItem.meta.fromUserId}`;
+    if (processedRequestIds.has(requestKey)) return;
+    
+    const req = pendingRequests.find(r => r.fromUserId === friendRequestItem.meta!.fromUserId);
+    if (req) {
+      setActionLoading(req.id);
+      try {
+        await rejectRequest(req);
+        processedRequestIds.add(requestKey);
+        await markRead(friendRequestItem.id);
+      } catch { }
       setActionLoading(null);
     }
     setFriendRequestItem(null);
@@ -173,7 +198,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
           flexShrink: 0,
         }}>
           <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text)' }}>
-            Notificaciones
+            {t('notifications.title')}
           </span>
           {unreadCount > 0 && (
             <button
@@ -191,7 +216,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
                 padding: '2px 0',
               }}
             >
-              Leer todo
+              {t('notifications.mark_all_read')}
             </button>
           )}
         </div>
@@ -208,93 +233,101 @@ export default function NotificationBell({ categories }: NotificationBellProps =
             }}>
               <Bell size={36} color="var(--text-secondary)" strokeWidth={1.4} />
               <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                No hay notificaciones
+                {t('notifications.no_notifications')}
               </span>
             </div>
           ) : (
-            grouped.map((item, idx) => (
-              <button
-                key={item.id}
-                onClick={() => handlePress(item)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '10px',
-                  padding: '11px 16px',
-                  borderBottom: idx < grouped.length - 1 ? '1px solid var(--border)' : 'none',
-                  width: '100%',
-                  backgroundColor: item.read ? 'transparent' : `${colors.primary}0D`,
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'background-color 0.12s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${colors.primary}14`; }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = item.read ? 'transparent' : `${colors.primary}0D`; }}
-              >
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '18px',
-                  backgroundColor: 'var(--background-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  marginTop: '1px',
-                }}>
-                  <CategoryIcon category={item.category} color={colors.primary} />
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{
-                    display: 'block',
-                    fontSize: '13px',
-                    fontWeight: item.read ? '500' : '700',
-                    color: 'var(--text)',
-                    lineHeight: '18px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    marginBottom: '2px',
+            grouped.map((item, idx) => {
+              const isFriendRequest = item.category === 'friend' && item.meta?.isRequest === 'true';
+              const requestKey = isFriendRequest ? `friend_${item.meta?.fromUserId}` : null;
+              const isProcessed = requestKey ? processedRequestIds.has(requestKey) : false;
+              
+              if (isProcessed) return null;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handlePress(item)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    padding: '11px 16px',
+                    borderBottom: idx < grouped.length - 1 ? '1px solid var(--border)' : 'none',
+                    width: '100%',
+                    backgroundColor: item.read ? 'transparent' : `${colors.primary}0D`,
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background-color 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${colors.primary}14`; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = item.read ? 'transparent' : `${colors.primary}0D`; }}
+                >
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '18px',
+                    backgroundColor: 'var(--background-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '1px',
                   }}>
-                    {item.title}
-                  </span>
-                  <span style={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    fontSize: '12px',
-                    color: 'var(--text-secondary)',
-                    lineHeight: '17px',
-                  }}>
-                    {item.body}
-                  </span>
-                </div>
+                    <CategoryIcon category={item.category} color={colors.primary} />
+                  </div>
 
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                  gap: '6px',
-                  flexShrink: 0,
-                  paddingTop: '1px',
-                }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '16px', whiteSpace: 'nowrap' }}>
-                    {timeAgo(item.createdAt)}
-                  </span>
-                  {!item.read && (
-                    <div style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      backgroundColor: colors.primary,
-                    }} />
-                  )}
-                </div>
-              </button>
-            ))
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: item.read ? '500' : '700',
+                      color: 'var(--text)',
+                      lineHeight: '18px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      marginBottom: '2px',
+                    }}>
+                      {item.title}
+                    </span>
+                    <span style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '17px',
+                    }}>
+                      {item.body}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: '6px',
+                    flexShrink: 0,
+                    paddingTop: '1px',
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '16px', whiteSpace: 'nowrap' }}>
+                      {timeAgo(item.createdAt, t)}
+                    </span>
+                    {!item.read && (
+                      <div style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: colors.primary,
+                      }} />
+                    )}
+                  </div>
+                </button>
+              );
+            })
           )}
         </div>
       </div>
@@ -375,14 +408,15 @@ export default function NotificationBell({ categories }: NotificationBellProps =
             onClick={e => e.stopPropagation()}
           >
             <span style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text)' }}>
-              Solicitud de amistad
+              {t('notifications.friend_request')}
             </span>
             <span style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '22px' }}>
-              <strong>{friendRequestItem.meta?.fromUserName ?? 'Alguien'}</strong> quiere ser tu amigo/a.
+              <strong>{friendRequestItem.meta?.fromUserName ?? t('common.someone')}</strong> {t('notifications.wants_to_be_friend')}
             </span>
             <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
               <button
-                onClick={() => setFriendRequestItem(null)}
+                onClick={handleReject}
+                disabled={actionLoading !== null}
                 style={{
                   flex: 1,
                   padding: '10px',
@@ -392,10 +426,11 @@ export default function NotificationBell({ categories }: NotificationBellProps =
                   color: 'var(--text)',
                   fontSize: '14px',
                   fontWeight: '600',
-                  cursor: 'pointer',
+                  cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading !== null ? 0.6 : 1,
                 }}
               >
-                Rechazar
+                {t('common.reject')}
               </button>
               <button
                 onClick={handleAccept}
@@ -409,11 +444,11 @@ export default function NotificationBell({ categories }: NotificationBellProps =
                   color: '#fff',
                   fontSize: '14px',
                   fontWeight: '600',
-                  cursor: 'pointer',
+                  cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
                   opacity: actionLoading !== null ? 0.6 : 1,
                 }}
               >
-                Aceptar
+                {t('common.accept')}
               </button>
             </div>
           </div>

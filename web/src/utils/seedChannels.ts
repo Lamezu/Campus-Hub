@@ -56,7 +56,6 @@ const CHANNEL_SEED: Record<string, object> = {
   },
 };
 
-/** Creates system channels in Firestore if they don't exist yet. Safe to call multiple times. */
 export async function seedSystemChannels(): Promise<void> {
   await Promise.all(
     Object.entries(CHANNEL_SEED).map(async ([id, data]) => {
