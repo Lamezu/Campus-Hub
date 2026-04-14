@@ -171,6 +171,8 @@
     "start_conference": "Start conference",
     "unread_messages": "{{count}} unread",
     "group_call": "Group call",
+    "member_singular": "member",
+    "member_plural": "members",
     "video_call": "Group video call",
     "new_messages": "new messages",
     "search_channels": "Search channels...",

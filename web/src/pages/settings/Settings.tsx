@@ -10,6 +10,7 @@ import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMi
 import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
 import { uploadCallTone } from '../../config/cloudinary';
 import { useTranslation } from '../../hooks/useTranslation';
+import ReactCountryFlag from 'react-country-flag';
 
 type MuteDuration = '8h' | '1w' | 'always' | 'off';
 type Language = 'es' | 'en';
@@ -43,6 +44,11 @@ export default function Settings() {
   const [uploadingTone, setUploadingTone] = useState(false);
   const callToneInputRef = useRef<HTMLInputElement>(null);
   const currentUser = auth.currentUser;
+
+  const LANG_OPTIONS: { id: Language; label: string; countryCode: string }[] = [
+    { id: 'es', label: t('common.spanish'), countryCode: 'ES' },
+    { id: 'en', label: t('common.english'), countryCode: 'GB' },
+  ];
 
   useEffect(() => {
     let unsubSnapshot: (() => void) | null = null;
@@ -157,11 +163,6 @@ export default function Settings() {
     ...o,
     label: t(`settings.mute_options.${o.value}`),
   }));
-
-  const LANG_OPTIONS: { id: Language; label: string; flag: string }[] = [
-    { id: 'es', label: t('common.spanish'), flag: '🇪🇸' },
-    { id: 'en', label: t('common.english'), flag: '🇬🇧' },
-  ];
 
   const appThemes = [
     { id: 'light', label: t('common.theme_light'), bg: '#FFFFFF', fg: '#1C1C1E' },
@@ -278,7 +279,16 @@ export default function Settings() {
                     transition: 'all 0.15s',
                   }}
                 >
-                  <span style={{ fontSize: 22 }}>{opt.flag}</span>
+                  <ReactCountryFlag
+                    countryCode={opt.countryCode}
+                    svg
+                    style={{
+                      width: '1.5em',
+                      height: '1.5em',
+                      borderRadius: '2px',
+                      objectFit: 'cover'
+                    }}
+                  />
                   <span>{opt.label}</span>
                   {isSelected && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
                 </button>
