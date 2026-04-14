@@ -249,6 +249,7 @@
     "react": "Reaccionar",
     "unsave": "Quitar de guardados",
     "audio_reply": "Responder con audio",
+    "blocked_warning": "No puedes enviar mensajes a este usuario",
     "delete_title": "Eliminar mensaje",
     "emoji_search": "Buscar emoji...",
     "info": "Información",
@@ -418,6 +419,7 @@
     "no_users_found": "No se encontraron usuarios",
     "archived_empty": "Los chats que archives aparecerán aquí",
     "block_label": "Bloquear a {{name}}",
+    "unblock_label": "Desbloquear a {{name}}",
     "report_label": "Reportar a {{name}}",
     "group": {
       "member_count": "{{count}} miembros",
@@ -455,6 +457,7 @@
       "starred": "Destacados",
       "notifications": "Notificaciones",
       "alert_tone": "Tono de alerta",
+      "unblock_confirm": "¿Seguro que quieres desbloquear a {{name}}?",
       "clear_chat": "Vaciar chat",
       "delete_chat": "Eliminar chat",
       "no_shared_files": "No hay archivos ni enlaces compartidos",

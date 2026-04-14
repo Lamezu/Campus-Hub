@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, getDocs, collection, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch, addDoc, serverTimestamp, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { X, Bell, BellOff, Trash2, Phone, Video, MessageSquare, Shield, AlertTriangle, ChevronRight, UserPlus, UserCheck, Heart, Star, Image as ImageIcon, ArrowLeft, FileText, Download, Link as LinkIcon, Bookmark, Music } from 'lucide-react';
-import { getFriendRequest, areFriends, sendFriendRequest, acceptFriendRequest } from '../../services/firebase/friendsService';
+import { getFriendRequest, areFriends, sendFriendRequest, acceptFriendRequest, toggleBlockUser, checkIfBlocked } from '../../services/firebase/friendsService';
 import { auth } from '../../config/firebase';
 import { subscribeToSavedMessages, type SavedMessage } from '../../services/firebase/savedItemsService';
 import { MESSAGE_TONE_NAMES, previewTone } from '../../utils/toneGenerator';
@@ -15,7 +15,6 @@ const URL_REGEX = /https?:\/\/[^\s]+/g;
 interface SharedFile { messageId: string; url: string; name: string; size: number; type: 'image' | 'file' | 'audio'; }
 interface SharedLink { messageId: string; url: string; text: string; }
 
-// roleBadgeLabel is called with t injected inside the component
 function roleBadgeLabel(role: string, t: (key: string) => string): string {
   if (role === 'teacher') return t('roles.teacher');
   if (role === 'admin') return t('roles.admin');
@@ -62,6 +61,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
   const [isBestFriend, setIsBestFriend] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
   const [friendStatus, setFriendStatus] = useState<'none' | 'sent' | 'received'>('none');
+  const [isBlocked, setIsBlocked] = useState(false);
   const [sharedMediaCount, setSharedMediaCount] = useState(0);
   const [mutualGroups, setMutualGroups] = useState<MutualGroup[]>([]);
   const [showAllGroups, setShowAllGroups] = useState(false);
@@ -125,6 +125,10 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
       const req = await getFriendRequest(currentUserId, otherUserId).catch(() => null);
       if (!req) { setFriendStatus('none'); return; }
       setFriendStatus(req.fromUserId === currentUserId ? 'sent' : 'received');
+    }).catch(() => {});
+
+    checkIfBlocked(currentUserId, otherUserId).then(blocked => {
+      setIsBlocked(blocked);
     }).catch(() => {});
 
     if (conversationId) {
@@ -281,10 +285,17 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
     onClearChat?.(); close();
   };
 
-  const handleBlock = async () => {
-    if (!window.confirm(t('dm.info.block_confirm', { name: name.split(' ')[0] }))) return;
-    await updateDoc(doc(db, 'users', currentUserId), { blockedUsers: arrayUnion(otherUserId), friends: arrayRemove(otherUserId) }).catch(() => {});
-    close();
+  const handleToggleBlock = async () => {
+    const newBlockedState = !isBlocked;
+    const action = newBlockedState ? t('dm.info.block_confirm', { name: name.split(' ')[0] }) : t('dm.info.unblock_confirm', { name: name.split(' ')[0] });
+    if (!window.confirm(action)) return;
+    
+    try {
+      await toggleBlockUser(currentUserId, otherUserId, newBlockedState);
+      setIsBlocked(newBlockedState);
+    } catch (error) {
+      console.error('Error toggling block:', error);
+    }
   };
 
   const handleReport = async () => {
@@ -525,9 +536,9 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         )}
 
         <div style={{ padding: '8px 12px' }}>
-          <button onClick={handleBlock} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>
+          <button onClick={handleToggleBlock} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>
             <Shield size={18} color="#FF3B30" />
-            <span style={{ fontSize: 14, color: '#FF3B30' }}>{t('dm.block_label', { name: name.split(' ')[0] })}</span>
+            <span style={{ fontSize: 14, color: '#FF3B30' }}>{isBlocked ? t('dm.unblock_label', { name: name.split(' ')[0] }) : t('dm.block_label', { name: name.split(' ')[0] })}</span>
           </button>
           <button onClick={handleReport} onMouseEnter={e => rowHover(e, true, true)} onMouseLeave={e => rowHover(e, false)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 10, textAlign: 'left' }}>
             <AlertTriangle size={18} color="#FF3B30" />

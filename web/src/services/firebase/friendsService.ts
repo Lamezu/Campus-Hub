@@ -346,3 +346,15 @@ export const subscribeToFriends = (
     callback(friendsData.filter((f): f is FriendUser => f !== null));
   });
 };
+
+export const toggleBlockUser = async (currentUserId: string, targetUserId: string, isBlocked: boolean) => {
+  const userRef = doc(db, 'users', currentUserId);
+  await updateDoc(userRef, {
+    blockedUsers: isBlocked ? arrayUnion(targetUserId) : arrayRemove(targetUserId)
+  });
+};
+
+export const checkIfBlocked = async (currentUserId: string, targetUserId: string) => {
+  const userDoc = await getDoc(doc(db, 'users', currentUserId));
+  return userDoc.data()?.blockedUsers?.includes(targetUserId) || false;
+};

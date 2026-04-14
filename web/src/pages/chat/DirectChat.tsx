@@ -185,11 +185,14 @@ export default function DirectChat() {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [forwardMessage, setForwardMessage] = useState<any>(null);
+  const [amIBlocked, setAmIBlocked] = useState(false);
+  const [haveIBlocked, setHaveIBlocked] = useState(false);
   const { setActiveCall, setActiveCallId } = useCall();
   const { t } = useTranslation();
 
   const handleStartCall = async (type: CallType) => {
     if (!currentUser || !otherUser) return;
+    if (amIBlocked || haveIBlocked) return;
     try {
       const callId = await createCall(
         currentUser.uid,
@@ -283,6 +286,26 @@ export default function DirectChat() {
     });
     return () => unsub();
   }, [currentUser, conversationId]);
+
+  useEffect(() => {
+    if (!currentUser || !otherUser) return;
+    
+    const checkBlockStatus = async () => {
+      try {
+        const myDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        const myBlockedUsers = myDoc.data()?.blockedUsers || [];
+        setHaveIBlocked(myBlockedUsers.includes(otherUser.uid));
+        
+        const otherDoc = await getDoc(doc(db, 'users', otherUser.uid));
+        const otherBlockedUsers = otherDoc.data()?.blockedUsers || [];
+        setAmIBlocked(otherBlockedUsers.includes(currentUser.uid));
+      } catch (error) {
+        console.error('Error checking block status:', error);
+      }
+    };
+    
+    checkBlockStatus();
+  }, [currentUser, otherUser]);
 
   const handleLoadMore = async () => {
     if (!conversationId || !hasMore || loadingMore || !lastDocRef.current) return;
@@ -703,13 +726,31 @@ export default function DirectChat() {
         <ChevronsDown size={22} strokeWidth={2.5} />
       </button>
 
+      {(amIBlocked || haveIBlocked) && (
+        <div style={{
+          padding: '8px 16px',
+          backgroundColor: '#FF3B3015',
+          borderTop: '1px solid #FF3B3030',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: '#FF3B30'
+        }}>
+          <Info size={16} />
+          <span>{t('chat.blocked_warning')}</span>
+        </div>
+      )}
+
       <MessageInput
         onSend={handleSendMessage}
         onSendAudio={handleSendAudio}
         onSendAttachment={handleSendAttachment}
         onSendPoll={handleSendPoll}
         onSendContact={handleSendContact}
-        disabled={sending}
+        disabled={sending || amIBlocked || haveIBlocked}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
         themeStyle={desktopThemeStyle}

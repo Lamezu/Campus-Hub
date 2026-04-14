@@ -248,6 +248,7 @@
     "react": "React",
     "unsave": "Remove from saved",
     "audio_reply": "Reply with audio",
+    "blocked_warning": "You cannot send messages to this user",
     "delete_title": "Delete message",
     "emoji_search": "Search emoji...",
     "info": "Info",
@@ -417,6 +418,7 @@
     "no_users_found": "No users found",
     "archived_empty": "Archived chats will appear here",
     "block_label": "Block {{name}}",
+    "unblock_label": "Unblock {{name}}",
     "report_label": "Report {{name}}",
     "group": {
       "member_count": "{{count}} members",
@@ -454,6 +456,7 @@
       "starred": "Starred",
       "notifications": "Notifications",
       "alert_tone": "Alert tone",
+      "unblock_confirm": "Are you sure you want to unblock {{name}}?",
       "clear_chat": "Clear chat",
       "delete_chat": "Delete chat",
       "no_shared_files": "No files or links shared",
