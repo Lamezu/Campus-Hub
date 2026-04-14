@@ -1118,7 +1118,10 @@ export default function ConferenceScreen({
   const sharingPeers = peers.filter(p => p.sharing);
   const visibleTileCount = peers.length + (showLocalVideo ? 1 : 0) + (sharing ? 1 : 0) + sharingPeers.length;
 
+  const isTwoParty = peers.length === 1 && !sharing && sharingPeers.length === 0;
+
   const { tileWidth, tileHeight } = (() => {
+    if (isTwoParty && !isMobile) return { tileWidth: null, tileHeight: null };
     const gap = 8;
     const pad = 8;
     const n = Math.max(visibleTileCount, 1);
@@ -1145,9 +1148,16 @@ export default function ConferenceScreen({
   const tileStyle = (id: TileId, extra?: React.CSSProperties): React.CSSProperties => {
     if (focusedTile !== null && focusedTile !== id) return { display: 'none' };
     if (focusedTile === id) return { position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden', backgroundColor: '#2b2d31', cursor: 'pointer', borderRadius: 0, ...extra };
+    if (isTwoParty && !isMobile) {
+      return {
+        position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#2b2d31',
+        cursor: 'pointer', flex: 1, minWidth: 0, aspectRatio: '16/9',
+        ...extra,
+      };
+    }
     return {
       position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#2b2d31',
-      cursor: 'pointer', flexShrink: 0, width: tileWidth, height: tileHeight,
+      cursor: 'pointer', flexShrink: 0, width: tileWidth!, height: tileHeight!,
       ...extra,
     };
   };
@@ -1175,7 +1185,9 @@ export default function ConferenceScreen({
         position: 'relative', boxSizing: 'border-box',
         display: 'flex',
         ...(!minimized
-          ? { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', alignContent: 'center' }
+          ? (isTwoParty && !isMobile
+              ? { flexDirection: 'row', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', overflowY: 'hidden' }
+              : { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', alignContent: 'center' })
           : { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }
         ),
       }}>
@@ -1309,6 +1321,16 @@ export default function ConferenceScreen({
 
       {!minimized && (
         <div style={{ backgroundColor: '#292b2f', padding: isMobile ? '10px 12px 24px' : '12px 20px 20px', flexShrink: 0, position: 'relative' }}>
+          <style>{`
+            .call-range { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; outline: none; cursor: pointer; border: none; }
+            .call-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer; }
+            .call-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer; border: none; }
+            .dev-row { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 11px 16px; background: none; border: none; cursor: pointer; text-align: left; }
+            .dev-row:hover { background: rgba(255,255,255,0.04); }
+            .dev-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 16px 8px 22px; background: none; border: none; cursor: pointer; }
+            .dev-sub:hover { background: rgba(255,255,255,0.04); }
+          `}</style>
+
           {showDevices && (
             <div style={{
               position: 'absolute', bottom: 'calc(100% + 8px)',
