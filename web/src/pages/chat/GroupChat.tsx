@@ -55,6 +55,12 @@ function replyPreviewText(msg: GroupMessage): string {
   return '';
 }
 
+function replyAttachmentType(msg: GroupMessage): string | undefined {
+  const type = msg.attachments?.[0]?.type as string | undefined;
+  if (type === 'image' || type === 'audio' || type === 'file' || type === 'contact') return type;
+  return undefined;
+}
+
 interface ThemeStyle { bg: string; border: string; text: string; }
 
 function MessageInput({
@@ -174,23 +180,18 @@ function GroupInfoPanel({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Mute / tone settings
   const [mute, setMute] = useState<MuteDuration>('off');
   const [tone, setTone] = useState<string>('Predeterminado');
 
-  // Starred messages
   const [starred, setStarred] = useState<SavedMessage[]>([]);
 
-  // Add member state
   const [friends, setFriends] = useState<{ id: string; name: string; photo: string | null }[]>([]);
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set());
   const [addingLoading, setAddingLoading] = useState(false);
 
-  // Report
   const [reportReason, setReportReason] = useState('');
   const [reportSent, setReportSent] = useState(false);
 
-  // Media
   const [sharedFiles, setSharedFiles] = useState<{ messageId: string; url: string; name: string; size: number; type: 'image' | 'file' | 'audio' }[]>([]);
   const [sharedLinks, setSharedLinks] = useState<{ messageId: string; url: string; text: string }[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -218,7 +219,6 @@ function GroupInfoPanel({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
 
-  // Load mute/tone settings and media count
   useEffect(() => {
     if (!currentUserId) return;
     getDoc(doc(db, 'users', currentUserId, 'contactSettings', settingsKey)).then(snap => {
@@ -413,7 +413,6 @@ function GroupInfoPanel({
         )}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: colors.text }}>{t('chat.group_info_title')}</span>
           <button onClick={close} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6 }}>
@@ -421,10 +420,8 @@ function GroupInfoPanel({
           </button>
         </div>
 
-        {/* Scrollable content */}
         <div className="ch-panel-scroll" style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
 
-          {/* Avatar + name */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 24px', gap: 12, borderBottom: `1px solid ${colors.border}` }}>
             <div style={{ position: 'relative' }}>
               <div style={{ width: 84, height: 84, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
@@ -448,7 +445,6 @@ function GroupInfoPanel({
             <p style={{ margin: 0, fontSize: 13, color: colors.textSecondary }}>{t('chat.members_count', { count: String(group.members.length) })}</p>
           </div>
 
-          {/* Action rows */}
           <div style={{ borderBottom: `1px solid ${colors.border}` }}>
             {actionRow(<Image size={20} />, t('dm.info.files_links_docs'), openMediaPanel, colors.text, sharedMediaCount > 0 ? String(sharedMediaCount) : undefined)}
             {actionRow(<Bookmark size={20} />, t('dm.group.starred_messages'), handleOpenStarred)}
@@ -462,7 +458,6 @@ function GroupInfoPanel({
             {actionRow(<Bell size={20} />, t('dm.group.alert_tone'), () => setSubPanel('tone'), colors.text, tone !== 'Predeterminado' ? tone : undefined)}
           </div>
 
-          {/* Members */}
           <div style={{ padding: '16px 20px 8px' }}>
             <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {t('dm.group.members_short')}
@@ -508,7 +503,6 @@ function GroupInfoPanel({
             )}
           </div>
 
-          {/* Danger zone */}
           <div style={{ padding: '8px 0 40px', borderTop: `1px solid ${colors.border}`, marginTop: 8 }}>
             <button
               onClick={handleClearChat}
@@ -554,7 +548,6 @@ function GroupInfoPanel({
 
         </div>
 
-        {/* Sub-panel: multimedia */}
         {subPanel === 'media' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
@@ -630,7 +623,6 @@ function GroupInfoPanel({
             </div>
           )}
 
-        {/* Sub-panel: starred messages */}
         {subPanel === 'starred' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
@@ -650,7 +642,6 @@ function GroupInfoPanel({
           </div>
         )}
 
-        {/* Sub-panel: add member */}
         {subPanel === 'addMember' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
@@ -686,7 +677,6 @@ function GroupInfoPanel({
           </div>
         )}
 
-        {/* Sub-panel: mute duration picker */}
         {subPanel === 'mute' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
@@ -706,7 +696,6 @@ function GroupInfoPanel({
           </div>
         )}
 
-        {/* Sub-panel: alert tone */}
         {subPanel === 'tone' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0, position: 'sticky', top: 0, backgroundColor: colors.background, zIndex: 1 }}>
@@ -726,7 +715,6 @@ function GroupInfoPanel({
           </div>
         )}
 
-        {/* Sub-panel: report */}
         {subPanel === 'report' && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: colors.background, zIndex: 5, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
@@ -850,7 +838,18 @@ export default function GroupChat() {
     if (!currentUser || !groupId || sending) return;
     setSending(true);
     try {
-      const replyData = replyingTo ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', attachmentType: replyingTo.attachments?.[0]?.type } : null;
+      let replyData: { id: string; senderName: string; text: string; attachmentType?: string } | null = null;
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyData = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        if (attachmentType !== undefined) {
+          replyData.attachmentType = attachmentType;
+        }
+      }
       await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || 'Usuario', userData?.photoURL || currentUser.photoURL || null, text, null, replyData);
       setReplyingTo(null);
     } catch {} finally { setSending(false); }
