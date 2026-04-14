@@ -170,7 +170,7 @@ export default function ArchivedChats() {
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <ArchiveX size={16} color="var(--text-secondary)" />
-                Desarchivar
+                {t('dm.unarchive')}
               </button>
             </div>
           </>

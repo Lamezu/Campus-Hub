@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, MessageSquare, Heart, Users, Megaphone } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,6 +33,7 @@ export default function NotificationBell({ categories }: NotificationBellProps =
   const { colors } = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const bellRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [panelRect, setPanelRect] = useState<{ top: number; right: number; vw: number } | null>(null);
@@ -40,9 +41,24 @@ export default function NotificationBell({ categories }: NotificationBellProps =
   const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
   const [processedRequestIds, setProcessedRequestIds] = useState<Set<string>>(new Set());
 
+  const filteredByCurrentChat = useMemo(() => {
+    const currentPath = location.pathname;
+    return notifications.filter(notif => {
+      if (notif.category === 'dm' && notif.meta?.conversationId) {
+        if (currentPath === `/messages/${notif.meta.conversationId}`) {
+          return false;
+        }
+        if (currentPath === `/messages/group/${notif.meta.conversationId}`) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [notifications, location.pathname]);
+
   const filtered = categories
-    ? notifications.filter(n => categories.includes(n.category))
-    : notifications;
+    ? filteredByCurrentChat.filter(n => categories.includes(n.category))
+    : filteredByCurrentChat;
   const unreadCount = filtered.filter(n => !n.read).length;
 
   const handleBellClick = () => {
@@ -106,12 +122,19 @@ export default function NotificationBell({ categories }: NotificationBellProps =
     }
 
     if (item.category === 'dm') {
-      const dest = item.meta?.conversationId
-        ? `/messages/${item.meta.conversationId}`
-        : item.meta?.participantId
-          ? `/messages/${item.meta.participantId}`
+      if (item.meta?.isGroup === 'true' || item.id?.startsWith('group_conv_')) {
+        const dest = item.meta?.conversationId
+          ? `/messages/group/${item.meta.conversationId}`
           : null;
-      if (dest) { setOpen(false); navigate(dest); }
+        if (dest) { setOpen(false); navigate(dest); }
+      } else {
+        const dest = item.meta?.conversationId
+          ? `/messages/${item.meta.conversationId}`
+          : item.meta?.participantId
+            ? `/messages/${item.meta.participantId}`
+            : null;
+        if (dest) { setOpen(false); navigate(dest); }
+      }
       return;
     }
 

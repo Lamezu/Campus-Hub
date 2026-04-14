@@ -39,6 +39,7 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
   const [requestSenders, setRequestSenders] = useState<Record<string, any>>({});
   const [firestoreNotifs, setFirestoreNotifs] = useState<NotificationItem[]>([]);
   const [convNotifs, setConvNotifs] = useState<NotificationItem[]>([]);
+  const [groupConvNotifs, setGroupConvNotifs] = useState<NotificationItem[]>([]);
   const [socialNotifs, setSocialNotifs] = useState<NotificationItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const userIdRef = useRef<string | null>(null);
@@ -61,6 +62,7 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
         notificationService.destroy();
         setFirestoreNotifs([]);
         setConvNotifs([]);
+        setGroupConvNotifs([]);
       }
     });
     return unsub;
@@ -105,17 +107,84 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
         const otherUserId = (data.participants as string[])?.find((id: string) => id !== userId) ?? '';
         const at = data.lastMessageAt?.toDate?.()?.toISOString() ?? new Date().toISOString();
 
-        synth.push({
+        const notif = {
           id: `conv_${d.id}`,
-          category: 'dm',
+          category: 'dm' as NotificationCategory,
           title: data.lastMessageSenderName ?? t('notifications.new_message'),
           body: data.lastMessage ?? '',
           read: false,
           createdAt: at,
           meta: { conversationId: d.id, participantId: otherUserId },
-        });
+        };
+        synth.push(notif);
+
+        if (!isInitialLoadRef.current && !knownNotifIdsRef.current.has(notif.id)) {
+          playMessageTone('Melodía');
+        }
       }
       setConvNotifs(synth);
+    });
+
+    return unsub;
+  }, [userId, t]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const q = query(
+      collection(db, 'groupConversations'),
+      where('members', 'array-contains', userId)
+    );
+
+    const unsub = onSnapshot(q, snap => {
+      const synth: NotificationItem[] = [];
+      for (const d of snap.docs) {
+        const data = d.data();
+        const unreadCounts = data.unreadCounts || {};
+        const unread = unreadCounts[userId] ?? 0;
+        if (unread === 0) continue;
+        if (data.lastMessageSenderId === userId) continue;
+
+        const at = data.lastMessageAt?.toDate?.()?.toISOString() ?? new Date().toISOString();
+
+        const notif = {
+          id: `group_conv_${d.id}`,
+          category: 'dm' as NotificationCategory,
+          title: `${data.lastMessageSenderName} en ${data.name || t('common.group')}`,
+          body: data.lastMessage ?? '',
+          read: false,
+          createdAt: at,
+          meta: { conversationId: d.id, participantId: '', groupName: data.name, isGroup: 'true' },
+        };
+        synth.push(notif);
+
+        const checkGroupSettings = async () => {
+          try {
+            const settingsRef = doc(db, 'users', userId, 'groupSettings', d.id);
+            const settingsSnap = await getDoc(settingsRef);
+            
+            if (settingsSnap.exists()) {
+              const settings = settingsSnap.data();
+              if (settings.muted === true || settings.mute === 'always' || settings.mute === '8h' || settings.mute === '1w') {
+                return;
+              }
+              if (settings.alertTone && settings.alertTone !== t('settings.alert_tones.default')) {
+                playMessageTone(settings.alertTone);
+                return;
+              }
+            }
+          } catch (err) {
+            console.error('Error al verificar settings del grupo:', err);
+          }
+          
+          playMessageTone('Melodía');
+        };
+
+        if (!isInitialLoadRef.current && !knownNotifIdsRef.current.has(notif.id)) {
+          checkGroupSettings();
+        }
+      }
+      setGroupConvNotifs(synth);
     });
 
     return unsub;
@@ -242,11 +311,20 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
   const notifications = useMemo(() => {
     const fsConvIds = new Set(
       firestoreNotifs
-        .filter(n => n.category === 'dm' && n.meta?.conversationId)
+        .filter(n => n.category === 'dm' && n.meta?.conversationId && !n.id?.startsWith?.('group_conv_'))
         .map(n => n.meta!.conversationId)
     );
     const filteredConv = convNotifs.filter(
       n => !fsConvIds.has(n.meta?.conversationId ?? '')
+    );
+
+    const fsGroupConvIds = new Set(
+      firestoreNotifs
+        .filter(n => n.category === 'dm' && n.meta?.conversationId && n.id?.startsWith?.('group_conv_'))
+        .map(n => n.meta!.conversationId)
+    );
+    const filteredGroupConv = groupConvNotifs.filter(
+      n => !fsGroupConvIds.has(n.meta?.conversationId ?? '')
     );
 
     const fsSocialPostIds = new Set(
@@ -258,20 +336,27 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
       n => !fsSocialPostIds.has(n.meta?.postId ?? '')
     );
 
-    return [...firestoreNotifs, ...filteredConv, ...filteredSocial].sort(
+    return [...firestoreNotifs, ...filteredConv, ...filteredGroupConv, ...filteredSocial].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [firestoreNotifs, convNotifs, socialNotifs]);
+  }, [firestoreNotifs, convNotifs, groupConvNotifs, socialNotifs]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markRead = async (id: string) => {
-    if (id.startsWith('conv_')) {
+    if (id.startsWith('conv_') && !id.startsWith('group_conv_')) {
       const uid = userIdRef.current;
       if (!uid) return;
       const conversationId = id.slice(5);
       await updateDoc(doc(db, 'conversations', conversationId), {
         [`unreadCount.${uid}`]: 0,
+      });
+    } else if (id.startsWith('group_conv_')) {
+      const uid = userIdRef.current;
+      if (!uid) return;
+      const conversationId = id.slice(11);
+      await updateDoc(doc(db, 'groupConversations', conversationId), {
+        [`unreadCounts.${uid}`]: 0,
       });
     } else if (id.startsWith('like_') || id.startsWith('comment_')) {
       readSocialIdsRef.current.add(id);
@@ -284,15 +369,22 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
   const markAllRead = async (category?: NotificationCategory) => {
     const uid = userIdRef.current;
     if (!category || category === 'dm') {
-      await Promise.all(
-        convNotifs.map(n =>
+      await Promise.all([
+        ...convNotifs.map(n =>
           uid
             ? updateDoc(doc(db, 'conversations', n.meta!.conversationId), {
                 [`unreadCount.${uid}`]: 0,
               })
             : Promise.resolve()
+        ),
+        ...groupConvNotifs.map(n =>
+          uid
+            ? updateDoc(doc(db, 'groupConversations', n.meta!.conversationId), {
+                [`unreadCounts.${uid}`]: 0,
+              })
+            : Promise.resolve()
         )
-      );
+      ]);
     }
     if (!category || category === 'social') {
       const unreadSocial = socialNotifs.filter(n => !n.read);

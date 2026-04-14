@@ -6,9 +6,9 @@ import { auth, db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { subscribeToUserConversations, subscribeToContactSettings, setConversationArchived, muteConversation, deleteConversation, clearChatForMe, blockUser, reportUser, getOrCreateConversation, type Conversation, type ConversationUser } from '../../services/firebase/directMessageService';
-import { subscribeToGroupConversations, type GroupConversation } from '../../services/firebase/groupDMService';
+import { subscribeToGroupConversations, muteGroupConversation, leaveGroup, type GroupConversation } from '../../services/firebase/groupDMService';
 import { getFriends, searchUsers, sendFriendRequest, cancelFriendRequest, areFriends, removeFriend, toggleBestFriend, getBestFriendIds, type UserSearchResult } from '../../services/firebase/friendsService';
-import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight, Bell, BellOff, Star, UserMinus, UserPlus, Eraser, Ban, Trash2, Users, PenSquare, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Search, Plus, X, Clock, Archive, ChevronRight, Bell, BellOff, Star, UserMinus, UserPlus, Eraser, Ban, Trash2, Users, PenSquare, AlertTriangle, LogOut } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import CreateGroupModal from '../../components/messages/CreateGroupModal';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -34,8 +34,12 @@ export default function Messages() {
   const [groups, setGroups] = useState<GroupConversation[]>([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [contactSettings, setContactSettings] = useState<Record<string, { archived?: boolean; muted?: boolean; deleted?: boolean; isBestFriend?: boolean }>>({});
+  const [groupMutedMap, setGroupMutedMap] = useState<Record<string, boolean>>({});
   const [ctxMenu, setCtxMenu] = useState<{ conv: ConversationWithUser; x: number; y: number } | null>(null);
   const [moreMenu, setMoreMenu] = useState<{ conv: ConversationWithUser; x: number; y: number } | null>(null);
+  const [groupCtxMenu, setGroupCtxMenu] = useState<{ group: GroupConversation; x: number; y: number } | null>(null);
+  const [touchTimer, setTouchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null);
   const [isFriendMap, setIsFriendMap] = useState<Record<string, boolean>>({});
   const [isBestFriendMap, setIsBestFriendMap] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
@@ -70,7 +74,15 @@ export default function Messages() {
 
   useEffect(() => {
     if (!currentUserId) return;
-    const unsubscribe = subscribeToGroupConversations(currentUserId, setGroups);
+    const unsubscribe = subscribeToGroupConversations(currentUserId, (groupList) => {
+      setGroups(groupList);
+      const mutedGroups = JSON.parse(localStorage.getItem(`mutedGroups_${currentUserId}`) || '{}');
+      const mutedMap: Record<string, boolean> = {};
+      groupList.forEach(group => {
+        mutedMap[group.id] = mutedGroups[group.id] || false;
+      });
+      setGroupMutedMap(mutedMap);
+    });
     return unsubscribe;
   }, [currentUserId]);
 
@@ -222,7 +234,16 @@ export default function Messages() {
     setMoreMenu(null);
   };
 
-  const closeAll = () => { setCtxMenu(null); setMoreMenu(null); };
+  const closeAllMenus = () => {
+    setCtxMenu(null);
+    setMoreMenu(null);
+    setGroupCtxMenu(null);
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+    setTouchPosition(null);
+  };
 
   const openMoreMenu = (e: React.MouseEvent, conv: ConversationWithUser) => {
     e.stopPropagation();
@@ -235,7 +256,7 @@ export default function Messages() {
 
   const handleArchive = (conv: ConversationWithUser) => {
     if (!currentUserId) return;
-    closeAll();
+    closeAllMenus();
     const otherId = getOtherId(conv);
     const isArchived = !!contactSettings[otherId]?.archived;
     setConversationArchived(currentUserId, otherId, !isArchived);
@@ -246,7 +267,7 @@ export default function Messages() {
     const otherId = getOtherId(conv);
     const isMuted = !!contactSettings[otherId]?.muted;
     setContactSettings(prev => ({ ...prev, [otherId]: { ...prev[otherId], muted: !isMuted } }));
-    closeAll();
+    closeAllMenus();
     muteConversation(currentUserId, otherId, !isMuted);
   };
 
@@ -255,7 +276,7 @@ export default function Messages() {
     const otherId = getOtherId(conv);
     const next = !isBestFriendMap[otherId];
     setIsBestFriendMap(prev => ({ ...prev, [otherId]: next }));
-    closeAll();
+    closeAllMenus();
     toggleBestFriend(currentUserId, otherId, next);
   };
 
@@ -264,7 +285,7 @@ export default function Messages() {
     const name = conv.otherUserData?.displayName || t('common.user');
     if (!window.confirm(t('messages.remove_friend_confirm', { name }))) return;
     const otherId = getOtherId(conv);
-    closeAll();
+    closeAllMenus();
     removeFriend(currentUserId, otherId).then(() => {
       setIsFriendMap(prev => ({ ...prev, [otherId]: false }));
     });
@@ -272,7 +293,7 @@ export default function Messages() {
 
   const handleAddFriend = (conv: ConversationWithUser) => {
     if (!currentUserId || !currentUserData) return;
-    closeAll();
+    closeAllMenus();
     sendFriendRequest(currentUserId, getOtherId(conv), currentUserData.displayName, currentUserData.photoURL).catch(() => { });
   };
 
@@ -280,7 +301,7 @@ export default function Messages() {
     if (!currentUserId) return;
     const name = conv.otherUserData?.displayName || t('common.user');
     if (!window.confirm(t('messages.clear_chat_confirm', { name }))) return;
-    closeAll();
+    closeAllMenus();
     clearChatForMe(conv.id, currentUserId);
   };
 
@@ -288,7 +309,7 @@ export default function Messages() {
     if (!currentUserId) return;
     const name = conv.otherUserData?.displayName || t('common.user');
     if (!window.confirm(t('messages.block_confirm', { name }))) return;
-    closeAll();
+    closeAllMenus();
     blockUser(currentUserId, getOtherId(conv));
   };
 
@@ -298,7 +319,7 @@ export default function Messages() {
     if (!window.confirm(t('messages.delete_chat_confirm', { name }))) return;
     const otherId = getOtherId(conv);
     setContactSettings(prev => ({ ...prev, [otherId]: { ...prev[otherId], deleted: true } }));
-    closeAll();
+    closeAllMenus();
     deleteConversation(currentUserId, otherId);
   };
 
@@ -306,10 +327,107 @@ export default function Messages() {
     if (!currentUserId) return;
     const name = conv.otherUserData?.displayName || t('common.user');
     if (!window.confirm(t('messages.report_confirm', { name }))) return;
-    closeAll();
+    closeAllMenus();
     reportUser(currentUserId, getOtherId(conv))
       .then(() => window.alert(t('messages.report_success')))
       .catch(() => { });
+  };
+
+  const openGroupCtxMenu = (e: React.MouseEvent | React.TouchEvent, group: GroupConversation) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    let clientX, clientY;
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = Math.min(clientX, window.innerWidth - 220);
+    const y = Math.min(clientY, window.innerHeight - 120);
+    setGroupCtxMenu({ group, x, y });
+    setCtxMenu(null);
+    setMoreMenu(null);
+  };
+
+  const handleGroupMuteToggle = async (group: GroupConversation) => {
+    if (!currentUserId) return;
+    closeAllMenus();
+    const currentMuted = groupMutedMap[group.id] || false;
+    const newMuted = !currentMuted;
+    
+    const mutedGroups = JSON.parse(localStorage.getItem(`mutedGroups_${currentUserId}`) || '{}');
+    mutedGroups[group.id] = newMuted;
+    localStorage.setItem(`mutedGroups_${currentUserId}`, JSON.stringify(mutedGroups));
+    
+    setGroupMutedMap(prev => ({ ...prev, [group.id]: newMuted }));
+    
+    try {
+      await muteGroupConversation(currentUserId, group.id, newMuted);
+    } catch (err) {
+      console.log('Mute guardado localmente, fallo en Firestore');
+    }
+  };
+
+  const handleGroupInfo = (group: GroupConversation) => {
+  closeAllMenus();
+  navigate(`/messages/group/${group.id}`, { state: { openInfoPanel: true } });
+};
+
+  const handleLeaveGroup = async (group: GroupConversation) => {
+    if (!currentUserId) return;
+    const groupName = group.name || t('common.group');
+    if (!window.confirm(t('messages.leave_group_confirm', { name: groupName }))) return;
+    closeAllMenus();
+    try {
+      await leaveGroup(group.id, currentUserId);
+    } catch (err) {
+      console.error('Failed to leave group:', err);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, group: GroupConversation) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setTouchPosition({ x: touch.clientX, y: touch.clientY });
+    
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      openGroupCtxMenu(e, group);
+    }, 500);
+    
+    setTouchTimer(timer);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+    setTouchPosition(null);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (touchPosition && touchTimer) {
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchPosition.x);
+      const dy = Math.abs(touch.clientY - touchPosition.y);
+      
+      if (dx > 10 || dy > 10) {
+        clearTimeout(touchTimer);
+        setTouchTimer(null);
+        setTouchPosition(null);
+      }
+    }
   };
 
   const DropdownBtn = ({ icon, label, onClick, danger = false }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) => (
@@ -374,10 +492,9 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* Context menu — click derecho: Archivar + Más opciones */}
         {ctxMenu && (
           <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAll} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAllMenus} />
             <div
               className="animate-scale-in"
               style={{
@@ -418,7 +535,7 @@ export default function Messages() {
 
         {moreMenu && (
           <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAll} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAllMenus} />
             <div
               className="animate-scale-in"
               style={{
@@ -491,6 +608,40 @@ export default function Messages() {
                   </>
                 );
               })()}
+            </div>
+          </>
+        )}
+
+        {groupCtxMenu && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={closeAllMenus} />
+            <div
+              className="animate-scale-in"
+              style={{
+                position: 'fixed', top: groupCtxMenu.y, left: groupCtxMenu.x, zIndex: 999,
+                backgroundColor: 'var(--background)', borderRadius: '12px',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.18)', border: '1px solid var(--border)',
+                overflow: 'hidden', minWidth: '200px',
+              }}
+            >
+              <DropdownBtn
+                icon={groupMutedMap[groupCtxMenu.group.id] ? <Bell size={16} /> : <BellOff size={16} />}
+                label={groupMutedMap[groupCtxMenu.group.id] ? t('messages.unmute_label') : t('messages.mute_label')}
+                onClick={() => handleGroupMuteToggle(groupCtxMenu.group)}
+              />
+              <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
+              <DropdownBtn
+                icon={<Users size={16} />}
+                label={t('chat.group_info_title')}
+                onClick={() => handleGroupInfo(groupCtxMenu.group)}
+              />
+              <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0 12px' }} />
+              <DropdownBtn
+                icon={<LogOut size={16} />}
+                label={t('dm.group.leave_group')}
+                onClick={() => handleLeaveGroup(groupCtxMenu.group)}
+                danger
+              />
             </div>
           </>
         )}
@@ -571,10 +722,15 @@ export default function Messages() {
 
             {groups.map(group => {
               const totalUnread = group.unreadCount || 0;
+              const isGroupMuted = groupMutedMap[group.id] || false;
               return (
                 <div
                   key={group.id}
                   onClick={() => navigate(`/messages/group/${group.id}`)}
+                  onContextMenu={(e) => openGroupCtxMenu(e, group)}
+                  onTouchStart={(e) => handleTouchStart(e, group)}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
                   style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--background-secondary)')}
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -586,8 +742,11 @@ export default function Messages() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: totalUnread > 0 ? '700' : '600', color: 'var(--text)', fontSize: '15px' }}>
-                        {group.name || t('common.group')}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontWeight: totalUnread > 0 ? '700' : '600', color: 'var(--text)', fontSize: '15px' }}>
+                          {group.name || t('common.group')}
+                        </span>
+                        {isGroupMuted && <BellOff size={13} color="var(--text-secondary)" style={{ flexShrink: 0 }} />}
                       </span>
                       <span style={{ fontSize: '12px', color: totalUnread > 0 ? colors.primary : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={11} />
@@ -613,7 +772,7 @@ export default function Messages() {
               const unread = conv.unreadCount?.[currentUserId!] || 0;
               const other = conv.otherUserData;
               const otherId = getOtherId(conv);
-              const isMuted = !!(contactSettings[otherId]?.muted || (contactSettings[otherId]?.mute && contactSettings[otherId].mute !== 'off'));
+              const isMuted = !!contactSettings[otherId]?.muted;
               return (
                 <div
                   key={conv.id}

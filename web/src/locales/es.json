@@ -1198,6 +1198,7 @@
   },
   "notifications": {
     "title": "Notificaciones",
+    "in": "en",
     "social": "Actividad social",
     "dm": "Mensajes",
     "campus": "Campus",

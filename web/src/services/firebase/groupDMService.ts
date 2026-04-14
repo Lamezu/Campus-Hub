@@ -18,6 +18,7 @@ import {
   arrayUnion,
   arrayRemove,
   Unsubscribe,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
@@ -73,7 +74,7 @@ async function updateGroupAfterMessage(
   const unreadUpdate: Record<string, any> = {};
   for (const uid of members) {
     if (uid !== senderId) {
-      unreadUpdate[`unreadCount.${uid}`] = increment(1);
+      unreadUpdate[`unreadCounts.${uid}`] = increment(1);
     }
   }
   batch.update(groupRef, {
@@ -85,6 +86,23 @@ async function updateGroupAfterMessage(
   });
 }
 
+export async function muteGroupConversation(
+  userId: string,
+  groupId: string,
+  muted: boolean
+): Promise<void> {
+  const ref = doc(db, 'users', userId, 'groupSettings', groupId);
+  await setDoc(ref, { muted, mute: muted ? 'always' : 'off' }, { merge: true });
+}
+
+export async function unmuteGroupConversation(
+  userId: string,
+  groupId: string
+): Promise<void> {
+  const ref = doc(db, 'users', userId, 'groupSettings', groupId);
+  await setDoc(ref, { muted: false, mute: 'off' }, { merge: true });
+}
+
 export async function createGroupConversation(
   members: { id: string; name: string; photo: string | null }[],
   groupName: string,
@@ -94,7 +112,7 @@ export async function createGroupConversation(
   const memberIds = members.map(m => m.id);
   const memberNames = Object.fromEntries(members.map(m => [m.id, m.name]));
   const memberPhotos = Object.fromEntries(members.map(m => [m.id, m.photo]));
-  const unreadCount = Object.fromEntries(members.map(m => [m.id, 0]));
+  const unreadCounts = Object.fromEntries(members.map(m => [m.id, 0]));
 
   const ref = await addDoc(collection(db, 'groupConversations'), {
     name: groupName.trim(),
@@ -108,7 +126,7 @@ export async function createGroupConversation(
     lastMessageAt: serverTimestamp(),
     lastMessageSenderId: null,
     lastMessageSenderName: null,
-    unreadCount,
+    unreadCounts,
   });
 
   return ref.id;
@@ -141,7 +159,7 @@ export function subscribeToGroupConversations(
         lastMessageAt: data.lastMessageAt?.toDate?.()?.toISOString() ?? null,
         lastMessageSenderId: data.lastMessageSenderId ?? null,
         lastMessageSenderName: data.lastMessageSenderName ?? null,
-        unreadCount: data.unreadCount?.[userId] ?? 0,
+        unreadCount: data.unreadCounts?.[userId] ?? 0,
         isGroup: true,
       };
     });
@@ -222,7 +240,7 @@ export async function sendGroupMessage(
 
 export async function markGroupAsRead(groupId: string, userId: string): Promise<void> {
   await updateDoc(doc(db, 'groupConversations', groupId), {
-    [`unreadCount.${userId}`]: 0,
+    [`unreadCounts.${userId}`]: 0,
   });
 }
 
@@ -299,7 +317,7 @@ export async function leaveGroup(groupId: string, userId: string): Promise<void>
     members: arrayRemove(userId),
     [`memberNames.${userId}`]: deleteField(),
     [`memberPhotos.${userId}`]: deleteField(),
-    [`unreadCount.${userId}`]: deleteField(),
+    [`unreadCounts.${userId}`]: deleteField(),
   };
   if (data.createdBy === userId) {
     updates.createdBy = remainingMembers[0];
@@ -317,7 +335,7 @@ export async function addMembersToGroup(
   for (const m of newMembers) {
     updates[`memberNames.${m.id}`] = m.name;
     updates[`memberPhotos.${m.id}`] = m.photo ?? null;
-    updates[`unreadCount.${m.id}`] = 0;
+    updates[`unreadCounts.${m.id}`] = 0;
   }
   await updateDoc(doc(db, 'groupConversations', groupId), updates);
 }
@@ -376,6 +394,6 @@ export async function kickMemberFromGroup(groupId: string, userId: string): Prom
     members: arrayRemove(userId),
     [`memberNames.${userId}`]: deleteField(),
     [`memberPhotos.${userId}`]: deleteField(),
-    [`unreadCount.${userId}`]: deleteField(),
+    [`unreadCounts.${userId}`]: deleteField(),
   });
 }

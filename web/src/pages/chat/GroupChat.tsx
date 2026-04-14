@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { auth, db } from '../../config/firebase';
 import { doc, setDoc, getDoc, getDocs, serverTimestamp, collection, query, where, orderBy } from 'firebase/firestore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -221,7 +221,8 @@ function GroupInfoPanel({
 
   useEffect(() => {
     if (!currentUserId) return;
-    getDoc(doc(db, 'users', currentUserId, 'contactSettings', settingsKey)).then(snap => {
+    const settingsRef = doc(db, 'users', currentUserId, 'groupSettings', group.id);
+    getDoc(settingsRef).then(snap => {
       if (!snap.exists()) return;
       const d = snap.data();
       setMute(d.mute ?? 'off');
@@ -236,10 +237,11 @@ function GroupInfoPanel({
       });
       setSharedMediaCount(count);
     }).catch(() => {});
-  }, [currentUserId, settingsKey, group.id, t]);
+  }, [currentUserId, group.id, t]);
 
   const saveSetting = async (partial: Record<string, any>) => {
-    await setDoc(doc(db, 'users', currentUserId, 'contactSettings', settingsKey), { ...partial, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+    const settingsRef = doc(db, 'users', currentUserId, 'groupSettings', group.id);
+    await setDoc(settingsRef, { ...partial, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
 
   const handleMute = async (val: MuteDuration) => {
@@ -753,6 +755,7 @@ function GroupInfoPanel({
 export default function GroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { colors } = useTheme();
   const isDesktop = useWindowSize();
   const chatTheme = colors.chat;
@@ -816,6 +819,13 @@ export default function GroupChat() {
     return () => unsub();
   }, [currentUser, groupId]);
 
+  useEffect(() => {
+    if (location.state?.openInfoPanel) {
+      setShowInfoPanel(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
   const handleSave = async (message: any) => {
     if (!currentUser || !groupId) return;
     const channelId = `group/${groupId}`;
@@ -860,7 +870,19 @@ export default function GroupChat() {
     setSending(true);
     try {
       const url = await uploadAudio(blob, `group_${groupId}_${Date.now()}`);
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type: 'audio', name: 'audio.webm', size: blob.size, duration }]);
+      let replyData: { id: string; senderName: string; text: string; attachmentType?: string } | null = null;
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyData = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        if (attachmentType !== undefined) {
+          replyData.attachmentType = attachmentType;
+        }
+      }
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type: 'audio', name: 'audio.webm', size: blob.size, duration }], replyData);
       setShowRecorder(false);
     } catch {} finally { setSending(false); }
   };
@@ -870,7 +892,19 @@ export default function GroupChat() {
     setSending(true);
     try {
       const url = type === 'image' ? await uploadChatImage(file, `group_${groupId}_${Date.now()}`) : await uploadChatFile(file, `group_${groupId}_${Date.now()}`);
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type, name: file.name, size: file.size }]);
+      let replyData: { id: string; senderName: string; text: string; attachmentType?: string } | null = null;
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyData = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        if (attachmentType !== undefined) {
+          replyData.attachmentType = attachmentType;
+        }
+      }
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, '', [{ url, type, name: file.name, size: file.size }], replyData);
     } catch {} finally { setSending(false); }
   };
 
@@ -889,7 +923,19 @@ export default function GroupChat() {
         totalVotes: 0,
         closed: false,
       };
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, poll.question, null, null, pollData);
+      let replyData: { id: string; senderName: string; text: string; attachmentType?: string } | null = null;
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyData = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        if (attachmentType !== undefined) {
+          replyData.attachmentType = attachmentType;
+        }
+      }
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, poll.question, null, replyData, pollData);
     } catch {} finally { setSending(false); }
   };
 
@@ -897,7 +943,19 @@ export default function GroupChat() {
     if (!currentUser || !groupId || sending) return;
     setSending(true);
     try {
-      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, `👤 ${contact.name}`, [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }]);
+      let replyData: { id: string; senderName: string; text: string; attachmentType?: string } | null = null;
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyData = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text || '',
+        };
+        if (attachmentType !== undefined) {
+          replyData.attachmentType = attachmentType;
+        }
+      }
+      await sendGroupMessage(groupId, currentUser.uid, userData?.displayName || currentUser.displayName || t('common.user'), userData?.photoURL || currentUser.photoURL || null, `👤 ${contact.name}`, [{ type: 'contact', url: contact.photo ?? '', name: contact.name, size: 0, bio: contact.bio, userId: contact.userId }], replyData);
     } catch {} finally { setSending(false); }
   };
 

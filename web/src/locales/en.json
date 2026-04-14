@@ -1192,6 +1192,7 @@
   "notifications": {
     "title": "Notifications",
     "social": "Social activity",
+    "in": "in",
     "dm": "Messages",
     "campus": "Campus",
     "friend": "Friends",
