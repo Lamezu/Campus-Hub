@@ -21,7 +21,6 @@ import {
   subscribeToMessages,
   loadMoreMessages as loadMoreDMs,
   sendMessage,
-  markAsRead,
   markDMAsRead,
   deleteMessage,
   deleteMessageForMe,
@@ -305,9 +304,20 @@ export default function DirectChat() {
     if (!currentUser || !conversationId || sending) return;
     setSending(true);
     try {
-      const replyTo: DMReplyTo | null = replyingTo
-        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio', attachmentType: replyAttachmentType(replyingTo) }
-        : null;
+      let replyTo: DMReplyTo | null = null;
+      
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyPreviewText(replyingTo),
+        };
+        if (attachmentType !== undefined) {
+          replyTo.attachmentType = attachmentType;
+        }
+      }
+      
       await sendMessage(
         conversationId,
         text,
@@ -317,9 +327,10 @@ export default function DirectChat() {
         null,
         replyTo
       );
+      
       setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch {
+    } catch (error) {
       alert(t('chat.send_failed'));
     } finally {
       setSending(false);
@@ -331,9 +342,20 @@ export default function DirectChat() {
     setSending(true);
     try {
       const audioUrl = await uploadAudio(audioBlob, `temp_${Date.now()}`);
-      const replyTo: DMReplyTo | null = replyingTo
-        ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text || '', isAudio: replyingTo.attachments?.[0]?.type === 'audio', attachmentType: replyAttachmentType(replyingTo) }
-        : null;
+      let replyTo: DMReplyTo | null = null;
+      
+      if (replyingTo) {
+        const attachmentType = replyAttachmentType(replyingTo);
+        replyTo = {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyPreviewText(replyingTo),
+        };
+        if (attachmentType !== undefined) {
+          replyTo.attachmentType = attachmentType;
+        }
+      }
+      
       await sendMessage(
         conversationId,
         '',

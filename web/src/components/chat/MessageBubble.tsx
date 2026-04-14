@@ -124,7 +124,6 @@ export default function MessageBubble({
     const collection_ = chatCollection ?? (isConversation ? 'conversations' : 'channels');
     const msgRef = doc(db, collection_, chatId, 'messages', message.id);
 
-    // Read fresh state to avoid race conditions with concurrent votes
     const snap = await getDoc(msgRef);
     if (!snap.exists()) return;
     const rawPoll = snap.data().poll;
