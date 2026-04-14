@@ -16,6 +16,10 @@ export async function markChannelRead(channelId: string, userId: string): Promis
   );
 }
 
+export async function markAllChannelsRead(userId: string, channelIds: string[]): Promise<void> {
+  await Promise.all(channelIds.map(id => markChannelRead(id, userId)));
+}
+
 export function subscribeToChannelUnread(
   channelId: string,
   userId: string,

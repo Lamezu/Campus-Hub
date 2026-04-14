@@ -149,6 +149,13 @@ export async function markAsRead(conversationId: string, meId: string): Promise<
   await (sharedGetDirectMessageService() as any).markAsRead(conversationId, meId);
 }
 
+export async function markAllDMsRead(meId: string): Promise<void> {
+  const svc = sharedGetDirectMessageService() as any;
+  const convs: any[] = await svc.getUserConversations(meId).catch(() => []);
+  const unread = convs.filter(c => (c.unreadCount?.[meId] ?? 0) > 0);
+  await Promise.all(unread.map(c => svc.markAsRead(c.id, meId).catch(() => {})));
+}
+
 export async function deleteMessageForMe(
   conversationId: string,
   messageId: string,

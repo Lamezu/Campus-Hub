@@ -1,7 +1,7 @@
 import { db } from '@/config/firebase';
 import {
   collection, doc, addDoc, serverTimestamp, onSnapshot, query,
-  where, orderBy, limit, updateDoc, increment, getDoc, writeBatch,
+  where, orderBy, limit, updateDoc, increment, getDoc, getDocs, writeBatch,
   arrayRemove, arrayUnion, deleteDoc, deleteField,
 } from 'firebase/firestore';
 import type { GroupConversation, Message } from '@/types';
@@ -342,6 +342,14 @@ export async function markGroupAsRead(groupId: string, userId: string): Promise<
   await updateDoc(doc(db, 'groupConversations', groupId), {
     [`unreadCount.${userId}`]: 0,
   });
+}
+
+export async function markAllGroupsRead(userId: string): Promise<void> {
+  const q = query(collection(db, 'groupConversations'), where('members', 'array-contains', userId));
+  const snap = await getDocs(q).catch(() => null);
+  if (!snap) return;
+  const unread = snap.docs.filter(d => (d.data().unreadCount?.[userId] ?? 0) > 0);
+  await Promise.all(unread.map(d => markGroupAsRead(d.id, userId).catch(() => {})));
 }
 
 export async function getGroupInfo(groupId: string): Promise<GroupConversation | null> {

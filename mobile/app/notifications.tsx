@@ -15,7 +15,9 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
 import { notificationService } from '@/services/notificationService';
-import { markAsRead as dmMarkAsRead } from '@/services/dmService';
+import { markAllDMsRead } from '@/services/dmService';
+import { markAllGroupsRead } from '@/services/groupDMService';
+import { markAllChannelsRead } from '@/services/channelReadService';
 import { acceptFriendRequest } from '@/services/contactSettingsService';
 import { auth, db } from '@/config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -380,26 +382,23 @@ export default function NotificationsScreen() {
 
     if (drillGroupId && category === 'channel') {
       notificationService.markChatRead('channel', drillGroupId);
+      if (meId) markAllChannelsRead(meId, [drillGroupId]).catch(() => {});
     } else if (drillGroupId && category === 'dm') {
       notificationService.markChatRead('dm', drillGroupId);
-      // Also reset the conversation's unread count and message read status
-      if (meId) {
-        const conversationId = drillNotifications[0]?.meta?.conversationId
-          || [meId, drillGroupId].sort().join('_');
-        dmMarkAsRead(conversationId, meId).catch(() => {});
-      }
+      if (meId) markAllDMsRead(meId).catch(() => {});
     } else if (drillGroupId && category === 'social') {
       notificationService.markChatRead('social', drillGroupId);
     } else {
       notificationService.markAllRead(category as NotificationCategory | undefined);
-      // If marking DM notifications, also reset each conversation's unread count
+      if (meId && (!category || category === 'channel')) {
+        markAllChannelsRead(meId, CHANNELS.map(c => c.id)).catch(() => {});
+      }
       if (meId && (!category || category === 'dm')) {
-        const dmNotifs = notificationService.getByCategory('dm');
-        const convIds = new Set(dmNotifs.map(n => n.meta?.conversationId).filter(Boolean) as string[]);
-        convIds.forEach(cid => dmMarkAsRead(cid, meId).catch(() => {}));
+        markAllDMsRead(meId).catch(() => {});
+        markAllGroupsRead(meId).catch(() => {});
       }
     }
-  }, [category, drillGroupId, drillNotifications]);
+  }, [category, drillGroupId]);
 
   const handleAcceptRequest = useCallback(async () => {
     const fromUserId = friendRequestItem?.meta?.fromUserId;
