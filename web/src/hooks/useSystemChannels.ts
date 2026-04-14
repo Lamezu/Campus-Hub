@@ -6,7 +6,6 @@ import type { Channel } from '../types';
 
 export const SYSTEM_CHANNEL_IDS = ['1', '2', '3', '4'] as const;
 
-// Default data used while Firestore hasn't loaded yet or if docs don't exist
 const CHANNEL_DEFAULTS: Record<string, {
   nameKey: string; descKey: string; icon: string; type: Channel['type'];
 }> = {
@@ -19,7 +18,6 @@ const CHANNEL_DEFAULTS: Record<string, {
 export function useSystemChannels(): Channel[] {
   const { t } = useTranslation();
 
-  // Firestore overrides (photoURL, memberCount, etc.) keyed by channel id
   const [overrides, setOverrides] = useState<Record<string, Partial<Channel>>>({});
 
   useEffect(() => {
@@ -33,7 +31,6 @@ export function useSystemChannels(): Channel[] {
             photoURL: data.photoURL ?? null,
             memberCount: data.memberCount ?? 0,
             lastMessageAt: data.lastMessageAt ?? null,
-            // Respect nameKey from Firestore if admin changed it, else fall back to default key
             nameKey: data.nameKey ?? CHANNEL_DEFAULTS[id].nameKey,
             descKey: data.descKey ?? CHANNEL_DEFAULTS[id].descKey,
             icon: data.icon ?? CHANNEL_DEFAULTS[id].icon,

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, updateDoc, where, orderBy, limit, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import {
   subscribeToReceivedRequests,
@@ -40,8 +40,10 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
   const [firestoreNotifs, setFirestoreNotifs] = useState<NotificationItem[]>([]);
   const [convNotifs, setConvNotifs] = useState<NotificationItem[]>([]);
   const [groupConvNotifs, setGroupConvNotifs] = useState<NotificationItem[]>([]);
+  const [studyGroupNotifs, setStudyGroupNotifs] = useState<NotificationItem[]>([]);
   const [socialNotifs, setSocialNotifs] = useState<NotificationItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [myStudyGroups, setMyStudyGroups] = useState<{ id: string; name: string }[]>([]);
   const userIdRef = useRef<string | null>(null);
   const knownNotifIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
@@ -56,6 +58,8 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
       isInitialLoadRef.current = true;
       readSocialIdsRef.current = new Set();
       setSocialNotifs([]);
+      setStudyGroupNotifs([]);
+      setMyStudyGroups([]);
       if (uid) {
         notificationService.init(uid);
       } else {
@@ -63,6 +67,7 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
         setFirestoreNotifs([]);
         setConvNotifs([]);
         setGroupConvNotifs([]);
+        setStudyGroupNotifs([]);
       }
     });
     return unsub;
@@ -189,6 +194,90 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
 
     return unsub;
   }, [userId, t]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const q = query(
+      collection(db, 'studyGroups'),
+      where('memberIds', 'array-contains', userId)
+    );
+
+    const unsub = onSnapshot(q, snap => {
+      const groups: { id: string; name: string }[] = [];
+      for (const d of snap.docs) {
+        const data = d.data();
+        groups.push({
+          id: d.id,
+          name: data.name ?? 'Grupo de estudio',
+        });
+      }
+      setMyStudyGroups(groups);
+    });
+
+    return unsub;
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || myStudyGroups.length === 0) return;
+
+    const unsubs: (() => void)[] = [];
+
+    for (const group of myStudyGroups) {
+      const channelId = `sg_${group.id}`;
+      const memberRef = doc(db, 'channels', channelId, 'members', userId);
+      
+      const unsubMember = onSnapshot(memberRef, (memberSnap) => {
+        const lastRead = memberSnap.exists() ? memberSnap.data().lastRead : null;
+        
+        const q = query(
+          collection(db, 'channels', channelId, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        
+        const unsubMsg = onSnapshot(q, (snap) => {
+          const unreadMessages = snap.docs.filter(doc => {
+            const data = doc.data();
+            if (data.senderId === userId) return false;
+            if (!lastRead) return true;
+            const createdAt = data.createdAt;
+            if (!createdAt) return false;
+            return createdAt.seconds > lastRead.seconds;
+          });
+          
+          if (unreadMessages.length === 0) return;
+          
+          const lastMsg = unreadMessages[0].data();
+          const at = lastMsg.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString();
+          
+          const notif = {
+            id: `study_group_${group.id}_${lastMsg.createdAt?.seconds || Date.now()}`,
+            category: 'channel' as NotificationCategory,
+            title: `${lastMsg.senderName} en ${group.name}`,
+            body: lastMsg.text || (lastMsg.attachments?.length ? '📎 Archivo' : ''),
+            read: false,
+            createdAt: at,
+            meta: { channelId, groupId: group.id, groupName: group.name },
+          };
+          
+          if (!knownNotifIdsRef.current.has(notif.id)) {
+            knownNotifIdsRef.current.add(notif.id);
+            playMessageTone('Melodía');
+          }
+          
+          setStudyGroupNotifs(prev => {
+            if (prev.some(n => n.id === notif.id)) return prev;
+            return [notif, ...prev];
+          });
+        });
+        unsubs.push(unsubMsg);
+      });
+      unsubs.push(unsubMember);
+    }
+
+    return () => unsubs.forEach(u => u());
+  }, [userId, myStudyGroups, t]);
 
   useEffect(() => {
     if (!userId) return;
@@ -327,6 +416,15 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
       n => !fsGroupConvIds.has(n.meta?.conversationId ?? '')
     );
 
+    const fsStudyGroupIds = new Set(
+      firestoreNotifs
+        .filter(n => n.category === 'channel' && n.meta?.groupId)
+        .map(n => n.meta!.groupId)
+    );
+    const filteredStudyGroup = studyGroupNotifs.filter(
+      n => !fsStudyGroupIds.has(n.meta?.groupId ?? '')
+    );
+
     const fsSocialPostIds = new Set(
       firestoreNotifs
         .filter(n => n.category === 'social' && n.meta?.postId)
@@ -336,10 +434,10 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
       n => !fsSocialPostIds.has(n.meta?.postId ?? '')
     );
 
-    return [...firestoreNotifs, ...filteredConv, ...filteredGroupConv, ...filteredSocial].sort(
+    return [...firestoreNotifs, ...filteredConv, ...filteredGroupConv, ...filteredStudyGroup, ...filteredSocial].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [firestoreNotifs, convNotifs, groupConvNotifs, socialNotifs]);
+  }, [firestoreNotifs, convNotifs, groupConvNotifs, studyGroupNotifs, socialNotifs]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -358,6 +456,19 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
       await updateDoc(doc(db, 'groupConversations', conversationId), {
         [`unreadCounts.${uid}`]: 0,
       });
+    } else if (id.startsWith('study_group_')) {
+      const uid = userIdRef.current;
+      if (!uid) return;
+      const parts = id.split('_');
+      const groupId = parts[2];
+      const channelId = `sg_${groupId}`;
+      const memberRef = doc(db, 'channels', channelId, 'members', uid);
+      const memberSnap = await getDoc(memberRef);
+      if (memberSnap.exists()) {
+        await updateDoc(memberRef, { lastRead: new Date() });
+      } else {
+        await setDoc(memberRef, { lastRead: new Date() });
+      }
     } else if (id.startsWith('like_') || id.startsWith('comment_')) {
       readSocialIdsRef.current.add(id);
       setSocialNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -385,6 +496,24 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
             : Promise.resolve()
         )
       ]);
+    }
+    if (!category || category === 'channel') {
+      await Promise.all(
+        studyGroupNotifs.map(async n => {
+          if (!uid) return;
+          const parts = n.id.split('_');
+          const groupId = parts[2];
+          const channelId = `sg_${groupId}`;
+          const memberRef = doc(db, 'channels', channelId, 'members', uid);
+          const memberSnap = await getDoc(memberRef);
+          if (memberSnap.exists()) {
+            await updateDoc(memberRef, { lastRead: new Date() });
+          } else {
+            await setDoc(memberRef, { lastRead: new Date() });
+          }
+        })
+      );
+      setStudyGroupNotifs(prev => prev.map(n => ({ ...n, read: true })));
     }
     if (!category || category === 'social') {
       const unreadSocial = socialNotifs.filter(n => !n.read);
