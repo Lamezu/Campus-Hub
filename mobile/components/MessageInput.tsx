@@ -216,7 +216,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
   const containerBgColor = theme === 'dark' ? '#1C1C1E' : colors.background; // Forzar fondo oscuro en tema oscuro
   const inputBgColor = isDefault
     ? colors.backgroundSecondary
-    : chatTheme.bubbleOther + 'CC';
+    : '#' + chatTheme.bubbleOther.replace('#', '').slice(0, 6) + 'CC';
   const chatContainerBgColor = isDefault ? colors.background : chatTheme.background;
   const inputTextColor = isDefault
     ? colors.text
