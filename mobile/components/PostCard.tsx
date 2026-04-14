@@ -72,7 +72,8 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
 
   const handlePress = React.useCallback((x: number, y: number) => {
     const now = Date.now();
-    if (now - lastTapRef.current < 280) {
+    if (now - lastTapRef.current < 250) {
+      lastTapRef.current = 0; // reset so next tap can't cascade into another double tap
       if (tapTimerRef.current) {
         clearTimeout(tapTimerRef.current);
         tapTimerRef.current = null;
@@ -80,11 +81,11 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
       addHeart(x, y);
       if (!isLiked) onDoubleTap?.();
     } else {
+      lastTapRef.current = now;
       tapTimerRef.current = setTimeout(() => {
         onPress();
-      }, 280);
+      }, 250);
     }
-    lastTapRef.current = now;
   }, [isLiked, onDoubleTap, onPress, addHeart]);
 
   return (
