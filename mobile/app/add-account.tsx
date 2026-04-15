@@ -84,9 +84,9 @@ export default function AddAccountScreen() {
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border + '15' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+          <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           {t('accounts.add_account_title')}
@@ -100,7 +100,7 @@ export default function AddAccountScreen() {
             {t('accounts.add_account_hint')}
           </ThemedText>
 
-          <View style={[styles.inputRow, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+          <View style={[styles.inputRow, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
             <TextInput
               style={[styles.input, { color: colors.text }]}
               placeholder="Email"
@@ -113,10 +113,10 @@ export default function AddAccountScreen() {
             />
           </View>
 
-          <View style={[styles.inputRow, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+          <View style={[styles.inputRow, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder={t('auth.password') || 'Password'}
+              placeholder={t('auth.password') || 'Contraseña'}
               placeholderTextColor={colors.textSecondary}
               secureTextEntry={!showPassword}
               value={password}
@@ -125,8 +125,8 @@ export default function AddAccountScreen() {
             />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeBtn}>
               {showPassword
-                ? <EyeOff size={20} color={colors.textSecondary} strokeWidth={1.8} />
-                : <Eye size={20} color={colors.textSecondary} strokeWidth={1.8} />
+                ? <EyeOff size={20} color={colors.textSecondary} strokeWidth={2} />
+                : <Eye size={20} color={colors.textSecondary} strokeWidth={2} />
               }
             </TouchableOpacity>
           </View>
@@ -154,24 +154,24 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   backBtn: { padding: 4, width: 32 },
-  headerTitle: { fontSize: typography.sizes.md, fontWeight: '700' },
-  body: { padding: spacing.lg, gap: spacing.md },
-  hint: { fontSize: typography.sizes.sm, lineHeight: 20 },
+  headerTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  body: { padding: 24, gap: 16 },
+  hint: { fontSize: 14, lineHeight: 22, opacity: 0.7, marginBottom: 8, fontWeight: '600' },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 16, height: 60,
   },
-  input: { flex: 1, fontSize: typography.sizes.md, paddingVertical: Platform.OS === 'ios' ? 14 : 10 },
-  eyeBtn: { padding: 4 },
-  errorText: { color: '#FF3B30', fontSize: typography.sizes.sm },
+  input: { flex: 1, fontSize: 16, fontWeight: '700' },
+  eyeBtn: { padding: 8 },
+  errorText: { color: '#FF3B30', fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   submitBtn: {
-    paddingVertical: spacing.md + 2, borderRadius: 14,
-    alignItems: 'center', marginTop: spacing.sm,
+    paddingVertical: 18, borderRadius: 20,
+    alignItems: 'center', marginTop: 12,
   },
-  submitBtnText: { color: '#fff', fontSize: typography.sizes.md, fontWeight: '700' },
+  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

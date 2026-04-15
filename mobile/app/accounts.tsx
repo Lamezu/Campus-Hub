@@ -52,20 +52,26 @@ export default function AccountsScreen() {
     const isActive = item.uid === activeUid;
     return (
       <TouchableOpacity
-        style={[styles.row, { borderBottomColor: colors.border }, isActive && { backgroundColor: colors.primary + '08' }]}
+        style={[
+          styles.row, 
+          { 
+            backgroundColor: isActive ? colors.primary + '15' : colors.card + '90',
+            borderColor: isActive ? colors.primary : colors.border + '15' 
+          }
+        ]}
         onPress={() => handleSwitch(item)}
         activeOpacity={isActive ? 1 : 0.7}
         disabled={switching}
       >
-        <View style={[styles.avatar, { backgroundColor: colors.primary + '20' }]}>
+        <View style={[styles.avatar, { backgroundColor: colors.primary + '15' }]}>
           {item.photoURL
             ? <Image source={{ uri: item.photoURL }} style={styles.avatarImg} />
-            : <UserIcon size={22} color={colors.primary} strokeWidth={1.8} />
+            : <UserIcon size={24} color={colors.primary} strokeWidth={2} />
           }
         </View>
         <View style={styles.info}>
           <ThemedText style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {item.displayName || item.email}
+            {item.displayName || (item.email ? item.email.split('@')[0] : 'Usuario')}
           </ThemedText>
           <ThemedText style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>
             {item.email}
@@ -73,12 +79,14 @@ export default function AccountsScreen() {
         </View>
         <View style={styles.rowRight}>
           {isActive
-            ? <Check size={20} color={colors.primary} strokeWidth={2.5} />
+            ? <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]}>
+                <Check size={14} color="#fff" strokeWidth={3} />
+              </View>
             : switching
               ? <ActivityIndicator size="small" color={colors.primary} />
               : (
-                <TouchableOpacity onPress={() => handleRemove(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Trash2 size={18} color={colors.textSecondary} strokeWidth={1.8} />
+                <TouchableOpacity onPress={() => handleRemove(item)} hitSlop={12}>
+                  <Trash2 size={20} color={colors.textSecondary} strokeWidth={2} />
                 </TouchableOpacity>
               )
           }
@@ -92,9 +100,9 @@ export default function AccountsScreen() {
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border + '15' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+          <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           {t('accounts.title')}
@@ -131,29 +139,32 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   backBtn: { padding: 4, width: 32 },
-  headerTitle: { fontSize: typography.sizes.md, fontWeight: '700' },
+  headerTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  container: { padding: 20, gap: 12 },
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    padding: 16, borderRadius: 24, marginHorizontal: 20, marginTop: 12,
+    borderWidth: 1,
   },
   avatar: {
-    width: 48, height: 48, borderRadius: 24,
+    width: 52, height: 52, borderRadius: 26,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexShrink: 0,
+    borderWidth: 2, borderColor: '#fff',
   },
   avatarImg: { width: '100%', height: '100%' },
   info: { flex: 1, gap: 2 },
-  name: { fontSize: typography.sizes.md, fontWeight: '600', lineHeight: 20 },
-  email: { fontSize: typography.sizes.sm, lineHeight: 18 },
-  rowRight: { flexShrink: 0, width: 28, alignItems: 'center' },
+  name: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  email: { fontSize: 12, fontWeight: '600', opacity: 0.6 },
+  rowRight: { flexShrink: 0, width: 32, alignItems: 'center', justifyContent: 'center' },
+  activeIndicator: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: spacing.sm, margin: spacing.lg, padding: spacing.md,
-    borderRadius: 14, borderWidth: 1.5,
+    gap: 10, margin: 20, padding: 16,
+    borderRadius: 20, borderWidth: 2,
   },
-  addBtnText: { fontSize: typography.sizes.md, fontWeight: '600' },
+  addBtnText: { fontSize: 15, fontWeight: '800' },
 });
