@@ -237,7 +237,7 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
         contentContainerStyle={[styles.calContainer, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.calHeader, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.calHeader, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
           <TouchableOpacity onPress={prevMonth} style={styles.calNavBtn}>
             <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
           </TouchableOpacity>
@@ -249,7 +249,7 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.calGrid, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.calGrid, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
           {DAY_NAMES.map((d, i) => (
             <ThemedText key={i} style={[styles.calDayName, { color: colors.textSecondary }]}>{d}</ThemedText>
           ))}
@@ -310,7 +310,14 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
             return (
               <TouchableOpacity
                 key={ev.id}
-                style={[styles.eventCard, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: cfg.color }]}
+                style={[
+                  styles.eventCard, 
+                  { 
+                    backgroundColor: colors.card + '90', 
+                    borderColor: colors.border + '15', 
+                    borderLeftColor: cfg.color 
+                  }
+                ]}
                 onPress={canManage ? () => handleEditEvent(ev) : undefined}
                 activeOpacity={0.7}
               >
@@ -549,34 +556,34 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
 
 const styles = StyleSheet.create({
   calContainer: { padding: spacing.md, gap: spacing.md },
-  calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: spacing.md },
+  calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 20, borderWidth: 1, padding: spacing.md },
   calNavBtn: { padding: 4 },
-  calMonthTitle: { fontSize: typography.sizes.md, fontWeight: '700' },
-  calGrid: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: spacing.sm, flexDirection: 'row', flexWrap: 'wrap' },
-  calDayName: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, fontWeight: '600', paddingVertical: 4 },
-  calCell: { width: `${100 / 7}%`, aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
-  calDayNum: { fontSize: 13, fontWeight: '500' },
-  calDot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
-  createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm + 2, borderRadius: 10 },
-  createBtnText: { color: '#fff', fontWeight: '600', fontSize: typography.sizes.sm },
-  calSectionTitle: { fontSize: typography.sizes.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  eventCard: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderLeftWidth: 4, padding: spacing.md, gap: 4, marginBottom: spacing.sm },
-  eventCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  calMonthTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  calGrid: { borderRadius: 20, borderWidth: 1, padding: spacing.sm, flexDirection: 'row', flexWrap: 'wrap' },
+  calDayName: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingVertical: 4, textTransform: 'uppercase', opacity: 0.5 },
+  calCell: { width: `${100 / 7}%`, aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
+  calDayNum: { fontSize: 14, fontWeight: '700' },
+  calDot: { width: 5, height: 5, borderRadius: 2.5, marginTop: 2 },
+  createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm + 4, borderRadius: 16, marginVertical: spacing.sm },
+  createBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  calSectionTitle: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginTop: spacing.md, opacity: 0.6 },
+  eventCard: { borderRadius: 20, borderWidth: 1, borderLeftWidth: 6, padding: spacing.md, gap: 4, marginBottom: spacing.md },
+  eventCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   eventCardTopLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flex: 1, flexWrap: 'wrap' },
   eventCardActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eventDeleteBtn: { padding: 4 },
   eventDateBlock: { alignItems: 'flex-end' },
-  eventDate: { fontSize: typography.sizes.xs },
-  eventTime: { fontSize: 10, fontWeight: '600', marginTop: 1 },
-  eventTypeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  eventTypeBadgeText: { fontSize: 11, fontWeight: '600' },
-  deptBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
-  deptBadgeText: { fontSize: 10, fontWeight: '500' },
-  eventTitle: { fontSize: typography.sizes.sm, fontWeight: '700' },
-  eventDesc: { fontSize: typography.sizes.xs, lineHeight: 16 },
-  announcementLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: spacing.sm, marginTop: spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
-  announcementLinkText: { flex: 1, fontSize: typography.sizes.xs, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  eventDate: { fontSize: 12, fontWeight: '700' },
+  eventTime: { fontSize: 11, fontWeight: '800', marginTop: 1 },
+  eventTypeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  eventTypeBadgeText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  deptBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  deptBadgeText: { fontSize: 10, fontWeight: '700' },
+  eventTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, marginTop: 4 },
+  eventDesc: { fontSize: 14, lineHeight: 20, opacity: 0.7 },
+  announcementLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: spacing.sm, marginTop: spacing.sm, borderTopWidth: 1 },
+  announcementLinkText: { flex: 1, fontSize: 12, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalContent: { flex: 1, justifyContent: 'flex-end' },
   premiumSheet: { borderTopLeftRadius: 30, borderTopRightRadius: 30, height: '85%', overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md + 4, borderBottomWidth: StyleSheet.hairlineWidth },
