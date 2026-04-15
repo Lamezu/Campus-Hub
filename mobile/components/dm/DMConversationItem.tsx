@@ -188,7 +188,13 @@ export function DMConversationItem({
 
       <Animated.View style={{ transform: [{ translateX }] }}>
         <TouchableOpacity
-          style={[styles.container, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+          style={[
+            styles.container, 
+            { 
+              backgroundColor: conversation.unreadCount > 0 ? colors.primary + '11' : colors.card + '90',
+              borderColor: conversation.unreadCount > 0 ? colors.primary + '30' : colors.border + '15'
+            }
+          ]}
           onPress={() => {
             if (isRevealedRef.current || isMuteRevealedRef.current) { snapBack(); return; }
             onPress(conversation);
@@ -305,33 +311,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: spacing.sm + 4,
+    paddingVertical: spacing.md,
+    borderRadius: 20,
+    marginHorizontal: spacing.md,
+    marginVertical: 4,
+    gap: spacing.md,
+    borderWidth: 1,
   },
   avatarWrapper: { position: 'relative', flexShrink: 0 },
-  avatar: { width: 52, height: 52, borderRadius: 26 },
+  avatar: { width: 54, height: 54, borderRadius: 27 },
   avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  avatarInitials: { fontSize: 18, lineHeight: 22, fontWeight: '700', color: '#fff' },
+  avatarInitials: { fontSize: 20, fontWeight: '800', color: '#fff' },
   onlineDot: {
-    position: 'absolute', bottom: 1, right: 1,
-    width: 13, height: 13, borderRadius: 7,
-    backgroundColor: '#30D158', borderWidth: 2,
+    position: 'absolute', bottom: 2, right: 2,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: '#30D158', borderWidth: 2.5,
   },
-  content: { flex: 1, gap: 3 },
+  content: { flex: 1, gap: 2 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flex: 1, minWidth: 0 },
-  name: { fontSize: typography.sizes.md, lineHeight: 20, fontWeight: '600', flexShrink: 1 },
-  roleBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, flexShrink: 0 },
-  roleText: { fontSize: 11, lineHeight: 14, fontWeight: '600' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
-  time: { fontSize: typography.sizes.xs, lineHeight: 16 },
+  name: { fontSize: 16, fontWeight: '700', flexShrink: 1 },
+  roleBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, flexShrink: 0 },
+  roleText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  time: { fontSize: 12, opacity: 0.6 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
-  lastMessage: { fontSize: typography.sizes.sm, lineHeight: 18, flex: 1 },
+  lastMessage: { fontSize: 14, lineHeight: 20, flex: 1 },
   lastMessageUnread: { fontWeight: '600' },
   unreadBadge: {
-    minWidth: 20, height: 20, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5, flexShrink: 0,
+    minWidth: 22, height: 22, borderRadius: 11,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, flexShrink: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  unreadText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: '#fff', includeFontPadding: false },
+  unreadText: { fontSize: 11, fontWeight: '800', color: '#fff', includeFontPadding: false },
 });

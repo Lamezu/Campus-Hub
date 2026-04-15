@@ -178,7 +178,13 @@ export function GroupConversationItem({
 
       <Animated.View style={{ transform: [{ translateX }] }}>
         <TouchableOpacity
-          style={[styles.container, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+          style={[
+            styles.container, 
+            { 
+              backgroundColor: group.unreadCount > 0 ? colors.primary + '11' : colors.card + '90',
+              borderColor: group.unreadCount > 0 ? colors.primary + '30' : colors.border + '15'
+            }
+          ]}
           onPress={() => {
             if (isRevealedRef.current || isMuteRevealedRef.current) { snapBack(); return; }
             onPress(group);
@@ -259,23 +265,30 @@ const styles = StyleSheet.create({
     fontSize: 11, lineHeight: 14, color: '#fff', fontWeight: '600',
   },
   container: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: spacing.sm + 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: 20,
+    marginHorizontal: spacing.md,
+    marginVertical: 4,
+    gap: spacing.md,
+    borderWidth: 1,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26, flexShrink: 0 },
+  avatar: { width: 54, height: 54, borderRadius: 27, flexShrink: 0 },
   avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, gap: 3, minWidth: 0 },
+  content: { flex: 1, gap: 2, minWidth: 0 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flex: 1, minWidth: 0 },
-  name: { fontSize: typography.sizes.md, lineHeight: 20, fontWeight: '600', flexShrink: 1 },
-  time: { fontSize: typography.sizes.xs, lineHeight: 16, flexShrink: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
+  name: { fontSize: 16, fontWeight: '700', flexShrink: 1 },
+  time: { fontSize: 12, opacity: 0.6, flexShrink: 0 },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
-  lastMessage: { fontSize: typography.sizes.sm, lineHeight: 18, flex: 1 },
+  lastMessage: { fontSize: 14, lineHeight: 20, flex: 1 },
   lastMessageUnread: { fontWeight: '600' },
   unreadBadge: {
-    minWidth: 20, height: 20, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5, flexShrink: 0,
+    minWidth: 22, height: 22, borderRadius: 11,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, flexShrink: 0,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3,
   },
-  unreadText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: '#fff', includeFontPadding: false },
+  unreadText: { fontSize: 11, fontWeight: '800', color: '#fff', includeFontPadding: false },
 });

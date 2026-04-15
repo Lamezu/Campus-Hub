@@ -32,11 +32,86 @@ import {
   getFriendStatus, sendFriendRequest,
 } from '@/services/contactSettingsService';
 import { toggleBestFriend, removeFriend, areFriendsBestFriends } from '@/services/friendsService';
+import { notificationService } from '@/services/notificationService';
 import { useTranslation } from '@/hooks/useTranslation';
 import { avatarColor } from '@/utils/avatarColor';
 import type { DMConversation, GroupConversation, MuteDuration } from '@/types';
 
 type ListItem = DMConversation | GroupConversation;
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  newButton: { padding: spacing.xs, marginLeft: spacing.xs },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    height: 48,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', includeFontPadding: false },
+  archivedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
+  },
+  archivedLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
+  emptyWrapper: { flex: 1, paddingVertical: 100 },
+  emptyComposeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 16,
+    alignSelf: 'center',
+    gap: spacing.sm,
+  },
+  emptyComposeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  errorContainer: { padding: spacing.xl, alignItems: 'center' },
+  errorText: { fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: spacing.sm },
+  errorSub: { fontSize: 14, textAlign: 'center' },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg, paddingBottom: 40 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: spacing.md },
+  sheetAvatar: { width: 40, height: 40, borderRadius: 20 },
+  sheetAvatarFallback: { justifyContent: 'center', alignItems: 'center' },
+  sheetAvatarInitials: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  sheetName: { fontSize: 18, fontWeight: '700', flex: 1 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  sheetRowText: { fontSize: 16, fontWeight: '500' },
+  groupRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4, borderBottomWidth: StyleSheet.hairlineWidth, gap: spacing.sm },
+  groupAvatar: { width: 50, height: 50, borderRadius: 25 },
+  groupAvatarPlaceholder: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  groupInfo: { flex: 1, minWidth: 0 },
+  groupTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  groupName: { flex: 1, fontSize: 14, fontWeight: '600' },
+  groupTime: { fontSize: 11, marginLeft: spacing.xs },
+  groupLastMsg: { fontSize: 12 },
+  groupBadge: { minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  groupBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+});
 
 export default function MessagesScreen() {
   const { colors, theme } = useTheme();
@@ -59,6 +134,7 @@ export default function MessagesScreen() {
 
   const convUnsubRef = useRef<(() => void) | null>(null);
   const groupUnsubRef = useRef<(() => void) | null>(null);
+  const settingsMapRef = useRef(settingsMap);
 
   const startConvSubscription = useCallback(() => {
     const meId = auth.currentUser?.uid;
@@ -134,13 +210,38 @@ export default function MessagesScreen() {
     }).catch(() => {});
   }, [participantIdsKey]);
 
+  useEffect(() => {
+    settingsMapRef.current = settingsMap;
+  }, [settingsMap]);
+
   useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  useEffect(() => {
+    return notificationService.subscribe(() => {
+      const meId = auth.currentUser?.uid;
+      if (!meId) return;
+      const unreadDMs = notificationService.getAll().filter(
+        n => !n.read && n.category === 'dm' && n.meta?.participantId && !n.meta?.groupId
+      );
+      for (const n of unreadDMs) {
+        const pid = n.meta!.participantId!;
+        const s = settingsMapRef.current.get(pid);
+        if (s?.deleted) {
+          updateContactSettings(meId, pid, { deleted: false } as any).catch(() => {});
+          setSettingsMap(prev => {
+            const next = new Map(prev);
+            const existing = next.get(pid);
+            if (existing) next.set(pid, { ...existing, deleted: false });
+            return next;
+          });
+        }
+      }
+    });
+  }, []);
+
   useFocusEffect(useCallback(() => {
     const meId = auth.currentUser?.uid;
     if (!meId) return;
-    fetchConversationsOnce(meId).then(convs => {
-      if (convs.length > 0) setConversations(convs);
-    }).catch(() => {});
     loadSettings();
   }, [loadSettings]));
 
@@ -162,7 +263,10 @@ export default function MessagesScreen() {
     const s = settingsMap.get(c.participantId);
     return !c.archived && !(s?.deleted ?? false);
   });
-  const archivedCount = enriched.filter(c => c.archived).length;
+  const archivedCount = enriched.filter(c => {
+    const s = settingsMap.get(c.participantId);
+    return c.archived && !(s?.deleted ?? false);
+  }).length;
 
   const filtered = query.trim()
     ? active.filter(c => c.participantName.toLowerCase().includes(query.toLowerCase()))
@@ -446,22 +550,22 @@ export default function MessagesScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <View style={styles.header}>
         <ThemedText style={[styles.title, { color: colors.text }]}>{t('dm.title') || 'Title'}</ThemedText>
         <View style={styles.headerActions}>
           <NotificationBell category="dm" />
           <TouchableOpacity onPress={() => router.push('/dm/compose' as never)} style={styles.newButton} activeOpacity={0.7}>
-            <PenSquare size={24} color={colors.primary} strokeWidth={1.8} />
+            <PenSquare size={24} color={colors.primary} strokeWidth={1.5} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary }]}>
-        <Search size={16} color={colors.textSecondary} strokeWidth={2} />
+      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
+        <Search size={16} color={colors.textSecondary} strokeWidth={1.8} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
           placeholder={t('dm.search_conversations') || 'Search Conversations'}
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={colors.textSecondary + '70'}
           value={query}
           onChangeText={setQuery}
           returnKeyType="search"
@@ -660,6 +764,17 @@ export default function MessagesScreen() {
               </ThemedText>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={[styles.sheetRow, { borderBottomColor: colors.border }]}
+              onPress={() => { if (contextTarget) handleArchive(contextTarget); setContextTarget(null); }}
+              activeOpacity={0.7}
+            >
+              <Archive size={20} color={colors.text} strokeWidth={1.8} />
+              <ThemedText style={[styles.sheetRowText, { color: colors.text }]}>
+                {t('dm.archive') || 'Archive'}
+              </ThemedText>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.sheetRow} onPress={handleDeleteChat} activeOpacity={0.7}>
               <Trash2 size={20} color={colors.danger ?? '#FF3B30'} strokeWidth={1.8} />
               <ThemedText style={[styles.sheetRowText, { color: colors.danger ?? '#FF3B30' }]}>
@@ -719,69 +834,4 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  title: { fontSize: typography.sizes.xl, lineHeight: 28, fontWeight: '700' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  newButton: { padding: spacing.xs },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: spacing.md, marginVertical: spacing.sm,
-    borderRadius: 12, paddingHorizontal: spacing.sm + 2,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.xs,
-    gap: spacing.xs,
-  },
-  searchInput: { flex: 1, fontSize: typography.sizes.sm, lineHeight: 20, includeFontPadding: false },
-  archivedBanner: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: spacing.sm,
-  },
-  archivedLabel: { flex: 1, fontSize: typography.sizes.sm, lineHeight: 18 },
-  errorContainer: { paddingTop: 80, alignItems: 'center', paddingHorizontal: spacing.xl, gap: spacing.sm },
-  errorText: { fontSize: typography.sizes.sm, fontWeight: '700', textAlign: 'center' },
-  errorSub: { fontSize: typography.sizes.sm, lineHeight: 20, textAlign: 'center' },
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, overflow: 'hidden' },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  sheetAvatar: { width: 40, height: 40, borderRadius: 20 },
-  sheetAvatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  sheetAvatarInitials: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  sheetName: { fontSize: typography.sizes.md, fontWeight: '600', lineHeight: 20, flex: 1 },
-  sheetRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  sheetRowText: { fontSize: typography.sizes.md, lineHeight: 22 },
-  emptyWrapper: { alignItems: 'center' },
-  emptyComposeBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    marginTop: spacing.lg, paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 4, borderRadius: 24,
-  },
-  emptyComposeBtnText: { fontSize: typography.sizes.md, fontWeight: '600', color: '#fff' },
-  groupRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: spacing.sm,
-  },
-  groupAvatar: { width: 50, height: 50, borderRadius: 25 },
-  groupAvatarPlaceholder: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  groupInfo: { flex: 1, minWidth: 0 },
-  groupTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-  groupName: { flex: 1, fontSize: typography.sizes.sm, fontWeight: '600', lineHeight: 18 },
-  groupTime: { fontSize: 11, lineHeight: 16, marginLeft: spacing.xs },
-  groupLastMsg: { fontSize: typography.sizes.xs, lineHeight: 16 },
-  groupBadge: { minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  groupBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-});
+
