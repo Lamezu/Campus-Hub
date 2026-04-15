@@ -7,13 +7,14 @@ import {
 import type { GroupConversation, Message } from '@/types';
 import { getContactSettings } from '@/services/contactSettingsService';
 
-function lastMessagePreview(text: string, attachments: any[] | null | undefined): string {
+function lastMessagePreview(text: string, attachments: any[] | null | undefined, poll?: any): string {
   if (text?.trim()) return text.trim();
+  if (poll) return `🗳️ Encuesta: ${poll.question}`;
   const type = attachments?.[0]?.type;
-  if (type === 'image') return '📷 Photo';
-  if (type === 'audio') return '🎵 Audio';
-  if (type === 'file') return '📎 File';
-  return '';
+  if (type === 'image') return '📷 Imagen';
+  if (type === 'audio') return '🎵 Nota de voz';
+  if (type === 'file') return `📄 Archivo: ${attachments?.[0]?.name || ''}`;
+  return '📎 Adjunto';
 }
 
 async function notifyGroupMembers(
@@ -37,7 +38,7 @@ async function notifyGroupMembers(
           await addDoc(collection(db, 'notifications', uid, 'items'), {
             category: 'dm',
             title: senderName,
-            body: body || '📎 Archivo',
+            body: body || '📎 Adjunto',
             read: false,
             createdAt: serverTimestamp(),
             meta: { participantId: groupId, groupId, groupName },
@@ -325,6 +326,7 @@ export async function sendGroupPollMessage(
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
   const members: string[] = groupSnap.data()?.members ?? [];
+  const groupName = groupSnap.data()?.name ?? '';
 
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
@@ -342,8 +344,10 @@ export async function sendGroupPollMessage(
     poll: pollData,
   });
 
-  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, `📊 ${poll.question}`, members);
+  const preview = `🗳️ Encuesta: ${poll.question}`;
+  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, preview, members);
   await batch.commit();
+  notifyGroupMembers(groupId, senderId, senderName, preview, groupName, members).catch(() => {});
   return msgRef.id;
 }
 

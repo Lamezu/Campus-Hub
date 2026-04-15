@@ -15,6 +15,7 @@ import { ThemedText } from './themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { useTranslation } from '@/hooks/useTranslation';
+import { notificationService } from '@/services/notificationService';
 import {
   useTickets, useTicketReplies, createTicket,
   addTicketReply, updateTicketStatus,
@@ -120,30 +121,38 @@ const rowStyles = StyleSheet.create({
   arrow: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 });
 
-function ReplyBubble({ reply, colors, currentUserId }: { reply: any; colors: any; currentUserId: string }) {
-  const isOwn = reply.authorId === currentUserId;
+function ReplyBubble({ reply, colors, currentUserId, isViewingAsStaff, ticketUserId }: {
+  reply: any;
+  colors: any;
+  currentUserId: string;
+  isViewingAsStaff: boolean;
+  ticketUserId: string;
+}) {
+  const isMySide = isViewingAsStaff ? reply.isStaff : !reply.isStaff;
+  const isStaffLogic = reply.isStaff && reply.authorId !== ticketUserId;
+
   return (
-    <View style={[replyStyles.root, isOwn ? replyStyles.ownSide : replyStyles.otherSide]}>
-      {!isOwn && reply.isStaff && (
+    <View style={[replyStyles.root, isMySide ? replyStyles.ownSide : replyStyles.otherSide]}>
+      {!isMySide && isStaffLogic && (
         <View style={[replyStyles.staffBadge, { backgroundColor: colors.primary + '20' }]}>
           <ThemedText style={[replyStyles.staffLabel, { color: colors.primary }]}>CAMPUS TEAM</ThemedText>
         </View>
       )}
       <View style={[
         replyStyles.bubble,
-        { backgroundColor: isOwn ? colors.primary : colors.card + '90', borderColor: colors.border + '15' },
-        isOwn ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }
+        { backgroundColor: isMySide ? colors.primary : colors.card + '90', borderColor: colors.border + '15' },
+        isMySide ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }
       ]}>
-        {!isOwn && (
+        {!isMySide && (
           <ThemedText style={[replyStyles.author, { color: colors.primary }]}>
-            {reply.isStaff ? 'Soporte Campus Hub' : reply.authorName}
+            {isStaffLogic ? 'Soporte Campus Hub' : reply.authorName}
           </ThemedText>
         )}
-        <ThemedText style={[replyStyles.text, { color: isOwn ? '#fff' : colors.text }]}>
+        <ThemedText style={[replyStyles.text, { color: isMySide ? '#fff' : colors.text }]}>
           {reply.text}
         </ThemedText>
         <View style={replyStyles.timeRow}>
-          <ThemedText style={[replyStyles.time, { color: isOwn ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
+          <ThemedText style={[replyStyles.time, { color: isMySide ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
             {formatDate(reply.createdAt)}
           </ThemedText>
         </View>
@@ -177,9 +186,14 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
   const { replies, loading: repliesLoading } = useTicketReplies(ticket.id);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    notificationService.markChatRead('support', ticket.id);
+    notificationService.setCurrentView({ type: 'support', id: ticket.id });
+    return () => notificationService.setCurrentView(null);
+  }, [ticket.id]);
   const scrollRef = useRef<ScrollView>(null);
 
-  // Staff acting on their own ticket should be treated as a regular user
   const isActingAsStaff = isStaff && ticket.userId !== currentUser?.uid;
 
   const handleSendReply = async () => {
@@ -256,7 +270,7 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
               </View>
             </View>
 
-            {isActingAsStaff && (
+            {isStaff && (
               <View style={detailStyles.statusActions}>
                 {ticket.status !== 'in_progress' && (
                   <TouchableOpacity
@@ -304,7 +318,16 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
             {repliesLoading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
             ) : (
-              replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} currentUserId={currentUser?.uid ?? ''} />)
+              replies.map(r => (
+                <ReplyBubble
+                  key={r.id}
+                  reply={r}
+                  colors={colors}
+                  currentUserId={currentUser?.uid ?? ''}
+                  isViewingAsStaff={isActingAsStaff}
+                  ticketUserId={ticket.userId}
+                />
+              ))
             )}
             <View style={{ height: 20 }} />
           </ScrollView>
