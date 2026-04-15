@@ -6,11 +6,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
-import { uploadAudio } from '../../config/cloudinary';
+import { uploadAudio } from '../../config/firebaseStorage';
 import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Phone, Video, Info, Plus, Image, FileText, BarChart3, UserRound } from 'lucide-react';
 import DMInfoPanel from '../../components/chat/DMInfoPanel';
 import { PollModal } from '../../components/chat/PollModal';
-import { uploadChatImage, uploadChatFile } from '../../config/cloudinary';
+import { uploadChatImage, uploadChatFile } from '../../config/firebaseStorage';
 import type { PollData } from '../../types';
 import { useCall } from '../../contexts/CallContext';
 import {

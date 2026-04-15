@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Images, Video, Music, X, VolumeX, Volume2 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
-import { uploadPostMedia } from '../../config/cloudinary';
+import { uploadPostMedia } from '../../config/firebaseStorage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { SongPicker } from '../../components/SongPicker';

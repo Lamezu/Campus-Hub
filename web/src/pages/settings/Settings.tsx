@@ -8,7 +8,7 @@ import { useAccounts } from '../../contexts/AccountsContext';
 import Layout from '../../components/Layout';
 import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMinus, Globe } from 'lucide-react';
 import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
-import { uploadCallTone } from '../../config/cloudinary';
+import { uploadCallTone } from '../../config/firebaseStorage';
 import { useTranslation } from '../../hooks/useTranslation';
 import ReactCountryFlag from 'react-country-flag';
 

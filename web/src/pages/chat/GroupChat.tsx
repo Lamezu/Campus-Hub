@@ -7,7 +7,7 @@ import { useWindowSize } from '../../hooks/useWindowSize';
 import MessageBubble from '../../components/chat/MessageBubble';
 import AudioRecorder from '../../components/chat/AudioRecorder';
 import { PollModal } from '../../components/chat/PollModal';
-import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/cloudinary';
+import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/firebaseStorage';
 import { CornerDownRight, X, Mic, ChevronsDown, ArrowLeft, Plus, Image, FileText, BarChart3, Users, LogOut, UserPlus, UserRound, Phone, Video, Bell, BellOff, Star, Trash2, Flag, Camera, ChevronRight, Bookmark, Download, Link as LinkIcon } from 'lucide-react';
 import type { PollData } from '../../types';
 import { useCall } from '../../contexts/CallContext';

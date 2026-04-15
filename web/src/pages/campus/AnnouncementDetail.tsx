@@ -14,7 +14,7 @@ import { useCurrentUser } from '../../hooks/campus/useCurrentUser';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useCalendarEvents } from '../../hooks/campus/useCalendarEvents';
 import { getCategoryConfig, ANNOUNCEMENT_CATEGORIES } from '../../constants/announcementCategories';
-import { uploadAnnouncementImage } from '../../config/cloudinary';
+import { uploadAnnouncementImage } from '../../config/firebaseStorage';
 import Layout from '../../components/Layout';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import type { Post, CalendarEvent, CalendarEventType } from '../../types';
