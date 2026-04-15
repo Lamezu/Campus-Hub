@@ -107,6 +107,7 @@ export default function AccountDetails() {
                 options={{
                     headerShown: true,
                     headerTitle: t('account_details.header_title') || 'Header Title',
+                    headerTitleStyle: { fontWeight: '800', fontSize: 17 },
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: spacing.xs, padding: 4 }}>
                             <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -117,13 +118,13 @@ export default function AccountDetails() {
 
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.section}>
-                    <ThemedText style={styles.sectionTitle}>{t('account_details.security') || 'Security'}</ThemedText>
+                    <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>{t('account_details.security') || 'Seguridad'}</ThemedText>
 
-                    <View style={[styles.infoCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                    <View style={[styles.infoCard, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}>
                         <View style={styles.infoRow}>
                             <View>
-                                <ThemedText style={styles.label}>{t('common.password') || 'Password'}</ThemedText>
-                                <ThemedText style={styles.value}>
+                                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('common.password') || 'Contraseña'}</ThemedText>
+                                <ThemedText style={[styles.value, { color: colors.text }]}>
                                     {showPassword ? 'sha256:7b5e...3a1f' : '••••••••••••'}
                                 </ThemedText>
                             </View>
@@ -132,7 +133,7 @@ export default function AccountDetails() {
                                     <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.primary} style={{ marginRight: 15 }} />
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={() => setIsEditingPassword(true)}>
-                                    <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{t('common.change') || 'Change'}</ThemedText>
+                                    <ThemedText style={{ color: colors.primary, fontWeight: '800' }}>{t('common.change') || 'Cambiar'}</ThemedText>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -144,26 +145,29 @@ export default function AccountDetails() {
                         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={styles.modalOverlay}
                     >
-                        <ThemedView style={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>{t('account_details.new_password') || 'New Password'}</ThemedText>
+                        <ThemedView style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border + '15' }]}>
+                            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('account_details.new_password') || 'Nueva contraseña'}</ThemedText>
 
                             <TextInput
-                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                style={[styles.input, { backgroundColor: colors.background + '80', color: colors.text, borderColor: colors.border + '15' }]}
                                 placeholder={t('account_details.old_password')}
+                                placeholderTextColor={colors.textSecondary}
                                 secureTextEntry
                                 value={oldPassword}
                                 onChangeText={setOldPassword}
                             />
                             <TextInput
-                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                style={[styles.input, { backgroundColor: colors.background + '80', color: colors.text, borderColor: colors.border + '15' }]}
                                 placeholder={t('account_details.new_password')}
+                                placeholderTextColor={colors.textSecondary}
                                 secureTextEntry
                                 value={newPass}
                                 onChangeText={setNewPass}
                             />
                             <TextInput
-                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                style={[styles.input, { backgroundColor: colors.background + '80', color: colors.text, borderColor: colors.border + '15' }]}
                                 placeholder={t('account_details.confirm_password')}
+                                placeholderTextColor={colors.textSecondary}
                                 secureTextEntry
                                 value={confirmPass}
                                 onChangeText={setConfirmPass}
@@ -171,10 +175,10 @@ export default function AccountDetails() {
 
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity style={styles.modalBtn} onPress={() => setIsEditingPassword(false)}>
-                                    <ThemedText style={{ opacity: 0.6 }}>{t('common.cancel') || 'Cancel'}</ThemedText>
+                                    <ThemedText style={{ opacity: 0.6, fontWeight: '700' }}>{t('common.cancel') || 'Cancelar'}</ThemedText>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.modalBtn, styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={handleUpdatePassword}>
-                                    {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff' }}>{t('common.update') || 'Update'}</ThemedText>}
+                                    {loading ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff', fontWeight: '800' }}>{t('common.update') || 'Actualizar'}</ThemedText>}
                                 </TouchableOpacity>
                             </View>
                         </ThemedView>
@@ -186,14 +190,17 @@ export default function AccountDetails() {
                         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={styles.modalOverlay}
                     >
-                        <ThemedView style={styles.modalContent}>
-                            <Ionicons name="mail-open" size={40} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 15 }} />
-                            <ThemedText style={styles.modalTitle}>{t('account_details.security') || 'Security'}</ThemedText>
-                            <ThemedText style={styles.modalSub}>{t('account_details.otp_tip') || 'Otp Tip'}</ThemedText>
+                        <ThemedView style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border + '15' }]}>
+                            <View style={[styles.otpIconBox, { backgroundColor: colors.primary + '15' }]}>
+                                <Ionicons name="mail-open" size={32} color={colors.primary} />
+                            </View>
+                            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('account_details.security') || 'Seguridad'}</ThemedText>
+                            <ThemedText style={[styles.modalSub, { color: colors.textSecondary }]}>{t('account_details.otp_tip') || 'Introduce el código enviado'}</ThemedText>
 
                             <TextInput
-                                style={[styles.input, styles.otpInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.primary }]}
+                                style={[styles.input, styles.otpInput, { backgroundColor: colors.background + '80', color: colors.text, borderColor: colors.primary }]}
                                 placeholder="XXXXX"
+                                placeholderTextColor={colors.text + '20'}
                                 maxLength={5}
                                 autoCapitalize="characters"
                                 value={passwordRevealCode}
@@ -202,10 +209,10 @@ export default function AccountDetails() {
 
                             <View style={styles.modalButtons}>
                                 <TouchableOpacity style={styles.modalBtn} onPress={() => setIsVerifyingPasswordReveal(false)}>
-                                    <ThemedText style={{ opacity: 0.6 }}>{t('common.cancel')}</ThemedText>
+                                    <ThemedText style={{ opacity: 0.6, fontWeight: '700' }}>{t('common.cancel')}</ThemedText>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.modalBtn, styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={confirmPasswordReveal}>
-                                    <ThemedText style={{ color: '#fff' }}>{t('account_details.verify')}</ThemedText>
+                                    <ThemedText style={{ color: '#fff', fontWeight: '800' }}>{t('account_details.verify')}</ThemedText>
                                 </TouchableOpacity>
                             </View>
                         </ThemedView>
@@ -218,42 +225,43 @@ export default function AccountDetails() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: spacing.lg,
+        padding: spacing.xl,
     },
     section: {
         marginBottom: spacing.xl,
     },
     sectionTitle: {
-        fontSize: typography.sizes.md,
-        fontWeight: typography.weights.bold,
-        opacity: 0.7,
+        fontSize: 12,
+        fontWeight: '900',
         marginBottom: spacing.md,
         textTransform: 'uppercase',
-        letterSpacing: 1,
+        letterSpacing: 1.2,
+        opacity: 0.6,
     },
     infoCard: {
-        borderRadius: 16,
-        padding: spacing.md,
+        borderRadius: 24,
+        padding: spacing.lg,
         borderWidth: 1,
     },
     infoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: spacing.sm,
     },
     rowActions: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     label: {
-        fontSize: typography.sizes.xs,
-        opacity: 0.5,
-        marginBottom: 2,
+        fontSize: 11,
+        fontWeight: '800',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     value: {
-        fontSize: typography.sizes.md,
-        fontWeight: typography.weights.semibold,
+        fontSize: 16,
+        fontWeight: '700',
     },
     modalOverlay: {
         flex: 1,
@@ -262,50 +270,64 @@ const styles = StyleSheet.create({
         padding: spacing.xl,
     },
     modalContent: {
-        borderRadius: 20,
-        padding: spacing.xl,
-        gap: spacing.md,
+        borderRadius: 32,
+        padding: 24,
+        gap: 16,
+        borderWidth: 1,
+    },
+    otpIconBox: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'center',
+        marginBottom: 8,
     },
     modalTitle: {
-        fontSize: typography.sizes.xl,
-        fontWeight: typography.weights.bold,
+        fontSize: 24,
+        fontWeight: '900',
         textAlign: 'center',
+        letterSpacing: -0.8,
     },
     modalSub: {
         textAlign: 'center',
-        opacity: 0.6,
-        fontSize: typography.sizes.sm,
-        marginBottom: spacing.md,
+        fontSize: 14,
+        lineHeight: 20,
+        paddingHorizontal: 10,
+        marginBottom: 8,
     },
     input: {
         borderWidth: 1,
-        borderRadius: 12,
-        padding: spacing.md,
-        fontSize: typography.sizes.md,
+        borderRadius: 16,
+        padding: 16,
+        fontSize: 16,
+        fontWeight: '600',
     },
     otpInput: {
-        fontSize: 24,
+        fontSize: 32,
         textAlign: 'center',
-        fontWeight: 'bold',
-        letterSpacing: 8,
+        fontWeight: '900',
+        letterSpacing: 12,
+        height: 70,
     },
     modalButtons: {
         flexDirection: 'row',
-        gap: spacing.md,
-        marginTop: spacing.md,
+        gap: 12,
+        marginTop: 8,
     },
     modalBtn: {
         flex: 1,
-        height: 50,
+        height: 56,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 12,
+        borderRadius: 16,
     },
     primaryBtn: {
+        elevation: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
     }
 });
