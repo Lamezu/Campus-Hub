@@ -76,8 +76,18 @@ export const AnnouncementCard = React.memo(({
     <TouchableOpacity
       style={[
         styles.card,
-        { backgroundColor: colors.card, borderColor: highlighted ? colors.primary : colors.border },
-        highlighted && { borderWidth: 2, shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 5 },
+        { 
+          backgroundColor: colors.card + '90', 
+          borderColor: highlighted ? colors.primary : colors.border + '15' 
+        },
+        highlighted && { 
+          borderWidth: 2, 
+          shadowColor: colors.primary, 
+          shadowOffset: { width: 0, height: 0 }, 
+          shadowOpacity: 0.4, 
+          shadowRadius: 10, 
+          elevation: 5 
+        },
       ]}
       onPress={onPress}
       activeOpacity={0.85}
@@ -151,10 +161,10 @@ export const AnnouncementCard = React.memo(({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   headerImage: {
     width: '100%',
@@ -173,51 +183,56 @@ const styles = StyleSheet.create({
     width: 6,
   },
   body: {
-    padding: spacing.md,
-    gap: spacing.xs,
+    padding: spacing.md + 4,
+    gap: 6,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   topRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   categoryChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   categoryChipText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   title: {
-    fontSize: typography.sizes.md,
-    fontWeight: '700',
-    lineHeight: 22,
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 24,
+    letterSpacing: -0.2,
   },
   preview: {
-    fontSize: typography.sizes.sm,
+    fontSize: 14,
     lineHeight: 20,
+    opacity: 0.7,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   date: {
-    fontSize: typography.sizes.xs,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.5,
   },
   author: {
-    fontSize: typography.sizes.xs,
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.5,
   },
   modalBackdrop: {
     flex: 1,

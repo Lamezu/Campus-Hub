@@ -175,8 +175,8 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
       )}
 
       {/* Barra de búsqueda */}
-      <View style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary }]}>
-        <Search size={15} color={colors.textSecondary} strokeWidth={2} />
+      <View style={[styles.searchBar, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}>
+        <Search size={16} color={colors.textSecondary} strokeWidth={2.5} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
           placeholder={t('explore.search_announcements') || 'Search Announcements'}
@@ -187,7 +187,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <X size={15} color={colors.textSecondary} strokeWidth={2} />
+            <X size={16} color={colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
         )}
       </View>
@@ -200,7 +200,13 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
         contentContainerStyle={styles.categoryFilters}
       >
         <TouchableOpacity
-          style={[styles.filterChip, { backgroundColor: activeCategory === null ? colors.primary : colors.backgroundSecondary }]}
+          style={[
+            styles.filterChip, 
+            { 
+              backgroundColor: activeCategory === null ? colors.primary : colors.card + '80',
+              borderColor: activeCategory === null ? colors.primary : colors.border + '15'
+            }
+          ]}
           onPress={() => setActiveCategory(null)}
         >
           <ThemedText numberOfLines={1} style={[styles.filterChipText, { color: activeCategory === null ? '#fff' : colors.textSecondary }]}>
@@ -212,7 +218,13 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
           return (
             <TouchableOpacity
               key={cat.id}
-              style={[styles.filterChip, { backgroundColor: active ? cat.color : colors.backgroundSecondary }]}
+              style={[
+                styles.filterChip, 
+                { 
+                  backgroundColor: active ? cat.color : colors.card + '80',
+                  borderColor: active ? cat.color : colors.border + '15'
+                }
+              ]}
               onPress={() => setActiveCategory(active ? null : cat.id)}
             >
               <ThemedText numberOfLines={1} style={[styles.filterChipText, { color: active ? '#fff' : colors.textSecondary }]}>
@@ -422,12 +434,14 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
-    fontSize: typography.sizes.sm,
+    fontSize: 14,
+    fontWeight: '600',
     paddingVertical: 0,
   },
   categoryFiltersScroll: {
@@ -439,22 +453,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
+    borderWidth: 1,
     flexShrink: 0,
-    alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterChipText: {
     fontSize: 13,
-    fontWeight: '600',
-    lineHeight: typography.sizes.xs + 2,
-    includeFontPadding: false,
+    fontWeight: '700',
     textAlignVertical: 'center',
   },
 });
