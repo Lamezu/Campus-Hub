@@ -44,7 +44,12 @@ export default function GroupNotificationsScreen() {
   const handleMuteSelect = (value: MuteDuration) => {
     setMute(value);
     if (meId && groupId) {
-      updateContactSettings(meId, settingsKey, { mute: value }).catch(() => {});
+      const mutedUntil = value === '8h'
+        ? new Date(Date.now() + 8 * 3600 * 1000).toISOString()
+        : value === '1w'
+        ? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+        : null;
+      updateContactSettings(meId, settingsKey, { mute: value, mutedUntil }).catch(() => {});
     }
   };
 

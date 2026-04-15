@@ -9,6 +9,7 @@ import { spacing, typography } from '@/constants/styles';
 import { useTranslation } from '@/hooks/useTranslation';
 import { previewTone } from '@/utils/toneGenerator';
 import { getContactSettings, updateContactSettings } from '@/services/contactSettingsService';
+import { muteConversation } from '@/services/dmService';
 import { auth } from '@/config/firebase';
 import type { MuteDuration } from '@/types';
 
@@ -52,7 +53,7 @@ export default function DMNotificationsScreen() {
   const handleMuteSelect = (value: MuteDuration) => {
     setMute(value);
     if (meId && userId) {
-      updateContactSettings(meId, userId, { mute: value }).catch(() => { });
+      muteConversation(meId, userId, value).catch(() => { });
     }
   };
 
