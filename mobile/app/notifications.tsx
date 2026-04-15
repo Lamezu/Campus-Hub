@@ -45,14 +45,26 @@ function resolveChannelName(channelId: string, metaName?: string, nameMap?: Reco
   return channelId ?? 'Channel';
 }
 
-const ATTACHMENT_LABELS = ['Adjunto', '📎 Adjunto', 'Attachment', '📎 Attachment'];
+const ATTACHMENT_LABELS = ['Adjunto', '📎 Adjunto', 'Attachment', '📎 Attachment', '📎 Archivo adjunto'];
 
-function fixChannelBody(body: string, t?: (k: string) => string): string {
-  if (ATTACHMENT_LABELS.includes(body)) return t?.('notifications.attachment') || '📎 Attachment';
+function fixChannelBody(body: string, t?: (k: string, opts?: any) => string, subtype?: string): string {
+  if (subtype === 'poll' || body.startsWith('🗳️ Encuesta:') || body.startsWith('🗳️ Poll:')) {
+    const question = body.replace('🗳️ Encuesta: ', '').replace('🗳️ Poll: ', '');
+    return t?.('notifications.poll_created', { question: question || '...' }) || body;
+  }
+  if (subtype === 'file' || body.startsWith('📄 Archivo:') || body.startsWith('📄 File:')) {
+    const name = body.replace('📄 Archivo: ', '').replace('📄 File: ', '');
+    return t?.('dm.file_msg', { name: name || '...' }) || body;
+  }
+  if (subtype === 'image' || body === '📷 Imagen' || body === '📷 Image') return t?.('dm.image_msg') || body;
+  if (subtype === 'audio' || body === '🎵 Nota de voz' || body === '🎵 Voice note') return t?.('dm.voice_message') || body;
+  if (subtype === 'video' || body === '🎥 Vídeo' || body === '🎥 Video') return t?.('dm.reply_types.video') || body;
+  if (subtype === 'contact' || body === '👤 Contacto compartido' || body === '👤 Shared contact') return t?.('dm.contact_msg') || body;
+  if (ATTACHMENT_LABELS.includes(body) || body === '📎 Adjunto' || body === '📎 Attachment') return t?.('notifications.attachment') || '📎 Attachment';
   return body;
 }
 
-type SectionKey = 'friend_request' | 'friend_accepted' | 'dm' | 'social' | 'campus';
+type SectionKey = 'friend_request' | 'friend_accepted' | 'dm' | 'social' | 'campus' | 'support';
 
 interface SectionDef {
   key: SectionKey;
@@ -95,6 +107,7 @@ const SECTION_DEFS: SectionDef[] = [
   { key: 'friend_request', category: 'friend', filter: (n) => n.category === 'friend' && n.meta?.isRequest === 'true' },
   { key: 'friend_accepted', category: 'friend', filter: (n) => n.category === 'friend' && n.meta?.type === 'accepted' },
   { key: 'dm', category: 'dm', filter: (n) => n.category === 'dm' },
+  { key: 'support', category: 'support', filter: (n) => n.category === 'support' },
   { key: 'social', category: 'social', filter: (n) => n.category === 'social' },
   { key: 'campus', category: 'campus', filter: (n) => n.category === 'campus' },
 ];
@@ -156,9 +169,15 @@ function GroupCard({
 }
 
 export default function NotificationsScreen() {
-  const { category } = useLocalSearchParams<{ category?: string }>();
+  const { category, categories: categoriesRaw } = useLocalSearchParams<{ category?: string; categories?: string }>();
   const { colors, theme } = useTheme();
   const { t } = useTranslation();
+
+  const categories = useMemo(() => {
+    if (categoriesRaw) return categoriesRaw.split(',');
+    if (category) return [category];
+    return [];
+  }, [categoriesRaw, category]);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
@@ -168,7 +187,7 @@ export default function NotificationsScreen() {
   const [postTitleMap, setPostTitleMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (category !== 'channel') return;
+    if (!categories.includes('channel')) return;
     const toResolve = [...new Set(
       notifications
         .filter(n => n.category === 'channel' && n.meta?.channelId && !n.meta?.channelName)
@@ -192,40 +211,48 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     const updateNotifs = () => {
-      setNotifications(
-        category
-          ? notificationService.getByCategory(category as NotificationCategory)
-          : notificationService.getAll()
-      );
+      if (categories.length > 0) {
+        setNotifications(
+          notificationService.getAll().filter(n => categories.includes(n.category))
+        );
+      } else {
+        setNotifications(notificationService.getAll());
+      }
     };
     updateNotifs();
     const unsub = notificationService.subscribe(updateNotifs);
-    if (category !== 'channel' && category !== 'dm' && category !== 'social') {
-      notificationService.markAllRead(category as NotificationCategory | undefined);
-    }
+    
+    // Auto mark read only specific categories that don't have separate chat views
+    categories.forEach(cat => {
+      if (cat !== 'channel' && cat !== 'dm' && cat !== 'social' && cat !== 'support') {
+        notificationService.markAllRead(cat as NotificationCategory);
+      }
+    });
+    
     return unsub;
-  }, [category]);
+  }, [categories]);
 
   useEffect(() => {
-    if (!drillGroupId || !category) return;
-    if (category === 'channel') {
+    if (!drillGroupId || categories.length === 0) return;
+    if (categories.includes('channel')) {
       notificationService.markChatRead('channel', drillGroupId);
-    } else if (category === 'dm') {
+    } else if (categories.includes('dm')) {
       drillNotifications.filter(n => !n.read).forEach(n => notificationService.markRead(n.id));
-    } else if (category === 'campus') {
+    } else if (categories.includes('campus')) {
       const toMark = notifications.filter(n =>
         drillGroupId === 'announcements' ? n.meta?.postId : n.meta?.eventId
       );
       toMark.forEach(n => notificationService.markRead(n.id));
-    } else if (category === 'social') {
+    } else if (categories.includes('social')) {
       notificationService.markChatRead('social', drillGroupId);
     }
-  }, [drillGroupId]);
+  }, [drillGroupId, categories]);
 
   const channelGroups: ChannelGroup[] = useMemo(() => {
-    if (category !== 'channel') return [];
+    if (!categories.includes('channel')) return [];
     const map = new Map<string, ChannelGroup>();
     for (const n of notifications) {
+      if (n.category !== 'channel') continue;
       const id = n.meta?.channelId ?? '';
       if (!id) continue;
       const name = resolveChannelName(id, n.meta?.channelName, channelNameMap, t);
@@ -238,12 +265,13 @@ export default function NotificationsScreen() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime()
     );
-  }, [notifications, category, channelNameMap, t]);
+  }, [notifications, categories, channelNameMap, t]);
 
   const dmGroups: UserGroup[] = useMemo(() => {
-    if (category !== 'dm') return [];
+    if (!categories.includes('dm')) return [];
     const map = new Map<string, UserGroup>();
     for (const n of notifications) {
+      if (n.category !== 'dm') continue;
       const id = n.meta?.participantId ?? n.meta?.groupId ?? '';
       if (!id) continue;
       const name = n.title;
@@ -256,12 +284,13 @@ export default function NotificationsScreen() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime()
     );
-  }, [notifications, category]);
+  }, [notifications, categories]);
 
   const postGroups: PostGroup[] = useMemo(() => {
-    if (category !== 'social') return [];
+    if (!categories.includes('social')) return [];
     const map = new Map<string, PostGroup>();
     for (const n of notifications) {
+      if (n.category !== 'social') continue;
       const postId = n.meta?.postId ?? '';
       if (!postId || !n.meta?.fromUserId) continue;
       if (!map.has(postId)) {
@@ -277,10 +306,10 @@ export default function NotificationsScreen() {
     return Array.from(map.values()).sort(
       (a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime()
     );
-  }, [notifications, category]);
+  }, [notifications, categories]);
 
   useEffect(() => {
-    if (category !== 'social') return;
+    if (!categories.includes('social')) return;
     const toResolve = postGroups
       .filter(g => !g.postTitle && !postTitleMap[g.postId])
       .map(g => g.postId);
@@ -298,35 +327,36 @@ export default function NotificationsScreen() {
   }, [postGroups, category]);
 
   const campusGroups: CampusGroup[] = useMemo(() => {
-    if (category !== 'campus') return [];
+    if (!categories.includes('campus')) return [];
+    const campusNotifs = notifications.filter(n => n.category === 'campus');
     return [
-      { id: 'announcements', name: t('explore.tabs.announcements') || 'Announcements', items: notifications.filter(n => n.meta?.postId) },
-      { id: 'events', name: t('explore.tabs.events') || 'Events', items: notifications.filter(n => n.meta?.eventId) },
+      { id: 'announcements', name: t('explore.tabs.announcements') || 'Announcements', items: campusNotifs.filter(n => n.meta?.postId) },
+      { id: 'events', name: t('explore.tabs.events') || 'Events', items: campusNotifs.filter(n => n.meta?.eventId) },
     ].filter(g => g.items.length > 0) as CampusGroup[];
-  }, [notifications, category]);
+  }, [notifications, categories]);
 
   const drillNotifications: NotificationItem[] = useMemo(() => {
     if (!drillGroupId) return [];
-    if (category === 'channel') return notifications.filter(n => n.meta?.channelId === drillGroupId)
+    if (categories.includes('channel')) return notifications.filter(n => n.meta?.channelId === drillGroupId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (category === 'campus') {
+    if (categories.includes('campus')) {
       return notifications
         .filter(n => drillGroupId === 'announcements' ? !!n.meta?.postId : !!n.meta?.eventId)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
-    if (category === 'dm') return notifications.filter(n =>
+    if (categories.includes('dm')) return notifications.filter(n =>
       n.meta?.participantId === drillGroupId || n.meta?.groupId === drillGroupId
     ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    if (category === 'social') return notifications.filter(n => n.meta?.postId === drillGroupId)
+    if (categories.includes('social')) return notifications.filter(n => n.meta?.postId === drillGroupId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return [];
-  }, [notifications, drillGroupId, category]);
+  }, [notifications, drillGroupId, categories]);
 
   const sections = useMemo(() => {
     const sortByDate = (a: NotificationItem, b: NotificationItem) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     return SECTION_DEFS
-      .filter(def => !category || def.category === category)
+      .filter(def => categories.length === 0 || categories.includes(def.category!))
       .map(def => ({
         key: def.key,
         title: ({
@@ -335,11 +365,12 @@ export default function NotificationsScreen() {
           dm: t('notifications.groups.dm') || 'Direct messages',
           social: t('notifications.social') || 'Social activity',
           campus: t('notifications.groups.campus') || 'Campus',
-        } as Record<SectionKey, string>)[def.key],
+          support: t('common.support') || 'Support',
+        } as Record<SectionKey | 'support', string>)[def.key],
         data: notifications.filter(def.filter).sort(sortByDate),
       }))
       .filter(s => s.data.length > 0);
-  }, [notifications, category]);
+  }, [notifications, categories]);
 
   const handleBack = useCallback(() => {
     if (drillGroupId) { setDrillGroupId(null); setDrillGroupName(''); }
@@ -382,25 +413,30 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = useCallback(() => {
     const meId = auth.currentUser?.uid;
 
-    if (drillGroupId && category === 'channel') {
+    if (drillGroupId && categories.includes('channel')) {
       notificationService.markChatRead('channel', drillGroupId);
       if (meId) markAllChannelsRead(meId, [drillGroupId]).catch(() => {});
-    } else if (drillGroupId && category === 'dm') {
+    } else if (drillGroupId && categories.includes('dm')) {
       notificationService.markChatRead('dm', drillGroupId);
       if (meId) markAllDMsRead(meId).catch(() => {});
-    } else if (drillGroupId && category === 'social') {
+    } else if (drillGroupId && categories.includes('social')) {
       notificationService.markChatRead('social', drillGroupId);
     } else {
-      notificationService.markAllRead(category as NotificationCategory | undefined);
-      if (meId && (!category || category === 'channel')) {
+      if (categories.length > 0) {
+        categories.forEach(cat => notificationService.markAllRead(cat as NotificationCategory));
+      } else {
+        notificationService.markAllRead();
+      }
+      
+      if (meId && (categories.length === 0 || categories.includes('channel'))) {
         markAllChannelsRead(meId, CHANNELS.map(c => c.id)).catch(() => {});
       }
-      if (meId && (!category || category === 'dm')) {
+      if (meId && (categories.length === 0 || categories.includes('dm'))) {
         markAllDMsRead(meId).catch(() => {});
         markAllGroupsRead(meId).catch(() => {});
       }
     }
-  }, [category, drillGroupId]);
+  }, [categories, drillGroupId]);
 
   const handleAcceptRequest = useCallback(async () => {
     const fromUserId = friendRequestItem?.meta?.fromUserId;
@@ -435,7 +471,7 @@ export default function NotificationsScreen() {
 
   const screenTitle = drillGroupId
     ? drillGroupName
-    : (category ? (categoryTitles[category] ?? (t('notifications.title') || 'Title')) : (t('notifications.title') || 'Title'));
+    : (categories.length === 1 ? (categoryTitles[categories[0]] ?? (t('notifications.title') || 'Title')) : (t('notifications.title') || 'Title'));
 
   const activeNotifs = drillGroupId ? drillNotifications : notifications;
   const unreadCount = activeNotifs.filter(n => !n.read).length;
@@ -472,6 +508,9 @@ export default function NotificationsScreen() {
           displayTitle = item.title;
           displayBody = item.body;
         }
+      } else if (subtype === 'voted_poll') {
+        displayTitle = t('notifications.poll_created', { question: '' }).split(':')[0] || '🗳️ Encuesta';
+        displayBody = t('notifications.voted_poll') || '🗳️ Han votado en tu encuesta';
       } else {
         // Regular channel message: compose sender + channel name
         const channelId = item.meta?.channelId ?? '';
@@ -486,7 +525,16 @@ export default function NotificationsScreen() {
               return stripped || item.title;
             })();
         displayTitle = `${senderName} ${t('notifications.channel_in') || 'in'} ${resolvedName}`;
-        displayBody = fixChannelBody(item.body, t);
+        displayBody = fixChannelBody(item.body, t, item.meta?.notifSubtype as string);
+      }
+    } else if (item.category === 'dm') {
+      displayTitle = item.title;
+      const subtype = item.meta?.notifSubtype as string | undefined;
+      if (subtype === 'voted_poll') {
+        displayTitle = t('notifications.poll_created', { question: '' }).split(':')[0] || '🗳️ Encuesta';
+        displayBody = t('notifications.voted_poll') || '🗳️ Han votado en tu encuesta';
+      } else {
+        displayBody = fixChannelBody(item.body, t, subtype);
       }
     } else if (item.category === 'friend') {
       const personName = item.meta?.fromUserName ?? (t('post.someone') || 'Someone');
@@ -554,7 +602,7 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
-      {category === 'channel' && !drillGroupId && (
+      {categories.includes('channel') && !drillGroupId && (
         <FlatList
           data={channelGroups}
           keyExtractor={g => g.channelId}
@@ -574,7 +622,7 @@ export default function NotificationsScreen() {
         />
       )}
 
-      {category === 'campus' && !drillGroupId && (
+      {categories.includes('campus') && !drillGroupId && (
         <FlatList
           data={campusGroups}
           keyExtractor={g => g.id}
@@ -598,7 +646,7 @@ export default function NotificationsScreen() {
         />
       )}
 
-      {category === 'dm' && !drillGroupId && (
+      {categories.includes('dm') && !drillGroupId && (
         <FlatList
           data={dmGroups}
           keyExtractor={g => g.userId}
@@ -618,7 +666,7 @@ export default function NotificationsScreen() {
         />
       )}
 
-      {category === 'social' && !drillGroupId && (
+      {categories.includes('social') && !drillGroupId && (
         <FlatList
           data={postGroups}
           keyExtractor={g => g.postId}
@@ -661,7 +709,7 @@ export default function NotificationsScreen() {
         />
       )}
 
-      {category !== 'channel' && category !== 'campus' && category !== 'dm' && category !== 'social' && !drillGroupId && (
+      {categories.length !== 1 && (categories.length === 0 || !['channel', 'campus', 'dm', 'social'].includes(categories[0])) && !drillGroupId && (
         <SectionList
           sections={sections}
           keyExtractor={item => item.id}
