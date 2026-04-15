@@ -54,6 +54,7 @@ export default function ChatScreen() {
   const [channelDetails, setChannelDetails] = useState<any>(channel || null);
   const isSG = id?.startsWith('sg_') ?? false;
   const realId = isSG ? (id?.replace('sg_', '') ?? '') : (id ?? '');
+  const colName = isSG ? 'studyGroups' : 'channels';
   const currentUser = auth.currentUser;
   const fallbackName = realId.charAt(0).toUpperCase() + realId.slice(1).replace(/_/g, ' ');
   const rawChannelName = channelDetails?.name || channel?.name || fallbackName;
@@ -61,8 +62,6 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!id) return;
-    const colName = isSG ? 'studyGroups' : 'channels';
-
     const unsub = onSnapshot(doc(db, colName, realId), snap => {
       if (snap.exists()) {
         setChannelDetails({ id: snap.id, ...snap.data() });
@@ -115,7 +114,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!id) return;
-    const messagesRef = collection(db, 'channels', realId, 'messages');
+    const messagesRef = collection(db, colName, realId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData: Message[] = snapshot.docs
@@ -159,7 +158,7 @@ export default function ChatScreen() {
     if (!id || !hasMore || loadingMore || !lastDocRef.current) return;
     setLoadingMore(true);
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       const q = query(messagesRef, orderBy('createdAt', 'desc'), startAfter(lastDocRef.current), limit(MESSAGES_PER_PAGE));
       const snapshot = await getDocs(q);
       const olderMessages: Message[] = snapshot.docs
@@ -213,7 +212,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text,
@@ -233,7 +232,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text: '',
@@ -251,7 +250,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text: '',
@@ -269,7 +268,7 @@ export default function ChatScreen() {
     const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       await addDoc(messagesRef, {
         ...buildMessageBase(),
         text: '',
@@ -285,7 +284,7 @@ export default function ChatScreen() {
   const handleSendPoll = async (poll: { question: string; options: string[]; multipleAnswers: boolean }) => {
     if (!currentUser || !id) return;
     try {
-      const messagesRef = collection(db, 'channels', realId, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       const pollData = {
         question: poll.question,
         options: poll.options.map((opt, i) => ({ id: i.toString(), text: opt, votes: [] })),
@@ -307,7 +306,7 @@ export default function ChatScreen() {
   const handleVotePoll = async (messageId: string, optionId: string) => {
     if (!currentUser || !id) return;
     try {
-      const messageRef = doc(db, 'channels', realId, 'messages', messageId);
+      const messageRef = doc(db, colName, realId, 'messages', messageId);
       const snap = await getDoc(messageRef);
       if (!snap.exists()) return;
 
@@ -355,7 +354,7 @@ export default function ChatScreen() {
   const deleteForMe = async (messageId: string) => {
     if (!currentUser || !id) return;
     try {
-      await updateDoc(doc(db, 'channels', realId, 'messages', messageId), {
+      await updateDoc(doc(db, colName, realId, 'messages', messageId), {
         deletedForUsers: arrayUnion(currentUser.uid),
       });
     } catch (error) {
@@ -366,7 +365,7 @@ export default function ChatScreen() {
   const deleteForAll = async (messageId: string) => {
     if (!id) return;
     try {
-      await deleteDoc(doc(db, 'channels', realId, 'messages', messageId));
+      await deleteDoc(doc(db, colName, realId, 'messages', messageId));
     } catch (error) {
       console.error(error);
     }
@@ -380,7 +379,7 @@ export default function ChatScreen() {
         onPress: async () => {
           if (!currentUser) return;
           try {
-            const snap = await getDocs(collection(db, 'channels', realId, 'messages'));
+            const snap = await getDocs(collection(db, colName, realId, 'messages'));
             if (!snap.empty) {
               const batch = writeBatch(db);
               snap.docs.forEach(d => batch.update(d.ref, { deletedForUsers: arrayUnion(currentUser.uid) }));
@@ -400,7 +399,7 @@ export default function ChatScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const snap = await getDocs(collection(db, 'channels', realId, 'messages'));
+            const snap = await getDocs(collection(db, colName, realId, 'messages'));
             if (!snap.empty) {
               const batch = writeBatch(db);
               snap.docs.forEach(d => batch.delete(d.ref));
@@ -524,7 +523,7 @@ export default function ChatScreen() {
     if (!currentUser || !id) return;
     const heartLikes = reactions['❤️'] ?? [];
     if (!heartLikes.includes(currentUser.uid)) {
-      await updateDoc(doc(db, 'channels', realId, 'messages', messageId), {
+      await updateDoc(doc(db, colName, realId, 'messages', messageId), {
         'reactions.❤️': arrayUnion(currentUser.uid),
       });
     }
@@ -541,7 +540,7 @@ export default function ChatScreen() {
     setMenuMessage(null);
     const existing = msg.reactions?.[emoji] ?? [];
     const hasReacted = existing.includes(currentUser.uid);
-    await updateDoc(doc(db, 'channels', realId, 'messages', msg.id), {
+    await updateDoc(doc(db, colName, realId, 'messages', msg.id), {
       [`reactions.${emoji}`]: hasReacted ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     });
   };

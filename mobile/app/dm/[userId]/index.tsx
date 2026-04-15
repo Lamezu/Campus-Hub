@@ -302,7 +302,10 @@ export default function DMChatScreen() {
                 currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 text,
-                replyData || undefined
+                replyData || undefined,
+                false,
+                null,
+                userId
             );
         } catch (error) {
             console.error('Error sending DM:', error);
@@ -322,7 +325,9 @@ export default function DMChatScreen() {
                 currentUser.photoURL,
                 url,
                 width,
-                height
+                height,
+                undefined,
+                userId
             );
         } catch (error) {
             console.error('Error sending image DM:', error);
@@ -354,7 +359,9 @@ export default function DMChatScreen() {
                 currentUser.photoURL,
                 url,
                 name,
-                size
+                size,
+                undefined,
+                userId
             );
         } catch (error) {
             console.error('Error sending file DM:', error);
@@ -371,7 +378,10 @@ export default function DMChatScreen() {
                 currentUser.displayName || t('chat.info.you') || 'You',
                 currentUser.photoURL,
                 url,
-                duration
+                duration,
+                false,
+                undefined,
+                userId
             );
         } catch (error) {
             console.error('Error sending audio DM:', error);

@@ -34,6 +34,7 @@ import {
 } from '@/services/groupDMService';
 import { starMessage, unstarMessage, getStarredIdsForGroup } from '@/services/starredMessagesService';
 import { saveMessage } from '@/services/savedItemsService';
+import { notificationService } from '@/services/notificationService';
 import { avatarColor } from '@/utils/avatarColor';
 import { EmptyState } from '@/components/EmptyState';
 
@@ -90,7 +91,10 @@ export default function GroupChatScreen() {
   useFocusEffect(useCallback(() => {
     if (groupId && currentUser?.uid) {
       markGroupAsRead(groupId, currentUser.uid).catch(() => {});
+      notificationService.markChatRead('dm', groupId);
+      notificationService.setCurrentView({ type: 'dm', id: groupId });
     }
+    return () => { notificationService.setCurrentView(null); };
   }, [groupId, currentUser?.uid]));
 
   useEffect(() => {

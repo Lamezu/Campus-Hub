@@ -838,9 +838,14 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(fu
               placeholderTextColor={placeholderColor}
               value={text}
               onChangeText={setText}
-              multiline
+              multiline={Platform.OS !== 'web'}
               maxLength={5000}
               editable={!disabled}
+              onKeyPress={(e: any) => {
+                if (Platform.OS === 'web' && e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
+                  handleSend();
+                }
+              }}
             />
             {hasText ? (
               <TouchableOpacity

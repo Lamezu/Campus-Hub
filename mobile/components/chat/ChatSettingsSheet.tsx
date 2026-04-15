@@ -65,12 +65,12 @@ export function ChatSettingsSheet({ visible, onClose, onClearChat, showClearChat
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-                <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-                    <View style={styles.handle} />
-                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                        <ThemedText style={styles.modalTitle}>{t('chat.settings.title')}</ThemedText>
-                        <TouchableOpacity onPress={onClose}>
-                            <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{t('common.done')}</ThemedText>
+                <View style={[styles.sheet, { backgroundColor: colors.card + 'F0' }]}>
+                    <View style={[styles.handle, { backgroundColor: colors.text + '20' }]} />
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border + '15' }]}>
+                        <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('chat.settings.title')}</ThemedText>
+                        <TouchableOpacity onPress={onClose} style={[styles.doneBtn, { backgroundColor: colors.primary }]}>
+                            <ThemedText style={styles.doneText}>{t('common.done') || 'Listo'}</ThemedText>
                         </TouchableOpacity>
                     </View>
 
@@ -205,22 +205,54 @@ export function ChatSettingsSheet({ visible, onClose, onClearChat, showClearChat
 }
 
 const styles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    sheet: { height: '75%', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: spacing.lg },
-    handle: { width: 40, height: 5, borderRadius: 2.5, backgroundColor: '#ccc', alignSelf: 'center', marginBottom: spacing.md },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: spacing.md, borderBottomWidth: 1 },
-    modalTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold },
-    modalBody: { marginTop: spacing.lg },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    sheet: {
+        height: '80%',
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    handle: { width: 40, height: 5, borderRadius: 2.5, alignSelf: 'center', marginBottom: spacing.md },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: 4,
+        borderBottomWidth: 1,
+        marginBottom: spacing.lg,
+    },
+    modalTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.8 },
+    doneBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+    doneText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+    modalBody: { flex: 1 },
     settingsSection: { marginBottom: spacing.xl },
-    settingsLabel: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold, marginBottom: spacing.md },
-    themeScrollContent: { paddingRight: spacing.xl, gap: spacing.md },
-    themeItem: { width: 110, padding: spacing.sm, borderRadius: 20, borderWidth: 2, alignItems: 'center' },
-    themePreview: { width: '100%', height: 90, borderRadius: 16, padding: 8, justifyContent: 'center', gap: 4, marginBottom: 8 },
-    bubblePreview: { width: 20, height: 10, borderRadius: 4 },
-    themeName: { fontSize: 12, fontWeight: '600', textAlign: 'center', minHeight: 32 },
-    row: { flexDirection: 'row', alignItems: 'center' },
-    sizeButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginRight: spacing.sm },
-    styleButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 24, borderWidth: 1 },
-    clearChatBtn: { width: '100%', paddingVertical: spacing.md, borderRadius: 24, borderWidth: 1, alignItems: 'center', marginTop: spacing.sm },
-    clearChatBtnText: { fontSize: 16, fontWeight: '600' },
+    settingsLabel: {
+        fontSize: 12,
+        fontWeight: '900',
+        marginBottom: spacing.md,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        opacity: 0.6,
+    },
+    themeScrollContent: { paddingRight: spacing.xl, gap: 12 },
+    themeItem: { width: 110, padding: 8, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
+    themePreview: { width: '100%', height: 120, borderRadius: 20, padding: 8, justifyContent: 'center', gap: 6, marginBottom: 8 },
+    bubblePreview: { width: 24, height: 12, borderRadius: 6 },
+    themeName: { fontSize: 12, fontWeight: '800', textAlign: 'center', minHeight: 16 },
+    row: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+    sizeButton: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    sizeButtonActive: { transform: [{ scale: 1.1 }] },
+    styleButton: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, borderWidth: 1, minWidth: 100, alignItems: 'center' },
+    clearChatBtn: {
+        width: '100%',
+        paddingVertical: 18,
+        borderRadius: 20,
+        borderWidth: 1,
+        alignItems: 'center',
+        marginTop: spacing.sm,
+    },
+    clearChatBtnText: { fontSize: 15, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
 });
