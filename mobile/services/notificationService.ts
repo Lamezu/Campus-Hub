@@ -90,27 +90,28 @@ export const notificationService = {
 
       const autoReadIds = new Set<string>();
 
+      if (this.currentView) {
+        const v = this.currentView;
+        for (const item of fresh) {
+          if (item.read || locallyReadIds.has(item.id)) continue;
+          const matches =
+            (v.type === 'channel' && item.meta?.channelId === v.id) ||
+            (v.type === 'dm' && item.meta?.participantId === v.id);
+          if (matches) {
+            autoReadIds.add(item.id);
+            locallyReadIds.add(item.id);
+          }
+        }
+      }
+
       if (!isInitialLoad) {
         const newUnread = fresh.filter(item => {
           const isKnown = notifications.some(existing => existing.id === item.id);
-          return !isKnown && !item.read && !locallyReadIds.has(item.id);
+          return !isKnown && !item.read && !locallyReadIds.has(item.id) && !autoReadIds.has(item.id);
         });
 
         for (const n of newUnread) {
-          let suppressed = false;
-          if (this.currentView) {
-            if (this.currentView.type === 'channel' && n.meta?.channelId === this.currentView.id) {
-              suppressed = true;
-              autoReadIds.add(n.id);
-              locallyReadIds.add(n.id);
-            }
-            if (this.currentView.type === 'dm' && n.meta?.participantId === this.currentView.id) {
-              suppressed = true;
-              autoReadIds.add(n.id);
-              locallyReadIds.add(n.id);
-            }
-          }
-          if (!suppressed && onNewNotificationCallback) {
+          if (onNewNotificationCallback) {
             onNewNotificationCallback(n as NotificationItem);
             break;
           }

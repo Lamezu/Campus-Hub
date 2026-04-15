@@ -5,6 +5,7 @@ import {
   arrayRemove, arrayUnion, deleteDoc, deleteField,
 } from 'firebase/firestore';
 import type { GroupConversation, Message } from '@/types';
+import { getContactSettings } from '@/services/contactSettingsService';
 
 function lastMessagePreview(text: string, attachments: any[] | null | undefined): string {
   if (text?.trim()) return text.trim();
@@ -13,6 +14,38 @@ function lastMessagePreview(text: string, attachments: any[] | null | undefined)
   if (type === 'audio') return '🎵 Audio';
   if (type === 'file') return '📎 File';
   return '';
+}
+
+async function notifyGroupMembers(
+  groupId: string,
+  senderId: string,
+  senderName: string,
+  body: string,
+  groupName: string,
+  members: string[]
+): Promise<void> {
+  const recipients = members.filter(uid => uid !== senderId);
+  await Promise.all(
+    recipients.map(async uid => {
+      try {
+        const settings = await getContactSettings(uid, `group_${groupId}`);
+        const now = new Date();
+        const isMuted =
+          settings.mute === 'always' ||
+          (settings.mute !== 'off' && !!settings.mutedUntil && new Date(settings.mutedUntil) > now);
+        if (!isMuted) {
+          await addDoc(collection(db, 'notifications', uid, 'items'), {
+            category: 'dm',
+            title: senderName,
+            body: body || '📎 Archivo',
+            read: false,
+            createdAt: serverTimestamp(),
+            meta: { participantId: groupId, groupId, groupName },
+          });
+        }
+      } catch {}
+    })
+  );
 }
 
 export async function createGroupConversation(
@@ -133,7 +166,9 @@ export async function sendGroupMessage(
 ): Promise<string> {
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
-  const members: string[] = groupSnap.data()?.members ?? [];
+  const groupData = groupSnap.data();
+  const members: string[] = groupData?.members ?? [];
+  const groupName: string = groupData?.name ?? '';
 
   const cleanReplyTo = replyTo
     ? Object.fromEntries(Object.entries(replyTo).filter(([, v]) => v !== undefined))
@@ -154,8 +189,10 @@ export async function sendGroupMessage(
     type: 'text',
   });
 
-  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, lastMessagePreview(text, attachments), members);
+  const preview = lastMessagePreview(text, attachments);
+  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, preview, members);
   await batch.commit();
+  notifyGroupMembers(groupId, senderId, senderName, preview, groupName, members).catch(() => {});
   return msgRef.id;
 }
 
@@ -171,7 +208,9 @@ export async function sendGroupImageMessage(
   const attachments = [{ url: imageUrl, type: 'image', name: 'image', size: 0, imageWidth: width, imageHeight: height }];
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
-  const members: string[] = groupSnap.data()?.members ?? [];
+  const groupData = groupSnap.data();
+  const members: string[] = groupData?.members ?? [];
+  const groupName: string = groupData?.name ?? '';
 
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
@@ -190,6 +229,7 @@ export async function sendGroupImageMessage(
 
   await updateGroupAfterMessage(batch, groupRef, senderId, senderName, '📷 Imagen', members);
   await batch.commit();
+  notifyGroupMembers(groupId, senderId, senderName, '📷 Imagen', groupName, members).catch(() => {});
   return msgRef.id;
 }
 
@@ -204,7 +244,9 @@ export async function sendGroupAudioMessage(
   const attachments = [{ url, type: 'audio', name: 'audio', size: 0, duration }];
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
-  const members: string[] = groupSnap.data()?.members ?? [];
+  const groupData = groupSnap.data();
+  const members: string[] = groupData?.members ?? [];
+  const groupName: string = groupData?.name ?? '';
 
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
@@ -223,6 +265,7 @@ export async function sendGroupAudioMessage(
 
   await updateGroupAfterMessage(batch, groupRef, senderId, senderName, '🎵 Audio', members);
   await batch.commit();
+  notifyGroupMembers(groupId, senderId, senderName, '🎵 Audio', groupName, members).catch(() => {});
   return msgRef.id;
 }
 
@@ -238,7 +281,10 @@ export async function sendGroupFileMessage(
   const attachments = [{ url, type: 'file', name, size }];
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
-  const members: string[] = groupSnap.data()?.members ?? [];
+  const groupData = groupSnap.data();
+  const members: string[] = groupData?.members ?? [];
+  const groupName: string = groupData?.name ?? '';
+  const preview = `📎 ${name}`;
 
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
@@ -255,8 +301,9 @@ export async function sendGroupFileMessage(
     type: 'file',
   });
 
-  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, `📎 ${name}`, members);
+  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, preview, members);
   await batch.commit();
+  notifyGroupMembers(groupId, senderId, senderName, preview, groupName, members).catch(() => {});
   return msgRef.id;
 }
 

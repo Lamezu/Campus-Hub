@@ -73,7 +73,7 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
   const handlePress = React.useCallback((x: number, y: number) => {
     const now = Date.now();
     if (now - lastTapRef.current < 250) {
-      lastTapRef.current = 0; // reset so next tap can't cascade into another double tap
+      lastTapRef.current = 0;
       if (tapTimerRef.current) {
         clearTimeout(tapTimerRef.current);
         tapTimerRef.current = null;
@@ -90,7 +90,13 @@ export const PostCard = React.memo(({ post, onPress, onDoubleTap, currentUserId,
 
   return (
     <Pressable
-      style={[styles.container, { borderBottomColor: colors.border }]}
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: colors.card + '90',
+          borderColor: colors.border + '15'
+        }
+      ]}
       onPress={(e) => handlePress(e.nativeEvent.locationX, e.nativeEvent.locationY)}
     >
       <View style={styles.row}>
@@ -225,33 +231,36 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    overflow: 'visible',
+    borderRadius: 24,
+    marginHorizontal: spacing.md,
+    marginVertical: 6,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   main: { flex: 1 },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  avatar: { width: 36, height: 36, borderRadius: 18 },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
   authorMeta: { marginLeft: spacing.sm },
-  authorName: { fontSize: typography.sizes.sm, fontWeight: '600' },
-  timeAgo: { fontSize: typography.sizes.xs, marginTop: 1 },
-  title: { fontSize: typography.sizes.md, fontWeight: 'bold', marginBottom: spacing.xs },
-  content: { fontSize: typography.sizes.sm, lineHeight: 20, marginBottom: spacing.sm },
+  authorName: { fontSize: 13, fontWeight: '700' },
+  timeAgo: { fontSize: 11, opacity: 0.6, marginTop: 1 },
+  title: { fontSize: 16, fontWeight: '800', marginBottom: 4, letterSpacing: -0.2 },
+  content: { fontSize: 14, lineHeight: 20, marginBottom: spacing.md, opacity: 0.8 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   footerRight: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText: { fontSize: typography.sizes.sm },
-  thumbnail: { width: 80, height: 80, borderRadius: 10, flexShrink: 0 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statText: { fontSize: 13, fontWeight: '600' },
+  thumbnail: { width: 84, height: 84, borderRadius: 16, flexShrink: 0 },
   videoThumb: { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  videoOverlay: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
-  eventChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, marginBottom: spacing.xs },
-  eventChipText: { fontSize: 12, fontWeight: '600' },
+  videoOverlay: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  eventChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, marginBottom: spacing.sm },
+  eventChipText: { fontSize: 12, fontWeight: '700' },
 });

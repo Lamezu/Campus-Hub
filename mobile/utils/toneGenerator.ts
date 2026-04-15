@@ -1,4 +1,5 @@
 import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 const SAMPLE_RATE = 44100;
@@ -155,6 +156,25 @@ let activeSound: Audio.Sound | null = null;
 let isAudioModeSet = false;
 const toneCache: Record<string, string> = {};
 
+async function playFromDataUri(base64: string, cachedKey?: string): Promise<void> {
+  const uri = `data:audio/wav;base64,${base64}`;
+  if (activeSound) {
+    try { await activeSound.stopAsync(); await activeSound.unloadAsync(); } catch { }
+    activeSound = null;
+  }
+  const { sound } = await Audio.Sound.createAsync(
+    { uri },
+    { shouldPlay: true, volume: 1.0, isMuted: false }
+  );
+  activeSound = sound;
+  sound.setOnPlaybackStatusUpdate(async (status) => {
+    if (status.isLoaded && status.didJustFinish) {
+      try { await sound.unloadAsync(); } catch { }
+      if (activeSound === sound) activeSound = null;
+    }
+  });
+}
+
 export async function prewarmTones(): Promise<void> {
   try {
     if (!isAudioModeSet) {
@@ -168,7 +188,16 @@ export async function prewarmTones(): Promise<void> {
       isAudioModeSet = true;
     }
 
-    const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+    if (Platform.OS === 'web') {
+      for (const name of Object.keys(TONE_DEFINITIONS)) {
+        if (name === 'none') continue;
+        if (toneCache[name]) continue;
+        toneCache[name] = buildWavBase64(TONE_DEFINITIONS[name]);
+      }
+      return;
+    }
+
+    const rootCacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
 
     for (const name of Object.keys(TONE_DEFINITIONS)) {
       if (name === 'none') continue;
@@ -176,7 +205,7 @@ export async function prewarmTones(): Promise<void> {
 
       const segments = TONE_DEFINITIONS[name];
       const base64 = buildWavBase64(segments);
-      const path = `${cacheDir}tone_cache_${name}.wav`;
+      const path = `${rootCacheDir}tone_cache_${name}.wav`;
 
       await FileSystem.writeAsStringAsync(path, base64, {
         encoding: FileSystem.EncodingType.Base64,
@@ -184,7 +213,7 @@ export async function prewarmTones(): Promise<void> {
       toneCache[name] = path;
     }
   } catch (e) {
-    console.warn('[toneGenerator] Error in prewarmTones:', e);
+    console.warn('[toneGenerator] prewarmTones error:', e);
   }
 }
 
@@ -195,13 +224,20 @@ export async function previewTone(name: string): Promise<void> {
   if (!segments || segments.length === 0) return;
 
   try {
+    if (Platform.OS === 'web') {
+      const base64 = toneCache[key] ?? buildWavBase64(segments);
+      if (!toneCache[key]) toneCache[key] = base64;
+      await playFromDataUri(base64);
+      return;
+    }
+
     const cachedPath = toneCache[name];
     let path = cachedPath;
 
     if (!path) {
       const base64 = buildWavBase64(segments);
-      const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-      path = `${cacheDir}tone_temp_${Date.now()}.wav`;
+      const rootCacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+      path = `${rootCacheDir}tone_temp_${Date.now()}.wav`;
       await FileSystem.writeAsStringAsync(path, base64, {
         encoding: FileSystem.EncodingType.Base64,
       });
@@ -211,7 +247,7 @@ export async function previewTone(name: string): Promise<void> {
       try {
         await activeSound.stopAsync();
         await activeSound.unloadAsync();
-      } catch (e) { }
+      } catch { }
       activeSound = null;
     }
 
@@ -226,11 +262,11 @@ export async function previewTone(name: string): Promise<void> {
         try {
           await sound.unloadAsync();
           if (!cachedPath) await FileSystem.deleteAsync(path!, { idempotent: true });
-        } catch (e) { }
+        } catch { }
         if (activeSound === sound) activeSound = null;
       }
     });
   } catch (e) {
-    console.warn('[toneGenerator] Error playing tone:', e);
+    console.warn('[toneGenerator] previewTone error:', e);
   }
 }

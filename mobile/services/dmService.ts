@@ -58,31 +58,37 @@ export async function sendMessage(
   text: string,
   replyTo?: ReplyPreview | null,
   forwarded = false,
-  attachments: any[] | null = null
+  attachments: any[] | null = null,
+  recipientId?: string
 ): Promise<string> {
   const messageId = await (sharedGetDirectMessageService() as any).sendMessage(conversationId, text, meId, senderName, senderPhoto, attachments, replyTo, forwarded);
 
   incrementUserMessageCount(meId);
 
   try {
-    const conv = await (sharedGetDirectMessageService() as any).getConversation(conversationId);
-    if (conv) {
-      const otherUserId = (conv.participants as string[])?.find(id => id !== meId);
-      if (otherUserId) {
+    let otherUserId = recipientId;
+    if (!otherUserId) {
+      const conv = await (sharedGetDirectMessageService() as any).getConversation(conversationId);
+      otherUserId = (conv?.participants as string[])?.find((id: string) => id !== meId);
+    }
+    if (otherUserId) {
+      let isMuted = false;
+      try {
         const recipientSettings = await getContactSettings(otherUserId, meId);
         const now = new Date();
-        const isMuted = recipientSettings.mute !== 'off' && (
-          recipientSettings.mute === 'always' ||
-          (recipientSettings.mutedUntil ? new Date(recipientSettings.mutedUntil) > now : true)
-        );
-        if (!isMuted) {
-          notificationService.addNotification(otherUserId, {
-            category: 'dm',
-            title: senderName,
-            body: text || (attachments && attachments.length > 0 ? 'Archivo adjunto' : ''),
-            meta: { participantId: meId, conversationId }
-          });
-        }
+        const mutedUntil = recipientSettings.mutedUntil ? new Date(recipientSettings.mutedUntil) : null;
+        isMuted = recipientSettings.mute === 'always' ||
+          (recipientSettings.mute !== 'off' && !!mutedUntil && mutedUntil > now);
+      } catch {
+        isMuted = false;
+      }
+      if (!isMuted) {
+        await notificationService.addNotification(otherUserId, {
+          category: 'dm',
+          title: senderName,
+          body: text || (attachments && attachments.length > 0 ? 'Archivo adjunto' : ''),
+          meta: { participantId: meId, conversationId }
+        });
       }
     }
   } catch (error) {
@@ -100,10 +106,11 @@ export async function sendAudioMessage(
   audioUrl: string,
   duration: number,
   forwarded = false,
-  replyTo?: ReplyPreview | null
+  replyTo?: ReplyPreview | null,
+  recipientId?: string
 ): Promise<void> {
   const attachments = [{ url: audioUrl, type: 'audio', name: 'audio.m4a', size: 0, duration }];
-  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, forwarded, attachments);
+  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, forwarded, attachments, recipientId);
 }
 
 export async function sendImageMessage(
@@ -114,10 +121,11 @@ export async function sendImageMessage(
   url: string,
   width: number,
   height: number,
-  replyTo?: ReplyPreview | null
+  replyTo?: ReplyPreview | null,
+  recipientId?: string
 ): Promise<void> {
   const attachments = [{ url, type: 'image', name: 'image.jpg', size: 0, imageWidth: width, imageHeight: height }];
-  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, false, attachments);
+  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, false, attachments, recipientId);
 }
 
 export async function sendFileMessage(
@@ -128,10 +136,11 @@ export async function sendFileMessage(
   url: string,
   name: string,
   size: number,
-  replyTo?: ReplyPreview | null
+  replyTo?: ReplyPreview | null,
+  recipientId?: string
 ): Promise<void> {
   const attachments = [{ url, type: 'file', name, size }];
-  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, false, attachments);
+  await sendMessage(conversationId, meId, senderName, senderPhoto, '', replyTo, false, attachments, recipientId);
 }
 
 export async function sendPollMessage(
@@ -212,7 +221,7 @@ export async function fetchConversationsOnce(meId: string): Promise<DMConversati
             mute: 'off',
             mutedUntil: null,
             saveToPhotos: 'default',
-            alertTone: 'Predeterminado',
+            alertTone: 'default',
           },
         } as DMConversation;
       } catch {
@@ -228,11 +237,6 @@ export function subscribeToConversations(
   callback: (conversations: DMConversation[]) => void,
   onError?: (error: any) => void
 ): () => void {
-  // Guards against two categories of bugs:
-  // 1. Race condition: multiple onSnapshot events fire quickly; an older async
-  //    callback resolving after a newer one would overwrite fresh results.
-  // 2. Stale callback: the subscription was cancelled (screen navigated away)
-  //    but an in-flight async callback still tries to call setConversations.
   let latestSeq = 0;
   let cancelled = false;
 
@@ -264,7 +268,7 @@ export function subscribeToConversations(
               mute: 'off',
               mutedUntil: null,
               saveToPhotos: 'default',
-              alertTone: 'Predeterminado',
+              alertTone: 'default',
             },
           } as DMConversation;
         } catch {
