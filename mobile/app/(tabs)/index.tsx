@@ -22,6 +22,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { subscribeToChannelUnread } from '@/services/channelReadService';
 import { useTranslation } from '@/hooks/useTranslation';
 import esLocale from '@/locales/es.json';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import type { Channel, StudyGroup } from '@/types';
 
 const SUBJECT_ES_TO_KEY: Record<string, string> = Object.fromEntries(
@@ -65,7 +66,7 @@ export default function HomeScreen() {
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const unsubsRef = useRef<Array<() => void>>([]);
-  const autoJoinAttempted = useRef(false);
+  const autoJoinedChannels = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -122,23 +123,50 @@ export default function HomeScreen() {
     if (!user?.uid) return;
     const q = query(collection(db, 'channels'));
     return onSnapshot(q, (snap) => {
-      const firestoreChannels = snap.docs.reduce((acc, d) => {
-        acc[d.id] = { id: d.id, ...d.data() };
-        return acc;
-      }, {} as Record<string, any>);
-
-      setRealChannels(CHANNELS.map(staticCh => {
-        const dynamic = firestoreChannels[staticCh.id];
-        if (dynamic) {
+      const staticWithDynamic = CHANNELS.map(staticCh => {
+        const d = snap.docs.find(doc => doc.id === staticCh.id);
+        if (d) {
+          const data = d.data();
           return {
             ...staticCh,
-            ...dynamic,
-            memberCount: dynamic.memberIds?.length ?? dynamic.memberCount ?? staticCh.memberCount ?? 0,
-            icon: dynamic.icon || staticCh.icon
+            ...data,
+            id: staticCh.id,
+            memberCount: data.memberIds?.length ?? data.memberCount ?? staticCh.memberCount ?? 0,
+            icon: data.icon || staticCh.icon,
           };
         }
         return staticCh;
-      }));
+      });
+
+      const staticIds = new Set(CHANNELS.map(c => c.id));
+      const extraChannels: Channel[] = snap.docs
+        .filter(d => {
+          if (staticIds.has(d.id)) return false;
+          const data = d.data();
+          if (!data.departmentRestricted) return true;
+          return Array.isArray(data.memberIds) && data.memberIds.includes(user.uid);
+        })
+        .map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            name: data.name || '',
+            description: data.description || '',
+            type: data.type || 'public',
+            createdBy: data.createdBy || '',
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            memberCount: data.memberIds?.length ?? data.memberCount ?? 0,
+            lastMessageAt: data.lastMessageAt?.toDate?.()?.toISOString() || null,
+            departmentRestricted: data.departmentRestricted ?? false,
+            allowedDepartments: data.allowedDepartments ?? [],
+            icon: data.icon || 'hash',
+            unreadCount: 0,
+            lastMessage: data.lastMessage || '',
+            memberIds: data.memberIds || [],
+          } as Channel;
+        });
+
+      setRealChannels([...staticWithDynamic, ...extraChannels]);
     }, (error) => {
       if (error.code !== 'permission-denied') {
         console.error('Home Channels Snapshot error:', error);
@@ -147,35 +175,32 @@ export default function HomeScreen() {
   }, [user?.uid]);
 
   useEffect(() => {
-    if (!user?.uid || !realChannels.length || autoJoinAttempted.current) return;
+    if (!user?.uid || !realChannels.length) return;
 
-    const autoJoin = async () => {
-      autoJoinAttempted.current = true;
-      for (const ch of realChannels) {
-        const isDefault = CHANNELS.find(c => c.id === ch.id);
-        if (isDefault && (!ch.memberIds || !ch.memberIds.includes(user.uid))) {
-          try {
-            await Promise.all([
-              setDoc(doc(db, 'channels', ch.id, 'members', user.uid), {
-                userId: user.uid,
-                role: 'member',
-                joinedAt: serverTimestamp(),
-                notifications: true
-              }, { merge: true }),
-              setDoc(doc(db, 'channels', ch.id), {
-                memberIds: arrayUnion(user.uid),
-              }, { merge: true }),
-            ]);
-          } catch (e: any) {
-            if (e.code !== 'permission-denied') {
-              console.error(`[AutoJoin] Failed for channel ${ch.name}:`, e.message);
-            }
+    for (const ch of realChannels) {
+      if (
+        !ch.departmentRestricted &&
+        (!ch.memberIds || !ch.memberIds.includes(user.uid)) &&
+        !autoJoinedChannels.current.has(ch.id)
+      ) {
+        autoJoinedChannels.current.add(ch.id);
+        Promise.all([
+          setDoc(doc(db, 'channels', ch.id, 'members', user.uid), {
+            userId: user.uid,
+            role: 'member',
+            joinedAt: serverTimestamp(),
+            notifications: true
+          }, { merge: true }),
+          setDoc(doc(db, 'channels', ch.id), {
+            memberIds: arrayUnion(user.uid),
+          }, { merge: true }),
+        ]).catch((e: any) => {
+          if (e.code !== 'permission-denied') {
+            console.error(`[AutoJoin] Failed for channel ${ch.name}:`, e.message);
           }
-        }
+        });
       }
-    };
-
-    autoJoin();
+    }
   }, [user?.uid, realChannels]);
 
   const activeSubs = useRef<Set<string>>(new Set());
@@ -251,14 +276,24 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       {/* Decorative background element for depth */}
-      <View style={[styles.glow, { backgroundColor: colors.primary + '15' }]} />
+      <View style={styles.glowContainer} pointerEvents="none">
+        <Svg height="100%" width="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="grad" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.15" />
+              <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="50" cy="50" r="50" fill="url(#grad)" />
+        </Svg>
+      </View>
       
       <View style={[styles.header, { borderBottomColor: colors.border + '30', paddingTop: insets.top + spacing.sm }]}>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
           Campus<ThemedText style={{ color: colors.primary }}>Hub</ThemedText>
         </ThemedText>
         <View style={styles.headerActions}>
-          <NotificationBell category="channel" />
+          <NotificationBell categories={['channel']} />
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
             <Settings size={22} color={colors.text} strokeWidth={1.5} />
           </TouchableOpacity>
@@ -306,15 +341,12 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  glow: {
+  glowContainer: {
     position: 'absolute',
-    top: -100,
-    right: -50,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    opacity: 0.6,
-    transform: [{ scale: 1.5 }],
+    top: -150,
+    right: -150,
+    width: 600,
+    height: 600,
     zIndex: 0,
   },
   header: {
