@@ -198,24 +198,30 @@ export default function ExplorarScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={styles.header}>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.title') || 'Title'}</ThemedText>
         <NotificationBell category="social" />
       </View>
 
-      <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        {(['descubrir', 'publicar'] as SubTab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabBtn, subTab === tab && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-            onPress={() => setSubTab(tab)}
-            activeOpacity={0.7}
-          >
-            <ThemedText style={[styles.tabLabel, { color: subTab === tab ? colors.primary : colors.textSecondary }]}>
-              {tab === 'descubrir' ? (t('explore.discover') || 'Discover') : (t('explore.publish_tab') || 'Publish Tab')}
-            </ThemedText>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.tabBar}>
+        {(['descubrir', 'publicar'] as SubTab[]).map((tab) => {
+          const isActive = subTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabBtn, { borderBottomColor: isActive ? colors.primary : 'transparent' }]}
+              onPress={() => setSubTab(tab)}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={[styles.tabLabel, { 
+                color: isActive ? colors.primary : colors.textSecondary,
+                fontWeight: isActive ? '800' : '600'
+              }]}>
+                {tab === 'descubrir' ? (t('explore.discover') || 'Discover') : (t('explore.publish_tab') || 'Publish Tab')}
+              </ThemedText>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {subTab === 'descubrir' ? (
@@ -385,48 +391,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: Platform.OS === 'android' ? spacing.md : spacing.xs,
+    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: { fontSize: typography.sizes.xl, fontWeight: 'bold' },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   tabBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 3,
   },
-  tabLabel: { fontSize: typography.sizes.sm, fontWeight: '600' },
+  tabLabel: { 
+    fontSize: 16, 
+    letterSpacing: -0.3,
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
   scrollContent: { padding: spacing.md },
-  card: { borderWidth: 1, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  titleInput: { fontSize: typography.sizes.md, fontWeight: '600', paddingVertical: spacing.xs },
-  charCount: { fontSize: typography.sizes.xs, alignSelf: 'flex-end', marginTop: spacing.xs },
-  contentInput: { fontSize: typography.sizes.md, minHeight: 160, paddingVertical: spacing.xs, lineHeight: 22 },
-  mediaButton: { marginTop: spacing.md, borderWidth: 1, borderRadius: 12, overflow: 'hidden', minHeight: 120, justifyContent: 'center' },
-  mediaEmpty: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
-  mediaEmptyText: { fontSize: typography.sizes.sm },
+  card: { 
+    borderWidth: 1, 
+    borderRadius: 16, 
+    paddingHorizontal: spacing.md, 
+    paddingVertical: spacing.sm,
+  },
+  titleInput: { fontSize: 16, fontWeight: '700', paddingVertical: spacing.xs },
+  charCount: { fontSize: 11, alignSelf: 'flex-end', marginTop: 2, opacity: 0.6 },
+  contentInput: { fontSize: 15, minHeight: 160, paddingVertical: spacing.xs, lineHeight: 22 },
+  mediaButton: { 
+    marginTop: spacing.md, 
+    borderWidth: 1.5, 
+    borderRadius: 16, 
+    overflow: 'hidden', 
+    minHeight: 120, 
+    justifyContent: 'center',
+    borderStyle: 'dashed',
+  },
+  mediaEmpty: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.xs },
+  mediaEmptyText: { fontSize: 14, fontWeight: '600' },
   mediaPreview: { position: 'relative' },
-  mediaImage: { width: '100%', height: 220 },
+  mediaImage: { width: '100%', height: 280 },
   videoPlaceholder: { height: 160, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  videoLabel: { fontSize: typography.sizes.sm },
+  videoLabel: { fontSize: 14 },
   removeMedia: { position: 'absolute', top: spacing.sm, right: spacing.sm },
-  songButton: { marginTop: spacing.md, borderWidth: 1, borderRadius: 12, padding: spacing.md },
+  songButton: { marginTop: spacing.md, borderWidth: 1, borderRadius: 16, padding: spacing.md },
   songEmpty: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  songEmptyText: { fontSize: typography.sizes.sm },
-  songSelected: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  songCover: { width: 40, height: 40, borderRadius: 6 },
-  songName: { fontSize: typography.sizes.sm, fontWeight: '600' },
-  songArtist: { fontSize: typography.sizes.xs, marginTop: 2 },
-  footer: { padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
-  publishButton: { paddingVertical: spacing.md, borderRadius: 10, alignItems: 'center' },
-  publishButtonDisabled: { opacity: 0.5 },
-  publishButtonText: { color: '#FFFFFF', fontSize: typography.sizes.md, fontWeight: '600' },
-  audioToggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 12, marginTop: spacing.xs },
-  audioToggleText: { color: '#FFF', fontSize: typography.sizes.xs, fontWeight: '600' },
+  songEmptyText: { fontSize: 14 },
+  songSelected: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  songCover: { width: 44, height: 44, borderRadius: 10 },
+  songName: { fontSize: 14, fontWeight: '700' },
+  songArtist: { fontSize: 12, marginTop: 2, opacity: 0.7 },
+  footer: { 
+    padding: spacing.md, 
+    borderTopWidth: 1,
+  },
+  publishButton: { 
+    paddingVertical: spacing.md, 
+    borderRadius: 16, 
+    alignItems: 'center',
+  },
+  publishButtonDisabled: { opacity: 0.4 },
+  publishButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  audioToggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, marginTop: spacing.sm },
+  audioToggleText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
 });

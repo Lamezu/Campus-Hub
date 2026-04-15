@@ -42,7 +42,13 @@ export function GroupCard({
 
     return (
         <TouchableOpacity
-            style={[styles.groupCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[
+                styles.groupCard, 
+                { 
+                    backgroundColor: colors.card + '90', 
+                    borderColor: colors.border + '15' 
+                }
+            ]}
             activeOpacity={isMember ? 0.72 : 1}
             onPress={isMember ? onNavigate : undefined}
         >
@@ -106,27 +112,22 @@ export function GroupCard({
 const styles = StyleSheet.create({
     groupCard: {
         flexDirection: 'row',
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
-        padding: spacing.md,
+        borderRadius: 24,
+        borderWidth: 1,
+        padding: spacing.md + 4,
         gap: spacing.md,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        marginBottom: spacing.sm,
+        marginBottom: spacing.md,
     },
-    groupIcon: { width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-    groupIconText: { color: '#fff', fontSize: 22, fontWeight: '800' },
-    groupInfo: { flex: 1, gap: 1 },
+    groupIcon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+    groupIconText: { color: '#fff', fontSize: 24, fontWeight: '800' },
+    groupInfo: { flex: 1, gap: 2 },
     groupNameRow: { flexDirection: 'row', alignItems: 'center' },
-    groupName: { fontSize: typography.sizes.md, fontWeight: '700' },
-    groupSubject: { fontSize: typography.sizes.xs, fontWeight: '600' },
-    groupDesc: { fontSize: typography.sizes.xs, lineHeight: 16, marginTop: 2 },
-    groupFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-    groupMembers: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    groupMemberCount: { fontSize: typography.sizes.xs },
-    joinBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-    joinBtnText: { fontSize: typography.sizes.xs, fontWeight: '600' },
+    groupName: { fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
+    groupSubject: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 },
+    groupDesc: { fontSize: 14, lineHeight: 20, marginTop: 2, opacity: 0.7 },
+    groupFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+    groupMembers: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    groupMemberCount: { fontSize: 12, fontWeight: '600', opacity: 0.5 },
+    joinBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+    joinBtnText: { fontSize: 13, fontWeight: '800' },
 });

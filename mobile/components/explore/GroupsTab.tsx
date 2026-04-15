@@ -175,8 +175,8 @@ export function GroupsTab({ canCreate }: GroupsTabProps) {
 
     return (
         <View style={{ flex: 1 }}>
-            <View style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                <Search size={18} color={colors.textSecondary} />
+            <View style={[styles.searchBar, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}>
+                <Search size={16} color={colors.textSecondary} strokeWidth={2.5} />
                 <TextInput
                     style={[styles.searchInput, { color: colors.text }]}
                     placeholder={t('explore.groups.search_placeholder') || 'Search Placeholder'}
@@ -547,8 +547,22 @@ export function GroupsTab({ canCreate }: GroupsTabProps) {
 }
 
 const styles = StyleSheet.create({
-    searchBar: { flexDirection: 'row', alignItems: 'center', margin: spacing.md, paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, gap: 10 },
-    searchInput: { flex: 1, fontSize: 16, padding: 0 },
+    searchBar: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        margin: spacing.md, 
+        paddingHorizontal: spacing.md, 
+        paddingVertical: 12, 
+        borderRadius: 20, 
+        borderWidth: 1, 
+        gap: 10 
+    },
+    searchInput: { 
+        flex: 1, 
+        fontSize: 14, 
+        fontWeight: '600',
+        padding: 0 
+    },
     createBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, marginHorizontal: spacing.md, marginBottom: spacing.md, paddingVertical: 14, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
     createBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     listPad: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
