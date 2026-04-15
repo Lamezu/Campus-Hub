@@ -682,6 +682,7 @@ export default function DirectChat() {
               isAdmin={userData?.role === 'admin'}
               chatId={conversationId}
               isConversation={true}
+              chatCollection="conversations"
               isSaved={savedIds.has(message.id)}
               onReply={(msg: any) => setReplyingTo(msg)}
               onDelete={handleDelete}

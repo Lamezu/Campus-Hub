@@ -133,9 +133,12 @@ function mapDoc(d: QueryDocumentSnapshot): DMMessage {
     read: data.read || false,
     readAt: data.readAt?.toDate?.()?.toISOString() || null,
     deletedForUsers: data.deletedForUsers || [],
-    poll: (data.poll && typeof data.poll === 'object' && !Array.isArray(data.poll) && typeof data.poll.question === 'string' && Array.isArray(data.poll.options))
-      ? { ...data.poll, options: (data.poll.options as any[]).map((o: any) => typeof o === 'string' ? o : (o?.text ?? o?.label ?? o?.value ?? String(o))), votes: data.poll.votes || {} }
-      : null,
+    poll: data.poll ? {
+      ...data.poll,
+      question: data.poll.question || '',
+      options: Array.isArray(data.poll.options) ? data.poll.options : [],
+      votes: data.poll.votes || {} 
+    } : null,
   };
 }
 
