@@ -88,7 +88,7 @@ export class DirectMessageService {
 
     batch.update(convRef, {
       lastMessageAt: this.fs.serverTimestamp(),
-      lastMessage: text ? text.substring(0, 100) : (attachments ? '[Archivo]' : ''),
+      lastMessage: text ? text.substring(0, 100) : (attachments && attachments.length > 0 ? (attachments[0].type === 'image' ? '📷 Imagen' : (attachments[0].type === 'audio' ? '🎵 Nota de voz' : '📎 Adjunto')) : '📎 Adjunto'),
       lastMessageSenderId: senderId,
       [`unreadCount.${otherUserId}`]: ((convData.unreadCount || {})[otherUserId] || 0) + 1
     });
@@ -206,7 +206,11 @@ export class DirectMessageService {
 
     batch.set(messageRef, {
       type: 'poll',
-      poll: pollData,
+      poll: {
+        ...pollData,
+        totalVotes: 0,
+        closed: false
+      },
       senderId,
       senderName,
       senderPhoto,
@@ -236,8 +240,9 @@ export class DirectMessageService {
       if (data.type !== 'poll' || !data.poll) return;
 
       const poll = data.poll;
-      const options = poll.options.map(opt => {
-        if (opt.id === optionId) {
+      const options = poll.options.map((opt, index) => {
+        const isMatch = opt.id === optionId || index.toString() === optionId;
+        if (isMatch) {
           const votes = opt.votes || [];
           if (votes.includes(userId)) {
             return { ...opt, votes: votes.filter(id => id !== userId) };
@@ -250,7 +255,11 @@ export class DirectMessageService {
         return opt;
       });
 
-      await this.fs.updateDoc(messageRef, { 'poll.options': options });
+      const totalVotes = options.reduce((sum, o) => sum + (o.votes?.length || 0), 0);
+      await this.fs.updateDoc(messageRef, { 
+        'poll.options': options,
+        'poll.totalVotes': totalVotes
+      });
     }
   }
 

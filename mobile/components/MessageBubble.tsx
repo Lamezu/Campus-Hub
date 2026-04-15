@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, Image } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -263,9 +263,12 @@ function PollBubble({
       <View style={styles.pollOptions}>
         {poll.options.map((option: any, index: number) => {
           const optionId = option.id || index.toString();
-          const votes = option.votes?.length || 0;
+          const votesList = Array.isArray(option.votes) ? option.votes : [];
+          const votes = votesList.length;
           const percentage = totalVotes > 0 ? (votes / totalVotes) * 100 : 0;
-          const isSelected = option.votes?.includes(currentUserId);
+          const isSelected = votesList.includes(currentUserId || '');
+          const canSeeResults = hasVoted || isOwnMessage;
+
           const optionLabel = typeof option === 'string'
             ? option
             : (option.text || option.label || option.option || option.value || option.title || option.name || option.answer || option.content || option.choice ||
@@ -282,12 +285,14 @@ function PollBubble({
               onPress={() => onVote?.(optionId)}
               activeOpacity={0.7}
             >
-              <View style={[styles.pollProgress, { width: `${percentage}%`, backgroundColor: isSelected ? colors.primary + '44' : 'rgba(0,0,0,0.05)' }]} />
+              <View style={[styles.pollProgress, { width: `${canSeeResults ? percentage : 0}%`, backgroundColor: isSelected ? colors.primary + '44' : 'rgba(0,0,0,0.05)' }]} />
               <View style={styles.pollOptionContent}>
                 <ThemedText style={[styles.pollOptionText, { color: optionTextColor }]}>{optionLabel}</ThemedText>
                 <View style={styles.pollOptionRight}>
-                  {hasVoted && (
-                    <ThemedText style={[styles.pollVotes, { color: optionTextColor, opacity: 0.7 }]}>{votes}</ThemedText>
+                  {canSeeResults && votes > 0 && (
+                    <ThemedText style={[styles.pollVotes, { color: optionTextColor, opacity: 0.7 }]}>
+                      {Math.round(percentage)}% ({votes})
+                    </ThemedText>
                   )}
                   {isSelected && (
                     <View style={styles.pollCheck}>

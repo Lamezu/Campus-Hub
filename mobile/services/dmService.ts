@@ -83,10 +83,19 @@ export async function sendMessage(
         isMuted = false;
       }
       if (!isMuted) {
+        let body = text;
+        if (!body) {
+          const type = attachments?.[0]?.type;
+          if (type === 'image') body = '📷 Imagen';
+          else if (type === 'audio') body = '🎵 Nota de voz';
+          else if (type === 'video') body = '🎥 Vídeo';
+          else if (type === 'file') body = `📄 Archivo: ${attachments?.[0]?.name || ''}`;
+          else body = '📎 Adjunto';
+        }
         await notificationService.addNotification(otherUserId, {
           category: 'dm',
           title: senderName,
-          body: text || (attachments && attachments.length > 0 ? 'Archivo adjunto' : ''),
+          body,
           meta: { participantId: meId, conversationId }
         });
       }
@@ -148,10 +157,33 @@ export async function sendPollMessage(
   meId: string,
   senderName: string,
   senderPhoto: string | null,
-  poll: { question: string; options: string[]; multipleAnswers: boolean }
+  poll: { question: string; options: string[]; multipleAnswers: boolean },
+  recipientId?: string
 ): Promise<void> {
   await (sharedGetDirectMessageService() as any).sendPollMessage(conversationId, meId, senderName, senderPhoto, poll);
   incrementUserMessageCount(meId);
+
+  try {
+    let otherUserId = recipientId;
+    if (!otherUserId) {
+      const conv = await (sharedGetDirectMessageService() as any).getConversation(conversationId);
+      otherUserId = (conv?.participants as string[])?.find((id: string) => id !== meId);
+    }
+    if (otherUserId) {
+      const recipientSettings = await getContactSettings(otherUserId, meId);
+      const isMuted = recipientSettings.mute === 'always' || (recipientSettings.mute !== 'off' && recipientSettings.mutedUntil && new Date(recipientSettings.mutedUntil) > new Date());
+      if (!isMuted) {
+        await notificationService.addNotification(otherUserId, {
+          category: 'dm',
+          title: senderName,
+          body: `🗳️ Encuesta: ${poll.question}`,
+          meta: { participantId: meId, conversationId }
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error notifying poll:', err);
+  }
 }
 
 export async function markAsRead(conversationId: string, meId: string): Promise<void> {
