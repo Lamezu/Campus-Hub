@@ -187,37 +187,38 @@ export default function EditProfileScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
                     <View style={styles.avatarSection}>
-                        <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
+                        <TouchableOpacity onPress={pickImage} style={[styles.avatarContainer, { borderColor: colors.border + '15' }]}>
+                            <View style={[styles.avatarGlow, { backgroundColor: colors.primary + '15' }]} />
                             {photoURL ? (
                                 <Image source={{ uri: photoURL }} style={styles.avatar} />
                             ) : (
-                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                                    <Ionicons name="camera" size={32} color={colors.primary} />
+                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.backgroundSecondary + '80' }]}>
+                                    <Ionicons name="camera" size={40} color={colors.primary} />
                                 </View>
                             )}
                         </TouchableOpacity>
-                        <ThemedText style={styles.changePhotoText}>{t('profile.change_photo') || 'Change Photo'}</ThemedText>
+                        <ThemedText style={[styles.changePhotoText, { color: colors.primary }]}>{t('profile.change_photo') || 'Cambiar foto'}</ThemedText>
                     </View>
 
                     <View style={styles.formSection}>
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>{t('profile.username_label') || 'Username Label'}</ThemedText>
+                            <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('profile.username_label') || 'Nombre de usuario'}</ThemedText>
                             <TextInput
-                                style={[styles.input, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                                style={[styles.input, { backgroundColor: colors.card + '80', color: colors.text, borderColor: colors.border + '15' }]}
                                 value={displayName}
                                 onChangeText={setDisplayName}
-                                placeholder={t('profile.bio_placeholder') || 'Bio Placeholder'}
+                                placeholder={t('profile.bio_placeholder') || 'Escribe tu nombre...'}
                                 placeholderTextColor={colors.textSecondary}
                             />
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <ThemedText style={styles.label}>{t('profile.bio_label') || 'Bio Label'}</ThemedText>
+                            <ThemedText style={[styles.label, { color: colors.textSecondary }]}>{t('profile.bio_label') || 'Biografía'}</ThemedText>
                             <TextInput
-                                style={[styles.input, styles.textArea, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                                style={[styles.input, styles.textArea, { backgroundColor: colors.card + '80', color: colors.text, borderColor: colors.border + '15' }]}
                                 value={bio}
                                 onChangeText={setBio}
-                                placeholder={t('profile.describe_yourself') || 'Describe Yourself'}
+                                placeholder={t('profile.describe_yourself') || 'Cuéntanos sobre ti...'}
                                 placeholderTextColor={colors.textSecondary}
                                 multiline
                                 numberOfLines={4}
@@ -239,10 +240,10 @@ export default function EditProfileScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.formSection}>
-                        <ThemedText style={styles.sectionTitle}>{t('settings.change_language')}</ThemedText>
+                        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>{t('settings.change_language')}</ThemedText>
                         <View style={styles.languageContainer}>
                             {[
-                                { id: 'es', label: t('common.spanish') || 'Spanish', flag: '🇪🇸' },
+                                { id: 'es', label: t('common.spanish') || 'Español', flag: '🇪🇸' },
                                 { id: 'en', label: t('common.english') || 'English', flag: '🇺🇸' }
                             ].map((item) => {
                                 const isSelected = language === item.id;
@@ -251,7 +252,7 @@ export default function EditProfileScreen() {
                                         key={item.id}
                                         style={[
                                             styles.langBtn,
-                                            { backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary, borderColor: isSelected ? colors.primary : colors.border }
+                                            { backgroundColor: isSelected ? colors.primary + '15' : colors.card + '80', borderColor: isSelected ? colors.primary : colors.border + '15' }
                                         ]}
                                         onPress={() => setLanguage(item.id as any)}
                                         activeOpacity={0.7}
@@ -268,34 +269,34 @@ export default function EditProfileScreen() {
                     </View>
 
                     <View style={styles.dangerZone}>
-                        <ThemedText style={styles.sectionTitle}>{t('profile.account_privacy') || 'Account Privacy'}</ThemedText>
-                        <ThemedText style={styles.sectionDescription}>{t('profile.manage_account_desc') || 'Manage Account Desc'}</ThemedText>
+                        <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.account_privacy') || 'Privacidad de cuenta'}</ThemedText>
+                        <ThemedText style={[styles.sectionDescription, { color: colors.textSecondary }]}>{t('profile.manage_account_desc') || 'Gestiona tus datos y preferencias de cuenta'}</ThemedText>
 
                         <TouchableOpacity
-                            style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                            style={[styles.manageAccountButton, { backgroundColor: colors.card + '50', borderColor: colors.border + '10' }]}
                             onPress={() => router.push('/account-details' as any)}
                         >
                             <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
-                            <ThemedText style={styles.manageAccountText}>{t('profile.account_data') || 'Account Data'}</ThemedText>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                            <ThemedText style={[styles.manageAccountText, { color: colors.text }]}>{t('profile.account_data') || 'Datos de la cuenta'}</ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.manageAccountButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                            style={[styles.manageAccountButton, { backgroundColor: colors.card + '50', borderColor: colors.border + '10' }]}
                             onPress={() => router.push('/accounts' as any)}
                         >
                             <Ionicons name="people-outline" size={20} color={colors.primary} />
-                            <ThemedText style={styles.manageAccountText}>{t('settings.manage_accounts') || 'Manage Accounts'}</ThemedText>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                            <ThemedText style={[styles.manageAccountText, { color: colors.text }]}>{t('settings.manage_accounts') || 'Gestionar cuentas'}</ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.manageAccountButton, { backgroundColor: '#FF3B3010', borderColor: '#FF3B30' }]}
+                            style={[styles.manageAccountButton, { backgroundColor: '#FF3B3010', borderColor: '#FF3B3015' }]}
                             onPress={() => router.push('/delete-account' as any)}
                         >
                             <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                            <ThemedText style={[styles.manageAccountText, { color: '#FF3B30' }]}>{t('settings.delete_account') || 'Delete Account'}</ThemedText>
-                            <Ionicons name="chevron-forward" size={20} color="#FF3B30" />
+                            <ThemedText style={[styles.manageAccountText, { color: '#FF3B30' }]}>{t('settings.delete_account') || 'Eliminar cuenta'}</ThemedText>
+                            <Ionicons name="chevron-forward" size={18} color="#FF3B30" />
                         </TouchableOpacity>
                     </View>
 
@@ -334,141 +335,150 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xl,
     },
     avatarContainer: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        borderWidth: 1,
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.md,
+    },
+    avatarGlow: { position: 'absolute', width: 140, height: 140, borderRadius: 70, opacity: 0.5 },
+    avatar: {
         width: 120,
         height: 120,
         borderRadius: 60,
-        overflow: 'hidden',
-        marginBottom: spacing.sm,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    avatar: {
-        width: '100%',
-        height: '100%',
+        borderWidth: 4,
+        borderColor: '#fff',
     },
     avatarPlaceholder: {
-        width: '100%',
-        height: '100%',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 4,
+        borderColor: '#fff',
     },
     changePhotoText: {
-        fontSize: typography.sizes.sm,
-        fontWeight: '600',
-        opacity: 0.7,
+        fontSize: 13,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     formSection: {
         gap: spacing.lg,
         marginBottom: spacing.xl,
     },
     inputGroup: {
-        gap: spacing.xs,
+        gap: 8,
     },
     label: {
-        fontSize: typography.sizes.sm,
-        fontWeight: '600',
-        opacity: 0.6,
+        fontSize: 12,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        opacity: 0.5,
         marginLeft: 4,
     },
     input: {
         borderWidth: 1,
-        borderRadius: 12,
-        padding: spacing.md,
-        fontSize: typography.sizes.md,
+        borderRadius: 16,
+        padding: 16,
+        fontSize: 16,
+        fontWeight: '600',
     },
     textArea: {
-        minHeight: 100,
-        paddingTop: spacing.md,
+        minHeight: 120,
+        paddingTop: 16,
     },
     primarySaveButton: {
-        height: 56,
-        borderRadius: 16,
+        height: 60,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: spacing.xl,
+        elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
-        elevation: 6,
     },
     primarySaveButtonText: {
         color: '#fff',
-        fontSize: typography.sizes.md,
-        fontWeight: '700',
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: -0.3,
     },
     dangerZone: {
         marginTop: spacing.sm,
         marginBottom: spacing.xl,
         padding: spacing.lg,
-        borderRadius: 20,
+        borderRadius: 28,
         borderWidth: 1,
         borderColor: 'rgba(255, 0, 0, 0.1)',
         backgroundColor: 'rgba(255, 0, 0, 0.02)',
+        gap: 8,
     },
     sectionTitle: {
-        fontSize: typography.sizes.md,
-        fontWeight: 'bold',
-        marginBottom: 4,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     sectionDescription: {
-        fontSize: typography.sizes.xs,
-        opacity: 0.6,
-        marginBottom: spacing.md,
+        fontSize: 13,
         lineHeight: 18,
+        marginBottom: 8,
     },
     manageAccountButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.md,
-        borderRadius: 12,
+        padding: 16,
+        borderRadius: 16,
         borderWidth: 1,
+        gap: 12,
     },
     manageAccountText: {
         flex: 1,
-        marginLeft: spacing.sm,
-        fontSize: typography.sizes.sm,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '700',
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.sm,
-        padding: spacing.md,
-        borderRadius: 12,
+        gap: 10,
+        padding: 18,
+        borderRadius: 16,
         borderWidth: 1,
-        marginBottom: spacing.sm,
+        marginBottom: 12,
     },
     cancelButton: {
-        padding: spacing.md,
-        borderRadius: 12,
+        padding: 18,
+        borderRadius: 16,
         borderWidth: 1,
         alignItems: 'center',
     },
     languageContainer: {
-        marginTop: spacing.xs,
         flexDirection: 'row',
-        gap: spacing.sm,
+        gap: 10,
     },
     langBtn: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.md,
-        borderRadius: 12,
+        padding: 16,
+        borderRadius: 16,
         borderWidth: 1,
-        gap: spacing.sm,
+        gap: 10,
     },
     langFlag: {
         fontSize: 20,
     },
     langText: {
         flex: 1,
-        fontSize: typography.sizes.sm,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '800',
     },
 });

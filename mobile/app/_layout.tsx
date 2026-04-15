@@ -55,8 +55,8 @@ function RootLayoutNav() {
     notificationService.onNewNotification((n) => {
       const settings = userData?.settings;
       if (settings?.globalMute !== 'always') {
-        const tone = settings?.globalTone || 'Predeterminado';
-        const toneKey = tone === 'Predeterminado' ? 'default' : tone.toLowerCase();
+        const tone = settings?.globalTone || 'default';
+        const toneKey = (tone === 'Predeterminado' || tone === 'default') ? 'default' : tone.toLowerCase();
         previewTone(toneKey);
       }
     });

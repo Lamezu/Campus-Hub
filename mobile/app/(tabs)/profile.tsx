@@ -122,13 +122,13 @@ export default function ProfileScreen() {
       <View style={[
         styles.header,
         {
-          borderBottomColor: colors.border,
           paddingTop: Platform.OS === 'ios' ? insets.top + spacing.xl : spacing.xl
         }
       ]}>
         <View style={styles.bellWrapper}>
           <NotificationBell category="friend" />
         </View>
+        
         <View style={[styles.avatarContainer, { backgroundColor: colors.backgroundSecondary }]}>
           {userData?.photoURL ? (
             <Image source={{ uri: userData.photoURL }} style={styles.avatar} />
@@ -153,20 +153,20 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.statsContainer, { backgroundColor: colors.backgroundSecondary }]}>
+      <View style={[styles.statsContainer, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{formatNumber(channelsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('common.channels') || 'Channels'}</ThemedText>
+          <ThemedText style={styles.statValue} numberOfLines={1}>{formatNumber(channelsCount)}</ThemedText>
+          <ThemedText style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('common.channels') || 'Channels'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{formatNumber(userData?.messageCount || 0)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('profile.messages') || 'Messages'}</ThemedText>
+          <ThemedText style={styles.statValue} numberOfLines={1}>{formatNumber(userData?.messageCount || 0)}</ThemedText>
+          <ThemedText style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('profile.messages') || 'Messages'}</ThemedText>
         </View>
 
         <View style={styles.statItem}>
-          <ThemedText style={styles.statValue}>{formatNumber(friendsCount)}</ThemedText>
-          <ThemedText style={styles.statLabel}>{t('profile.friends') || 'Friends'}</ThemedText>
+          <ThemedText style={styles.statValue} numberOfLines={1}>{formatNumber(friendsCount)}</ThemedText>
+          <ThemedText style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('profile.friends') || 'Friends'}</ThemedText>
         </View>
       </View>
 
@@ -174,10 +174,12 @@ export default function ProfileScreen() {
         <ThemedText style={styles.sectionTitle}>{t('profile.quick_actions') || 'Quick Actions'}</ThemedText>
 
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[styles.actionCard, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}
           onPress={() => router.push('/saved-items' as any)}
         >
-          <SaveAll size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
+            <SaveAll size={20} color={colors.primary} strokeWidth={2} />
+          </View>
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>{t('profile.saved_messages') || 'Saved Messages'}</ThemedText>
             <ThemedText style={styles.actionSubtitle}>{t('profile.view_saved') || 'View Saved'}</ThemedText>
@@ -185,10 +187,12 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[styles.actionCard, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}
           onPress={() => router.push('/friends' as any)}
         >
-          <Users size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
+            <Users size={20} color={colors.primary} strokeWidth={2} />
+          </View>
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>{t('profile.friends') || 'Friends'}</ThemedText>
             <ThemedText style={styles.actionSubtitle}>{t('profile.manage_friends') || 'Manage Friends'}</ThemedText>
@@ -196,10 +200,12 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[styles.actionCard, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}
           onPress={() => router.push({ pathname: '/friends', params: { tab: 'best' } } as any)}
         >
-          <UserStar size={20} color={colors.primary} strokeWidth={1.8} />
+          <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
+            <UserStar size={20} color={colors.primary} strokeWidth={2} />
+          </View>
           <View style={styles.actionText}>
             <ThemedText style={styles.actionTitle}>{t('profile.best_friends') || 'Best Friends'}</ThemedText>
             <ThemedText style={styles.actionSubtitle}>{t('profile.close_connections') || 'Close Connections'}</ThemedText>
@@ -211,10 +217,12 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>{t('profile.administration') || 'Administration'}</ThemedText>
           <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: colors.background, borderColor: colors.border }]}
+            style={[styles.actionCard, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}
             onPress={() => router.push('/admin/users' as any)}
           >
-            <ShieldCheck size={20} color={colors.primary} strokeWidth={1.8} />
+            <View style={[styles.iconContainer, { backgroundColor: '#AF52DE' + '15' }]}>
+              <ShieldCheck size={20} color="#AF52DE" strokeWidth={2} />
+            </View>
             <View style={styles.actionText}>
               <ThemedText style={styles.actionTitle}>{t('profile.user_management') || 'User Management'}</ThemedText>
               <ThemedText style={styles.actionSubtitle}>{t('profile.assign_roles') || 'Assign Roles'}</ThemedText>
@@ -229,24 +237,58 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderBottomWidth: 1 },
+  header: { alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg },
   bellWrapper: { position: 'absolute', top: spacing.xl + 8, right: spacing.md, zIndex: 1 },
-  avatarContainer: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg, marginTop: spacing.md },
-  avatar: { width: 96, height: 96, borderRadius: 48 },
-  avatarText: { fontSize: 32, fontWeight: typography.weights.bold, textAlign: 'center', lineHeight: 32, paddingTop: 6, includeFontPadding: false },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs },
-  name: { fontSize: typography.sizes.xl, fontWeight: typography.weights.bold },
-  email: { fontSize: typography.sizes.sm, opacity: 0.6, marginBottom: spacing.lg },
-  editButton: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: 20 },
-  editButtonText: { color: '#ffffff', fontWeight: typography.weights.semibold },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: spacing.lg, marginVertical: spacing.xl - 30, marginTop: spacing.lg, paddingVertical: spacing.lg, paddingHorizontal: spacing.md, borderRadius: 30 },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: typography.sizes.lg + 5, fontWeight: typography.weights.bold },
-  statLabel: { fontSize: typography.sizes.xs, opacity: 0.6, marginTop: spacing.xs },
+  avatarContainer: { 
+    width: 110, 
+    height: 110, 
+    borderRadius: 55, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: spacing.lg, 
+    marginTop: spacing.md,
+    borderWidth: 4,
+    borderColor: 'transparent',
+  },
+  avatar: { width: 110, height: 110, borderRadius: 55 },
+  avatarText: { fontSize: 40, fontWeight: '800', textAlign: 'center', lineHeight: 40, paddingTop: 6, includeFontPadding: false },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 4 },
+  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  email: { fontSize: 13, opacity: 0.6, marginBottom: spacing.lg, fontWeight: '600' },
+  editButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
+  editButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
+  statsContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    marginHorizontal: spacing.lg, 
+    marginVertical: spacing.md, 
+    paddingVertical: spacing.lg, 
+    paddingHorizontal: spacing.md, 
+    borderRadius: 24, 
+    borderWidth: 1,
+  },
+  statItem: { alignItems: 'center', flex: 1, paddingHorizontal: 4 },
+  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.2 },
+  statLabel: { fontSize: 10, opacity: 0.5, marginTop: 4, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'center' },
   section: { padding: spacing.lg, paddingTop: spacing.md },
-  sectionTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, marginBottom: spacing.md },
-  actionCard: { borderWidth: 1, padding: spacing.md, borderRadius: 12, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: spacing.md, letterSpacing: -0.2 },
+  actionCard: { 
+    borderWidth: 1, 
+    padding: spacing.md, 
+    borderRadius: 20, 
+    marginBottom: spacing.sm, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: spacing.md 
+  },
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionText: { flex: 1 },
-  actionTitle: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
-  actionSubtitle: { fontSize: typography.sizes.sm, opacity: 0.6, marginTop: spacing.xs }
+  actionTitle: { fontSize: 16, fontWeight: '700' },
+  actionSubtitle: { fontSize: 13, opacity: 0.5, marginTop: 2, fontWeight: '500' }
 });
