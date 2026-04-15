@@ -53,14 +53,19 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
   const displayDescription = t(`predefined_channels.${channel.id}.description`) || channel.description;
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.container, { borderBottomColor: colors.border }]}>
-        <View style={[styles.iconContainer, { backgroundColor: tint + '18' }]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
+      <View style={[styles.container, { 
+        backgroundColor: colors.card + '90', 
+        borderColor: tint + '20' 
+      }]}>
+        <View style={[styles.iconContainer, { backgroundColor: tint + '15' }]}>
           {channel.photoURL ? (
             <Image source={{ uri: channel.photoURL }} style={styles.image} />
           ) : (
-            <Icon size={22} color={tint} strokeWidth={1.8} />
+            <Icon size={24} color={tint} strokeWidth={1.5} />
           )}
+          {/* Subtle glow behind icon */}
+          <View style={[styles.iconGlow, { backgroundColor: tint }]} />
         </View>
 
         <View style={styles.content}>
@@ -75,49 +80,70 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
             <ThemedText style={styles.badgeText}>{channel.unreadCount}</ThemedText>
           </View>
         )}
-        <ChevronRight size={18} color={colors.textSecondary} strokeWidth={1.8} />
+        <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  touchable: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
   container: {
     flexDirection: 'row',
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    padding: spacing.md - 4,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.05,
   },
   image: { width: '100%', height: '100%' },
-  content: { flex: 1 },
+  content: { flex: 1, paddingVertical: 2 },
   name: {
-    fontSize: typography.sizes.md,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+    letterSpacing: -0.2,
   },
-  description: { fontSize: typography.sizes.sm },
+  description: { 
+    fontSize: 13,
+    opacity: 0.8,
+  },
   badge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     marginRight: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   badgeText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 14,
     includeFontPadding: false,
   },

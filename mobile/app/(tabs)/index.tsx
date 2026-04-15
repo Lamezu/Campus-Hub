@@ -250,12 +250,17 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + spacing.sm }]}>
-        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Campus Hub</ThemedText>
+      {/* Decorative background element for depth */}
+      <View style={[styles.glow, { backgroundColor: colors.primary + '15' }]} />
+      
+      <View style={[styles.header, { borderBottomColor: colors.border + '30', paddingTop: insets.top + spacing.sm }]}>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>
+          Campus<ThemedText style={{ color: colors.primary }}>Hub</ThemedText>
+        </ThemedText>
         <View style={styles.headerActions}>
           <NotificationBell category="channel" />
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
-            <Settings size={22} color={colors.text} strokeWidth={1.8} />
+            <Settings size={22} color={colors.text} strokeWidth={1.5} />
           </TouchableOpacity>
         </View>
       </View>
@@ -277,7 +282,8 @@ export default function HomeScreen() {
           )}
           renderSectionHeader={({ section }) =>
             sections.length > 1 ? (
-              <View style={[styles.sectionHeader, { backgroundColor: colors.backgroundSecondary, borderBottomColor: colors.border }]}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIndicator, { backgroundColor: colors.primary }]} />
                 <ThemedText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                   {section.title.toUpperCase()}
                 </ThemedText>
@@ -300,26 +306,55 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  glow: {
+    position: 'absolute',
+    top: -100,
+    right: -50,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    opacity: 0.6,
+    transform: [{ scale: 1.5 }],
+    zIndex: 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    zIndex: 1,
   },
-  headerTitle: { fontSize: typography.sizes.xl, fontWeight: 'bold' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconBtn: { padding: spacing.sm },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: '800', 
+    letterSpacing: -0.5,
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconBtn: { 
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
+  },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    gap: 8,
+  },
+  sectionIndicator: {
+    width: 4,
+    height: 14,
+    borderRadius: 2,
+    opacity: 0.8,
   },
   sectionTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    opacity: 0.6,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
 });
