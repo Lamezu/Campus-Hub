@@ -3,6 +3,7 @@ import {
   View, FlatList, StyleSheet, TouchableOpacity, TextInput,
   StatusBar, Platform, Modal, Pressable, Alert, Image,
 } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -111,6 +112,14 @@ const styles = StyleSheet.create({
   groupLastMsg: { fontSize: 12 },
   groupBadge: { minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
   groupBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  glowContainer: {
+    position: 'absolute',
+    top: -150,
+    right: -150,
+    width: 600,
+    height: 600,
+    zIndex: 0,
+  },
 });
 
 export default function MessagesScreen() {
@@ -548,12 +557,23 @@ export default function MessagesScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <View style={styles.glowContainer} pointerEvents="none">
+        <Svg height="100%" width="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="grad" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.1" />
+              <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="50" cy="50" r="50" fill="url(#grad)" />
+        </Svg>
+      </View>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       <View style={styles.header}>
         <ThemedText style={[styles.title, { color: colors.text }]}>{t('dm.title') || 'Title'}</ThemedText>
         <View style={styles.headerActions}>
-          <NotificationBell category="dm" />
+          <NotificationBell categories={['dm', 'support']} />
           <TouchableOpacity onPress={() => router.push('/dm/compose' as never)} style={styles.newButton} activeOpacity={0.7}>
             <PenSquare size={24} color={colors.primary} strokeWidth={1.5} />
           </TouchableOpacity>
