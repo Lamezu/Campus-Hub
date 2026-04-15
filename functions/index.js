@@ -32,7 +32,7 @@ async function writeInAppNotifications(userIds, notification) {
     });
     await batch.commit();
 
-        await Promise.all(chunk.map(async uid => {
+    await Promise.all(chunk.map(async uid => {
       const snap = await db.collection('notifications').doc(uid).collection('items')
         .orderBy('createdAt', 'desc').limit(51).get();
       if (snap.size === 51) {
@@ -40,6 +40,43 @@ async function writeInAppNotifications(userIds, notification) {
       }
     }));
   }
+}
+
+function getNotificationSubtype(message) {
+  if (message.poll) return 'poll';
+  if (message.type === 'poll' || (message.metadata && message.metadata.type === 'poll')) return 'poll';
+  if (message.type === 'event' || (message.metadata && message.metadata.eventId)) return 'event';
+  if (message.type === 'contact') return 'contact';
+  if (message.attachments && message.attachments.length > 0) return message.attachments[0].type;
+  return 'text';
+}
+
+function getNotificationBody(message) {
+  if (message.text && message.text.trim()) {
+    return message.text.substring(0, 100);
+  }
+  if (message.poll || message.type === 'poll') {
+    const question = message.poll?.question || message.metadata?.question || 'Nueva encuesta';
+    return `🗳️ Encuesta: ${question}`;
+  }
+  if (message.type === 'event' || (message.metadata && message.metadata.eventId)) {
+    return `📅 Evento: ${message.metadata?.title || 'Detalles en el chat'}`;
+  }
+  if (message.type === 'contact' || (message.attachments && message.attachments[0]?.type === 'contact')) {
+    return '👤 Contacto compartido';
+  }
+  if (message.attachments && message.attachments.length > 0) {
+    const mainAttr = message.attachments[0];
+    switch (mainAttr.type) {
+      case 'image': return '📷 Imagen';
+      case 'audio': return '🎵 Nota de voz';
+      case 'video': return '🎥 Vídeo';
+      case 'file': return `📄 Archivo: ${mainAttr.name || 'Adjunto'}`;
+      case 'contact': return '👤 Contacto compartido';
+      default: return '📎 Archivo adjunto';
+    }
+  }
+  return '📎 Adjunto';
 }
 
 exports.onMessageCreated = onDocumentCreated(
@@ -75,8 +112,13 @@ exports.onMessageCreated = onDocumentCreated(
       await writeInAppNotifications(allMemberIds, {
         category: 'channel',
         title: `${message.senderName} in ${channelName}`,
-        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
-        meta: { channelId: metaChannelId, channelName, senderName: message.senderName || '' },
+        body: getNotificationBody(message),
+        meta: { 
+          channelId: metaChannelId, 
+          channelName, 
+          senderName: message.senderName || '',
+          notifSubtype: getNotificationSubtype(message)
+        },
       });
 
       const fcmMessages = [];
@@ -88,7 +130,7 @@ exports.onMessageCreated = onDocumentCreated(
             fcmMessages.push({
               notification: {
                 title: `${message.senderName} in ${channelName}`,
-                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+                body: getNotificationBody(message),
               },
               data: {
                 type: 'channel_message',
@@ -216,8 +258,13 @@ exports.onStudyGroupMessageCreated = onDocumentCreated(
       await writeInAppNotifications(allMemberIds, {
         category: 'channel',
         title: `${message.senderName} in ${groupName}`,
-        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
-        meta: { channelId: `sg_${groupId}`, channelName: groupName, senderName: message.senderName || '' },
+        body: getNotificationBody(message),
+        meta: { 
+          channelId: `sg_${groupId}`, 
+          channelName: groupName, 
+          senderName: message.senderName || '',
+          notifSubtype: getNotificationSubtype(message)
+        },
       });
 
       const fcmMessages = [];
@@ -229,7 +276,7 @@ exports.onStudyGroupMessageCreated = onDocumentCreated(
             fcmMessages.push({
               notification: {
                 title: `${message.senderName} in ${groupName}`,
-                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+                body: getNotificationBody(message),
               },
               data: {
                 type: 'channel_message',
@@ -396,10 +443,11 @@ exports.onDirectMessageCreated = onDocumentCreated(
       await writeInAppNotifications([receiverId], {
         category: 'dm',
         title: message.senderName,
-        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        body: getNotificationBody(message),
         meta: {
           participantId: message.senderId,
           conversationId,
+          notifSubtype: getNotificationSubtype(message)
         },
       });
 
@@ -408,7 +456,7 @@ exports.onDirectMessageCreated = onDocumentCreated(
       await messaging.send({
         notification: {
           title: message.senderName,
-          body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+          body: getNotificationBody(message),
         },
         data: {
           type: 'direct_message',
@@ -449,12 +497,13 @@ exports.onGroupMessageCreated = onDocumentCreated(
       await writeInAppNotifications(recipients, {
         category: 'dm',
         title: groupName || message.senderName,
-        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        body: getNotificationBody(message),
         meta: {
           groupId,
           groupName,
           participantId: groupId,
           senderName: message.senderName,
+          notifSubtype: getNotificationSubtype(message)
         },
       });
 
@@ -467,7 +516,7 @@ exports.onGroupMessageCreated = onDocumentCreated(
             fcmMessages.push({
               notification: {
                 title: groupName || message.senderName,
-                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+                body: getNotificationBody(message),
               },
               data: {
                 type: 'group_message',
@@ -897,8 +946,8 @@ exports.onTicketReplyCreated = onDocumentCreated(
 
         const studentPayload = {
           category: 'channel',
-          title: 'Support replied to your ticket',
-          body: reply.text ? reply.text.substring(0, 100) : '📎 Attachment',
+          title: 'Soporte ha respondido a tu ticket',
+          body: getNotificationBody(reply),
           meta: {
             channelId: '4',
             channelName: 'Help & Support',
@@ -935,8 +984,8 @@ exports.onTicketReplyCreated = onDocumentCreated(
 
         const adminPayload = {
           category: 'channel',
-          title: `${ticket.userName || 'A student'} replied on their ticket`,
-          body: reply.text ? reply.text.substring(0, 100) : '📎 Attachment',
+          title: `${ticket.userName || 'Un estudiante'} ha respondido en su ticket`,
+          body: getNotificationBody(reply),
           meta: {
             channelId: '4',
             channelName: 'Help & Support',
@@ -1050,7 +1099,6 @@ exports.onTicketStatusChanged = onDocumentUpdated(
     const after = event.data.after.data();
     const ticketId = event.params.ticketId;
 
-    // Only fire when status actually changed
     if (before.status === after.status) return null;
     if (!after.userId) return null;
 
@@ -1097,5 +1145,54 @@ exports.onTicketStatusChanged = onDocumentUpdated(
       console.error('Error in onTicketStatusChanged:', error);
       return null;
     }
+  }
+);
+
+exports.onPollVoted = onDocumentUpdated(
+  'channels/{channelId}/messages/{messageId}',
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    if (!after.poll || !before.poll) return null;
+    const beforeVotes = before.poll.totalVotes || 0;
+    const afterVotes = after.poll.totalVotes || 0;
+    if (afterVotes > beforeVotes && after.senderId) {
+      await writeInAppNotifications([after.senderId], {
+        category: 'channel',
+        title: '🗳️ Encuesta',
+        body: 'Alguien ha votado en tu encuesta',
+        meta: {
+          channelId: event.params.channelId,
+          messageId: event.params.messageId,
+          notifSubtype: 'voted_poll'
+        }
+      });
+    }
+    return null;
+  }
+);
+
+exports.onDMPollVoted = onDocumentUpdated(
+  'conversations/{conversationId}/messages/{messageId}',
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    if (!after.poll || !before.poll) return null;
+    const beforeVotes = before.poll.totalVotes || 0;
+    const afterVotes = after.poll.totalVotes || 0;
+    if (afterVotes > beforeVotes && after.senderId) {
+      await writeInAppNotifications([after.senderId], {
+        category: 'dm',
+        title: '🗳️ Encuesta',
+        body: 'Alguien ha votado en tu encuesta',
+        meta: {
+          conversationId: event.params.conversationId,
+          messageId: event.params.messageId,
+          participantId: after.senderId, // Keep tracks of the creator
+          notifSubtype: 'voted_poll'
+        }
+      });
+    }
+    return null;
   }
 );
