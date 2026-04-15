@@ -67,10 +67,10 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
             <Animated.View
                 style={[
                     styles.sheet,
-                    { backgroundColor: colors.card, transform: [{ translateY: slideAnim }] }
+                    { backgroundColor: colors.card + 'F0', transform: [{ translateY: slideAnim }] }
                 ]}
             >
-                <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.backgroundSecondary }]} onPress={onClose}>
+                <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.border + '15' }]} onPress={onClose}>
                     <X size={16} color={colors.text} strokeWidth={2.5} />
                 </TouchableOpacity>
 
@@ -81,11 +81,12 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
                 ) : (
                     <>
                         <View style={styles.avatarWrap}>
+                            <View style={[styles.avatarGlow, { backgroundColor: colors.primary + '15' }]} />
                             {user.photoURL ? (
                                 <Image source={{ uri: user.photoURL }} style={styles.avatar} />
                             ) : (
-                                <View style={[styles.avatarFallback, { backgroundColor: avatarColor(user.uid) }]}>
-                                    <ThemedText style={styles.avatarInitial}>
+                                <View style={[styles.avatarFallback, { backgroundColor: avatarColor(user.uid) + '20' }]}>
+                                    <ThemedText style={[styles.avatarInitial, { color: avatarColor(user.uid) }]}>
                                         {user.displayName.charAt(0).toUpperCase()}
                                     </ThemedText>
                                 </View>
@@ -97,15 +98,15 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
 
                         <View style={styles.actions}>
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
+                                style={[styles.actionBtn, { backgroundColor: colors.primary + '11' }]}
                                 onPress={() => navigate(`/dm/${user.uid}`)}
                             >
-                                <MessageSquare size={22} color={colors.text} strokeWidth={1.8} />
-                                <ThemedText style={styles.actionLabel}>{t('dm.profile.message') || 'Message'}</ThemedText>
+                                <MessageSquare size={22} color={colors.primary} strokeWidth={1.8} />
+                                <ThemedText style={[styles.actionLabel, { color: colors.primary }]}>{t('dm.profile.message') || 'Message'}</ThemedText>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
+                                style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary + '80' }]}
                                 onPress={() => navigate(`/dm/${user.uid}/call?type=audio`)}
                             >
                                 <Phone size={22} color={colors.text} strokeWidth={1.8} />
@@ -113,7 +114,7 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary }]}
+                                style={[styles.actionBtn, { backgroundColor: colors.backgroundSecondary + '80' }]}
                                 onPress={() => navigate(`/dm/${user.uid}/call?type=video`)}
                             >
                                 <Video size={22} color={colors.text} strokeWidth={1.8} />
@@ -122,7 +123,7 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.infoBtn, { backgroundColor: colors.backgroundSecondary }]}
+                            style={[styles.infoBtn, { backgroundColor: colors.card + '80', borderColor: colors.border + '15' }]}
                             onPress={() => navigate(`/dm/${user.uid}/profile`)}
                         >
                             <Info size={18} color={colors.text} strokeWidth={1.8} />
@@ -140,49 +141,54 @@ export function UserPreviewSheet({ userId, onClose }: UserPreviewSheetProps) {
 const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     sheet: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
         paddingTop: spacing.xl,
         paddingHorizontal: spacing.lg,
-        paddingBottom: 40,
+        paddingBottom: 44,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     closeBtn: {
         position: 'absolute',
-        top: spacing.md,
-        right: spacing.md,
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        top: 20,
+        right: 20,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
     },
     loadingWrap: { height: 180, justifyContent: 'center', alignItems: 'center', width: '100%' },
-    avatarWrap: { marginBottom: spacing.md },
-    avatar: { width: 88, height: 88, borderRadius: 44 },
+    avatarWrap: { marginBottom: spacing.md, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+    avatarGlow: { position: 'absolute', width: 110, height: 110, borderRadius: 55 },
+    avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#fff' },
     avatarFallback: {
-        width: 88, height: 88, borderRadius: 44,
+        width: 100, height: 100, borderRadius: 50,
         justifyContent: 'center', alignItems: 'center',
+        borderWidth: 3, borderColor: '#fff',
     },
-    avatarInitial: { color: '#fff', fontSize: 34, fontWeight: '700' },
-    name: { fontSize: typography.sizes.xl, fontWeight: '700', marginBottom: 4 },
-    role: { fontSize: typography.sizes.sm, marginBottom: spacing.lg },
+    avatarInitial: { fontSize: 40, fontWeight: '800' },
+    name: { fontSize: 26, fontWeight: '900', marginBottom: 4, letterSpacing: -0.5 },
+    role: { fontSize: 13, fontWeight: '700', marginBottom: spacing.lg, opacity: 0.6 },
     actions: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md, width: '100%' },
     actionBtn: {
         flex: 1, alignItems: 'center', justifyContent: 'center',
-        paddingVertical: spacing.md, borderRadius: 16, gap: 6,
+        paddingVertical: 18, borderRadius: 20, gap: 8,
     },
-    actionLabel: { fontSize: typography.sizes.xs, fontWeight: '600' },
+    actionLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
     infoBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: spacing.sm, width: '100%', paddingVertical: spacing.md, borderRadius: 16,
+        gap: spacing.sm, width: '100%', paddingVertical: 18, borderRadius: 20,
+        borderWidth: 1,
     },
-    infoBtnText: { fontSize: typography.sizes.sm, fontWeight: '600' },
+    infoBtnText: { fontSize: 14, fontWeight: '800' },
 });
