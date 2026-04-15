@@ -34,7 +34,7 @@ function StatusBadge({ status, t }: { status: TicketStatus; t: (k: string) => st
     : t('support.status_resolved');
   const color = STATUS_COLORS[status];
   return (
-    <View style={[badgeStyles.root, { backgroundColor: color + '22', borderColor: color + '55' }]}>
+    <View style={[badgeStyles.root, { backgroundColor: color + '15', borderColor: color + '30' }]}>
       <View style={[badgeStyles.dot, { backgroundColor: color }]} />
       <ThemedText style={[badgeStyles.text, { color }]}>{label}</ThemedText>
     </View>
@@ -42,9 +42,9 @@ function StatusBadge({ status, t }: { status: TicketStatus; t: (k: string) => st
 }
 
 const badgeStyles = StyleSheet.create({
-  root: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  text: { fontSize: 11, fontWeight: '600' },
+  root: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1 },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
+  text: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
 });
 
 function formatDate(ts: any): string {
@@ -61,9 +61,9 @@ function TicketRow({ ticket, onPress, colors, t }: {
 }) {
   return (
     <TouchableOpacity
-      style={[rowStyles.root, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[rowStyles.root, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}
       onPress={onPress}
-      activeOpacity={0.75}
+      activeOpacity={0.7}
     >
       <View style={rowStyles.body}>
         <View style={rowStyles.top}>
@@ -75,40 +75,49 @@ function TicketRow({ ticket, onPress, colors, t }: {
         <ThemedText style={[rowStyles.desc, { color: colors.textSecondary }]} numberOfLines={2}>
           {ticket.description}
         </ThemedText>
-        <View style={rowStyles.meta}>
-          {ticket.userPhoto ? (
-            <Image source={{ uri: ticket.userPhoto }} style={rowStyles.avatar} />
-          ) : (
-            <View style={[rowStyles.avatarFallback, { backgroundColor: colors.primary }]}>
-              <ThemedText style={rowStyles.avatarLetter}>{(ticket.userName || '?')[0].toUpperCase()}</ThemedText>
+        <View style={rowStyles.footer}>
+          <View style={rowStyles.meta}>
+            <View style={rowStyles.avatarBox}>
+              {ticket.userPhoto ? (
+                <Image source={{ uri: ticket.userPhoto }} style={rowStyles.avatar} />
+              ) : (
+                <View style={[rowStyles.avatarFallback, { backgroundColor: colors.primary + '15' }]}>
+                  <ThemedText style={[rowStyles.avatarLetter, { color: colors.primary }]}>{(ticket.userName || '?')[0].toUpperCase()}</ThemedText>
+                </View>
+              )}
             </View>
-          )}
-          <ThemedText style={[rowStyles.metaText, { color: colors.textSecondary }]}>
-            {ticket.userName}
-          </ThemedText>
-          <ThemedText style={[rowStyles.dot, { color: colors.textSecondary }]}>·</ThemedText>
-          <ThemedText style={[rowStyles.metaText, { color: colors.textSecondary }]}>
-            {formatDate(ticket.createdAt)}
-          </ThemedText>
+            <ThemedText style={[rowStyles.metaText, { color: colors.textSecondary }]}>
+              {ticket.userName}
+            </ThemedText>
+            <ThemedText style={[rowStyles.dot, { color: colors.textSecondary }]}>·</ThemedText>
+            <ThemedText style={[rowStyles.metaText, { color: colors.textSecondary }]}>
+              {formatDate(ticket.createdAt)}
+            </ThemedText>
+          </View>
+          <View style={[rowStyles.arrow, { backgroundColor: colors.primary + '11' }]}>
+            <ChevronRight size={14} color={colors.primary} strokeWidth={3} />
+          </View>
         </View>
       </View>
-      <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
     </TouchableOpacity>
   );
 }
 
 const rowStyles = StyleSheet.create({
-  root: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 14, marginHorizontal: 16, marginVertical: 5, borderWidth: StyleSheet.hairlineWidth, gap: 10 },
-  body: { flex: 1, gap: 5 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'space-between' },
-  title: { flex: 1, fontSize: 15, fontWeight: '600' },
-  desc: { fontSize: 13, lineHeight: 18 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  metaText: { fontSize: 12 },
-  dot: { fontSize: 12 },
-  avatar: { width: 16, height: 16, borderRadius: 8 },
-  avatarFallback: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { fontSize: 9, color: '#FFF', fontWeight: '700' },
+  root: { borderRadius: 28, padding: 20, marginHorizontal: 20, marginVertical: 6, borderWidth: 1 },
+  body: { flex: 1, gap: 10 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'space-between' },
+  title: { flex: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  desc: { fontSize: 14, lineHeight: 22, opacity: 0.7, fontWeight: '600' },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  metaText: { fontSize: 13, fontWeight: '700', opacity: 0.6 },
+  dot: { fontSize: 12, opacity: 0.4 },
+  avatarBox: { width: 20, height: 20, borderRadius: 10, overflow: 'hidden' },
+  avatar: { width: '100%', height: '100%' },
+  avatarFallback: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { fontSize: 10, fontWeight: '900' },
+  arrow: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 });
 
 function ReplyBubble({ reply, colors, currentUserId }: { reply: any; colors: any; currentUserId: string }) {
@@ -116,40 +125,44 @@ function ReplyBubble({ reply, colors, currentUserId }: { reply: any; colors: any
   return (
     <View style={[replyStyles.root, isOwn ? replyStyles.ownSide : replyStyles.otherSide]}>
       {!isOwn && reply.isStaff && (
-        <View style={[replyStyles.staffBadge, { backgroundColor: colors.primary + '18' }]}>
-          <ThemedText style={[replyStyles.staffLabel, { color: colors.primary }]}>Staff</ThemedText>
+        <View style={[replyStyles.staffBadge, { backgroundColor: colors.primary + '20' }]}>
+          <ThemedText style={[replyStyles.staffLabel, { color: colors.primary }]}>CAMPUS TEAM</ThemedText>
         </View>
       )}
       <View style={[
         replyStyles.bubble,
-        { backgroundColor: isOwn ? colors.primary : colors.card, borderColor: colors.border },
+        { backgroundColor: isOwn ? colors.primary : colors.card + '90', borderColor: colors.border + '15' },
+        isOwn ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }
       ]}>
         {!isOwn && (
           <ThemedText style={[replyStyles.author, { color: colors.primary }]}>
-            {reply.isStaff ? 'Support Team' : reply.authorName}
+            {reply.isStaff ? 'Soporte Campus Hub' : reply.authorName}
           </ThemedText>
         )}
         <ThemedText style={[replyStyles.text, { color: isOwn ? '#fff' : colors.text }]}>
           {reply.text}
         </ThemedText>
-        <ThemedText style={[replyStyles.time, { color: isOwn ? 'rgba(255,255,255,0.65)' : colors.textSecondary }]}>
-          {formatDate(reply.createdAt)}
-        </ThemedText>
+        <View style={replyStyles.timeRow}>
+          <ThemedText style={[replyStyles.time, { color: isOwn ? 'rgba(255,255,255,0.7)' : colors.textSecondary }]}>
+            {formatDate(reply.createdAt)}
+          </ThemedText>
+        </View>
       </View>
     </View>
   );
 }
 
 const replyStyles = StyleSheet.create({
-  root: { marginVertical: 4, marginHorizontal: 16, maxWidth: '80%' },
+  root: { marginVertical: 8, marginHorizontal: 20, maxWidth: '85%' },
   otherSide: { alignSelf: 'flex-start' },
   ownSide: { alignSelf: 'flex-end', alignItems: 'flex-end' },
-  staffBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1, alignSelf: 'flex-end', marginBottom: 2 },
-  staffLabel: { fontSize: 10, fontWeight: '700' },
-  bubble: { borderRadius: 14, padding: 10, borderWidth: StyleSheet.hairlineWidth, gap: 3 },
-  author: { fontSize: 12, fontWeight: '700' },
-  text: { fontSize: 14, lineHeight: 20 },
-  time: { fontSize: 11, marginTop: 2 },
+  staffBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 6 },
+  staffLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  bubble: { borderRadius: 24, padding: 16, borderWidth: 1, gap: 6 },
+  author: { fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  text: { fontSize: 15, lineHeight: 24, fontWeight: '500' },
+  timeRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2 },
+  time: { fontSize: 11, fontWeight: '600', opacity: 0.5 },
 });
 
 function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }: {
@@ -221,7 +234,7 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
             contentContainerStyle={detailStyles.scrollContent}
             onContentSizeChange={() => { }}
           >
-            <View style={[detailStyles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[detailStyles.infoCard, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
               <ThemedText style={[detailStyles.ticketTitle, { color: colors.text }]}>
                 {ticket.title}
               </ThemedText>
@@ -233,8 +246,8 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
                   {ticket.userName} · {formatDate(ticket.createdAt)}
                 </ThemedText>
               </View>
-              <View style={[detailStyles.descBox, { backgroundColor: colors.backgroundSecondary || colors.background }]}>
-                <ThemedText style={[detailStyles.descLabel, { color: colors.textSecondary }]}>
+              <View style={[detailStyles.descBox, { backgroundColor: colors.primary + '08' }]}>
+                <ThemedText style={[detailStyles.descLabel, { color: colors.primary }]}>
                   {t('support.your_description')}
                 </ThemedText>
                 <ThemedText style={[detailStyles.descText, { color: colors.text }]}>
@@ -296,9 +309,9 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
             <View style={{ height: 20 }} />
           </ScrollView>
 
-          <View style={[detailStyles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 8) }]}>
+          <View style={[detailStyles.inputRow, { backgroundColor: colors.card + 'F0', borderTopColor: colors.border + '15', paddingBottom: Math.max(insets.bottom, 8) }]}>
             <TextInput
-              style={[detailStyles.replyInput, { backgroundColor: colors.backgroundSecondary || colors.background, color: colors.text, borderColor: colors.border }]}
+              style={[detailStyles.replyInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border + '15' }]}
               placeholder={t('support.reply_placeholder')}
               placeholderTextColor={colors.textSecondary}
               value={replyText}
@@ -307,14 +320,14 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
               maxLength={1000}
             />
             <TouchableOpacity
-              style={[detailStyles.sendBtn, { backgroundColor: replyText.trim() ? colors.primary : colors.border }]}
+              style={[detailStyles.sendBtn, { backgroundColor: replyText.trim() ? colors.primary : colors.border + '30' }]}
               onPress={handleSendReply}
               disabled={!replyText.trim() || sending}
               activeOpacity={0.8}
             >
               {sending
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Send size={18} color="#fff" strokeWidth={2} />}
+                : <Send size={18} color="#fff" strokeWidth={2.5} />}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -325,24 +338,24 @@ function TicketDetailModal({ ticket, onClose, colors, t, isStaff, currentUser }:
 
 const detailStyles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerTitle: { flex: 1, fontSize: 16, fontWeight: '700' },
-  scrollContent: { padding: 16, gap: 12 },
-  infoCard: { borderRadius: 14, padding: 14, borderWidth: StyleSheet.hairlineWidth, gap: 8 },
-  ticketTitle: { fontSize: 18, fontWeight: '700', lineHeight: 24 },
-  metaRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  metaLabel: { fontSize: 13 },
-  metaValue: { fontSize: 13, fontWeight: '500' },
-  descBox: { borderRadius: 10, padding: 12, marginTop: 4 },
-  descLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  descText: { fontSize: 14, lineHeight: 20 },
-  statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  statusBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
-  statusBtnText: { fontSize: 13, fontWeight: '600' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  replyInput: { flex: 1, borderRadius: 20, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, maxHeight: 100 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  scrollContent: { padding: 16, gap: 16 },
+  infoCard: { borderRadius: 28, padding: 20, borderWidth: 1, gap: 12 },
+  ticketTitle: { fontSize: 20, fontWeight: '900', lineHeight: 28, letterSpacing: -0.5 },
+  metaRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
+  metaLabel: { fontSize: 12, fontWeight: '600' },
+  metaValue: { fontSize: 12, fontWeight: '800' },
+  descBox: { borderRadius: 20, padding: 18, marginTop: 4 },
+  descLabel: { fontSize: 10, fontWeight: '900', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
+  descText: { fontSize: 15, lineHeight: 24, fontWeight: '500' },
+  statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 4 },
+  statusBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1 },
+  statusBtnText: { fontSize: 13, fontWeight: '800' },
+  sectionTitle: { fontSize: 12, fontWeight: '900', marginHorizontal: 20, marginTop: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.5 },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 10, paddingVertical: 10, borderTopWidth: 1 },
+  replyInput: { flex: 1, borderRadius: 24, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 12, fontSize: 15, maxHeight: 120, fontWeight: '600' },
+  sendBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 });
 
 function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
@@ -398,8 +411,8 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
             {t('support.ticket_title')}
           </ThemedText>
           <TextInput
-            style={[newStyles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-            placeholder={t('support.ticket_title_placeholder')}
+            style={[newStyles.input, { backgroundColor: colors.card + '90', color: colors.text, borderColor: colors.border + '15' }]}
+            placeholder={t('support.ticket_title_placeholder') || 'Escribe un título breve...'}
             placeholderTextColor={colors.textSecondary}
             value={title}
             onChangeText={setTitle}
@@ -411,8 +424,8 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
             {t('support.ticket_description')}
           </ThemedText>
           <TextInput
-            style={[newStyles.textarea, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-            placeholder={t('support.ticket_description_placeholder')}
+            style={[newStyles.textarea, { backgroundColor: colors.card + '90', color: colors.text, borderColor: colors.border + '15' }]}
+            placeholder={t('support.ticket_description_placeholder') || 'Explica tu problema con detalle...'}
             placeholderTextColor={colors.textSecondary}
             value={description}
             onChangeText={setDescription}
@@ -424,7 +437,7 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
           <TouchableOpacity
             style={[
               newStyles.submitBtn,
-              { backgroundColor: title.trim() && description.trim() ? colors.primary : colors.border },
+              { backgroundColor: title.trim() && description.trim() ? colors.primary : colors.border + '30' },
             ]}
             onPress={handleSubmit}
             disabled={!title.trim() || !description.trim() || submitting}
@@ -432,7 +445,7 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
           >
             {submitting
               ? <ActivityIndicator color="#fff" />
-              : <ThemedText style={newStyles.submitText}>{t('support.submit')}</ThemedText>}
+              : <ThemedText style={newStyles.submitText}>{t('support.submit') || 'Enviar Ticket'}</ThemedText>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -442,21 +455,45 @@ function NewTicketModal({ onClose, onCreated, colors, t, currentUser }: {
 
 const newStyles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
-  content: { padding: 20, gap: 8 },
-  label: { fontSize: 13, fontWeight: '600', marginTop: 12 },
-  input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
-  textarea: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, height: 160, marginBottom: 4 },
-  submitBtn: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 16 },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
+  content: { padding: 24, gap: 12 },
+  label: { fontSize: 12, fontWeight: '800', marginTop: 16, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 },
+  input: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 16, fontSize: 15, fontWeight: '600' },
+  textarea: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 16, fontSize: 15, height: 180, marginBottom: 4, fontWeight: '600' },
+  submitBtn: { borderRadius: 20, paddingVertical: 18, alignItems: 'center', marginTop: 24 },
+  submitText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });
 
-function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
+const infoStyles = StyleSheet.create({
+  screen: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
+  content: { alignItems: 'center', padding: 24, gap: 20 },
+  photoWrap: { position: 'relative', marginBottom: 8, padding: 4 },
+  photoContainer: { width: 130, height: 130, borderRadius: 65, overflow: 'hidden', backgroundColor: 'rgba(128,128,128,0.1)' },
+  photo: { width: '100%', height: '100%', borderRadius: 65, borderWidth: 4, borderColor: '#fff' },
+  photoPlaceholder: { width: '100%', height: '100%', borderRadius: 65, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#fff' },
+  cameraBtn: { position: 'absolute', bottom: 6, right: 6, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#fff', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
+  channelName: { fontSize: 26, fontWeight: '900', textAlign: 'center', letterSpacing: -1 },
+  descCard: { width: '100%', borderRadius: 24, padding: 20, borderWidth: 1, gap: 10 },
+  descLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.2 },
+  descText: { fontSize: 15, lineHeight: 24, opacity: 0.8 },
+  descInput: { fontSize: 15, lineHeight: 24, borderWidth: 1, borderRadius: 16, padding: 16, minHeight: 100, textAlignVertical: 'top' },
+  descBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
+  descBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  compactInfo: { width: '100%', borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 18, paddingHorizontal: 20, borderBottomWidth: 1 },
+  infoLabel: { fontSize: 14, fontWeight: '700', opacity: 0.7 },
+  infoValue: { fontSize: 14, fontWeight: '800' },
+  infoBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+});
+
+function ChannelInfoModal({ onClose, colors, t, isStaff }: {
   onClose: () => void;
   colors: any;
   t: (k: string) => string;
-  isAdmin: boolean;
+  isStaff: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [photoURL, setPhotoURL] = useState<string | null>(null);
@@ -521,80 +558,86 @@ function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
         </View>
 
         <ScrollView contentContainerStyle={infoStyles.content}>
-          <View style={infoStyles.photoWrap}>
-            {photoURL ? (
-              <Image source={{ uri: photoURL }} style={infoStyles.photo} />
-            ) : (
-              <View style={[infoStyles.photoPlaceholder, { backgroundColor: colors.primary + '22' }]}>
-                <TicketCheck size={48} color={colors.primary} strokeWidth={1.5} />
-              </View>
-            )}
-            {isAdmin && (
-              <TouchableOpacity
-                style={[infoStyles.cameraBtn, { backgroundColor: colors.primary }]}
-                onPress={handlePickPhoto}
-                disabled={uploading}
-                activeOpacity={0.8}
-              >
+          <TouchableOpacity 
+            style={infoStyles.photoWrap}
+            activeOpacity={isStaff ? 0.7 : 1}
+            onPress={isStaff ? handlePickPhoto : undefined}
+            disabled={uploading}
+          >
+            <View style={infoStyles.photoContainer}>
+              {photoURL ? (
+                <Image source={{ uri: photoURL }} style={infoStyles.photo} />
+              ) : (
+                <View style={[infoStyles.photoPlaceholder, { backgroundColor: colors.primary + '15' }]}>
+                  <TicketCheck size={48} color={colors.primary} strokeWidth={1.5} />
+                </View>
+              )}
+            </View>
+            {isStaff && (
+              <View style={[infoStyles.cameraBtn, { backgroundColor: colors.primary }]}>
                 {uploading
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Camera size={18} color="#fff" strokeWidth={2} />}
-              </TouchableOpacity>
+                  : <Camera size={18} color="#fff" strokeWidth={2.5} />}
+              </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           <ThemedText style={[infoStyles.channelName, { color: colors.text }]}>{name}</ThemedText>
 
-          <View style={[infoStyles.descCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <ThemedText style={[infoStyles.descLabel, { color: colors.textSecondary }]}>
-              {t('support.channel_description') || 'Description'}
+          <View style={[infoStyles.descCard, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
+            <ThemedText style={[infoStyles.descLabel, { color: colors.primary }]}>
+              {t('support.channel_description') || 'Descripción del canal'}
             </ThemedText>
-            {isAdmin && isEditingDesc ? (
+            {isStaff && isEditingDesc ? (
               <>
                 <TextInput
-                  style={[infoStyles.descInput, { color: colors.text, borderColor: colors.border }]}
+                  style={[infoStyles.descInput, { color: colors.text, borderColor: colors.primary + '30', backgroundColor: colors.background }]}
                   value={editDesc}
                   onChangeText={setEditDesc}
                   multiline
                   maxLength={300}
                   autoFocus
-                  placeholder={t('chat.info.description_placeholder') || 'Add a description\u2026'}
+                  placeholder={t('chat.info.description_placeholder') || 'Añade una descripción\u2026'}
                   placeholderTextColor={colors.textSecondary}
                 />
                 <View style={infoStyles.descBtns}>
-                  <TouchableOpacity onPress={() => setIsEditingDesc(false)} style={[infoStyles.descBtn, { backgroundColor: colors.border + '80' }]}>
-                    <ThemedText style={{ fontSize: 13 }}>{t('common.cancel') || 'Cancel'}</ThemedText>
+                  <TouchableOpacity onPress={() => setIsEditingDesc(false)} style={[infoStyles.descBtn, { backgroundColor: colors.border + '15' }]}>
+                    <ThemedText style={{ fontSize: 13, fontWeight: '700' }}>{t('common.cancel') || 'Cancelar'}</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleSaveDesc} style={[infoStyles.descBtn, { backgroundColor: colors.primary }]}>
-                    <ThemedText style={{ fontSize: 13, color: '#fff', fontWeight: '600' }}>{t('common.save') || 'Save'}</ThemedText>
+                    <ThemedText style={{ fontSize: 13, color: '#fff', fontWeight: '800' }}>{t('common.save') || 'Guardar'}</ThemedText>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
-              <TouchableOpacity activeOpacity={isAdmin ? 0.6 : 1} onPress={() => {
-                if (!isAdmin) return;
+              <TouchableOpacity activeOpacity={isStaff ? 0.6 : 1} onPress={() => {
+                if (!isStaff) return;
                 setEditDesc(description);
                 setIsEditingDesc(true);
               }}>
                 {description ? (
                   <ThemedText style={[infoStyles.descText, { color: colors.text }]}>{description}</ThemedText>
-                ) : isAdmin ? (
-                  <ThemedText style={[infoStyles.descText, { color: colors.primary + 'CC' }]}>
-                    {t('chat.info.add_description') || '+ Add description'}
+                ) : isStaff ? (
+                  <ThemedText style={[infoStyles.descText, { color: colors.primary, fontWeight: '700' }]}>
+                    {t('chat.info.add_description') || '+ Añadir descripción'}
                   </ThemedText>
                 ) : null}
               </TouchableOpacity>
             )}
           </View>
 
-          <View style={[infoStyles.compactInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[infoStyles.infoRow, { borderBottomColor: colors.border }]}>
-              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.type') || 'Type'}</ThemedText>
-              <ThemedText style={[infoStyles.infoValue, { color: colors.text }]}>{t('chat.info.public_channel') || 'Public channel'}</ThemedText>
+          <View style={[infoStyles.compactInfo, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
+            <View style={[infoStyles.infoRow, { borderBottomColor: colors.border + '10' }]}>
+              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.type') || 'Tipo'}</ThemedText>
+              <View style={[infoStyles.infoBadge, { backgroundColor: colors.primary + '15' }]}>
+                <ThemedText style={[infoStyles.infoValue, { color: colors.primary }]}>{t('chat.info.public_channel') || 'Canal público'}</ThemedText>
+              </View>
             </View>
             <View style={infoStyles.infoRow}>
-              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.members_label') || 'Members'}</ThemedText>
-              <ThemedText style={[infoStyles.infoValue, { color: colors.text }]}>{memberCount !== null ? String(memberCount) : (t('chat.info.all_users') || 'All users')}</ThemedText>
+              <ThemedText style={[infoStyles.infoLabel, { color: colors.textSecondary }]}>{t('chat.info.members_label') || 'Miembros'}</ThemedText>
+              <ThemedText style={[infoStyles.infoValue, { color: colors.text }]}>
+                {t('chat.info.all_users') || 'Todos los usuarios'}
+              </ThemedText>
             </View>
           </View>
         </ScrollView>
@@ -603,27 +646,7 @@ function ChannelInfoModal({ onClose, colors, t, isAdmin }: {
   );
 }
 
-const infoStyles = StyleSheet.create({
-  screen: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
-  content: { alignItems: 'center', padding: 24, gap: 16 },
-  photoWrap: { position: 'relative', marginBottom: 4 },
-  photo: { width: 100, height: 100, borderRadius: 50 },
-  photoPlaceholder: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
-  cameraBtn: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
-  channelName: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  descCard: { width: '100%', borderRadius: 12, padding: 14, borderWidth: StyleSheet.hairlineWidth, gap: 6 },
-  descLabel: { fontSize: 12, fontWeight: '600' },
-  descText: { fontSize: 14, lineHeight: 20 },
-  descInput: { fontSize: 14, lineHeight: 20, borderWidth: 1, borderRadius: 8, padding: 8, minHeight: 64, textAlignVertical: 'top', marginTop: 4 },
-  descBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
-  descBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 9 },
-  compactInfo: { width: '100%', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  infoLabel: { fontSize: 14 },
-  infoValue: { fontSize: 14, fontWeight: '500' },
-});
+
 
 type FilterStatus = 'all' | TicketStatus;
 
@@ -683,7 +706,13 @@ export function SupportChannel() {
             return (
               <TouchableOpacity
                 key={f.key}
-                style={[styles.pill, active && { backgroundColor: colors.primary }]}
+                style={[
+                  styles.pill, 
+                  { 
+                    backgroundColor: active ? colors.primary : colors.card + '80',
+                    borderColor: active ? colors.primary : colors.border + '15'
+                  }
+                ]}
                 onPress={() => setFilter(f.key)}
                 activeOpacity={0.75}
               >
@@ -742,7 +771,7 @@ export function SupportChannel() {
         onPress={() => setShowNewTicket(true)}
         activeOpacity={0.85}
       >
-        <Plus size={22} color="#fff" strokeWidth={2.5} />
+        <Plus size={22} color="#fff" strokeWidth={3} />
         <ThemedText style={styles.fabText}>{t('support.new_ticket')}</ThemedText>
       </TouchableOpacity>
 
@@ -770,7 +799,7 @@ export function SupportChannel() {
           onClose={() => setShowInfo(false)}
           colors={colors}
           t={t}
-          isAdmin={isAdmin}
+          isStaff={isStaff}
         />
       )}
     </View>
@@ -779,46 +808,23 @@ export function SupportChannel() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  filterBar: { borderBottomWidth: StyleSheet.hairlineWidth },
-  filters: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 20,
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(120,120,128,0.12)',
-  },
-  pillText: { fontSize: 13, fontWeight: '600' },
-  pillBadge: { borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, minWidth: 18, alignItems: 'center' },
-  pillBadgeText: { fontSize: 11, fontWeight: '700' },
-  list: { paddingTop: 10 },
-  emptyContainer: { flexGrow: 1 },
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 80, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', textAlign: 'center' },
-  emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  filterBar: { paddingVertical: 12, borderBottomWidth: 1 },
+  filters: { paddingHorizontal: 16, gap: 10 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, borderWidth: 1 },
+  pillText: { fontSize: 13, fontWeight: '800' },
+  pillBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  pillBadgeText: { fontSize: 10, fontWeight: '900' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  list: { paddingVertical: 12 },
+  emptyContainer: { flexGrow: 1, justifyContent: 'center' },
+  emptyWrap: { alignItems: 'center', gap: 12, paddingHorizontal: 40, marginTop: -40 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
+  emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 22, opacity: 0.7 },
   fab: {
-    position: 'absolute',
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    position: 'absolute', right: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 22, paddingVertical: 16,
+    borderRadius: 30, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8,
   },
-  fabText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  fabText: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
 });
