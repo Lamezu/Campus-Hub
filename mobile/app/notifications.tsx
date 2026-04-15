@@ -131,11 +131,11 @@ function GroupCard({
 }) {
   return (
     <TouchableOpacity
-      style={[styles.groupCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+      style={[styles.groupCard, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.groupIcon, { backgroundColor: colors.primary + '20' }]}>{icon}</View>
+      <View style={[styles.groupIcon, { backgroundColor: colors.primary + '15' }]}>{icon}</View>
       <View style={styles.groupInfo}>
         <ThemedText style={[styles.groupName, { color: colors.text }]} numberOfLines={1}>{name}</ThemedText>
         <ThemedText style={[styles.groupSub, { color: colors.textSecondary }]} numberOfLines={1}>{subtitle}</ThemedText>
@@ -146,8 +146,10 @@ function GroupCard({
             <ThemedText style={styles.badgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</ThemedText>
           </View>
         )}
-        <ThemedText style={[styles.groupTime, { color: colors.textSecondary }]}>{latestTime}</ThemedText>
-        <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
+        <View style={styles.timeRow}>
+          <ThemedText style={[styles.groupTime, { color: colors.textSecondary }]}>{latestTime}</ThemedText>
+          <ChevronRight size={14} color={colors.textSecondary} strokeWidth={3} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -496,15 +498,19 @@ export default function NotificationsScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.item, { borderBottomColor: colors.border }, !item.read && { backgroundColor: colors.primary + '0A' }]}
+        style={[
+          styles.item, 
+          { backgroundColor: item.read ? colors.card + '50' : colors.primary + '11' },
+          { borderColor: colors.border + '15' }
+        ]}
         onPress={() => handlePress(item)}
         activeOpacity={0.7}
       >
-        <View style={[styles.iconBox, { backgroundColor: colors.backgroundSecondary }]}>
+        <View style={[styles.iconBox, { backgroundColor: colors.card + '90' }]}>
           <NotificationIcon item={item} color={colors.primary} />
         </View>
         <View style={styles.itemContent}>
-          <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '700' }]} numberOfLines={1}>
+          <ThemedText style={[styles.itemTitle, { color: colors.text }, !item.read && { fontWeight: '800' }]} numberOfLines={1}>
             {displayTitle}
           </ThemedText>
           <ThemedText style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>
@@ -532,20 +538,20 @@ export default function NotificationsScreen() {
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
-        </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border + '15' }]}>
+        <View style={styles.headerSide}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+            <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{screenTitle}</ThemedText>
-        {unreadCount > 0 ? (
+        <View style={styles.headerSide}>
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
             <ThemedText style={[styles.markAllText, { color: colors.primary }]}>
-              {t('notifications.mark_all_read') || 'Mark All Read'}
+              {t('notifications.mark_all_read') || 'Read all'}
             </ThemedText>
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 64 }} />
-        )}
+        </View>
       </View>
 
       {category === 'channel' && !drillGroupId && (
@@ -708,45 +714,47 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth, justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, justifyContent: 'space-between',
   },
   backBtn: { padding: 4, width: 32 },
-  headerTitle: { fontSize: typography.sizes.md, fontWeight: '700', lineHeight: 20, flex: 1, textAlign: 'center' },
-  markAllBtn: { width: 64, alignItems: 'flex-end' },
-  markAllText: { fontSize: typography.sizes.sm, fontWeight: '600', lineHeight: 18 },
-  sectionHeader: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  sectionTitle: { fontSize: typography.sizes.xs, fontWeight: '700', lineHeight: 16, textTransform: 'uppercase', letterSpacing: 0.6 },
+  headerSide: { width: 80, justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.5, flex: 1, textAlign: 'center' },
+  markAllBtn: { alignItems: 'flex-end' },
+  markAllText: { fontSize: 13, fontWeight: '800' },
+  sectionHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1, opacity: 0.6 },
   item: {
     flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: spacing.sm,
+    padding: 16, marginHorizontal: 16, marginVertical: 4,
+    borderRadius: 20, borderWidth: 1, gap: 12,
   },
-  iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', flexShrink: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   itemContent: { flex: 1, gap: 2 },
-  itemTitle: { fontSize: typography.sizes.md, lineHeight: 20 },
-  itemBody: { fontSize: typography.sizes.sm, lineHeight: 18 },
-  itemRight: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },
-  itemTime: { fontSize: typography.sizes.xs, lineHeight: 16 },
+  itemTitle: { fontSize: 15, lineHeight: 20, letterSpacing: -0.2 },
+  itemBody: { fontSize: 13, lineHeight: 18, opacity: 0.7 },
+  itemRight: { alignItems: 'flex-end', gap: 6, flexShrink: 0, paddingTop: 2 },
+  itemTime: { fontSize: 11, fontWeight: '600', opacity: 0.5 },
   unreadDot: { width: 8, height: 8, borderRadius: 4 },
-  groupList: { padding: spacing.md, gap: spacing.sm },
+  groupList: { padding: 16, gap: 10 },
   groupCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    padding: spacing.md, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 16, borderRadius: 24, borderWidth: 1,
   },
-  groupIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  groupIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   groupInfo: { flex: 1, gap: 3 },
-  groupName: { fontSize: typography.sizes.md, fontWeight: '600', lineHeight: 20 },
-  groupSub: { fontSize: typography.sizes.sm, lineHeight: 18 },
-  groupRight: { alignItems: 'flex-end', gap: 4, flexShrink: 0 },
-  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, justifyContent: 'center', alignItems: 'center' },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 14 },
-  groupTime: { fontSize: typography.sizes.xs, lineHeight: 16 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  modalCard: { width: '100%', borderRadius: 16, padding: spacing.lg, gap: spacing.sm },
-  modalTitle: { fontSize: typography.sizes.lg, fontWeight: '700', lineHeight: 24 },
-  modalBody: { fontSize: typography.sizes.md, lineHeight: 22 },
-  modalActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  modalBtn: { flex: 1, flexDirection: 'row', gap: 6, paddingVertical: spacing.sm + 2, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth },
-  modalBtnText: { fontSize: typography.sizes.md, fontWeight: '600', lineHeight: 20 },
+  groupName: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  groupSub: { fontSize: 13, opacity: 0.7 },
+  groupRight: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  groupTime: { fontSize: 11, fontWeight: '700', opacity: 0.5 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { width: '100%', borderRadius: 28, padding: 24, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  modalTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  modalBody: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  modalBtn: { flex: 1, flexDirection: 'row', gap: 8, paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  modalBtnText: { fontSize: 15, fontWeight: '800' },
 });

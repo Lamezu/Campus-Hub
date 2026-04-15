@@ -43,7 +43,7 @@ export default function SettingsScreen() {
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
-  const [globalTone, setGlobalTone] = useState('Melody');
+  const [globalTone, setGlobalTone] = useState('default');
   const currentUser = auth.currentUser;
   const { theme, colors, setTheme, setCustomPrimary, customPrimary } = useTheme();
   const { t, language, setLanguage } = useTranslation();
@@ -66,23 +66,32 @@ export default function SettingsScreen() {
   }, [currentUser]);
 
   const handleLogout = async () => {
+    const doLogout = async () => {
+      try {
+        await signOut(auth);
+        router.replace('/auth/login');
+      } catch {
+        if (Platform.OS === 'web') {
+          window.alert(t('settings.logout_error') || 'Logout Error');
+        } else {
+          Alert.alert(t('common.error') || 'Error', t('settings.logout_error') || 'Logout Error');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(t('common.logout_confirm') || '¿Cerrar sesión?')) {
+        await doLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       t('common.logout'),
       t('common.logout_confirm') || 'Logout Confirm',
       [
         { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.logout'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              router.replace('/auth/login');
-            } catch (error) {
-              Alert.alert(t('common.error') || 'Error', t('settings.logout_error') || 'Logout Error');
-            }
-          }
-        }
+        { text: t('common.logout'), style: 'destructive', onPress: doLogout }
       ]
     );
   };
@@ -91,13 +100,15 @@ export default function SettingsScreen() {
     <TouchableOpacity
       style={[
         styles.themeOption,
-        { borderColor: current ? colors.primary : colors.border },
-        current && { backgroundColor: colors.primary + '11' }
+        { 
+          backgroundColor: current ? colors.primary + '15' : colors.card + '90',
+          borderColor: current ? colors.primary : colors.border + '15' 
+        }
       ]}
       onPress={() => setTheme(id)}
     >
-      <ThemedText style={[styles.themeLabel, current && { color: colors.primary }]}>{label}</ThemedText>
-      {current && <ThemedText style={{ color: colors.primary }}>✓</ThemedText>}
+      <ThemedText style={[styles.themeLabel, { color: current ? colors.primary : colors.text }]}>{label}</ThemedText>
+      {current && <Check size={18} color={colors.primary} strokeWidth={3} />}
     </TouchableOpacity>
   );
 
@@ -118,22 +129,28 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (userData?.settings?.globalMute) setGlobalMute(userData.settings.globalMute);
-    if (userData?.settings?.globalTone) setGlobalTone(userData.settings.globalTone);
+    if (userData?.settings?.globalTone) {
+      setGlobalTone(userData.settings.globalTone);
+    } else if (userData && !userData.settings?.globalTone && currentUser) {
+      updateDoc(doc(db, 'users', currentUser.uid), { 'settings.globalTone': 'default' }).catch(() => {});
+    }
   }, [userData]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.card }]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.card} translucent={false} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <Stack.Screen options={{
         title: t('settings.title'),
         headerShown: true,
-        headerStyle: { backgroundColor: colors.card },
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
         headerTintColor: colors.text,
+        headerTitleStyle: { fontWeight: '800', fontSize: 17 },
         headerBackTitle: '',
       }} />
-      <ThemedView style={styles.container}>
+      <View style={styles.container}>
         <ScrollView contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 40 : 20 }}>
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('settings.change_language')}</ThemedText>
             <View style={styles.languageContainer}>
               {[
@@ -146,7 +163,10 @@ export default function SettingsScreen() {
                     key={item.id}
                     style={[
                       styles.langBtn,
-                      { backgroundColor: isSelected ? colors.primary + '15' : colors.backgroundSecondary, borderColor: isSelected ? colors.primary : colors.border }
+                      { 
+                        backgroundColor: isSelected ? colors.primary + '15' : colors.card + '90', 
+                        borderColor: isSelected ? colors.primary : colors.border + '15' 
+                      }
                     ]}
                     onPress={() => setLanguage(item.id as any)}
                     activeOpacity={0.7}
@@ -162,7 +182,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('settings.appearance')}</ThemedText>
             <View style={styles.themeGrid}>
               <ThemeOption id="light" label={t('common.theme_light') || 'Theme Light'} current={theme === 'light'} />
@@ -171,17 +191,17 @@ export default function SettingsScreen() {
               <ThemeOption id="pastel" label={t('common.theme_pastel') || 'Theme Pastel'} current={theme === 'pastel'} />
             </View>
           </View>
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('settings.custom_color') || 'Custom Color'}</ThemedText>
             <ThemedText style={styles.sectionDescription}>{t('settings.custom_color_desc') || 'Custom Color Desc'}</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.colorScroll} contentContainerStyle={{ paddingRight: 20 }}>
               {PRESET_COLORS.map(color => (
                 <TouchableOpacity
                   key={color}
                   style={[
                     styles.colorSwatch,
-                    { backgroundColor: color },
-                    customPrimary === color && theme === 'monochromatic' && { borderWidth: 3, borderColor: colors.text }
+                    { backgroundColor: color, borderColor: colors.border + '15', borderWidth: 1 },
+                    customPrimary === color && { borderWidth: 3, borderColor: theme === 'dark' ? '#fff' : '#000' }
                   ]}
                   onPress={() => setCustomPrimary(color)}
                 />
@@ -189,39 +209,48 @@ export default function SettingsScreen() {
             </ScrollView>
           </View>
 
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('common.profile')}</ThemedText>
-            <View style={styles.infoColumn}>
-              <ThemedText style={styles.label}>{t('common.name') || 'Name'}</ThemedText>
-              <ThemedText style={styles.value}>{userData?.displayName || currentUser?.displayName || 'User'}</ThemedText>
-            </View>
-            <TouchableOpacity
-              style={styles.infoColumn}
-              activeOpacity={0.7}
-              onPress={() => setShowFullEmail(v => !v)}
-            >
-              <ThemedText style={styles.label}>Email</ThemedText>
-              <ThemedText
-                style={styles.value}
-                numberOfLines={showFullEmail ? 0 : 1}
-                ellipsizeMode="tail"
+            <View style={[styles.profileCard, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}>
+              <View style={styles.infoColumn}>
+                <ThemedText style={styles.label}>{t('common.name') || 'Name'}</ThemedText>
+                <ThemedText style={styles.value}>{userData?.displayName || currentUser?.displayName || 'User'}</ThemedText>
+              </View>
+              <View style={[styles.divider, { backgroundColor: colors.border + '10' }]} />
+              <TouchableOpacity
+                style={styles.infoColumn}
+                activeOpacity={0.7}
+                onPress={() => setShowFullEmail(v => !v)}
               >
-                {userData?.email || currentUser?.email}
-              </ThemedText>
-            </TouchableOpacity>
+                <ThemedText style={styles.label}>Email</ThemedText>
+                <ThemedText
+                  style={styles.value}
+                  numberOfLines={showFullEmail ? 0 : 1}
+                  ellipsizeMode="tail"
+                >
+                  {userData?.email || currentUser?.email}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('settings.notifications')}</ThemedText>
             <ThemedText style={styles.sectionDescription}>{t('settings.mute_description') || 'Mute Description'}</ThemedText>
             <View style={styles.notifGroup}>
               {MUTE_OPTIONS(t).map(opt => (
                 <TouchableOpacity
                   key={opt.value}
-                  style={[styles.notifOption, { borderColor: globalMute === opt.value ? colors.primary : colors.border }, globalMute === opt.value && { backgroundColor: colors.primary + '11' }]}
+                  style={[
+                    styles.notifOption, 
+                    { 
+                      backgroundColor: globalMute === opt.value ? colors.primary + '11' : colors.card + '90',
+                      borderColor: globalMute === opt.value ? colors.primary : colors.border + '15' 
+                    }
+                  ]}
                   onPress={() => handleMuteChange(opt.value)}
                 >
-                  <ThemedText style={[styles.notifLabel, globalMute === opt.value && { color: colors.primary }]}>{opt.label}</ThemedText>
-                  {globalMute === opt.value && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                  <ThemedText style={[styles.notifLabel, { color: globalMute === opt.value ? colors.primary : colors.text }]}>{opt.label}</ThemedText>
+                  {globalMute === opt.value && <Check size={18} color={colors.primary} strokeWidth={3} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -230,27 +259,33 @@ export default function SettingsScreen() {
               {ALERT_TONES(t).map(tone => (
                 <TouchableOpacity
                   key={tone.value}
-                  style={[styles.notifOption, { borderColor: globalTone === tone.value ? colors.primary : colors.border }, globalTone === tone.value && { backgroundColor: colors.primary + '11' }]}
+                  style={[
+                    styles.notifOption, 
+                    { 
+                      backgroundColor: globalTone === tone.value ? colors.primary + '11' : colors.card + '90',
+                      borderColor: globalTone === tone.value ? colors.primary : colors.border + '15' 
+                    }
+                  ]}
                   onPress={() => handleToneChange(tone.value)}
                 >
-                  <ThemedText style={[styles.notifLabel, globalTone === tone.value && { color: colors.primary }]}>{tone.label}</ThemedText>
-                  {globalTone === tone.value && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                  <ThemedText style={[styles.notifLabel, { color: globalTone === tone.value ? colors.primary : colors.text }]}>{tone.label}</ThemedText>
+                  {globalTone === tone.value && <Check size={18} color={colors.primary} strokeWidth={3} />}
                 </TouchableOpacity>
               ))}
             </View>
           </View>
-          <View style={[styles.section, { borderBottomColor: colors.border }]}>
+          <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>{t('settings.account')}</ThemedText>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.border }]}
+              style={[styles.button, { backgroundColor: colors.card + '90', borderWidth: 1, borderColor: colors.border + '15' }]}
               onPress={() => router.push('/accounts' as never)}
             >
               <ThemedText style={[styles.buttonText, { color: colors.text }]}>
                 {t('settings.manage_accounts')}
               </ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, { backgroundColor: colors.danger, marginTop: spacing.sm }]} onPress={handleLogout}>
-              <ThemedText style={styles.buttonText}>{t('common.logout')}</ThemedText>
+            <TouchableOpacity style={[styles.button, { backgroundColor: colors.danger }]} onPress={handleLogout}>
+              <ThemedText style={[styles.buttonText, { color: '#fff' }]}>{t('common.logout')}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.deleteAccountBtn]}
@@ -262,59 +297,48 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </ThemedView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  section: { padding: spacing.lg, borderBottomWidth: 1 },
-  sectionTitle: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, marginBottom: spacing.xs },
-  sectionDescription: { fontSize: typography.sizes.sm, opacity: 0.6, marginBottom: spacing.md },
-  themeGrid: { marginTop: spacing.sm },
-  themeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, borderRadius: 12, borderWidth: 1, marginBottom: spacing.sm },
-  themeLabel: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
-  colorScroll: { flexDirection: 'row', marginTop: spacing.sm },
-  colorSwatch: { width: 44, height: 44, borderRadius: 22, marginRight: spacing.md },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm },
-  infoColumn: { paddingVertical: spacing.sm, gap: 4 },
-  label: { fontSize: typography.sizes.md, opacity: 0.6 },
-  value: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
-  button: { padding: spacing.md, borderRadius: 8, alignItems: 'center', marginTop: spacing.sm },
-  buttonText: { color: '#FFFFFF', fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
-  notifGroup: { marginTop: spacing.xs },
-  notifOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.sm + 2, borderRadius: 10, borderWidth: 1, marginBottom: spacing.xs },
-  notifLabel: { fontSize: typography.sizes.md, fontWeight: typography.weights.semibold },
-  languageContainer: {
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
+  section: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
+  sectionTitle: { fontSize: 13, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1, opacity: 0.6, marginBottom: 16 },
+  sectionDescription: { fontSize: 14, opacity: 0.6, marginBottom: 16, lineHeight: 20 },
+  themeGrid: { gap: 10 },
+  themeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1 },
+  themeLabel: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  colorScroll: { flexDirection: 'row', marginTop: 8 },
+  colorSwatch: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
+  profileCard: { borderRadius: 24, padding: 16, borderWidth: 1, gap: 4 },
+  divider: { height: 1, marginVertical: 8 },
+  infoColumn: { paddingVertical: 8, gap: 4 },
+  label: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', opacity: 0.5, letterSpacing: 0.5 },
+  value: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  button: { padding: 16, borderRadius: 20, alignItems: 'center', marginTop: 12 },
+  buttonText: { fontSize: 16, fontWeight: '800' },
+  notifGroup: { gap: 8 },
+  notifOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 20, borderWidth: 1 },
+  notifLabel: { fontSize: 15, fontWeight: '800' },
+  languageContainer: { flexDirection: 'row', gap: 12 },
   langBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    gap: spacing.sm,
+    gap: 10,
   },
-  langFlag: {
-    fontSize: 20,
-  },
-  langText: {
-    flex: 1,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-  },
+  langFlag: { fontSize: 24 },
+  langText: { flex: 1, fontSize: 15, fontWeight: '800' },
   deleteAccountBtn: {
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: '#FF3B30',
-    marginTop: spacing.sm,
+    marginTop: 12,
   },
-  deleteAccountText: {
-    color: '#FF3B30',
-  },
+  deleteAccountText: { color: '#FF3B30' },
 });

@@ -78,51 +78,53 @@ export default function FriendsScreen() {
 
         return (
             <Pressable
-                style={[styles.friendCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={[styles.friendCard, { backgroundColor: colors.card + '90', borderColor: colors.border + '15' }]}
                 onPress={() => router.push(`/dm/${item.uid}` as any)}
             >
                 <View style={styles.friendAvatarWrap}>
-                    {item.photoURL ? (
-                        <Image source={{ uri: item.photoURL }} style={styles.friendAvatar} />
-                    ) : (
-                        <View style={[styles.friendAvatarPlaceholder, { backgroundColor: colors.primary + '22' }]}>
-                            <ThemedText style={[styles.avatarText, { color: colors.primary }]}>
-                                {item.displayName.charAt(0).toUpperCase()}
-                            </ThemedText>
-                        </View>
-                    )}
+                    <View style={[styles.avatarContainer, { borderColor: colors.primary + '15' }]}>
+                        {item.photoURL ? (
+                            <Image source={{ uri: item.photoURL }} style={styles.friendAvatar} />
+                        ) : (
+                            <View style={[styles.friendAvatarPlaceholder, { backgroundColor: colors.primary + '15' }]}>
+                                <ThemedText style={[styles.avatarText, { color: colors.primary }]}>
+                                    {item.displayName.charAt(0).toUpperCase()}
+                                </ThemedText>
+                            </View>
+                        )}
+                    </View>
                     {isBest && (
-                        <View style={styles.bestBadge}>
+                        <View style={[styles.bestBadge, { backgroundColor: colors.warning, borderColor: colors.card }]}>
                             <Heart size={10} color="#fff" fill="#fff" />
                         </View>
                     )}
                 </View>
 
                 <View style={styles.friendInfo}>
-                    <ThemedText style={styles.friendName}>{item.displayName}</ThemedText>
-                    <ThemedText style={styles.friendRole}>{item.role === 'teacher' ? (t('roles.teacher') || 'Teacher') : (t('roles.student') || 'Student')}</ThemedText>
+                    <ThemedText style={[styles.friendName, { color: colors.text }]}>{item.displayName}</ThemedText>
+                    <ThemedText style={[styles.friendRole, { color: colors.textSecondary }]}>{item.role === 'teacher' ? (t('roles.teacher') || 'Educador') : (t('roles.student') || 'Estudiante')}</ThemedText>
                 </View>
 
                 <View style={styles.friendActions}>
                     <TouchableOpacity
-                        style={[styles.friendActionBtn, { backgroundColor: colors.backgroundSecondary }]}
+                        style={[styles.friendActionBtn, { backgroundColor: isBest ? colors.warning + '11' : colors.card + '90', borderColor: isBest ? colors.warning + '30' : colors.border + '15' }]}
                         onPress={() => handleToggleBest(item.uid)}
                     >
-                        <UserStar size={20} color={isBest ? colors.warning : colors.textSecondary} fill={isBest ? colors.warning : 'transparent'} />
+                        <Heart size={18} color={isBest ? colors.warning : colors.textSecondary} fill={isBest ? colors.warning : 'transparent'} strokeWidth={2.5} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.friendActionBtn, { backgroundColor: colors.primary }]}
+                        style={[styles.friendActionBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
                         onPress={() => router.push(`/dm/${item.uid}` as any)}
                     >
-                        <MessageCircle size={20} color="#fff" />
+                        <MessageCircle size={18} color="#fff" strokeWidth={2.5} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.friendActionBtn, { backgroundColor: (colors.danger ?? '#FF3B30') + '22' }]}
+                        style={[styles.friendActionBtn, { backgroundColor: (colors.danger ?? '#FF3B30') + '11', borderColor: (colors.danger ?? '#FF3B30') + '30' }]}
                         onPress={() => handleRemoveFriend(item.uid, item.displayName)}
                     >
-                        <UserMinus size={20} color={colors.danger ?? '#FF3B30'} />
+                        <UserMinus size={18} color={colors.danger ?? '#FF3B30'} strokeWidth={2.5} />
                     </TouchableOpacity>
                 </View>
             </Pressable>
@@ -133,41 +135,41 @@ export default function FriendsScreen() {
         <ThemedView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <View style={[styles.customHeader, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+            <View style={[styles.customHeader, { paddingTop: insets.top + 8, backgroundColor: colors.background, borderBottomColor: colors.border + '15' }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+                    <ChevronLeft size={24} color={colors.text} strokeWidth={2.5} />
                 </TouchableOpacity>
                 <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('friends.title') || 'Title'}</ThemedText>
                 <View style={{ width: 32 }} />
             </View>
 
-            <View style={[styles.headerOffset, { paddingTop: spacing.md }]}>
-                <View style={[styles.tabBar, { backgroundColor: colors.backgroundSecondary }]}>
+            <View style={[styles.headerOffset, { paddingTop: 16 }]}>
+                <View style={[styles.tabBar, { backgroundColor: colors.card + '90', borderColor: colors.border + '15', borderWidth: 1 }]}>
                     <TouchableOpacity
-                        style={[styles.tab, activeTab === 'all' && { backgroundColor: colors.card, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }]}
+                        style={[styles.tab, activeTab === 'all' && { backgroundColor: colors.primary + '15' }]}
                         onPress={() => setActiveTab('all')}
                     >
-                        <Users size={18} color={activeTab === 'all' ? colors.primary : colors.textSecondary} />
-                        <ThemedText style={[styles.tabText, { color: activeTab === 'all' ? colors.text : colors.textSecondary }]}>
-                            {t('friends.tabs.all') || 'All'}
+                        <Users size={18} color={activeTab === 'all' ? colors.primary : colors.textSecondary} strokeWidth={2.5} />
+                        <ThemedText style={[styles.tabText, { color: activeTab === 'all' ? colors.primary : colors.textSecondary }]}>
+                            {t('friends.tabs.all') || 'Todos'}
                         </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.tab, activeTab === 'best' && { backgroundColor: colors.card, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }]}
+                        style={[styles.tab, activeTab === 'best' && { backgroundColor: colors.warning + '15' }]}
                         onPress={() => setActiveTab('best')}
                     >
-                        <UserStar size={18} color={activeTab === 'best' ? colors.warning : colors.textSecondary} />
-                        <ThemedText style={[styles.tabText, { color: activeTab === 'best' ? colors.text : colors.textSecondary }]}>
-                            {t('friends.tabs.best') || 'Best'}
+                        <Heart size={18} color={activeTab === 'best' ? colors.warning : colors.textSecondary} strokeWidth={2.5} fill={activeTab === 'best' ? colors.warning : 'transparent'} />
+                        <ThemedText style={[styles.tabText, { color: activeTab === 'best' ? colors.warning : colors.textSecondary }]}>
+                            {t('friends.tabs.best') || 'Mejores'}
                         </ThemedText>
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary }]}>
-                    <Search size={20} color={colors.textSecondary} />
-                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>{t('friends.search_placeholder') || 'Search Placeholder'}</ThemedText>
-                </View>
+                <TouchableOpacity style={[styles.searchContainer, { backgroundColor: colors.card + '90', borderColor: colors.border + '15', borderWidth: 1 }]}>
+                    <Search size={20} color={colors.textSecondary} strokeWidth={2.5} />
+                    <ThemedText style={[styles.searchPlaceholder, { color: colors.textSecondary }]}>{t('friends.search_placeholder') || 'Buscar amigos...'}</ThemedText>
+                </TouchableOpacity>
             </View>
 
             {loading ? (
@@ -197,28 +199,29 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     customHeader: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: spacing.md, paddingBottom: spacing.sm + 2,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 16, paddingBottom: 14,
+        borderBottomWidth: 1,
     },
     backBtn: { padding: 4, width: 32 },
-    headerTitle: { fontSize: typography.sizes.md, fontWeight: '700', flex: 1, textAlign: 'center' },
-    headerOffset: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-    tabBar: { flexDirection: 'row', borderRadius: 12, padding: 4, gap: 4, marginBottom: spacing.md },
-    tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 10 },
-    tabText: { fontSize: typography.sizes.sm, fontWeight: '600' },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', padding: spacing.sm, borderRadius: 12, gap: spacing.sm },
-    searchPlaceholder: { fontSize: typography.sizes.sm },
+    headerTitle: { fontSize: 18, fontWeight: '800', flex: 1, textAlign: 'center', letterSpacing: -0.5 },
+    headerOffset: { paddingHorizontal: 20, paddingBottom: 16 },
+    tabBar: { flexDirection: 'row', borderRadius: 24, padding: 6, gap: 6, marginBottom: 16 },
+    tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 20 },
+    tabText: { fontSize: 13, fontWeight: '800' },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 22, gap: 12 },
+    searchPlaceholder: { fontSize: 14, fontWeight: '600', opacity: 0.6 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    list: { padding: spacing.lg, paddingTop: spacing.xs },
-    friendCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: 20, marginBottom: spacing.sm, borderWidth: 1 },
+    list: { padding: 20, paddingTop: 4 },
+    friendCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 28, marginBottom: 12, borderWidth: 1 },
     friendAvatarWrap: { position: 'relative' },
-    friendAvatar: { width: 50, height: 50, borderRadius: 25 },
-    friendAvatarPlaceholder: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-    avatarText: { fontSize: 20, fontWeight: 'bold' },
-    bestBadge: { position: 'absolute', bottom: -2, right: -2, backgroundColor: '#FF2D55', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
-    friendInfo: { flex: 1, marginLeft: spacing.md },
-    friendName: { fontSize: typography.sizes.md, fontWeight: 'bold' },
-    friendRole: { fontSize: typography.sizes.xs, opacity: 0.6, marginTop: 2 },
-    friendActions: { flexDirection: 'row', gap: spacing.xs },
-    friendActionBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    avatarContainer: { width: 56, height: 56, borderRadius: 28, padding: 2, borderWidth: 1 },
+    friendAvatar: { width: 52, height: 52, borderRadius: 26 },
+    friendAvatarPlaceholder: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+    avatarText: { fontSize: 20, fontWeight: '800' },
+    bestBadge: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5 },
+    friendInfo: { flex: 1, marginLeft: 16 },
+    friendName: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+    friendRole: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', opacity: 0.5, marginTop: 4, letterSpacing: 0.5 },
+    friendActions: { flexDirection: 'row', gap: 8 },
+    friendActionBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
 });
