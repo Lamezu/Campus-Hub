@@ -392,6 +392,17 @@ exports.onDirectMessageCreated = onDocumentCreated(
       if (!receiverDoc.exists) return null;
 
       const receiverData = receiverDoc.data();
+      
+      await writeInAppNotifications([receiverId], {
+        category: 'dm',
+        title: message.senderName,
+        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        meta: {
+          participantId: message.senderId,
+          conversationId,
+        },
+      });
+
       if (!receiverData.fcmToken || receiverData.notificationsEnabled === false) return null;
 
       await messaging.send({
@@ -413,6 +424,72 @@ exports.onDirectMessageCreated = onDocumentCreated(
       return null;
     } catch (error) {
       console.error('Error in onDirectMessageCreated:', error);
+      return null;
+    }
+  }
+);
+
+exports.onGroupMessageCreated = onDocumentCreated(
+  'groupConversations/{groupId}/messages/{messageId}',
+  async (event) => {
+    const message = event.data.data();
+    const groupId = event.params.groupId;
+
+    try {
+      const groupDoc = await db.collection('groupConversations').doc(groupId).get();
+      if (!groupDoc.exists) return null;
+
+      const groupData = groupDoc.data();
+      const groupName = groupData.name || 'Group';
+      const members = groupData.members || [];
+      const recipients = members.filter(uid => uid !== message.senderId);
+
+      if (recipients.length === 0) return null;
+
+      await writeInAppNotifications(recipients, {
+        category: 'dm',
+        title: groupName || message.senderName,
+        body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+        meta: {
+          groupId,
+          groupName,
+          participantId: groupId,
+          senderName: message.senderName,
+        },
+      });
+
+      const fcmMessages = [];
+      for (const chunk of chunks(recipients, 30)) {
+        const usersSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+        usersSnap.docs.forEach(doc => {
+          const userData = doc.data();
+          if (userData.fcmToken && userData.notificationsEnabled !== false) {
+            fcmMessages.push({
+              notification: {
+                title: groupName || message.senderName,
+                body: message.text ? message.text.substring(0, 100) : '📎 Attachment',
+              },
+              data: {
+                type: 'group_message',
+                groupId,
+                messageId: event.params.messageId,
+                senderId: message.senderId,
+              },
+              android: { priority: 'high', notification: { sound: 'default', priority: 'max', channelId: 'default' } },
+              apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+              token: userData.fcmToken,
+            });
+          }
+        });
+      }
+
+      if (fcmMessages.length > 0) {
+        const response = await messaging.sendEach(fcmMessages);
+        console.log(`FCM group: ${response.successCount}/${fcmMessages.length}`);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error in onGroupMessageCreated:', error);
       return null;
     }
   }
@@ -816,7 +893,6 @@ exports.onTicketReplyCreated = onDocumentCreated(
       const ticket = ticketDoc.data();
 
       if (reply.isStaff) {
-        // Staff replied → notify the student anonymously (don't expose admin name)
         if (!ticket.userId) return null;
 
         const studentPayload = {
@@ -850,7 +926,6 @@ exports.onTicketReplyCreated = onDocumentCreated(
           }
         }
       } else {
-        // Student replied → notify admins with ticket context
         const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
         const adminIds = adminsSnap.docs
           .map(d => d.id)
