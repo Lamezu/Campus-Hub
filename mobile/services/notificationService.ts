@@ -11,7 +11,7 @@ function emit() {
 
 let unsubscribe: (() => void) | null = null;
 
-export type ChatView = { type: 'channel' | 'dm'; id: string } | null;
+export type ChatView = { type: 'channel' | 'dm' | 'support'; id: string } | null;
 
 let onNewNotificationCallback: ((n: NotificationItem) => void) | null = null;
 let isInitialLoad = true;
@@ -96,7 +96,8 @@ export const notificationService = {
           if (item.read || locallyReadIds.has(item.id)) continue;
           const matches =
             (v.type === 'channel' && item.meta?.channelId === v.id) ||
-            (v.type === 'dm' && item.meta?.participantId === v.id);
+            (v.type === 'dm' && item.meta?.participantId === v.id) ||
+            (v.type === 'support' && item.meta?.ticketId === v.id);
           if (matches) {
             autoReadIds.add(item.id);
             locallyReadIds.add(item.id);
@@ -180,7 +181,7 @@ export const notificationService = {
     }
   },
 
-  async markChatRead(type: 'channel' | 'dm' | 'social', id: string): Promise<void> {
+  async markChatRead(type: 'channel' | 'dm' | 'social' | 'support', id: string): Promise<void> {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
     try {

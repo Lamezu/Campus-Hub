@@ -208,7 +208,7 @@ export interface PinnedMessage {
 
 export type SaveToPhotosPreference = 'default' | 'always' | 'never';
 export type MuteDuration = '8h' | '1w' | 'always' | 'off';
-export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel';
+export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel' | 'support';
 
 export interface ContactSettings {
   mute: MuteDuration;

@@ -14,14 +14,15 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [counts, setCounts] = useState({ dm: 0, campus: 0, friend: 0 });
-
+  const [counts, setCounts] = useState({ home: 0, messages: 0, campus: 0, profile: 0 });
+  
   useEffect(() => {
     const update = () => {
       setCounts({
-        dm: notificationService.getUnreadCount('dm'),
+        home: notificationService.getUnreadCount('channel'),
+        messages: notificationService.getUnreadCount('dm') + notificationService.getUnreadCount('support'),
         campus: notificationService.getUnreadCount('campus'),
-        friend: notificationService.getUnreadCount('friend'),
+        profile: notificationService.getUnreadCount('friend') + notificationService.getUnreadCount('social'),
       });
     };
     update();
@@ -59,6 +60,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <House size={26} color={color} strokeWidth={2} />
           ),
+          tabBarBadge: counts.home > 0 ? counts.home : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
       <Tabs.Screen
@@ -88,7 +91,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <MessagesSquare size={26} color={color} strokeWidth={2} />
           ),
-          tabBarBadge: counts.dm > 0 ? counts.dm : undefined,
+          tabBarBadge: counts.messages > 0 ? counts.messages : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
@@ -99,7 +102,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <UserRound size={26} color={color} strokeWidth={2} />
           ),
-          tabBarBadge: counts.friend > 0 ? counts.friend : undefined,
+          tabBarBadge: counts.profile > 0 ? counts.profile : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary, fontSize: 10 },
         }}
       />
