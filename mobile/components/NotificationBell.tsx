@@ -8,18 +8,21 @@ import { useTheme } from '@/contexts/ThemeContext';
 import type { NotificationCategory } from '@/types';
 
 interface NotificationBellProps {
-  category?: NotificationCategory;
+  categories?: NotificationCategory | NotificationCategory[];
   size?: number;
 }
 
-export function NotificationBell({ category, size = 24 }: NotificationBellProps) {
+export function NotificationBell({ categories, size = 24 }: NotificationBellProps) {
   const { colors } = useTheme();
   const [count, setCount] = useState(0);
 
+  const categoryList = Array.isArray(categories) ? categories : (categories ? [categories] : []);
+
   useEffect(() => {
     const updateCount = () => {
-      if (category) {
-        setCount(notificationService.getUnreadCount(category));
+      if (categoryList.length > 0) {
+        const total = categoryList.reduce((acc, cat) => acc + notificationService.getUnreadCount(cat), 0);
+        setCount(total);
       } else {
         const all = notificationService.getAll();
         setCount(all.filter(n => !n.read).length);
@@ -29,11 +32,15 @@ export function NotificationBell({ category, size = 24 }: NotificationBellProps)
     updateCount();
     const unsub = notificationService.subscribe(updateCount);
     return unsub;
-  }, [category]);
+  }, [JSON.stringify(categoryList)]);
 
   const handlePress = () => {
-    const params = category ? `?category=${category}` : '';
-    router.push(`/notifications${params}` as never);
+    if (categoryList.length === 0) {
+      router.push('/notifications' as never);
+    } else {
+      const cats = categoryList.join(',');
+      router.push(`/notifications?categories=${cats}` as never);
+    }
   };
 
   return (
@@ -65,6 +72,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 3,
+    // Premium glow effect
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   badgeText: {
     color: '#fff',
