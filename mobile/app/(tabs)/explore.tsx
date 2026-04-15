@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Animated, StatusBar } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pin, CalendarDays, Users } from 'lucide-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -42,11 +43,22 @@ export default function CampusScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={styles.glowContainer} pointerEvents="none">
+        <Svg height="100%" width="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="grad" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.1" />
+              <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="50" cy="50" r="50" fill="url(#grad)" />
+        </Svg>
+      </View>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       <View style={styles.header}>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('common.campus') || 'Campus'}</ThemedText>
-        <NotificationBell category="campus" />
+        <NotificationBell categories={['campus']} />
       </View>
 
       <View style={styles.subtabBar}>
@@ -135,5 +147,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: -0.2,
+  },
+  glowContainer: {
+    position: 'absolute',
+    top: -150,
+    right: -150,
+    width: 600,
+    height: 600,
   },
 });

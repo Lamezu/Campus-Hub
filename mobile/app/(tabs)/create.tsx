@@ -4,6 +4,7 @@ import {
   TextInput, KeyboardAvoidingView, Platform, Alert,
   ActivityIndicator, ScrollView, Image,
 } from 'react-native';
+import Svg, { RadialGradient, Rect, Defs, Stop } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -198,9 +199,27 @@ export default function ExplorarScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <Svg style={StyleSheet.absoluteFillObject} pointerEvents="none">
+        <Defs>
+          <RadialGradient
+            id="grad"
+            cx="50%"
+            cy="0%"
+            rx="60%"
+            ry="40%"
+            fx="50%"
+            fy="0%"
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor={colors.primary} stopOpacity={0.15} />
+            <Stop offset="100%" stopColor={colors.primary} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
+      </Svg>
       <View style={styles.header}>
         <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('explore.title') || 'Title'}</ThemedText>
-        <NotificationBell category="social" />
+        <NotificationBell categories={['social']} />
       </View>
 
       <View style={styles.tabBar}>
