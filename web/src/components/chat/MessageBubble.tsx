@@ -18,7 +18,7 @@ interface MessageBubbleProps {
   isAdmin?: boolean;
   chatId?: string;
   isConversation?: boolean;
-  chatCollection?: 'conversations' | 'channels' | 'groupConversations';
+  chatCollection?: 'conversations' | 'channels' | 'groupConversations' | 'studyGroups';
   isSaved?: boolean;
   onReply?: (message: Message) => void;
   onDelete?: (message: Message, forEveryone: boolean) => void;

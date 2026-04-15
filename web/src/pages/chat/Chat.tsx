@@ -240,6 +240,9 @@ export default function Chat() {
   const channelName = groupName ?? channel?.name ?? id ?? '';
   const isAnnouncementChannel = channel?.type === 'announcement';
   const currentUser = auth.currentUser;
+  const isSG = id?.startsWith('sg_') ?? false;
+  const realId = isSG ? (id as string).slice(3) : (id ?? '');
+  const colName = isSG ? 'studyGroups' : 'channels';
 
   useEffect(() => {
     if (!id?.startsWith('sg_')) return;
@@ -279,14 +282,14 @@ export default function Chat() {
   useEffect(() => {
     if (!id) return;
 
-    const messagesRef = collection(db, 'channels', id, 'messages');
+    const messagesRef = collection(db, colName, realId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
 
     const uid = currentUser?.uid;
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        if (uid) updateLastRead(id, uid).catch(() => {});
+        if (uid && !isSG) updateLastRead(id, uid).catch(() => {});
         const messagesData: Message[] = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -335,7 +338,7 @@ export default function Chat() {
     setLoadingMore(true);
 
     try {
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
       const q = query(
         messagesRef,
         orderBy('createdAt', 'desc'),
@@ -416,7 +419,7 @@ export default function Chat() {
     setSending(true);
 
     try {
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
 
       const messageData: any = {
         text,
@@ -466,7 +469,7 @@ export default function Chat() {
       const tempId = `temp_${Date.now()}`;
       const audioUrl = await uploadAudio(audioBlob, tempId);
       
-      const messagesRef = collection(db, 'channels', id, 'messages');
+      const messagesRef = collection(db, colName, realId, 'messages');
 
       const messageData: any = {
         text: '',
@@ -532,7 +535,7 @@ export default function Chat() {
           attachmentType: replyAttachmentType(replyingTo)
         };
       }
-      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      await addDoc(collection(db, colName, realId, 'messages'), messageData);
       setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { alert('Error al enviar el archivo'); } finally { setSending(false); }
@@ -570,7 +573,7 @@ export default function Chat() {
           attachmentType: replyAttachmentType(replyingTo)
         };
       }
-      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      await addDoc(collection(db, colName, realId, 'messages'), messageData);
       setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
@@ -601,7 +604,7 @@ export default function Chat() {
           messageData.replyTo.attachmentType = attachmentType;
         }
       }
-      await addDoc(collection(db, 'channels', id, 'messages'), messageData);
+      await addDoc(collection(db, colName, realId, 'messages'), messageData);
       setReplyingTo(null);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch { } finally { setSending(false); }
@@ -635,9 +638,9 @@ export default function Chat() {
 
     try {
       if (forEveryone) {
-        await deleteDoc(doc(db, 'channels', id, 'messages', message.id));
+        await deleteDoc(doc(db, colName, realId, 'messages', message.id));
       } else {
-        await updateDoc(doc(db, 'channels', id, 'messages', message.id), {
+        await updateDoc(doc(db, colName, realId, 'messages', message.id), {
           deletedForUsers: arrayUnion(currentUser?.uid)
         });
       }
@@ -655,7 +658,7 @@ export default function Chat() {
     if (!id || !currentUser) return;
     
     try {
-      const messageRef = doc(db, 'channels', id, 'messages', message.id);
+      const messageRef = doc(db, colName, realId, 'messages', message.id);
       const messageDoc = await getDoc(messageRef);
       
       if (messageDoc.exists()) {
@@ -897,8 +900,9 @@ export default function Chat() {
               message={message}
               isOwnMessage={message.senderId === currentUser?.uid}
               isAdmin={userData?.role === 'admin'}
-              chatId={id}
+              chatId={realId}
               isConversation={false}
+              chatCollection={colName}
               isSaved={savedIds.has(message.id)}
               onReply={handleReply}
               onDelete={handleDelete}
