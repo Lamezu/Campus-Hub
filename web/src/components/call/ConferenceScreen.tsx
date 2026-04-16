@@ -269,6 +269,29 @@ export default function ConferenceScreen({
     video.play().catch(() => { });
   }, [sharing]);
 
+  useEffect(() => {
+    if (minimized || inPip) return;
+    if (localVideoRef.current && activeVideoTrackRef.current) {
+      const ms = new MediaStream([activeVideoTrackRef.current]);
+      localVideoRef.current.srcObject = ms;
+      localVideoRef.current.play().catch(() => { });
+    }
+    for (const [uid, el] of remoteVideoElsRef.current) {
+      if (!el) continue;
+      const stream = remoteStreamsRef.current.get(uid);
+      if (stream) { el.srcObject = stream; el.play().catch(() => { }); }
+    }
+    for (const [uid, el] of remoteShareVideoElsRef.current) {
+      if (!el) continue;
+      const stream = remoteShareStreamsRef.current.get(uid);
+      if (stream && stream.getTracks().length > 0) { el.srcObject = null; el.srcObject = stream; el.play().catch(() => { }); }
+    }
+    if (screenShareVideoRef.current && sharingRef.current && screenStreamRef.current) {
+      screenShareVideoRef.current.srcObject = screenStreamRef.current;
+      screenShareVideoRef.current.play().catch(() => { });
+    }
+  }, [minimized, inPip]);
+
   const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
