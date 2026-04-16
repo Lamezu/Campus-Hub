@@ -151,11 +151,11 @@ function MessageInput({
           <AudioRecorder onSend={(blob, duration) => { onSendAudio(blob, duration); setShowRecorder(false); }} onCancel={() => setShowRecorder(false)} />
         ) : (
           <>
-            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : colors.textSecondary, flexShrink: 0, transition: 'color 0.2s ease' }} title={t('chat.attach')}>
+            <button onClick={() => setShowAttachMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showAttachMenu ? colors.primary : (disabled ? colors.textSecondary + '80' : colors.textSecondary), flexShrink: 0, transition: 'color 0.2s ease', opacity: disabled ? 0.5 : 1 }} title={disabled ? t('chat.blocked_warning') : t('chat.attach')} disabled={disabled}>
               <Plus size={22} strokeWidth={2} style={{ transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)', transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }} />
             </button>
             <textarea ref={textareaRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} placeholder={replyingTo ? t('chat.reply_to', { name: replyingTo.senderName }) : t('chat.type_message')} className="chat-textarea" style={themeStyle ? { color: themeStyle.text, backgroundColor: 'transparent' } : {}} disabled={disabled} rows={1} />
-            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, padding: '8px', display: 'flex', alignItems: 'center' }} title={t('chat.record_audio')}>
+            <button onClick={() => setShowRecorder(true)} style={{ background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', color: disabled ? colors.textSecondary + '80' : colors.primary, padding: '8px', display: 'flex', alignItems: 'center', opacity: disabled ? 0.5 : 1 }} title={disabled ? t('chat.blocked_warning') : t('chat.record_audio')} disabled={disabled}>
               <Mic size={20} />
             </button>
             <button onClick={handleSend} disabled={!text.trim() || disabled} className="chat-send-button btn-press">
@@ -587,16 +587,18 @@ export default function DirectChat() {
         <button
           onClick={() => handleStartCall('audio')}
           className="chat-back-button"
-          style={{ color: desktopThemeStyle?.text ?? 'var(--text)' }}
-          title={t('call.audio_call')}
+          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked) ? 'not-allowed' : 'pointer' }}
+          title={(amIBlocked || haveIBlocked) ? t('chat.blocked_warning') : t('call.audio_call')}
+          disabled={amIBlocked || haveIBlocked}
         >
           <Phone size={20} />
         </button>
         <button
           onClick={() => handleStartCall('video')}
           className="chat-back-button"
-          style={{ color: desktopThemeStyle?.text ?? 'var(--text)' }}
-          title={t('call.video_call')}
+          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked) ? 'not-allowed' : 'pointer' }}
+          title={(amIBlocked || haveIBlocked) ? t('chat.blocked_warning') : t('call.video_call')}
+          disabled={amIBlocked || haveIBlocked}
         >
           <Video size={20} />
         </button>
