@@ -107,6 +107,8 @@ export default function GroupCallScreen({
   const remoteAudioCtxsRef = useRef<Map<string, AudioContext>>(new Map());
   const remoteAnalysersRef = useRef<Map<string, AnalyserNode>>(new Map());
   const screenSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
+  const screenAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
+  const screenAudioCtxRef = useRef<AudioContext | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const videoSendersByPeerRef = useRef<Map<string, RTCRtpSender>>(new Map());
@@ -790,10 +792,15 @@ export default function GroupCallScreen({
   const stopScreenShare = useCallback(() => {
     screenTrackRef.current?.stop();
     screenTrackRef.current = null;
+    screenStreamRef.current?.getAudioTracks().forEach(t => t.stop());
     screenStreamRef.current = null;
+    screenAudioCtxRef.current?.close();
+    screenAudioCtxRef.current = null;
     for (const [uid, pc] of pcsRef.current) {
       const sender = screenSendersRef.current.get(uid);
       if (sender) { pc.removeTrack(sender); screenSendersRef.current.delete(uid); }
+      const audioSender = screenAudioSendersRef.current.get(uid);
+      if (audioSender) { pc.removeTrack(audioSender); screenAudioSendersRef.current.delete(uid); }
     }
     if (screenShareVideoRef.current) screenShareVideoRef.current.srcObject = null;
     setSharing(false);
@@ -802,14 +809,29 @@ export default function GroupCallScreen({
   const toggleScreenShare = async () => {
     if (sharing) { stopScreenShare(); return; }
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      const track = screenStream.getVideoTracks()[0];
-      screenTrackRef.current = track;
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const videoTrack = screenStream.getVideoTracks()[0];
+      const audioTrack = screenStream.getAudioTracks()[0];
+      screenTrackRef.current = videoTrack;
       screenStreamRef.current = screenStream;
-      track.onended = () => stopScreenShare();
+      videoTrack.onended = () => stopScreenShare();
+      let boostedTrack = audioTrack;
+      if (audioTrack) {
+        try {
+          const ctx = new AudioContext();
+          screenAudioCtxRef.current = ctx;
+          const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+          const gain = ctx.createGain();
+          gain.gain.value = 3.5;
+          const dest = ctx.createMediaStreamDestination();
+          src.connect(gain);
+          gain.connect(dest);
+          boostedTrack = dest.stream.getAudioTracks()[0];
+        } catch {}
+      }
       for (const [uid, pc] of pcsRef.current) {
-        const sender = pc.addTrack(track, screenStream);
-        screenSendersRef.current.set(uid, sender);
+        screenSendersRef.current.set(uid, pc.addTrack(videoTrack, screenStream));
+        if (boostedTrack) screenAudioSendersRef.current.set(uid, pc.addTrack(boostedTrack, screenStream));
       }
       setSharing(true);
     } catch {}

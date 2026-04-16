@@ -299,6 +299,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const screenStreamRef = useRef<MediaStream | null>(null);
   const screenShareVideoRef = useRef<HTMLVideoElement>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
+  const screenAudioSenderRef = useRef<RTCRtpSender | null>(null);
+  const screenAudioCtxRef = useRef<AudioContext | null>(null);
   const videoSenderRef = useRef<RTCRtpSender | null>(null);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const remoteShareStreamRef = useRef<MediaStream>(new MediaStream());
@@ -889,10 +891,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const stopScreenShare = useCallback(() => {
     screenTrackRef.current?.stop();
     screenTrackRef.current = null;
+    screenStreamRef.current?.getAudioTracks().forEach(t => t.stop());
     screenStreamRef.current = null;
-    if (screenSenderRef.current && pcRef.current) {
-      pcRef.current.removeTrack(screenSenderRef.current);
-      screenSenderRef.current = null;
+    screenAudioCtxRef.current?.close();
+    screenAudioCtxRef.current = null;
+    if (pcRef.current) {
+      if (screenSenderRef.current) { pcRef.current.removeTrack(screenSenderRef.current); screenSenderRef.current = null; }
+      if (screenAudioSenderRef.current) { pcRef.current.removeTrack(screenAudioSenderRef.current); screenAudioSenderRef.current = null; }
     }
     if (screenShareVideoRef.current) screenShareVideoRef.current.srcObject = null;
     setSharing(false);
@@ -901,12 +906,28 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const toggleScreenShare = async () => {
     if (sharing) { stopScreenShare(); return; }
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      const track = screenStream.getVideoTracks()[0];
-      screenTrackRef.current = track;
-      track.onended = () => stopScreenShare();
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const videoTrack = screenStream.getVideoTracks()[0];
+      const audioTrack = screenStream.getAudioTracks()[0];
+      screenTrackRef.current = videoTrack;
+      videoTrack.onended = () => stopScreenShare();
       if (pcRef.current) {
-        screenSenderRef.current = pcRef.current.addTrack(track, screenStream);
+        screenSenderRef.current = pcRef.current.addTrack(videoTrack, screenStream);
+        if (audioTrack) {
+          try {
+            const ctx = new AudioContext();
+            screenAudioCtxRef.current = ctx;
+            const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+            const gain = ctx.createGain();
+            gain.gain.value = 3.5;
+            const dest = ctx.createMediaStreamDestination();
+            src.connect(gain);
+            gain.connect(dest);
+            screenAudioSenderRef.current = pcRef.current.addTrack(dest.stream.getAudioTracks()[0], screenStream);
+          } catch {
+            screenAudioSenderRef.current = pcRef.current.addTrack(audioTrack, screenStream);
+          }
+        }
       }
       screenStreamRef.current = screenStream;
       setSharing(true);
