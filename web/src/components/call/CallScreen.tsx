@@ -335,6 +335,25 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   }, [remoteSharing, sharing, focusedTile]);
 
   useEffect(() => {
+    if (!sharing) return;
+    const video = screenShareVideoRef.current;
+    const stream = screenStreamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  }, [sharing]);
+
+  useEffect(() => {
+    if (!remoteSharing) return;
+    const video = remoteShareVideoRef.current;
+    const stream = remoteShareStreamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = null;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  }, [remoteSharing]);
+
+  useEffect(() => {
     if (minimized || inPip) return;
     if (callType === 'video') {
       if (remoteVideoRef.current) {
@@ -642,7 +661,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         }
         if (callType === 'audio') {
           const rss = remoteShareStreamRef.current;
-          if (!rss.getTracks().find(t => t.id === event.track.id)) rss.addTrack(event.track);
+          rss.getTracks().forEach(t => rss.removeTrack(t));
+          rss.addTrack(event.track);
           if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
           setRemoteSharing(true);
           event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
@@ -670,7 +690,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           });
         } else {
           const rss = remoteShareStreamRef.current;
-          if (!rss.getTracks().find(t => t.id === event.track.id)) rss.addTrack(event.track);
+          rss.getTracks().forEach(t => rss.removeTrack(t));
+          rss.addTrack(event.track);
           if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
           setRemoteSharing(true);
           event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
@@ -1025,7 +1046,6 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         screenSenderRef.current = pcRef.current.addTrack(track, screenStream);
       }
       screenStreamRef.current = screenStream;
-      if (screenShareVideoRef.current) { screenShareVideoRef.current.srcObject = screenStream; screenShareVideoRef.current.play().catch(() => {}); }
       setSharing(true);
     } catch {}
   };

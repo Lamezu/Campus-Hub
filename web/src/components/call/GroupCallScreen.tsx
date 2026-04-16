@@ -255,6 +255,15 @@ export default function GroupCallScreen({
     }
   }, [sharing, peers, focusedTile]);
 
+  useEffect(() => {
+    if (!sharing) return;
+    const video = screenShareVideoRef.current;
+    const stream = screenStreamRef.current;
+    if (!video || !stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  }, [sharing]);
+
   const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
@@ -431,9 +440,14 @@ export default function GroupCallScreen({
         return;
       }
       const attachShareTrack = (track: MediaStreamTrack) => {
-        if (!remoteShareStream.getTracks().find(t => t.id === track.id)) remoteShareStream.addTrack(track);
+        remoteShareStream.getTracks().forEach(t => remoteShareStream.removeTrack(t));
+        remoteShareStream.addTrack(track);
         const shareEl = remoteShareVideoElsRef.current.get(peerUid);
-        if (shareEl && !shareEl.srcObject) { shareEl.srcObject = remoteShareStream; shareEl.play().catch(() => {}); }
+        if (shareEl) {
+          shareEl.srcObject = null;
+          shareEl.srcObject = remoteShareStream;
+          shareEl.play().catch(() => {});
+        }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
         track.addEventListener('ended', () => {
           remoteShareStream.removeTrack(track);
@@ -454,7 +468,7 @@ export default function GroupCallScreen({
           const t = shareMuteTimersRef.current.get(peerUid);
           if (t) { clearTimeout(t); shareMuteTimersRef.current.delete(peerUid); }
           const el = remoteShareVideoElsRef.current.get(peerUid);
-          if (el) { el.srcObject = remoteShareStream; el.play().catch(() => {}); }
+          if (el) { el.srcObject = null; el.srcObject = remoteShareStream; el.play().catch(() => {}); }
           setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
         });
       };
@@ -911,10 +925,6 @@ export default function GroupCallScreen({
       for (const [uid, pc] of pcsRef.current) {
         const sender = pc.addTrack(track, screenStream);
         screenSendersRef.current.set(uid, sender);
-      }
-      if (screenShareVideoRef.current) { 
-        screenShareVideoRef.current.srcObject = screenStream; 
-        screenShareVideoRef.current.play().catch(() => {}); 
       }
       setSharing(true);
     } catch {}
