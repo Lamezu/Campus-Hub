@@ -48,15 +48,20 @@ function StatusBadge({ status }: { status: TicketStatus }) {
   );
 }
 
-function ReplyBubble({ reply, colors, language }: { reply: TicketReply; colors: any; language: string }) {
+function ReplyBubble({ reply, colors, language, isStaffViewer }: { reply: TicketReply; colors: any; language: string; isStaffViewer: boolean }) {
+  const currentUser = auth.currentUser;
+  const isOwnMessage = currentUser && reply.authorId === currentUser.uid;
+  const showOnRight = isOwnMessage || (reply.isStaff && isStaffViewer);
+  const showAuthorName = !isOwnMessage && !reply.isStaff;
+  const authorDisplayName = reply.isStaff ? 'Staff' : reply.authorName;
   return (
     <div className="msg-enter" style={{
       display: 'flex',
       flexDirection: 'column',
-      alignItems: reply.isStaff ? 'flex-end' : 'flex-start',
+      alignItems: showOnRight ? 'flex-end' : 'flex-start',
       marginBottom: 10,
     }}>
-      {reply.isStaff && (
+      {reply.isStaff && !isOwnMessage && (
         <span style={{
           fontSize: 10, fontWeight: '700', color: colors.primary,
           backgroundColor: colors.primary + '18',
@@ -66,19 +71,19 @@ function ReplyBubble({ reply, colors, language }: { reply: TicketReply; colors: 
       <div style={{
         maxWidth: '75%',
         padding: '10px 14px',
-        borderRadius: reply.isStaff ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-        backgroundColor: reply.isStaff ? colors.primary : colors.backgroundSecondary,
-        border: reply.isStaff ? 'none' : `1px solid ${colors.border}`,
+        borderRadius: showOnRight ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+        backgroundColor: showOnRight ? colors.primary : colors.backgroundSecondary,
+        border: showOnRight ? 'none' : `1px solid ${colors.border}`,
       }}>
-        {!reply.isStaff && (
+        {showAuthorName && (
           <div style={{ fontSize: 12, fontWeight: '700', color: colors.primary, marginBottom: 4 }}>
-            {reply.authorName}
+            {authorDisplayName}
           </div>
         )}
-        <div style={{ fontSize: 14, lineHeight: '20px', color: reply.isStaff ? '#fff' : colors.text, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+        <div style={{ fontSize: 14, lineHeight: '20px', color: showOnRight ? '#fff' : colors.text, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {reply.text}
         </div>
-        <div style={{ fontSize: 11, marginTop: 4, color: reply.isStaff ? 'rgba(255,255,255,0.65)' : colors.textSecondary }}>
+        <div style={{ fontSize: 11, marginTop: 4, color: showOnRight ? 'rgba(255,255,255,0.65)' : colors.textSecondary }}>
           {formatDate(reply.createdAt, language)}
         </div>
       </div>
@@ -221,7 +226,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
             {t('support.no_replies')}
           </p>
         ) : (
-          replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} language={language} />)
+          replies.map(r => <ReplyBubble key={r.id} reply={r} colors={colors} language={language} isStaffViewer={isStaff} />)
         )}
         <div ref={bottomRef} />
       </div>
@@ -581,20 +586,22 @@ export default function Support() {
               onSelect={setSelectedTicketId}
               colors={colors}
             />
-            <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
-              <button
-                onClick={() => setShowNew(true)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  padding: '11px 0', borderRadius: 12, border: 'none',
-                  backgroundColor: colors.primary, color: '#fff',
-                  fontSize: 14, fontWeight: '700', cursor: 'pointer',
-                }}
-              >
-                <Plus size={18} color="#fff" strokeWidth={2.5} />
-                {t('support.new_ticket')}
-              </button>
-            </div>
+            {!isStaff && (
+              <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                <button
+                  onClick={() => setShowNew(true)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '11px 0', borderRadius: 12, border: 'none',
+                    backgroundColor: colors.primary, color: '#fff',
+                    fontSize: 14, fontWeight: '700', cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={18} color="#fff" strokeWidth={2.5} />
+                  {t('support.new_ticket')}
+                </button>
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -727,20 +734,22 @@ export default function Support() {
         )}
       </div>
 
-      <button
-        onClick={() => setShowNew(true)}
-        style={{
-          position: 'fixed', bottom: 24, right: 24,
-          display: 'flex', alignItems: 'center', gap: 7,
-          padding: '13px 20px', borderRadius: 28, border: 'none',
-          backgroundColor: colors.primary, color: '#fff',
-          fontSize: 15, fontWeight: '700', cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-        }}
-      >
-        <Plus size={20} color="#fff" strokeWidth={2.5} />
-        {t('support.new_ticket')}
-      </button>
+      {!isStaff && (
+        <button
+          onClick={() => setShowNew(true)}
+          style={{
+            position: 'fixed', bottom: 24, right: 24,
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '13px 20px', borderRadius: 28, border: 'none',
+            backgroundColor: colors.primary, color: '#fff',
+            fontSize: 15, fontWeight: '700', cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          }}
+        >
+          <Plus size={20} color="#fff" strokeWidth={2.5} />
+          {t('support.new_ticket')}
+        </button>
+      )}
 
       {selectedTicket && (
         <TicketDetail
