@@ -218,7 +218,7 @@ export default function Events() {
   );
 
   return (
-    <Layout title={t('events.title')} showBackButton>
+    <Layout title={t('events.title')} showBackButton titleAlignLeft>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         {filterBar}
         {eventList}

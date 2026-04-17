@@ -119,12 +119,13 @@ export default function Layout({
             maxWidth: isDesktop ? 'none' : '600px',
             margin: '0 auto',
             display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
+            gridTemplateColumns: titleAlignLeft ? 'auto 1fr auto' : '1fr auto 1fr',
             alignItems: 'center',
             padding: '0 16px',
-            height: '56px'
+            height: '56px',
+            gap: titleAlignLeft ? 4 : 0,
           }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: titleAlignLeft ? 'flex-start' : 'flex-start' }}>
               {showBackButton && (
                 <button
                   className="settings-button"
@@ -135,7 +136,7 @@ export default function Layout({
                     border: 'none',
                     cursor: 'pointer',
                     padding: '8px',
-                    marginLeft: '-8px'
+                    marginLeft: '-8px',
                   }}
                 >
                   ←
@@ -149,11 +150,11 @@ export default function Layout({
                 margin: 0,
                 fontSize: '17px',
                 fontWeight: '600',
-                textAlign: 'center',
+                textAlign: titleAlignLeft ? 'left' : 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                maxWidth: '200px'
+                ...(titleAlignLeft ? {} : { maxWidth: '200px' }),
               }}
             >
               {title}

@@ -709,8 +709,28 @@ export default function Chat() {
     const groupId = id.slice(3);
     const myName = userData?.displayName || currentUser.displayName || 'User';
     const myPhoto = userData?.photoURL || currentUser.photoURL || null;
+    const participantData: Record<string, { name: string; photo: string | null }> = {};
+    await Promise.all(
+      studyGroupData.memberIds.map(async (uid: string) => {
+        if (uid === currentUser.uid) {
+          participantData[uid] = { name: myName, photo: myPhoto };
+        } else {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            if (snap.exists()) {
+              const d = snap.data();
+              participantData[uid] = { name: d.displayName || 'Usuario', photo: d.photoURL || null };
+            } else {
+              participantData[uid] = { name: 'Usuario', photo: null };
+            }
+          } catch {
+            participantData[uid] = { name: 'Usuario', photo: null };
+          }
+        }
+      })
+    );
     try {
-      await createConference(
+      const conferenceId = await createConference(
         groupId,
         studyGroupData.name,
         studyGroupData.photo ?? null,
@@ -719,8 +739,20 @@ export default function Chat() {
         myPhoto,
         'video',
         studyGroupData.memberIds,
-        { [currentUser.uid]: { name: myName, photo: myPhoto } },
+        participantData,
       );
+      setActiveConference({
+        callId: conferenceId,
+        isInitiator: true,
+        type: 'video',
+        groupName: studyGroupData.name,
+        groupPhoto: studyGroupData.photo ?? null,
+        myUid: currentUser.uid,
+        myName,
+        myPhoto,
+        myRole: userData?.role ?? 'teacher',
+      });
+      setActiveConferenceId(conferenceId);
     } catch {
       alert(t('chat.conference_error'));
     }
@@ -830,7 +862,7 @@ export default function Chat() {
         >
           ←
         </button>
-        <h1 className="chat-header-title" style={{ color: desktopThemeStyle ? desktopThemeStyle.text : colors.text }}>{channelName}</h1>
+        <h1 className="chat-header-title" style={{ color: desktopThemeStyle ? desktopThemeStyle.text : colors.text, flex: 1 }}>{channelName}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {isStudyGroupChat && activeGroupConference && !isAlreadyInConference && (
             <button

@@ -597,7 +597,7 @@ export default function Support() {
 
   if (isDesktop) {
     return (
-      <Layout title={t('support.title')} showBackButton>
+      <Layout title={t('support.title')} showBackButton titleAlignLeft>
         <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
           <div style={{
             width: 460, flexShrink: 0, borderRight: `1px solid ${colors.border}`,
@@ -647,7 +647,7 @@ export default function Support() {
   }
 
   return (
-    <Layout title={t('support.title')} showBackButton>
+    <Layout title={t('support.title')} showBackButton titleAlignLeft>
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 80px' }}>
 
         <div style={{
