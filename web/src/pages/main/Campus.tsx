@@ -44,7 +44,7 @@ export default function CampusScreen() {
 
   return (
     <Layout title="Campus">
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: isDesktop ? 'calc(100vh - 121px)' : 'calc(100vh - 201px)', overflow: 'hidden' }}>
 
         {isDesktop ? (
           <div style={{

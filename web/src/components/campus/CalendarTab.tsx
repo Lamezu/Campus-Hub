@@ -11,11 +11,11 @@ import { DEPARTMENTS, DEPARTMENT_SECTIONS, getDepartmentLabel } from '../../cons
 import type { CalendarEventType, CalendarEvent } from '../../types';
 
 const EVENT_TYPE_CONFIG: Record<CalendarEventType, { color: string }> = {
-  exam:     { color: '#FF3B30' },
+  exam: { color: '#FF3B30' },
   deadline: { color: '#FF9500' },
-  holiday:  { color: '#34C759' },
-  event:    { color: '#007AFF' },
-  class:    { color: '#AF52DE' },
+  holiday: { color: '#34C759' },
+  event: { color: '#007AFF' },
+  class: { color: '#AF52DE' },
 };
 
 function EventTypeIcon({ type, size = 14, color: c }: { type: CalendarEventType; size?: number; color?: string }) {
@@ -132,8 +132,8 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
   const canCreateEvent = eventTypes.length > 0;
 
   const calendarPanel = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, border: `1px solid ${colors.border}`, padding: '12px 16px', backgroundColor: colors.card }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, border: `1px solid ${colors.border}`, padding: '8px 12px', backgroundColor: colors.card }}>
         <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
           <ChevronLeft size={20} color={colors.text} strokeWidth={2} />
         </button>
@@ -253,12 +253,12 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
 
   return (
     <div style={isDesktop
-      ? { display: 'flex', gap: 32, padding: '24px 32px', height: '100%', overflow: 'hidden' }
+      ? { display: 'flex', gap: 32, padding: '8px 32px', height: '100%', overflow: 'hidden' }
       : { overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }
     }>
       {isDesktop ? (
         <>
-          <div style={{ width: 380, flexShrink: 0, overflowY: 'auto' }}>{calendarPanel}</div>
+          <div style={{ width: 290, flexShrink: 0 }}>{calendarPanel}</div>
           <div style={{ flex: 1, overflowY: 'auto' }}>{eventsPanel}</div>
         </>
       ) : (
@@ -338,7 +338,6 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                       {t('events.target_department')}
                     </div>
 
-                    {/* Search input */}
                     <div style={{ position: 'relative', marginBottom: 10 }}>
                       <Search size={14} color={colors.textSecondary} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                       <input
@@ -350,9 +349,7 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                       />
                     </div>
 
-                    {/* Sectioned department list */}
                     <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
-                      {/* "All" option */}
                       {!search && (
                         <button
                           type="button"
@@ -402,7 +399,6 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                       )}
                     </div>
 
-                    {/* Selected department indicator */}
                     {formDeptId && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, backgroundColor: colors.primary + '10', border: `1px solid ${colors.primary}30`, marginTop: 8 }}>
                         <Users size={12} color={colors.primary} strokeWidth={2} />
