@@ -153,7 +153,7 @@ export default function ExploreScreen() {
         title: currentUser.displayName ?? 'Alguien',
         body: `le dio like a tu post "${post.title}"`,
         meta: { postId },
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -171,7 +171,7 @@ export default function ExploreScreen() {
         title: currentUser.displayName ?? 'Alguien',
         body: `le dio like a tu post "${post.title}"`,
         meta: { postId },
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -240,6 +240,28 @@ export default function ExploreScreen() {
     }
   };
 
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 768);
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
+  const sidebarSpacerRef = useRef<HTMLDivElement>(null);
+  const [sidebarRight, setSidebarRight] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () => {
+      if (sidebarSpacerRef.current) {
+        const rect = sidebarSpacerRef.current.getBoundingClientRect();
+        setSidebarRight(document.documentElement.clientWidth - rect.right);
+      }
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(document.body);
+    return () => observer.disconnect();
+  }, []);
+
   const canPublish = title.trim().length > 0 && !publishing;
 
   const createForm = (
@@ -264,7 +286,7 @@ export default function ExploreScreen() {
           value={content}
           onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
           maxLength={CONTENT_MAX}
-          rows={6}
+          rows={2}
           style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: colors.text, resize: 'vertical', lineHeight: '22px', padding: '4px 0', fontFamily: 'inherit' }}
         />
       </div>
@@ -276,10 +298,10 @@ export default function ExploreScreen() {
         {media ? (
           <>
             {media.type === 'image' ? (
-              <img src={media.previewUrl} alt="preview" style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+              <img src={media.previewUrl} alt="preview" style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }} />
             ) : (
-              <div style={{ height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.backgroundSecondary }}>
-                <Video size={28} color={colors.textSecondary} />
+              <div style={{ height: 90, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.backgroundSecondary }}>
+                <Video size={20} color={colors.textSecondary} />
                 <span style={{ fontSize: 13, color: colors.textSecondary }}>{t('explore.video_selected')}</span>
                 <button
                   onClick={() => setMuteOriginalAudio(prev => !prev)}
@@ -304,13 +326,13 @@ export default function ExploreScreen() {
       {media && (
         <button
           onClick={() => setShowSongPicker(true)}
-          style={{ border: `1px solid ${song ? colors.primary : colors.border}`, borderRadius: 12, padding: 12, cursor: 'pointer', backgroundColor: colors.card, width: '100%', textAlign: 'left' }}
+          style={{ border: `1px solid ${song ? colors.primary : colors.border}`, borderRadius: 12, padding: 8, cursor: 'pointer', backgroundColor: colors.card, width: '100%', textAlign: 'left' }}
         >
           {song ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {song.coverUrl
-                ? <img src={song.coverUrl} alt={song.name} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} />
-                : <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                ? <img src={song.coverUrl} alt={song.name} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
+                : <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} /></div>
               }
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: '600', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</div>
@@ -332,7 +354,7 @@ export default function ExploreScreen() {
       <button
         onClick={handlePublish}
         disabled={!canPublish}
-        style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', backgroundColor: colors.primary, color: '#FFF', fontSize: 15, fontWeight: '600', cursor: canPublish ? 'pointer' : 'not-allowed', opacity: canPublish ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', backgroundColor: colors.primary, color: '#FFF', fontSize: 14, fontWeight: '600', cursor: canPublish ? 'pointer' : 'not-allowed', opacity: canPublish ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '4px', zIndex: 10 }}
       >
         {publishing
           ? <div style={{ width: 18, height: 18, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#FFF', animation: 'spin 0.8s linear infinite' }} />
@@ -342,49 +364,70 @@ export default function ExploreScreen() {
     </div>
   );
 
+  const feed = (
+    <>
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 48 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
+        </div>
+      ) : posts.length === 0 ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 48 }}>
+          <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>{t('explore.no_posts')}</p>
+        </div>
+      ) : (
+        <>
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} onLikePress={() => handleLikeToggle(post.id)} onShare={() => setSharePost(post)} currentUserId={currentUser?.uid} />
+          ))}
+          {hasMore && (
+            <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
+              {loadingMore && (
+                <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+
   return (
     <Layout title={t('tabs.explore')} rightAction={<NotificationBell categories={['social']} />}>
       <div style={{ position: 'relative', minHeight: '100%' }}>
-        {!showCreate ? (
-          <>
-            <button
-              onClick={() => setShowCreate(true)}
-              style={{ position: 'fixed', bottom: '90px', right: '20px', width: '56px', height: '56px', borderRadius: '28px', backgroundColor: colors.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}
-            >
-              <Plus size={28} color="#FFFFFF" />
-            </button>
 
-            {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 48 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
-              </div>
-            ) : posts.length === 0 ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 48 }}>
-                <p style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', lineHeight: '24px' }}>{t('explore.no_posts')}</p>
-              </div>
-            ) : (
-              <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: '80px' }}>
-                {posts.map((post) => (
-                  <PostCard key={post.id} post={post} onPress={() => navigate(`/post/${post.id}`)} onDoubleTap={() => handleDoubleTap(post.id)} onLikePress={() => handleLikeToggle(post.id)} onShare={() => setSharePost(post)} currentUserId={currentUser?.uid} />
-                ))}
-                {hasMore && (
-                  <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
-                    {loadingMore && (
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ maxWidth: 600, margin: '0 auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: '80px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 'bold', color: colors.text }}>{t('explore.create_post')}</h2>
-              <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: colors.textSecondary, padding: '4px 8px' }}>✕</button>
+        {isDesktop ? (
+          <div style={{ display: 'flex', gap: 24, maxWidth: 1150, margin: '0 auto', padding: '16px 24px' }}>
+            <div style={{ flex: 1, minWidth: 0, paddingBottom: 40 }}>
+              {feed}
             </div>
-            {createForm}
+            <div ref={sidebarSpacerRef} style={{ width: 320, flexShrink: 0 }} />
+            <div style={{ position: 'fixed', top: 125, right: sidebarRight ?? 24, width: 320, maxHeight: 'calc(100vh - 130px)', overflowY: 'hidden', backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, padding: '20px 20px', zIndex: 5, visibility: sidebarRight === null ? 'hidden' : 'visible' }}>
+              <h2 style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16 }}>{t('explore.create_post')}</h2>
+              {createForm}
+            </div>
           </div>
+        ) : (
+          !showCreate ? (
+            <>
+              <button
+                onClick={() => setShowCreate(true)}
+                style={{ position: 'fixed', bottom: '90px', right: '20px', width: '56px', height: '56px', borderRadius: '28px', backgroundColor: colors.primary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100 }}
+              >
+                <Plus size={28} color="#FFFFFF" />
+              </button>
+              <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: '80px' }}>
+                {feed}
+              </div>
+            </>
+          ) : (
+            <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: '140px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 'bold', color: colors.text }}>{t('explore.create_post')}</h2>
+                <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: colors.textSecondary, padding: '4px 8px' }}>✕</button>
+              </div>
+              {createForm}
+            </div>
+          )
         )}
 
         <SongPicker visible={showSongPicker} onClose={() => setShowSongPicker(false)} onSelect={setSong} selected={song} />
