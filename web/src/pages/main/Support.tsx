@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   addDoc, collection, doc, onSnapshot, orderBy,
   query, serverTimestamp, updateDoc, where,
@@ -115,7 +115,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
   };
 
   const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollAreaRef.current) scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
   };
 
   useEffect(() => {
@@ -125,7 +125,9 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
     );
     return onSnapshot(q, snap => {
       setReplies(snap.docs.map(d => ({ id: d.id, ...d.data() } as TicketReply)));
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      setTimeout(() => {
+        if (scrollAreaRef.current) scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      }, 100);
     });
   }, [ticket.id]);
 
@@ -159,7 +161,7 @@ function TicketDetail({ ticket, onClose, isStaff, colors, inline }: {
       borderRadius: inline ? 0 : 18,
       width: '100%',
       maxWidth: inline ? undefined : 600,
-      maxHeight: inline ? undefined : '90vh',
+      maxHeight: inline ? undefined : '70vh',
       height: inline ? '100%' : undefined,
       display: 'flex', flexDirection: 'column',
       boxShadow: inline ? 'none' : '0 8px 40px rgba(0,0,0,0.18)',
@@ -397,7 +399,7 @@ function NewTicketModal({ onClose, colors }: { onClose: () => void; colors: any 
   );
 }
 
-function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, selectedTicketId, onSelect, colors }: {
+function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, selectedTicketId, onSelect, onNewTicket, colors }: {
   filtered: Ticket[];
   tickets: Ticket[];
   filter: FilterStatus;
@@ -406,6 +408,7 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
   isStaff: boolean;
   selectedTicketId: string | null;
   onSelect: (id: string) => void;
+  onNewTicket?: () => void;
   colors: any;
 }) {
   const { t, language } = useTranslation();
@@ -420,9 +423,26 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {!isStaff && onNewTicket && (
+        <div style={{ padding: '12px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
+          <button
+            onClick={onNewTicket}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '11px 0', borderRadius: 12, border: 'none',
+              backgroundColor: colors.primary, color: '#fff',
+              fontSize: 14, fontWeight: '700', cursor: 'pointer',
+            }}
+          >
+            <Plus size={18} color="#fff" strokeWidth={2.5} />
+            {t('support.new_ticket')}
+          </button>
+        </div>
+      )}
       <div style={{
-        display: 'flex', gap: 8, padding: '12px 16px',
-        borderBottom: `1px solid ${colors.border}`, overflowX: 'auto', flexShrink: 0,
+        display: 'flex', gap: 6, padding: '10px 12px',
+        borderBottom: `1px solid ${colors.border}`, flexShrink: 0,
+        justifyContent: 'center',
       }}>
         {FILTERS.map(f => {
           const count = f.key === 'all' ? tickets.length : countFor(f.key as TicketStatus);
@@ -432,11 +452,11 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
               key={f.key}
               onClick={() => setFilter(f.key)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-                borderRadius: 20, padding: '6px 13px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 4,
+                borderRadius: 20, padding: '4px 10px', border: 'none', cursor: 'pointer',
                 backgroundColor: active ? colors.primary : 'rgba(120,120,128,0.12)',
                 color: active ? '#fff' : colors.textSecondary,
-                fontSize: 13, fontWeight: '600',
+                fontSize: 12, fontWeight: '600', whiteSpace: 'nowrap',
               }}
             >
               {f.label}
@@ -454,7 +474,7 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
         })}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', scrollSnapType: 'y proximity' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
             <div style={{ width: 32, height: 32, borderRadius: '50%', border: `3px solid ${colors.backgroundSecondary}`, borderTopColor: colors.primary, animation: 'spin 0.8s linear infinite' }} />
@@ -472,7 +492,7 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
             )}
           </div>
         ) : (
-          <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ padding: '10px 12px 80px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map(ticket => {
               const isSelected = ticket.id === selectedTicketId;
               return (
@@ -485,6 +505,7 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
                     border: `1px solid ${isSelected ? colors.primary + '88' : colors.border}`,
                     backgroundColor: isSelected ? colors.primary + '10' : colors.background,
                     transition: 'background-color 0.12s, border-color 0.12s',
+                    scrollSnapAlign: 'start',
                   }}
                   onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = colors.backgroundSecondary; }}
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = colors.background; }}
@@ -524,9 +545,15 @@ function TicketList({ filtered, tickets, filter, setFilter, loading, isStaff, se
 export default function Support() {
   const { colors } = useTheme();
   const isDesktop = useWindowSize();
+
+  useLayoutEffect(() => {
+    if (!isDesktop) return;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [isDesktop]);
   const { t, language } = useTranslation();
   const currentUser = auth.currentUser;
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(undefined);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>('all');
@@ -535,13 +562,14 @@ export default function Support() {
   const [showNew, setShowNew] = useState(false);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) { setUserData(null); return; }
     const unsub = onSnapshot(doc(db, 'users', currentUser.uid), snap => {
-      if (snap.exists()) setUserData(snap.data());
+      setUserData(snap.exists() ? snap.data() : null);
     });
     return unsub;
   }, [currentUser?.uid]);
 
+  const userDataReady = userData !== undefined;
   const isStaff = userData?.role === 'admin' || userData?.role === 'teacher' || userData?.subrole === 'coordinator';
 
   useEffect(() => {
@@ -570,37 +598,24 @@ export default function Support() {
   if (isDesktop) {
     return (
       <Layout title={t('support.title')} showBackButton>
-        <div style={{ display: 'flex', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
           <div style={{
-            width: 380, flexShrink: 0, borderRight: `1px solid ${colors.border}`,
+            width: 460, flexShrink: 0, borderRight: `1px solid ${colors.border}`,
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
           }}>
-            <TicketList
-              filtered={filtered}
-              tickets={tickets}
-              filter={filter}
-              setFilter={setFilter}
-              loading={loading}
-              isStaff={isStaff}
-              selectedTicketId={selectedTicketId}
-              onSelect={setSelectedTicketId}
-              colors={colors}
-            />
-            {!isStaff && (
-              <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
-                <button
-                  onClick={() => setShowNew(true)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '11px 0', borderRadius: 12, border: 'none',
-                    backgroundColor: colors.primary, color: '#fff',
-                    fontSize: 14, fontWeight: '700', cursor: 'pointer',
-                  }}
-                >
-                  <Plus size={18} color="#fff" strokeWidth={2.5} />
-                  {t('support.new_ticket')}
-                </button>
-              </div>
+            {userDataReady && (
+              <TicketList
+                filtered={filtered}
+                tickets={tickets}
+                filter={filter}
+                setFilter={setFilter}
+                loading={loading}
+                isStaff={isStaff}
+                selectedTicketId={selectedTicketId}
+                onSelect={setSelectedTicketId}
+                onNewTicket={() => setShowNew(true)}
+                colors={colors}
+              />
             )}
           </div>
 
