@@ -7,7 +7,7 @@ import { useAnnouncements } from '../../hooks/campus/useAnnouncements';
 import { AnnouncementCard } from './AnnouncementCard';
 import { ANNOUNCEMENT_CATEGORIES } from '../../constants/announcementCategories';
 import { useTranslation } from '../../hooks/useTranslation';
-import { uploadAnnouncementImage } from '../../config/firebaseStorage';
+import { uploadAnnouncementImage } from '../../config/cloudinary';
 import { auth } from '../../config/firebase';
 
 type PinDuration = 'permanent' | '1d' | '3d' | '1w' | '1m';

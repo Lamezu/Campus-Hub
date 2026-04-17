@@ -4,7 +4,7 @@ import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arr
 import { Images, Video, Music, X, VolumeX, Volume2, Plus } from 'lucide-react';
 import NotificationBell from '../../components/NotificationBell';
 import { auth, db } from '../../config/firebase';
-import { uploadPostMedia } from '../../config/firebaseStorage';
+import { uploadPostMedia } from '../../config/cloudinary';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SongPicker } from '../../components/SongPicker';
 import { PostCard } from '../../components/PostCards';

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, getDocs, collection, updateDoc, arrayRemove, increment, writeBatch } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { X, Bell, BellOff, Trash2, LogOut, Camera } from 'lucide-react';
-import { uploadProfilePhoto } from '../../config/firebaseStorage';
+import { uploadProfilePhoto } from '../../config/cloudinary';
 import { useTranslation } from '../../hooks/useTranslation';
 
 interface MemberInfo {

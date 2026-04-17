@@ -17,7 +17,8 @@ import { createConference, subscribeToActiveConferenceForGroup } from '../../ser
 import type { GroupCall } from '../../services/firebase/groupCallService';
 import { useTranslation } from '../../hooks/useTranslation';
 import { PollModal } from '../../components/chat/PollModal';
-import { uploadAudio, uploadChatImage, uploadChatFile } from '../../config/firebaseStorage';
+import { uploadAudio, uploadChatImage } from '../../config/cloudinary';
+import { uploadChatFile } from '../../config/firebaseStorage';
 import type { PollData } from '../../types';
 import { updateLastRead } from '../../services/firebase/messageService';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages } from '../../services/firebase/savedItemsService';
