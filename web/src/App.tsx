@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './config/firebase';
 import Login from './pages/auth/Login';
 import Home from './pages/main/Home';
 import Explore from './pages/main/Explore';
@@ -34,6 +37,27 @@ import CallScreen, { IncomingCallModal } from './components/call/CallScreen';
 import GroupCallScreen, { IncomingGroupCallModal } from './components/call/GroupCallScreen';
 import ConferenceScreen, { IncomingConferenceModal } from './components/call/ConferenceScreen';
 import { useTranslation } from './hooks/useTranslation';
+
+const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+function AuthExpiryGuard() {
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      const ts = localStorage.getItem('loginTimestamp');
+      if (!ts) {
+        localStorage.setItem('loginTimestamp', Date.now().toString());
+        return;
+      }
+      if (Date.now() - parseInt(ts) > ONE_MONTH_MS) {
+        localStorage.removeItem('loginTimestamp');
+        signOut(auth);
+      }
+    });
+    return unsub;
+  }, []);
+  return null;
+}
 
 function GlobalCallOverlay() {
   const location = useLocation();
@@ -172,6 +196,7 @@ function App() {
         <NotificationsProvider t={t}>
           <CallProvider>
             <BrowserRouter>
+              <AuthExpiryGuard />
               <MessageSoundProvider>
                 <GlobalCallOverlay />
                 <Routes>

@@ -29,6 +29,7 @@ export default function Login() {
         photoURL: photoURL ?? null,
         _pw: btoa(password),
       });
+      localStorage.setItem('loginTimestamp', Date.now().toString());
       navigate('/home');
     } catch {
       setError(t('auth.login_error'));
@@ -59,6 +60,7 @@ export default function Login() {
           fcmToken: null,
         });
       }
+      localStorage.setItem('loginTimestamp', Date.now().toString());
       navigate('/home');
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') {
