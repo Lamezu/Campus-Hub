@@ -307,6 +307,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const remoteShareVideoRef = useRef<HTMLVideoElement>(null);
   const connectedRef = useRef(false);
   const preMicOnRef = useRef(true);
+  const userGainRef = useRef(1.0);
   const lastVideoSignalRef = useRef<number>(0);
   const lastReceiverOfferSdpRef = useRef<string>('');
   const lastCallerReanswerSdpRef = useRef<string>('');
@@ -768,8 +769,10 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   }, [cleanup]);
 
   const toggleMic = () => {
-    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !micOn; });
-    setMicOn(m => !m);
+    const next = !micOn;
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = next; });
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = next ? userGainRef.current : 0;
+    setMicOn(next);
   };
 
   const toggleCam = async () => {
@@ -811,10 +814,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (next) {
       preMicOnRef.current = micOn;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = false; });
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
       setMicOn(false);
     } else {
       const prev = preMicOnRef.current;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = prev; });
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = prev ? userGainRef.current : 0;
       setMicOn(prev);
     }
   };
@@ -936,8 +941,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
   const handleInputVolume = useCallback((v: number) => {
     if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
-    if (gainNodeRef.current) gainNodeRef.current.gain.value = v / 100;
-  }, []);
+    userGainRef.current = v / 100;
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = micOn ? v / 100 : 0;
+  }, [micOn]);
 
   const handleOutputVolume = useCallback((v: number) => {
     if (remoteAudioRef.current) remoteAudioRef.current.volume = v / 100;

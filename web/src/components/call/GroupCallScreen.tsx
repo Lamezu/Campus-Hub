@@ -120,6 +120,7 @@ export default function GroupCallScreen({
   const lastCallerReanswerSdpsByPeerRef = useRef<Map<string, string>>(new Map());
   const shareMuteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const preMicOnRef = useRef(true);
+  const userGainRef = useRef(1.0);
   const speakingRafRef = useRef<number | null>(null);
   const remoteSpeakingUntilRef = useRef<Map<string, number>>(new Map());
   const remoteSpeakingStateRef = useRef<Map<string, boolean>>(new Map());
@@ -661,8 +662,10 @@ export default function GroupCallScreen({
 
 
   const toggleMic = () => {
-    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !micOn; });
-    setMicOn(m => !m);
+    const next = !micOn;
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = next; });
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = next ? userGainRef.current : 0;
+    setMicOn(next);
   };
 
   const toggleCam = async () => {
@@ -709,10 +712,12 @@ export default function GroupCallScreen({
     if (next) {
       preMicOnRef.current = micOn;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = false; });
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = 0;
       setMicOn(false);
     } else {
       const prev = preMicOnRef.current;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = prev; });
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = prev ? userGainRef.current : 0;
       setMicOn(prev);
     }
   };
@@ -839,8 +844,9 @@ export default function GroupCallScreen({
 
   const handleInputVolume = useCallback((v: number) => {
     if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
-    if (gainNodeRef.current) gainNodeRef.current.gain.value = v / 100;
-  }, []);
+    userGainRef.current = v / 100;
+    if (gainNodeRef.current) gainNodeRef.current.gain.value = micOn ? v / 100 : 0;
+  }, [micOn]);
 
   const handleOutputVolume = useCallback((v: number) => {
     for (const audioEl of remoteAudioElsRef.current.values()) audioEl.volume = v / 100;
