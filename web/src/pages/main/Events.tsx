@@ -170,43 +170,58 @@ export default function Events() {
                       <span style={{ fontSize: 12, fontWeight: 500, color: colors.primary }}>{t('events.view_in_calendar')}</span>
                     </button>
 
-                    {!isPast && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {ev.attendeesCount > 0 && (
-                          <span style={{ fontSize: 12, color: colors.textSecondary }}>{t('events.going', { count: ev.attendeesCount })}</span>
-                        )}
-                        <button
-                          className="btn-press"
-                          onClick={() => rsvp(ev.id, 'going')}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '5px 10px', borderRadius: 20,
-                            border: '1.5px solid #34C759',
-                            backgroundColor: myRsvp === 'going' ? '#34C759' : 'transparent',
-                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                            color: myRsvp === 'going' ? '#fff' : '#34C759',
-                          }}
-                        >
-                          <Check size={13} color={myRsvp === 'going' ? '#fff' : '#34C759'} strokeWidth={2.5} />
-                          {t('events.rsvp_going')}
-                        </button>
-                        <button
-                          className="btn-press"
-                          onClick={() => rsvp(ev.id, 'not_going')}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '5px 10px', borderRadius: 20,
-                            border: '1.5px solid #FF3B30',
-                            backgroundColor: myRsvp === 'not_going' ? '#FF3B30' : 'transparent',
-                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                            color: myRsvp === 'not_going' ? '#fff' : '#FF3B30',
-                          }}
-                        >
-                          <X size={13} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
-                          {t('events.rsvp_not_going')}
-                        </button>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {!isPast && (
+                        <>
+                          <button
+                            className="btn-press"
+                            onClick={() => rsvp(ev.id, 'going')}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '5px 10px', borderRadius: 20,
+                              border: '1.5px solid #34C759',
+                              backgroundColor: myRsvp === 'going' ? '#34C759' : 'transparent',
+                              cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                              color: myRsvp === 'going' ? '#fff' : '#34C759',
+                            }}
+                          >
+                            <Check size={13} color={myRsvp === 'going' ? '#fff' : '#34C759'} strokeWidth={2.5} />
+                            {t('events.rsvp_going')}
+                          </button>
+                          <button
+                            className="btn-press"
+                            onClick={() => rsvp(ev.id, 'not_going')}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '5px 10px', borderRadius: 20,
+                              border: '1.5px solid #FF3B30',
+                              backgroundColor: myRsvp === 'not_going' ? '#FF3B30' : 'transparent',
+                              cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                              color: myRsvp === 'not_going' ? '#fff' : '#FF3B30',
+                            }}
+                          >
+                            <X size={13} color={myRsvp === 'not_going' ? '#fff' : '#FF3B30'} strokeWidth={2.5} />
+                            {t('events.rsvp_not_going')}
+                          </button>
+                        </>
+                      )}
+                      {ev.attendeesCount > 0 && (() => {
+                        const active = !isPast && myRsvp === 'going';
+                        return (
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '5px 12px', borderRadius: 20,
+                            backgroundColor: active ? '#34C75918' : colors.backgroundSecondary,
+                            border: `1px solid ${active ? '#34C75940' : colors.border}`,
+                          }}>
+                            <Users size={13} color={active ? '#34C759' : colors.textSecondary} strokeWidth={2.5} />
+                            <span style={{ fontSize: 12, fontWeight: 600, color: active ? '#34C759' : colors.textSecondary }}>
+                              {t('events.going', { count: ev.attendeesCount })}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
