@@ -183,7 +183,7 @@ export default function GroupCallScreen({
       screenShareVideoRef.current.srcObject = screenStreamRef.current;
       screenShareVideoRef.current.play().catch(() => {});
     }
-  }, [minimized, inPip]);
+  }, [minimized, inPip, showLocalVideo]);
 
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -1025,9 +1025,9 @@ export default function GroupCallScreen({
   const localInitial = myName[0]?.toUpperCase() || '?';
 
   const sharingPeers = peers.filter(p => p.sharing);
-  const visibleTileCount = peers.length + (showLocalVideo ? 1 : 0) + (sharing ? 1 : 0) + sharingPeers.length;
+  const localTileVisible = camOn ? showLocalVideo : showNoVideoParticipants;
+  const visibleTileCount = peers.filter(p => !p.camOff || showNoVideoParticipants).length + (localTileVisible ? 1 : 0) + (sharing ? 1 : 0) + sharingPeers.length;
 
-  // 2-party mode: exactly 1 remote peer + local tile, no screen sharing — mirrors CallScreen layout
   const isTwoParty = peers.length === 1 && !sharing && sharingPeers.length === 0;
 
   const { tileWidth, tileHeight } = (() => {
@@ -1114,7 +1114,7 @@ export default function GroupCallScreen({
         {!minimized && (
           <>
             {peers.map(peer => (
-              <div key={peer.uid} style={{ ...tileStyle(peer.uid), ...(peer.speaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick(peer.uid)}>
+              <div key={peer.uid} style={{ ...tileStyle(peer.uid), ...(peer.camOff && !showNoVideoParticipants && { display: 'none' }), ...(peer.speaking && !deafened && focusedTile !== peer.uid && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick(peer.uid)}>
                 {callType === 'video' && (
                   <video
                     ref={el => { remoteVideoElsRef.current.set(peer.uid, el); }}
@@ -1133,6 +1133,9 @@ export default function GroupCallScreen({
                   </div>
                 )}
                 {tileLabel(peer.name)}
+                {peer.speaking && !deafened && focusedTile === peer.uid && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+                )}
               </div>
             ))}
 
@@ -1153,22 +1156,23 @@ export default function GroupCallScreen({
               </div>
             ))}
 
-            {showLocalVideo && (
-              <div style={{ ...tileStyle('local'), ...(localSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
-                {callType === 'video' && (
-                  <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
-                )}
-                {(callType === 'audio' || !camOn) && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
-                      {localPhoto ? <img src={localPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: '#fff', fontWeight: 700 }}>{localInitial}</div>}
-                    </div>
-                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '8px 0 2px' }}>{t('call.you')}</p>
+            <div style={{ ...tileStyle('local'), ...(!localTileVisible && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
+              {callType === 'video' && (
+                <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: focusedTile === 'local' ? 'contain' : 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
+              )}
+              {(callType === 'audio' || !camOn) && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
+                    {localPhoto ? <img src={localPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: '#fff', fontWeight: 700 }}>{localInitial}</div>}
                   </div>
-                )}
-                {tileLabel(t('call.you'))}
-              </div>
-            )}
+                  <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '8px 0 2px' }}>{t('call.you')}</p>
+                </div>
+              )}
+              {tileLabel(t('call.you'))}
+              {localSpeaking && focusedTile === 'local' && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+              )}
+            </div>
 
             <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')}>
               <video ref={screenShareVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -1276,7 +1280,7 @@ export default function GroupCallScreen({
               onClick={handleLeave}
               mobile={isMobile}
             />
-            {status === 'active' && (
+            {status === 'active' && callType === 'video' && (
               <div style={{ position: 'relative' }}>
                 {showMoreMenu && (
                   <div style={{

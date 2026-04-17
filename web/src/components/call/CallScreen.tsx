@@ -1022,7 +1022,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           );
           return (
             <>
-              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }), ...(remoteSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('remote')}>
+              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }), ...(remoteSpeaking && !deafened && focusedTile !== 'remote' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('remote')}>
                 {callType === 'video' && (
                   <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
@@ -1036,6 +1036,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                   </div>
                 )}
                 {label(otherUserName)}
+                {remoteSpeaking && !deafened && focusedTile === 'remote' && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+                )}
               </div>
 
               <div style={{ ...tileStyle('remoteShare', { backgroundColor: '#111214' }), ...(!remoteSharing && { display: 'none' }) }} onClick={onTileClick('remoteShare')}>
@@ -1048,9 +1051,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {label(t('call.your_screen'))}
               </div>
 
-              <div style={{ ...tileStyle('local'), ...(!showLocalVideo && { display: 'none' }), ...(localSpeaking && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
+              <div style={{ ...tileStyle('local'), ...((camOn ? !showLocalVideo : !showNoVideoParticipants) && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
                 {callType === 'video' && (
-                  <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
+                  <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: focusedTile === 'local' ? 'contain' : 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
                 {(callType === 'audio' || !camOn) && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -1062,6 +1065,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                   </div>
                 )}
                 {label(t('call.you'))}
+                {localSpeaking && focusedTile === 'local' && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+                )}
               </div>
             </>
           );
@@ -1174,7 +1180,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
             onClick={handleHangUp}
             mobile={isMobile}
           />
-          {status === 'active' && (
+          {status === 'active' && callType === 'video' && (
             <div style={{ position: 'relative' }}>
               {showMoreMenu && (
                 <div style={{
