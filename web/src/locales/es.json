@@ -251,6 +251,8 @@
     "unsave": "Quitar de guardados",
     "audio_reply": "Responder con audio",
     "blocked_warning": "No puedes enviar mensajes a este usuario",
+    "deleted_user": "Usuario eliminado",
+    "deleted_user_notice": "Este usuario ha eliminado su cuenta",
     "delete_title": "Eliminar mensaje",
     "emoji_search": "Buscar emoji...",
     "info": "Información",

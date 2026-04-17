@@ -178,6 +178,7 @@ export default function DirectChat() {
   const [hasMore, setHasMore] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [otherUser, setOtherUser] = useState<any>(null);
+  const [otherUserDeleted, setOtherUserDeleted] = useState(false);
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
@@ -241,7 +242,12 @@ export default function DirectChat() {
       const otherId = data.participants?.find((id: string) => id !== currentUser.uid);
       if (otherId) {
         const userSnap = await getDoc(doc(db, 'users', otherId));
-        if (userSnap.exists()) setOtherUser({ uid: otherId, ...userSnap.data() });
+        if (userSnap.exists() && !userSnap.data()?.deleted) {
+          setOtherUser({ uid: otherId, ...userSnap.data() });
+        } else {
+          setOtherUserDeleted(true);
+          setOtherUser({ uid: otherId, displayName: t('chat.deleted_user'), photoURL: null });
+        }
       }
     });
   }, [conversationId, currentUser]);
@@ -587,18 +593,18 @@ export default function DirectChat() {
         <button
           onClick={() => handleStartCall('audio')}
           className="chat-back-button"
-          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked) ? 'not-allowed' : 'pointer' }}
+          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked || otherUserDeleted) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked || otherUserDeleted) ? 'not-allowed' : 'pointer' }}
           title={(amIBlocked || haveIBlocked) ? t('chat.blocked_warning') : t('call.audio_call')}
-          disabled={amIBlocked || haveIBlocked}
+          disabled={amIBlocked || haveIBlocked || otherUserDeleted}
         >
           <Phone size={20} />
         </button>
         <button
           onClick={() => handleStartCall('video')}
           className="chat-back-button"
-          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked) ? 'not-allowed' : 'pointer' }}
+          style={{ color: desktopThemeStyle?.text ?? 'var(--text)', opacity: (amIBlocked || haveIBlocked || otherUserDeleted) ? 0.4 : 1, cursor: (amIBlocked || haveIBlocked || otherUserDeleted) ? 'not-allowed' : 'pointer' }}
           title={(amIBlocked || haveIBlocked) ? t('chat.blocked_warning') : t('call.video_call')}
-          disabled={amIBlocked || haveIBlocked}
+          disabled={amIBlocked || haveIBlocked || otherUserDeleted}
         >
           <Video size={20} />
         </button>
@@ -747,13 +753,31 @@ export default function DirectChat() {
         </div>
       )}
 
+      {otherUserDeleted && (
+        <div style={{
+          padding: '8px 16px',
+          backgroundColor: colors.backgroundSecondary,
+          borderTop: `1px solid ${colors.border}`,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: colors.textSecondary
+        }}>
+          <UserRound size={16} />
+          <span>{t('chat.deleted_user_notice')}</span>
+        </div>
+      )}
+
       <MessageInput
         onSend={handleSendMessage}
         onSendAudio={handleSendAudio}
         onSendAttachment={handleSendAttachment}
         onSendPoll={handleSendPoll}
         onSendContact={handleSendContact}
-        disabled={sending || amIBlocked || haveIBlocked}
+        disabled={sending || amIBlocked || haveIBlocked || otherUserDeleted}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
         themeStyle={desktopThemeStyle}

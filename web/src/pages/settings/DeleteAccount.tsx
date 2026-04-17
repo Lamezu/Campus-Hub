@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { deleteUser, EmailAuthProvider, reauthenticateWithCredential, signOut } from 'firebase/auth';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import { leaveGroup as leaveGroupDM } from '../../services/firebase/groupDMService';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAccounts } from '../../contexts/AccountsContext';
@@ -34,9 +35,26 @@ export default function DeleteAccount() {
       const credential = EmailAuthProvider.credential(user.email, password);
       await reauthenticateWithCredential(user, credential);
 
+      await updateDoc(doc(db, 'users', user.uid), { deleted: true, displayName: 'Usuario eliminado', photoURL: null }).catch(() => {});
       await deleteDoc(doc(db, 'users', user.uid)).catch(() => {});
 
       const uid = user.uid;
+
+      const groupDMSnap = await getDocs(query(collection(db, 'groupConversations'), where('members', 'array-contains', uid))).catch(() => null);
+      if (groupDMSnap) {
+        await Promise.all(groupDMSnap.docs.map(d => leaveGroupDM(d.id, uid).catch(() => {})));
+      }
+
+      const studyGroupSnap = await getDocs(query(collection(db, 'studyGroups'), where('memberIds', 'array-contains', uid))).catch(() => null);
+      if (studyGroupSnap) {
+        await Promise.all(studyGroupSnap.docs.map(async d => {
+          const newMemberIds = (d.data().memberIds as string[]).filter((id: string) => id !== uid);
+          await updateDoc(doc(db, 'studyGroups', d.id), {
+            memberIds: newMemberIds,
+            memberCount: newMemberIds.length,
+          }).catch(() => {});
+        }));
+      }
       await deleteUser(user);
       removeAccount(uid);
       await signOut(auth).catch(() => {});

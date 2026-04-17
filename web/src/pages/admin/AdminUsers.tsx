@@ -219,7 +219,7 @@ export default function AdminUsers() {
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('displayName', 'asc'));
     return onSnapshot(q, snap => {
-      setUsers(snap.docs.map(d => d.data() as AppUser));
+      setUsers(snap.docs.map(d => d.data() as AppUser).filter(u => !u.deleted));
       setLoading(false);
     }, () => setLoading(false));
   }, []);

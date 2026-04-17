@@ -111,7 +111,7 @@ export function useStudyGroups(isAdmin: boolean) {
       const snap = await getDocs(collection(db, 'users'));
       const users = snap.docs
         .map(d => ({ uid: d.id, ...d.data() } as User))
-        .filter(u => u.uid !== currentUser?.uid);
+        .filter(u => u.uid !== currentUser?.uid && !(u as any).deleted);
       setAllUsers(users);
     } finally {
       setLoadingUsers(false);

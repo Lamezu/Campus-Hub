@@ -151,7 +151,7 @@ export default function DMInfoPanel({ otherUserId, conversationId, currentUserId
         if (!Array.isArray(data.memberIds) || !data.memberIds.includes(otherUserId)) continue;
         const others = (data.memberIds as string[]).filter((id: string) => id !== currentUserId && id !== otherUserId).slice(0, 2);
         const profiles = await Promise.all(others.map((id: string) => getDoc(doc(db, 'users', id))));
-        let preview = profiles.filter(p => p.exists()).map(p => p.data()?.displayName?.split(' ')[0] || 'Usuario').join(', ');
+        let preview = profiles.filter(p => p.exists() && !p.data()?.deleted).map(p => p.data()?.displayName?.split(' ')[0] || 'Usuario').join(', ');
         if (!preview) preview = t('dm.info.you_and_contact');
         mutual.push({ id: d.id, name: data.name ?? 'Grupo', photo: data.photoURL ?? null, memberCount: data.memberIds.length, memberPreview: preview });
       }

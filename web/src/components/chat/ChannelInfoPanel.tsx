@@ -78,16 +78,16 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
             setChannelDescription(data.description ?? '');
             setChannelPhoto(data.photoURL ?? null);
             const memberIds: string[] = data.memberIds ?? [];
-            const profiles = await Promise.all(
+            const profiles = (await Promise.all(
               memberIds.map(async uid => {
                 const u = await getDoc(doc(db, 'users', uid));
-                if (u.exists()) {
+                if (u.exists() && !u.data()?.deleted) {
                   const d = u.data();
                   return { uid, displayName: d.displayName ?? d.email ?? uid, photoURL: d.photoURL ?? null, bio: d.bio ?? d.description ?? '', role: d.role ?? '' };
                 }
-                return { uid, displayName: uid, photoURL: null, bio: '', role: '' };
+                return null;
               })
-            );
+            )).filter(Boolean) as typeof profiles;
             setMembers(profiles);
           }
         } else {
@@ -99,17 +99,17 @@ export default function ChannelInfoPanel({ chatId, isGroup, currentUserId, userR
             setChannelPhoto(data.photoURL ?? null);
           }
           const membersSnap = await getDocs(collection(db, 'channels', chatId, 'members'));
-          const profiles = await Promise.all(
+          const profiles = (await Promise.all(
             membersSnap.docs.map(async memberDoc => {
               const uid = memberDoc.id;
               const u = await getDoc(doc(db, 'users', uid));
-              if (u.exists()) {
+              if (u.exists() && !u.data()?.deleted) {
                 const d = u.data();
                 return { uid, displayName: d.displayName ?? d.email ?? uid, photoURL: d.photoURL ?? null, bio: d.bio ?? d.description ?? '', role: d.role ?? '' };
               }
-              return { uid, displayName: uid, photoURL: null, bio: '', role: '' };
+              return null;
             })
-          );
+          )).filter(Boolean) as typeof profiles;
           setMembers(profiles);
         }
       } catch {}

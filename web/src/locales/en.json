@@ -252,6 +252,8 @@
     "unsave": "Remove from saved",
     "audio_reply": "Reply with audio",
     "blocked_warning": "You cannot send messages to this user",
+    "deleted_user": "Deleted user",
+    "deleted_user_notice": "This user has deleted their account",
     "delete_title": "Delete message",
     "emoji_search": "Search emoji...",
     "info": "Info",

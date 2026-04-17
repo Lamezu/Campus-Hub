@@ -194,7 +194,7 @@ export const getFriends = async (userId: string): Promise<FriendUser[]> => {
       const userRef = doc(db, 'users', friendship.friendId);
       const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists()) {
+      if (userSnap.exists() && !userSnap.data()?.deleted) {
         return {
           id: friendship.friendId,
           ...userSnap.data(),
@@ -289,9 +289,10 @@ export const searchUsers = async (
       id: d.id,
       displayName: d.data().displayName || '',
       photoURL: d.data().photoURL || null,
-      role: d.data().role || ''
+      role: d.data().role || '',
+      deleted: d.data().deleted || false
     }))
-    .filter(u => u.id !== currentUserId);
+    .filter(u => u.id !== currentUserId && !u.deleted);
 
   const results = await Promise.all(
     users.map(async (u) => {
@@ -332,7 +333,7 @@ export const subscribeToFriends = (
         const userRef = doc(db, 'users', friendship.friendId);
         const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
+        if (userSnap.exists() && !userSnap.data()?.deleted) {
           return {
             id: friendship.friendId,
             ...userSnap.data(),
