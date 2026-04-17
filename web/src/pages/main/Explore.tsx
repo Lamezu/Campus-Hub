@@ -253,13 +253,12 @@ export default function ExploreScreen() {
     const update = () => {
       if (sidebarSpacerRef.current) {
         const rect = sidebarSpacerRef.current.getBoundingClientRect();
-        setSidebarRight(document.documentElement.clientWidth - rect.right);
+        setSidebarRight(document.documentElement.clientWidth - rect.right - 5);
       }
     };
     update();
-    const observer = new ResizeObserver(update);
-    observer.observe(document.body);
-    return () => observer.disconnect();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   const canPublish = title.trim().length > 0 && !publishing;
