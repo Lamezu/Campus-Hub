@@ -11,6 +11,7 @@ import {
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { Channel } from '@/types';
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
@@ -29,8 +30,13 @@ interface ChannelCardProps {
 
 export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const Icon: LucideIcon = channel.icon ? (CHANNEL_ICONS[channel.icon] ?? MessagesSquare) : MessagesSquare;
   const unreadCount = channel.unreadCount || 0;
+
+  // Attempt to localize mock channels
+  const name = t(`predefined_channels.${channel.id}.name`, { defaultValue: channel.name });
+  const description = t(`predefined_channels.${channel.id}.description`, { defaultValue: channel.description });
 
   return (
     <button
@@ -86,7 +92,7 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <ThemedText style={{ fontSize: 17, fontWeight: 700, color: colors.text }}>
-            {channel.name}
+            {name}
           </ThemedText>
           {unreadCount > 0 && (
             <div style={{
@@ -115,7 +121,13 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
             opacity: 0.8,
           }}
         >
-          {channel.description}
+          {t(`common.departments.${channel.description}`, { 
+            defaultValue: t(`groups.subjects_list.${channel.description}`, { 
+              defaultValue: t(`groups.cycles_list.${channel.description}`, {
+                defaultValue: description 
+              })
+            }) 
+          })}
         </ThemedText>
       </div>
 

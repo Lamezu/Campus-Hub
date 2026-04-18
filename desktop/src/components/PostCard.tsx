@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { Post } from '@/types';
 
 interface PostCardProps {
@@ -15,23 +16,25 @@ interface PostCardProps {
   onShare?: () => void;
 }
 
-function getTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Ahora';
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return 'Ahora';
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  if (days < 30) return `${days}d`;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-}
-
 export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave, onShare }: PostCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
+
+  function getTimeAgo(dateString: string): string {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return t('common.now');
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return t('common.now');
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 30) return `${days}d`;
+    return date.toLocaleDateString(t('common.locale_code') === 'es-ES' ? 'es-ES' : 'en-US', { day: 'numeric', month: 'short' });
+  }
+
   const hasImage = post.mediaType === 'image' && !!post.mediaUrl;
   const hasVideo = post.mediaType === 'video';
   const hasSong = !!post.song;
@@ -189,7 +192,7 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave, on
               }}
             >
               <ExternalLink size={14} />
-              Ver Anuncio Original
+              {t('explore.view_original')}
             </button>
           )}
 
