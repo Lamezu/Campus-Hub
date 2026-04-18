@@ -535,6 +535,7 @@
         "sent_read_receipt": "Read",
         "no_messages": "No messages yet.",
         "no_messages_yet": "No messages yet. Say hi!",
+        "account_deleted_desc": "This user has deleted their account. You can no longer send them messages.",
         "search_in_chat_placeholder": "Search messages...",
         "search_in_chat_no_results": "No messages match your search.",
         "loading_chat": "Loading chat...",

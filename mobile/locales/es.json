@@ -534,6 +534,7 @@
         "sent_read_receipt": "Leído",
         "no_messages": "No hay mensajes aún.",
         "no_messages_yet": "No hay mensajes aún. ¡Di hola!",
+        "account_deleted_desc": "Este usuario ha eliminado su cuenta. Ya no puedes enviarle mensajes.",
         "search_in_chat_placeholder": "Buscar mensajes...",
         "search_in_chat_no_results": "Ningún mensaje coincide con tu búsqueda.",
         "loading_chat": "Cargando chat...",

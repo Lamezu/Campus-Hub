@@ -19,7 +19,7 @@ import { downloadAndOpenFile } from '@/utils/fileDownload';
 import type { DirectMessage, ReplyPreview, User } from '@/types';
 import {
     Settings, ChevronLeft, Reply, Trash2, Copy, Forward, Plus,
-    ChevronDown, ChevronUp, Phone, Video, Bookmark, MessageCircle, Search, X, Star
+    ChevronDown, ChevronUp, Phone, Video, Bookmark, MessageCircle, Search, X, Star, UserX
 } from 'lucide-react-native';
 import { EmptyState } from '@/components/EmptyState';
 import { saveMessage } from '@/services/savedItemsService';
@@ -47,6 +47,7 @@ export default function DMChatScreen() {
     const menuScaleAnim = useRef(new Animated.Value(0.88)).current;
 
     const [participant, setParticipant] = useState<User | null>(null);
+    const [participantDeleted, setParticipantDeleted] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<DirectMessage | null>(null);
 
@@ -109,7 +110,12 @@ export default function DMChatScreen() {
 
         const userRef = doc(db, 'users', userId);
         const unsubParticipant = onSnapshot(userRef, (snap) => {
-            if (snap.exists()) setParticipant({ uid: snap.id, ...snap.data() } as User);
+            if (snap.exists() && !snap.data()?.deleted) {
+                setParticipant({ uid: snap.id, ...snap.data() } as User);
+                setParticipantDeleted(false);
+            } else {
+                setParticipantDeleted(true);
+            }
         });
 
         dmService.getOrCreateConversation(currentUser.uid, userId)
@@ -642,6 +648,14 @@ export default function DMChatScreen() {
                                 )}
                             </View>
                         )}
+                        {participantDeleted && (
+                            <View style={[styles.deletedBanner, { backgroundColor: colors.danger + '18', borderColor: colors.danger + '30' }]}>
+                                <UserX size={16} color={colors.danger} strokeWidth={2} />
+                                <ThemedText style={[styles.deletedBannerText, { color: colors.danger }]}>
+                                    {t('dm.account_deleted_desc')}
+                                </ThemedText>
+                            </View>
+                        )}
                         <FlatList
                             ref={flatListRef}
                             data={messages}
@@ -676,7 +690,7 @@ export default function DMChatScreen() {
                             onSendFile={handleSendFile}
                             replyTo={replyingTo}
                             onCancelReply={() => setReplyingTo(null)}
-                            disabled={sending}
+                            disabled={sending || participantDeleted}
                         />
                     </View>
                 </KeyboardAwareView>
@@ -882,6 +896,8 @@ export default function DMChatScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    deletedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: spacing.md, marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+    deletedBannerText: { flex: 1, fontSize: 13, fontWeight: '500', lineHeight: 18 },
     centerContent: { justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: spacing.md, opacity: 0.6 },
     headerInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
