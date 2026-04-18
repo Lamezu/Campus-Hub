@@ -1,196 +1,148 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  onSnapshot,
-  increment,
-  writeBatch
-} from 'firebase/firestore';
-
 export class ChannelService {
-  constructor(db) {
+  constructor(db, firestore) {
     this.db = db;
+    this.fs = firestore;
   }
 
   async createChannel(channelData, creatorId) {
-    const channelRef = doc(collection(this.db, 'channels'));
+    const channelRef = this.fs.doc(this.fs.collection(this.db, 'channels'));
     const channelId = channelRef.id;
-    
-    const batch = writeBatch(this.db);
-    
-    batch.set(channelRef, {
+
+    await this.fs.setDoc(channelRef, {
       ...channelData,
-      createdBy: creatorId,
-      createdAt: serverTimestamp(),
-      memberCount: 1,
-      lastMessageAt: null
+      creatorId,
+      createdAt: this.fs.serverTimestamp(),
+      memberCount: 1
     });
-    
-    const memberRef = doc(this.db, 'channels', channelId, 'members', creatorId);
-    batch.set(memberRef, {
+
+    const memberRef = this.fs.doc(this.db, 'channels', channelId, 'members', creatorId);
+    await this.fs.setDoc(memberRef, {
       userId: creatorId,
       role: 'admin',
-      joinedAt: serverTimestamp(),
-      lastRead: serverTimestamp(),
-      notifications: true
+      joinedAt: this.fs.serverTimestamp()
     });
-    
-    await batch.commit();
+
     return channelId;
   }
 
   async getChannel(channelId) {
-    const channelRef = doc(this.db, 'channels', channelId);
-    const channelSnap = await getDoc(channelRef);
-    
-    if (channelSnap.exists()) {
-      return { 
-        id: channelSnap.id, 
-        ...channelSnap.data() 
-      };
-    }
-    
-    return null;
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    const channelSnap = await this.fs.getDoc(channelRef);
+    return channelSnap.exists() ? { id: channelSnap.id, ...channelSnap.data() } : null;
   }
 
-  async getUserChannels(userId) {
-    const channelsSnapshot = await getDocs(collection(this.db, 'channels'));
-    const userChannels = [];
-    
-    for (const channelDoc of channelsSnapshot.docs) {
-      const memberRef = doc(this.db, 'channels', channelDoc.id, 'members', userId);
-      const memberSnap = await getDoc(memberRef);
-      
-      if (memberSnap.exists()) {
-        userChannels.push({
-          id: channelDoc.id,
-          ...channelDoc.data(),
-          memberInfo: memberSnap.data()
-        });
-      }
+  async getChannels(category = null, limitCount = 20) {
+    let q;
+    if (category) {
+      q = this.fs.query(
+        this.fs.collection(this.db, 'channels'),
+        this.fs.where('category', '==', category),
+        this.fs.orderBy('createdAt', 'desc'),
+        this.fs.limit(limitCount)
+      );
+    } else {
+      q = this.fs.query(
+        this.fs.collection(this.db, 'channels'),
+        this.fs.orderBy('createdAt', 'desc'),
+        this.fs.limit(limitCount)
+      );
     }
-    
-    return userChannels.sort((a, b) => {
-      if (!a.lastMessageAt) return 1;
-      if (!b.lastMessageAt) return -1;
-      return b.lastMessageAt.toMillis() - a.lastMessageAt.toMillis();
-    });
-  }
 
-  async getPublicChannels() {
-    const q = query(
-      collection(this.db, 'channels'),
-      where('type', '==', 'public'),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const snapshot = await this.fs.getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 
   async updateChannel(channelId, updates) {
-    const channelRef = doc(this.db, 'channels', channelId);
-    await updateDoc(channelRef, updates);
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    await this.fs.updateDoc(channelRef, {
+      ...updates,
+      updatedAt: this.fs.serverTimestamp()
+    });
   }
 
   async deleteChannel(channelId) {
-    const channelRef = doc(this.db, 'channels', channelId);
-    await deleteDoc(channelRef);
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    await this.fs.deleteDoc(channelRef);
   }
 
-  async joinChannel(channelId, userId) {
-    const batch = writeBatch(this.db);
-    
-    const memberRef = doc(this.db, 'channels', channelId, 'members', userId);
-    batch.set(memberRef, {
+  async addChannelMember(channelId, userId, role = 'member') {
+    const memberRef = this.fs.doc(this.db, 'channels', channelId, 'members', userId);
+    await this.fs.setDoc(memberRef, {
       userId,
-      role: 'member',
-      joinedAt: serverTimestamp(),
-      lastRead: serverTimestamp(),
-      notifications: true
+      role,
+      joinedAt: this.fs.serverTimestamp()
     });
-    
-    const channelRef = doc(this.db, 'channels', channelId);
-    batch.update(channelRef, {
-      memberCount: increment(1)
+
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    await this.fs.updateDoc(channelRef, {
+      memberCount: this.fs.increment(1)
     });
-    
-    await batch.commit();
   }
 
-  async leaveChannel(channelId, userId) {
-    const batch = writeBatch(this.db);
-    
-    const memberRef = doc(this.db, 'channels', channelId, 'members', userId);
-    batch.delete(memberRef);
-    
-    const channelRef = doc(this.db, 'channels', channelId);
-    batch.update(channelRef, {
-      memberCount: increment(-1)
+  async removeChannelMember(channelId, userId) {
+    const memberRef = this.fs.doc(this.db, 'channels', channelId, 'members', userId);
+    await this.fs.deleteDoc(memberRef);
+
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    await this.fs.updateDoc(channelRef, {
+      memberCount: this.fs.increment(-1)
     });
-    
-    await batch.commit();
   }
 
   async getChannelMembers(channelId) {
-    const membersSnapshot = await getDocs(
-      collection(this.db, 'channels', channelId, 'members')
+    const membersSnapshot = await this.fs.getDocs(
+      this.fs.collection(this.db, 'channels', channelId, 'members')
     );
-    
-    return membersSnapshot.docs.map(doc => doc.data());
+    return membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 
-  async updateMemberRole(channelId, userId, newRole) {
-    const memberRef = doc(this.db, 'channels', channelId, 'members', userId);
-    await updateDoc(memberRef, { role: newRole });
-  }
+  subscribeToChannels(category, callback, onError) {
+    let q;
+    if (category) {
+      q = this.fs.query(
+        this.fs.collection(this.db, 'channels'),
+        this.fs.where('category', '==', category),
+        this.fs.orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = this.fs.query(
+        this.fs.collection(this.db, 'channels'),
+        this.fs.orderBy('createdAt', 'desc')
+      );
+    }
 
-  subscribeToUserChannels(userId, callback) {
-    const q = query(
-      collection(this.db, 'channels'),
-      orderBy('lastMessageAt', 'desc')
-    );
-    
-    return onSnapshot(q, async (snapshot) => {
-      const channels = [];
-      
-      for (const channelDoc of snapshot.docs) {
-        const memberRef = doc(this.db, 'channels', channelDoc.id, 'members', userId);
-        const memberSnap = await getDoc(memberRef);
-        
-        if (memberSnap.exists()) {
-          channels.push({
-            id: channelDoc.id,
-            ...channelDoc.data(),
-            memberInfo: memberSnap.data()
-          });
-        }
+    return this.fs.onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channels subscription error:", error);
       }
-      
-      callback(channels);
     });
   }
 
-  subscribeToChannel(channelId, callback) {
-    const channelRef = doc(this.db, 'channels', channelId);
-    
-    return onSnapshot(channelRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback({ id: snapshot.id, ...snapshot.data() });
-      } else {
-        callback(null);
+  subscribeToChannel(channelId, callback, onError) {
+    const channelRef = this.fs.doc(this.db, 'channels', channelId);
+    return this.fs.onSnapshot(channelRef, (snapshot) => {
+      callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channel subscription error:", error);
+      }
+    });
+  }
+
+  subscribeToChannelMembers(channelId, callback, onError) {
+    const q = this.fs.collection(this.db, 'channels', channelId, 'members');
+    return this.fs.onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        if (typeof onError === 'function') onError(error);
+        else console.error("Channel members subscription error:", error);
       }
     });
   }
 }
+export default ChannelService;

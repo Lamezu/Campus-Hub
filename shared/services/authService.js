@@ -1,33 +1,24 @@
-import { 
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-
 export class AuthService {
-  constructor(auth, db) {
-    this.auth = auth;
+  constructor(authInstance, db, authModule, firestore) {
+    this.auth = authInstance;
     this.db = db;
+    this.am = authModule;
+    this.fs = firestore;
   }
 
   async signUp(email, password, displayName, role = 'student', department = null) {
-    const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
+    const userCredential = await this.am.createUserWithEmailAndPassword(this.auth, email, password);
     const user = userCredential.user;
 
-    await setDoc(doc(this.db, 'users', user.uid), {
+    await this.fs.setDoc(this.fs.doc(this.db, 'users', user.uid), {
       uid: user.uid,
       email: user.email,
       displayName: displayName,
       photoURL: null,
       role: role,
       department: department,
-      createdAt: serverTimestamp(),
-      lastActive: serverTimestamp(),
+      createdAt: this.fs.serverTimestamp(),
+      lastActive: this.fs.serverTimestamp(),
       fcmToken: null
     });
 
@@ -35,30 +26,28 @@ export class AuthService {
   }
 
   async signIn(email, password) {
-    const userCredential = await signInWithEmailAndPassword(this.auth, email, password);
-    
+    const userCredential = await this.am.signInWithEmailAndPassword(this.auth, email, password);
     await this.updateLastActive(userCredential.user.uid);
-    
     return userCredential.user;
   }
 
   async signInWithGoogle() {
-    const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(this.auth, provider);
+    const provider = new this.am.GoogleAuthProvider();
+    const userCredential = await this.am.signInWithPopup(this.auth, provider);
     const user = userCredential.user;
 
-    const userDoc = await getDoc(doc(this.db, 'users', user.uid));
-    
+    const userDoc = await this.fs.getDoc(this.fs.doc(this.db, 'users', user.uid));
+
     if (!userDoc.exists()) {
-      await setDoc(doc(this.db, 'users', user.uid), {
+      await this.fs.setDoc(this.fs.doc(this.db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || 'Usuario',
         photoURL: user.photoURL || null,
         role: 'student',
         department: null,
-        createdAt: serverTimestamp(),
-        lastActive: serverTimestamp(),
+        createdAt: this.fs.serverTimestamp(),
+        lastActive: this.fs.serverTimestamp(),
         fcmToken: null
       });
     } else {
@@ -69,22 +58,22 @@ export class AuthService {
   }
 
   async signOut() {
-    await signOut(this.auth);
+    await this.am.signOut(this.auth);
   }
 
   async resetPassword(email) {
-    await sendPasswordResetEmail(this.auth, email);
+    await this.am.sendPasswordResetEmail(this.auth, email);
   }
 
   async updateLastActive(userId) {
-    const userRef = doc(this.db, 'users', userId);
-    await setDoc(userRef, {
-      lastActive: serverTimestamp()
+    const userRef = this.fs.doc(this.db, 'users', userId);
+    await this.fs.setDoc(userRef, {
+      lastActive: this.fs.serverTimestamp()
     }, { merge: true });
   }
 
   onAuthStateChanged(callback) {
-    return onAuthStateChanged(this.auth, callback);
+    return this.am.onAuthStateChanged(this.auth, callback);
   }
 
   getCurrentUser() {
@@ -92,7 +81,16 @@ export class AuthService {
   }
 
   async getUserData(userId) {
-    const userDoc = await getDoc(doc(this.db, 'users', userId));
+    if (!userId) return null;
+    const userDoc = await this.fs.getDoc(this.fs.doc(this.db, 'users', userId));
     return userDoc.exists() ? userDoc.data() : null;
   }
+
+  async incrementMessageCount(userId) {
+    const userRef = this.fs.doc(this.db, 'users', userId);
+    await this.fs.updateDoc(userRef, {
+      messageCount: this.fs.increment(1)
+    });
+  }
 }
+export default AuthService;
