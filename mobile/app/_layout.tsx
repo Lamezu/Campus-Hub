@@ -95,6 +95,7 @@ function RootLayoutNav() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="events/index" />
           <Stack.Screen name="dm/[userId]/call" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="dm/group/[groupId]/call" options={{ presentation: 'fullScreenModal' }} />
         </Stack>
       </CallProvider>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />

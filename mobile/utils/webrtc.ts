@@ -1,4 +1,4 @@
-export const webRTCAvailable = true;
+export const webRTCAvailable = false;
 export const RTCPeerConnection: any = class { };
 export const RTCSessionDescription: any = class { };
 export const RTCIceCandidate: any = class { };
