@@ -138,6 +138,7 @@ export default function MessagesScreen() {
   const [muteTarget, setMuteTarget] = useState<DMConversation | null>(null);
   const [contextIsFriend, setContextIsFriend] = useState(false);
   const [listScrollEnabled, setListScrollEnabled] = useState(true);
+  const [deletedParticipantIds, setDeletedParticipantIds] = useState<Set<string>>(new Set());
   const [groupContextTarget, setGroupContextTarget] = useState<GroupConversation | null>(null);
   const [groupMuteMap, setGroupMuteMap] = useState<Map<string, string>>(new Map());
 
@@ -184,7 +185,12 @@ export default function MessagesScreen() {
     for (const id of ids) {
       if (!tracked.has(id)) {
         const unsub = onSnapshot(doc(db, 'users', id), (snap) => {
-          if (!snap.exists()) return;
+          const isDeleted = !snap.exists() || !!(snap.data() as any)?.deleted;
+          if (isDeleted) {
+            setDeletedParticipantIds(prev => { const s = new Set(prev); s.add(id); return s; });
+            return;
+          }
+          setDeletedParticipantIds(prev => { const s = new Set(prev); s.delete(id); return s; });
           const { role } = snap.data() as any;
           setConversations(prev => prev.map(c =>
             c.participantId === id ? { ...c, participantRole: role || c.participantRole } : c
@@ -627,6 +633,7 @@ export default function MessagesScreen() {
           return (
             <DMConversationItem
               conversation={item as DMConversation}
+              isParticipantDeleted={deletedParticipantIds.has((item as DMConversation).participantId)}
               onPress={handleConversationPress}
               onArchive={handleArchive}
               onMute={handleMuteFromSwipe}

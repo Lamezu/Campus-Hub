@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Animated, PanResponder } from 'react-native';
-import { Archive, Bell, BellOff, MoreHorizontal } from 'lucide-react-native';
+import { Archive, Bell, BellOff, MoreHorizontal, UserX } from 'lucide-react-native';
 import { avatarColor } from '@/utils/avatarColor';
 import { ThemedText } from '@/components/themed-text';
 import { spacing, typography } from '@/constants/styles';
@@ -24,6 +24,7 @@ function formatTime(isoString: string, locale: string): string {
 
 interface DMConversationItemProps {
   conversation: DMConversation;
+  isParticipantDeleted?: boolean;
   onPress: (conversation: DMConversation) => void;
   onArchive?: (conversation: DMConversation) => void;
   onMute?: (conversation: DMConversation) => void;
@@ -37,6 +38,7 @@ interface DMConversationItemProps {
 export function DMConversationItem({
   conversation,
   onPress,
+  isParticipantDeleted = false,
   onArchive,
   onMute,
   onContextMenu,
@@ -219,14 +221,20 @@ export function DMConversationItem({
           <View style={styles.content}>
             <View style={styles.topRow}>
               <View style={styles.nameRow}>
-                <ThemedText style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                <ThemedText style={[styles.name, { color: isParticipantDeleted ? colors.textSecondary : colors.text }]} numberOfLines={1}>
                   {conversation.participantName}
                 </ThemedText>
-                <View style={[styles.roleBadge, { backgroundColor: roleColor + '22' }]}>
-                  <ThemedText style={[styles.roleText, { color: roleColor }]}>
-                    {t(`roles.labels.${conversation.participantRole}`) || conversation.participantRole}
-                  </ThemedText>
-                </View>
+                {isParticipantDeleted ? (
+                  <View style={[styles.roleBadge, { backgroundColor: colors.danger + '18' }]}>
+                    <UserX size={10} color={colors.danger} strokeWidth={2} />
+                  </View>
+                ) : (
+                  <View style={[styles.roleBadge, { backgroundColor: roleColor + '22' }]}>
+                    <ThemedText style={[styles.roleText, { color: roleColor }]}>
+                      {t(`roles.labels.${conversation.participantRole}`) || conversation.participantRole}
+                    </ThemedText>
+                  </View>
+                )}
               </View>
               <View style={styles.timeRow}>
                 {isMuted && <BellOff size={12} color={colors.textSecondary} strokeWidth={2} />}
@@ -240,14 +248,14 @@ export function DMConversationItem({
               <ThemedText
                 style={[
                   styles.lastMessage,
-                  { color: conversation.unreadCount > 0 ? colors.text : colors.textSecondary },
-                  conversation.unreadCount > 0 && styles.lastMessageUnread,
+                  { color: isParticipantDeleted ? colors.danger : conversation.unreadCount > 0 ? colors.text : colors.textSecondary },
+                  conversation.unreadCount > 0 && !isParticipantDeleted && styles.lastMessageUnread,
                 ]}
                 numberOfLines={1}
               >
-                {conversation.lastMessage}
+                {isParticipantDeleted ? t('dm.account_deleted_desc') : conversation.lastMessage}
               </ThemedText>
-              {conversation.unreadCount > 0 && (
+              {conversation.unreadCount > 0 && !isParticipantDeleted && (
                 <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
                   <ThemedText style={styles.unreadText}>
                     {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
