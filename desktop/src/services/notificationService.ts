@@ -48,7 +48,6 @@ export const notificationService = {
           if (!n.read) {
             let suppressed = false;
             
-            // Audit structure
             const channelId = n.meta?.channelId || (n as any).channelId;
             const participantId = n.meta?.participantId || (n as any).participantId;
             const groupId = n.meta?.groupId || (n as any).groupId;
@@ -79,24 +78,29 @@ export const notificationService = {
       
       const now = new Date();
       const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-      const toDelete: string[] = [];
+      const toDeleteNotifs: string[] = [];
+      const toDeleteRequests: string[] = [];
       const validNotifications: NotificationItem[] = [];
 
       for (const n of allItems) {
         if (n.createdAt) {
           const createdAt = new Date(n.createdAt).getTime();
           if (now.getTime() - createdAt > SEVEN_DAYS_MS) {
-            toDelete.push(n.id);
+            toDeleteNotifs.push(n.id);
+            if (n.category === 'friend' && n.meta?.isRequest === 'true') {
+              toDeleteRequests.push(n.id);
+            }
             continue;
           }
         }
         validNotifications.push(n);
       }
 
-      if (toDelete.length > 0) {
+      if (toDeleteNotifs.length > 0) {
         import('firebase/firestore').then(({ writeBatch, doc: fDoc }) => {
           const batch = writeBatch(db);
-          toDelete.forEach(id => batch.delete(fDoc(db, 'notifications', userId, 'items', id)));
+          toDeleteNotifs.forEach(id => batch.delete(fDoc(db, 'notifications', userId, 'items', id)));
+          toDeleteRequests.forEach(id => batch.delete(fDoc(db, 'friendRequests', id)));
           batch.commit().catch(console.error);
         });
       }
@@ -121,22 +125,20 @@ export const notificationService = {
             const { getContactSettings } = await import('@/services/contactSettingsService');
             const settings = await getContactSettings(meId, n.meta.participantId);
             if (settings.mute !== 'off') return;
-            if (settings.alertTone && settings.alertTone !== 'Predeterminado') {
-              const toneMap: Record<string, string> = { 'Clásico': 'classic', 'Suave': 'soft', 'Melodía': 'melody', 'Campana': 'bell', 'Pulso': 'pulse', 'Sin tono': 'silent' };
-              sound = toneMap[settings.alertTone] || 'default';
+            if (settings.alertTone && settings.alertTone !== 'default') {
+              const tone = settings.alertTone === 'none' ? 'silent' : settings.alertTone;
               const { playTone } = await import('@/utils/toneGenerator');
-              playTone(sound);
+              playTone(tone);
               return;
             }
           } else if (n.meta?.groupId) {
             const { getGroupSettings } = await import('@/services/groupDMService');
             const settings = await getGroupSettings(meId, n.meta.groupId);
             if (settings.mute !== 'off') return;
-            if (settings.alertTone && settings.alertTone !== 'Predeterminado') {
-              const toneMap: Record<string, string> = { 'Clásico': 'classic', 'Suave': 'soft', 'Melodía': 'melody', 'Campana': 'bell', 'Pulso': 'pulse', 'Sin tono': 'silent' };
-              sound = toneMap[settings.alertTone] || 'default';
+            if (settings.alertTone && settings.alertTone !== 'default') {
+              const tone = settings.alertTone === 'none' ? 'silent' : settings.alertTone;
               const { playTone } = await import('@/utils/toneGenerator');
-              playTone(sound);
+              playTone(tone);
               return;
             }
           }
@@ -207,7 +209,6 @@ export const notificationService = {
       };
       
       if (id) {
-        // Use setDoc with explicit ID to prevent duplicates (e.g., from client/server overlap)
         await setDoc(doc(db, 'notifications', userId, 'items', id), data);
       } else {
         await addDoc(collection(db, 'notifications', userId, 'items'), data);
@@ -215,5 +216,30 @@ export const notificationService = {
     } catch (error) {
       console.error('Error adding notification:', error);
     }
+  },
+
+  async addNotificationsBatch(userIds: string[], notification: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>): Promise<void> {
+    try {
+      const data = {
+        ...notification,
+        read: false,
+        createdAt: new Date().toISOString()
+      };
+      
+      for (let i = 0; i < userIds.length; i += 500) {
+        const batch = writeBatch(db);
+        const chunk = userIds.slice(i, i + 500);
+        
+        chunk.forEach(uid => {
+          const newDocRef = doc(collection(db, 'notifications', uid, 'items'));
+          batch.set(newDocRef, data);
+        });
+        
+        await batch.commit();
+      }
+    } catch (error) {
+      console.error('Error adding notifications batch:', error);
+    }
   }
 };
+

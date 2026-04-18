@@ -60,10 +60,12 @@ export async function createGroupConversation(
         addDoc(collection(db, 'notifications', uid, 'items'), {
           category: 'dm',
           title: displayName || 'Nuevo grupo',
+          titleKey: 'notifications.added_to_group_title',
           body: `${creatorFirstName} te añadió al grupo`,
+          bodyKey: 'notifications.added_to_group_body',
           createdAt: serverTimestamp(),
           read: false,
-          meta: { groupId: ref.id, type: 'added_to_group', adderName: creatorFirstName },
+          meta: { name: creatorFirstName, groupId: ref.id, type: 'added_to_group', adderName: creatorFirstName },
         }).catch(() => {})
       )
   );
@@ -151,6 +153,7 @@ export async function sendGroupMessage(
     senderPhoto,
     createdAt: serverTimestamp(),
     attachments: attachments ?? null,
+    poll: null,
     reactions: {},
     replyTo: replyTo ?? null,
     deletedForUsers: [],
@@ -405,10 +408,12 @@ export async function addMembersToGroup(
       addDoc(collection(db, 'notifications', m.id, 'items'), {
         category: 'dm',
         title: groupName || 'Grupo',
+        titleKey: 'notifications.added_to_group_title',
         body: `${adderFirst} te añadió al grupo`,
+        bodyKey: 'notifications.added_to_group_body',
         createdAt: serverTimestamp(),
         read: false,
-        meta: { groupId, type: 'added_to_group', adderName: adderFirst },
+        meta: { name: adderFirst, groupId, type: 'added_to_group', adderName: adderFirst },
       }).catch(() => {})
     )
   );
@@ -488,7 +493,7 @@ export async function updateGroupInfo(
 
 export async function clearGroupMessagesForUser(groupId: string, userId: string): Promise<void> {
   const messagesRef = collection(db, 'groupConversations', groupId, 'messages');
-  const snap = await getDocs(query(messagesRef, limit(300))); // Razonable batch
+  const snap = await getDocs(query(messagesRef, limit(300)));
   if (snap.empty) return;
   const batch = writeBatch(db);
   snap.docs.forEach(d => batch.update(d.ref, { deletedForUsers: arrayUnion(userId) }));
@@ -498,16 +503,16 @@ export async function clearGroupMessagesForUser(groupId: string, userId: string)
 export async function getGroupSettings(userId: string, groupId: string): Promise<GroupSettings> {
   try {
     const snap = await getDoc(doc(db, 'users', userId, 'groupSettings', groupId));
-    if (!snap.exists()) return { isMuted: false, mute: 'off', mutedUntil: null, alertTone: 'Predeterminado' };
+    if (!snap.exists()) return { isMuted: false, mute: 'off', mutedUntil: null, alertTone: 'default' };
     const data = snap.data();
     return { 
       isMuted: !!data.isMuted,
       mute: data.mute || 'off',
       mutedUntil: data.mutedUntil || null,
-      alertTone: data.alertTone || 'Predeterminado'
+      alertTone: data.alertTone || 'default'
     };
   } catch {
-    return { isMuted: false, mute: 'off', mutedUntil: null, alertTone: 'Predeterminado' };
+    return { isMuted: false, mute: 'off', mutedUntil: null, alertTone: 'default' };
   }
 }
 

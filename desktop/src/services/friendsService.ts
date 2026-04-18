@@ -25,7 +25,6 @@ export async function sendFriendRequest(
   const requestId = getRequestId(fromUserId, toUserId);
   const requestRef = doc(db, 'friendRequests', requestId);
 
-  // Use the exact check as mobile to prevent any rule friction
   try {
     const requestSnap = await getDoc(requestRef);
     if (requestSnap.exists()) {
@@ -35,10 +34,8 @@ export async function sendFriendRequest(
         else throw new Error('Ya tienes una solicitud pendiente de este usuario');
       }
       if (data.status === 'accepted') throw new Error('Ya sois amigos');
-      // If rejected, we will overwrite it
     }
   } catch (e: any) {
-    // If we hit permission denied on reading non-existent (sometimes happens if Rules evaluates strictly before existence check), just proceed to setDoc
     if (e.code !== 'permission-denied') throw e;
   }
 
@@ -51,9 +48,17 @@ export async function sendFriendRequest(
     createdAt: serverTimestamp(),
   });
 
+  notificationService.addNotification(toUserId, {
+    category: 'friend',
+    title: 'Nueva solicitud de amistad',
+    titleKey: 'notifications.friend_request_title',
+    body: `${fromUserName} quiere ser tu amigo/a`,
+    bodyKey: 'notifications.friend_request_body',
+    meta: { name: fromUserName, fromUserId, fromUserName, fromUserPhoto: fromUserPhoto ?? '', isRequest: 'true' },
+  }, requestId).catch(() => { });
+
   return requestId;
 }
-
 
 export async function getFriendRequest(
   userId1: string,
@@ -91,14 +96,12 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
   const batch = writeBatch(db);
   batch.update(requestRef, { status: 'accepted', acceptedAt: serverTimestamp() });
 
-  // 1. Root collection friendships (New architecture)
   const fRoot1 = doc(db, 'friendships', `${data.fromUserId}_${data.toUserId}`);
   batch.set(fRoot1, { userId: data.fromUserId, friendId: data.toUserId, createdAt: serverTimestamp() });
 
   const fRoot2 = doc(db, 'friendships', `${data.toUserId}_${data.fromUserId}`);
   batch.set(fRoot2, { userId: data.toUserId, friendId: data.fromUserId, createdAt: serverTimestamp() });
 
-  // 2. Subcollections (Legacy/Mobile Counter compatible architecture)
   const fSub1 = doc(db, 'users', data.fromUserId, 'friends', data.toUserId);
   batch.set(fSub1, { createdAt: serverTimestamp(), status: 'accepted' });
 
@@ -108,19 +111,33 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
   await batch.commit();
 
   const accepterName = auth.currentUser?.displayName ?? 'Alguien';
+  const accepterId = auth.currentUser?.uid;
+
   notificationService.addNotification(data.fromUserId, {
     category: 'friend',
     title: 'Solicitud de amistad aceptada',
+    titleKey: 'notifications.friend_request_accepted_title',
     body: `${accepterName} aceptó tu solicitud de amistad`,
-    meta: { fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
+    bodyKey: 'notifications.friend_request_accepted_body',
+    meta: { name: accepterName, fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
   }).catch(() => { });
+
+  if (accepterId) {
+    try {
+      await deleteDoc(doc(db, 'notifications', accepterId, 'items', requestId));
+    } catch (_) { }
+  }
 }
 
 export async function rejectFriendRequest(requestId: string): Promise<void> {
-  await updateDoc(doc(db, 'friendRequests', requestId), {
-    status: 'rejected',
-    rejectedAt: serverTimestamp(),
-  });
+  await deleteDoc(doc(db, 'friendRequests', requestId));
+
+  const meId = auth.currentUser?.uid;
+  if (meId) {
+    try {
+      await deleteDoc(doc(db, 'notifications', meId, 'items', requestId));
+    } catch (_) { }
+  }
 }
 
 export async function cancelFriendRequest(requestId: string): Promise<void> {
@@ -133,7 +150,6 @@ export async function areFriends(userId1: string, userId2: string): Promise<bool
     const snap = await getDoc(docRef);
     return snap.exists();
   } catch (e) {
-    // Fallback to legacy root check if needed, but subcollection is now source of truth
     try {
       const fId = `${userId1}_${userId2}`;
       const rootSnap = await getDoc(doc(db, 'friendships', fId));
@@ -145,6 +161,7 @@ export async function areFriends(userId1: string, userId2: string): Promise<bool
 }
 
 export async function removeFriend(userId: string, friendId: string): Promise<void> {
+  const batch = writeBatch(db);
   const paths = [
     doc(db, 'friendships', `${userId}_${friendId}`),
     doc(db, 'friendships', `${friendId}_${userId}`),
@@ -153,14 +170,8 @@ export async function removeFriend(userId: string, friendId: string): Promise<vo
     doc(db, 'friendRequests', [userId, friendId].sort().join('_'))
   ];
 
-  // Using individual deletes to be resilient to partial permission/existence issues
-  // especially with legacy data that might not match current rules perfectly.
-  const results = await Promise.allSettled(paths.map(ref => deleteDoc(ref)));
-  
-  const failed = results.filter(r => r.status === 'rejected');
-  if (failed.length === paths.length) {
-    throw new Error('No se pudo eliminar ninguna referencia de amistad.');
-  }
+  paths.forEach(ref => batch.delete(ref));
+  await batch.commit();
 }
 
 export function subscribeToReceivedRequests(
@@ -199,7 +210,6 @@ export function subscribeToFriends(
   userId: string,
   callback: (friends: any[]) => void
 ): () => void {
-  // Reading from subcollection (most reliable per rules and mobile parity)
   const q = query(
     collection(db, 'users', userId, 'friends')
   );
@@ -226,7 +236,6 @@ export function subscribeToFriends(
       })
     );
 
-    // Sync in-memory sort
     const sorted = friendsData.filter(Boolean).sort((a: any, b: any) => {
       const t1 = a.friendshipCreatedAt?.toMillis ? a.friendshipCreatedAt.toMillis() : 0;
       const t2 = b.friendshipCreatedAt?.toMillis ? b.friendshipCreatedAt.toMillis() : 0;
@@ -311,7 +320,6 @@ export function subscribeToFriendshipStatus(
   userId2: string,
   callback: (status: 'none' | 'sent' | 'received' | 'friends') => void
 ): () => void {
-  // 1. Listen to the subcollection (Primary source of truth for "friends")
   const friendRef = doc(db, 'users', userId1, 'friends', userId2);
   let isFriend = false;
   let isSent = false;
@@ -322,7 +330,6 @@ export function subscribeToFriendshipStatus(
     reportStatus();
   }, () => {});
 
-  // 2. Listen to requests
   const requestId = [userId1, userId2].sort().join('_');
   const requestRef = doc(db, 'friendRequests', requestId);
   

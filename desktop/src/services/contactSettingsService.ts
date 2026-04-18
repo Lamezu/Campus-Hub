@@ -12,7 +12,7 @@ const defaultSettings = (): ContactSettings => ({
   mute: 'off',
   mutedUntil: null,
   saveToPhotos: 'default',
-  alertTone: 'Predeterminado',
+  alertTone: 'default',
 });
 
 export const getContactSettings = async (
@@ -33,7 +33,7 @@ export const getContactSettings = async (
     mute: settings.mute ?? 'off',
     mutedUntil: settings.mutedUntil ?? null,
     saveToPhotos: settings.saveToPhotos ?? 'default',
-    alertTone: settings.alertTone ?? 'Predeterminado',
+    alertTone: settings.alertTone ?? 'default',
     isBestFriend,
   };
 };
@@ -153,15 +153,17 @@ export const getSharedMedia = async (conversationId: string, maxItems = 100): Pr
 
     if (Array.isArray(data.attachments)) {
       data.attachments.forEach((a: any) => {
-        media.push({
-          id: d.id,
-          type: a.type === 'image' ? 'image' : a.type === 'video' ? 'video' : a.type === 'audio' ? 'audio' : 'file',
-          url: a.url,
-          name: a.name || 'Archivo',
-          size: a.size || 0,
-          thumbnail: a.url,
-          createdAt
-        });
+        if (a.url) {
+          media.push({
+            id: d.id,
+            type: a.type === 'image' ? 'image' : a.type === 'video' ? 'video' : a.type === 'audio' ? 'audio' : 'file',
+            url: a.url,
+            name: a.name || (a.type === 'file' ? 'Archivo' : a.type === 'audio' ? 'Audio' : 'Multimedia'),
+            size: a.size || 0,
+            thumbnail: a.url,
+            createdAt
+          });
+        }
       });
     }
 

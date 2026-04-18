@@ -354,6 +354,8 @@ export function subscribeToConversations(
               name = u.displayName || 'Usuario';
               photo = u.photoURL || null;
               role = u.role || 'student';
+            } else {
+              name = 'Usuario eliminado';
             }
           } catch { }
         }
@@ -376,7 +378,7 @@ export function subscribeToConversations(
             mute: 'off',
             mutedUntil: null,
             saveToPhotos: 'default',
-            alertTone: 'Predeterminado',
+            alertTone: 'default',
           },
         } as DMConversation;
       })

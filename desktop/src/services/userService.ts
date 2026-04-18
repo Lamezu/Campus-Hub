@@ -39,6 +39,18 @@ export async function deleteUserAccount(password: string): Promise<void> {
   const notifSnap = await getDocs(collection(db, 'notifications', uid, 'items'));
   notifSnap.forEach(d => batch.delete(d.ref));
 
+  // Remove from active group calls/conferences
+  const confSnap = await getDocs(query(collection(db, 'studyGroupConferences'), where('activeParticipants', 'array-contains', uid)));
+  confSnap.forEach(d => {
+    const data = d.data();
+    const next = (data.activeParticipants || []).filter((u: string) => u !== uid);
+    if (next.length === 0) {
+      batch.update(d.ref, { activeParticipants: [], status: 'ended' });
+    } else {
+      batch.update(d.ref, { activeParticipants: next });
+    }
+  });
+
   // User document
   batch.delete(doc(db, 'users', uid));
 
