@@ -1495,9 +1495,10 @@
         }
     },
     "calendar": {
-        "date_format": "MMMM D, YYYY",
+        "date_format": "{{month}}, {{year}}",
         "upcoming_events": "UPCOMING EVENTS",
         "add_event": "Add Event",
+        "edit_event": "Edit Event",
         "select_date": "Select Date",
         "event_details": "Event Details",
         "new_event": "New Event",
