@@ -6,10 +6,11 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { auth, db } from '@/config/firebase';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, limit } from 'firebase/firestore';
 import { subscribeToFriends, subscribeToBestFriends, toggleBestFriend, sendFriendRequest, removeFriend, cleanupAllFriendRequests } from '@/services/friendsService';
 import { spacing } from '@/constants/styles';
 import { AlertModal } from '@/components/AlertModal';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { User } from '@/types';
 
 type TabType = 'all' | 'best' | 'add';
@@ -19,6 +20,7 @@ export default function FriendsScreen() {
   const { colors } = useTheme();
   const { showAlert } = useAlert();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [allFriends, setAllFriends] = useState<User[]>([]);
   const [bestFriends, setBestFriends] = useState<User[]>([]);
@@ -104,9 +106,9 @@ export default function FriendsScreen() {
         currentUser.displayName || 'Usuario',
         currentUser.photoURL
       );
-      showAlert({ title: 'Solicitud enviada', message: `Solicitud enviada a ${user.displayName}`, type: 'success' });
+      showAlert({ title: t('friends_screen.alerts.request_sent_title'), message: t('friends_screen.alerts.request_sent_msg', { name: user.displayName }), type: 'success' });
     } catch (err: any) {
-      showAlert({ title: 'Error', message: err.message || 'Error al enviar solicitud', type: 'error' });
+      showAlert({ title: t('friends_screen.errors.generic'), message: err.message || t('friends_screen.errors.request_failed'), type: 'error' });
     }
   };
   
@@ -116,21 +118,11 @@ export default function FriendsScreen() {
     try {
       await removeFriend(currentUser.uid, showRemoveConfirm.uid);
       setShowRemoveConfirm(null);
-      showAlert({ title: 'Amigo eliminado', message: 'Se ha eliminado de tu lista de amigos.', type: 'success' });
+      showAlert({ title: t('friends_screen.alerts.remove_success_title'), message: t('friends_screen.alerts.remove_success_msg'), type: 'success' });
     } catch (err: any) {
-      showAlert({ title: 'Error', message: 'No se pudo eliminar al amigo.', type: 'error' });
+      showAlert({ title: t('friends_screen.errors.generic'), message: t('friends_screen.errors.remove_failed'), type: 'error' });
     } finally {
       setRemoving(false);
-    }
-  };
-
-  const handleCleanupRequests = async () => {
-    if (!currentUser) return;
-    try {
-      await cleanupAllFriendRequests(currentUser.uid);
-      showAlert({ title: 'Limpieza completada', message: 'Se han eliminado todas tus solicitudes de amistad.', type: 'success' });
-    } catch {
-      showAlert({ title: 'Error', message: 'No se pudo realizar la limpieza.', type: 'error' });
     }
   };
 
@@ -152,16 +144,16 @@ export default function FriendsScreen() {
           <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: colors.text, display: 'flex' }}>
             <ChevronLeft size={24} />
           </button>
-          <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>Amigos</ThemedText>
+          <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{t('friends_screen.title')}</ThemedText>
           <div style={{ width: 32 }} />
         </div>
 
         <div style={{ padding: `${spacing.md}px ${spacing.lg}px`, flexShrink: 0 }}>
           <div style={{ display: 'flex', backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 4, gap: 4, marginBottom: spacing.md }}>
             {[
-              { id: 'all', label: 'Todos', icon: <Users size={18} /> },
-              { id: 'best', label: 'Mejores', icon: <Star size={18} /> },
-              { id: 'add', label: 'Añadir', icon: <UserPlus size={18} /> }
+              { id: 'all', label: t('friends_screen.tabs.all'), icon: <Users size={18} /> },
+              { id: 'best', label: t('friends_screen.tabs.best'), icon: <Star size={18} /> },
+              { id: 'add', label: t('friends_screen.tabs.add'), icon: <UserPlus size={18} /> }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -192,7 +184,7 @@ export default function FriendsScreen() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={activeTab === 'add' ? "Buscar por usuario o nombre..." : "Buscar amigos..."}
+              placeholder={activeTab === 'add' ? t('friends_screen.search.add_placeholder') : t('friends_screen.search.placeholder')}
               style={{
                 flex: 1, background: 'none', border: 'none', outline: 'none',
                 color: colors.text, fontSize: 14,
@@ -203,10 +195,10 @@ export default function FriendsScreen() {
           {activeTab === 'add' && (
             <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
               {[
-                { id: 'all', label: 'Todos' },
-                { id: 'teacher', label: 'Profesores' },
-                { id: 'admin', label: 'Administradores' },
-                { id: 'student', label: 'Estudiantes' }
+                { id: 'all', label: t('friends_screen.roles.all') },
+                { id: 'teacher', label: t('friends_screen.roles.teacher') },
+                { id: 'admin', label: t('friends_screen.roles.admin') },
+                { id: 'student', label: t('friends_screen.roles.student') }
               ].map(role => (
                 <button
                   key={role.id}
@@ -222,19 +214,6 @@ export default function FriendsScreen() {
                   {role.label}
                 </button>
               ))}
-              <button
-                onClick={handleCleanupRequests}
-                style={{
-                  padding: '6px 14px', borderRadius: 20, border: `1px solid ${colors.danger}44`, cursor: 'pointer',
-                  fontSize: 12, fontWeight: '600', whiteSpace: 'nowrap',
-                  backgroundColor: colors.danger + '15',
-                  color: colors.danger,
-                  transition: 'all 0.2s',
-                  marginLeft: 'auto'
-                }}
-              >
-                Limpiar mis solicitudes
-              </button>
             </div>
           )}
         </div>
@@ -245,13 +224,13 @@ export default function FriendsScreen() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
                 <Filter size={14} color={colors.primary} />
                 <ThemedText style={{ fontSize: 13, fontWeight: 'bold', color: colors.primary }}>
-                  {isSearchingGlobal ? 'Buscando en CampusHub...' : 'Explorar comunidad'}
+                  {isSearchingGlobal ? t('friends_screen.status.searching') : t('friends_screen.status.explore')}
                 </ThemedText>
               </div>
               
               {searchResults.length === 0 && !isSearchingGlobal && (
                 <div style={{ textAlign: 'center', padding: spacing.xl, opacity: 0.5 }}>
-                  <ThemedText style={{ fontSize: 14 }}>No se encontraron usuarios</ThemedText>
+                  <ThemedText style={{ fontSize: 14 }}>{t('friends_screen.status.no_results')}</ThemedText>
                 </div>
               )}
 
@@ -269,7 +248,7 @@ export default function FriendsScreen() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <ThemedText style={{ fontSize: 15, fontWeight: '700', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.displayName}</ThemedText>
                       <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>
-                        {user.role === 'teacher' ? 'Profesor' : user.role === 'admin' ? 'Administrador' : 'Estudiante'} • {user.email?.split('@')[0]}
+                        {user.role === 'teacher' ? t('friends_screen.labels.teacher') : user.role === 'admin' ? t('friends_screen.labels.admin') : t('friends_screen.labels.student')} • {user.email?.split('@')[0]}
                       </ThemedText>
                     </div>
                     {!isAlreadyFriend ? (
@@ -290,7 +269,7 @@ export default function FriendsScreen() {
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7 }}>
                         <UserCheck size={16} color={colors.primary} />
-                        <ThemedText style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>Amigo</ThemedText>
+                        <ThemedText style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>{t('friends_screen.labels.friend')}</ThemedText>
                       </div>
                     )}
                   </div>
@@ -307,7 +286,7 @@ export default function FriendsScreen() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: search ? 60 : 100, gap: 12, opacity: 0.6 }}>
                   {search ? <Search size={64} color={colors.border} strokeWidth={1} /> : <Users size={64} color={colors.border} strokeWidth={1} />}
                   <ThemedText style={{ fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
-                    {search ? 'No se encontraron coincidencias' : (activeTab === 'all' ? 'No tienes amigos todavía' : 'No tienes mejores amigos')}
+                    {search ? t('friends_screen.empty.no_matches') : (activeTab === 'all' ? t('friends_screen.empty.no_friends') : t('friends_screen.empty.no_best'))}
                   </ThemedText>
                 </div>
               ) : (
@@ -342,7 +321,7 @@ export default function FriendsScreen() {
                       <div style={{ flex: 1 }}>
                         <ThemedText style={{ fontWeight: '800', fontSize: 15, display: 'block' }}>{friend.displayName}</ThemedText>
                         <ThemedText style={{ fontSize: 12, opacity: 0.6, marginTop: 2, display: 'block' }}>
-                          {friend.role === 'teacher' ? 'Profesor' : friend.role === 'admin' ? 'Administrador' : 'Estudiante'} • {friend.email?.split('@')[0]}
+                          {friend.role === 'teacher' ? t('friends_screen.labels.teacher') : friend.role === 'admin' ? t('friends_screen.labels.admin') : t('friends_screen.labels.student')} • {friend.email?.split('@')[0]}
                         </ThemedText>
                       </div>
 
@@ -388,9 +367,9 @@ export default function FriendsScreen() {
         <AlertModal
           isOpen={!!showRemoveConfirm}
           type="confirm"
-          title="Eliminar amigo"
-          message={`¿Estás seguro de que quieres eliminar a ${showRemoveConfirm.displayName} de tu lista de amigos?`}
-          confirmText={removing ? 'Eliminando...' : 'Eliminar'}
+          title={t('friends_screen.alerts.remove_friend_title')}
+          message={t('friends_screen.alerts.remove_friend_msg', { name: showRemoveConfirm.displayName })}
+          confirmText={removing ? t('friends_screen.buttons.removing') : t('friends_screen.buttons.remove')}
           showCancelButton
           onClose={() => !removing && setShowRemoveConfirm(null)}
           onConfirm={handleRemoveFriend}

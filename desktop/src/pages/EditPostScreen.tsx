@@ -4,12 +4,13 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { uploadPostMedia } from '@/config/cloudinary';
 import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography } from '@/constants/styles';
+import { spacing } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { SongPicker } from '@/components/SongPicker';
-import { ChevronLeft, Image as ImageIcon, Video as VideoIcon, Music, X, Volume2, VolumeX, Save } from 'lucide-react';
+import { ChevronLeft, Image as ImageIcon, Music, X, Save } from 'lucide-react';
 import { AlertModal } from '@/components/AlertModal';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { JamendoTrack } from '@/types';
 
 const TITLE_MAX = 50;
@@ -19,6 +20,7 @@ export default function EditPostScreen() {
   const { colors } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -47,12 +49,12 @@ export default function EditPostScreen() {
     if (!id) return;
     getDoc(doc(db, 'posts', id)).then((snap) => {
       if (!snap.exists()) {
-        showAlert('Error', 'Post no encontrado.', 'error', () => navigate(-1));
+        showAlert(t('edit_post.alerts.not_found_title'), t('edit_post.alerts.not_found_msg'), 'error', () => navigate(-1));
         return;
       }
       const d = snap.data();
       if (d.authorId !== auth.currentUser?.uid) {
-        showAlert('Error', 'No tienes permiso para editar este post.', 'error', () => navigate(-1));
+        showAlert(t('edit_post.alerts.no_permission_title'), t('edit_post.alerts.no_permission_msg'), 'error', () => navigate(-1));
         return;
       }
       setTitle(d.title ?? '');
@@ -63,7 +65,7 @@ export default function EditPostScreen() {
       setSong(d.song ?? null);
       setLoading(false);
     });
-  }, [id, navigate]);
+  }, [id, navigate, t]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -73,8 +75,8 @@ export default function EditPostScreen() {
       setMediaRemoved(false);
       if (type === 'video') {
         showAlert(
-          'Audio del vídeo',
-          '¿Quieres silenciar el audio original del vídeo?',
+          t('edit_post.alerts.video_audio_title'),
+          t('edit_post.alerts.video_audio_msg'),
           'confirm',
           () => setMuteOriginalAudio(true)
         );
@@ -110,7 +112,7 @@ export default function EditPostScreen() {
       navigate(-1);
     } catch (error) {
       console.error(error);
-      showAlert('Error', 'Error al guardar los cambios.', 'error');
+      showAlert(t('edit_post.alerts.save_error_title'), t('edit_post.alerts.save_error_msg'), 'error');
     } finally {
       setSaving(false);
     }
@@ -129,7 +131,6 @@ export default function EditPostScreen() {
 
   return (
     <ThemedView style={{ flex: 1, height: '100%', overflowY: 'auto', backgroundColor: colors.background }}>
-      {/* Header */}
       <div style={{
         padding: `${spacing.sm}px ${spacing.md}px`,
         backgroundColor: colors.card,
@@ -144,7 +145,7 @@ export default function EditPostScreen() {
         <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}>
           <ChevronLeft size={24} />
         </button>
-        <ThemedText style={{ fontWeight: 'bold' }}>Editar Post</ThemedText>
+        <ThemedText style={{ fontWeight: 'bold' }}>{t('edit_post.title')}</ThemedText>
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
@@ -155,36 +156,33 @@ export default function EditPostScreen() {
           }}
         >
           {saving ? '...' : <Save size={18} />}
-          <span>Guardar</span>
+          <span>{t('edit_post.buttons.save')}</span>
         </button>
       </div>
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: spacing.xl }}>
         
-        {/* Title Input */}
         <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md }}>
           <input
             value={title}
             onChange={e => setTitle(e.target.value.substring(0, TITLE_MAX))}
-            placeholder="Título del post"
+            placeholder={t('edit_post.placeholders.title')}
             style={{ width: '100%', fontSize: 20, fontWeight: 'bold', border: 'none', outline: 'none', backgroundColor: 'transparent', color: colors.text }}
           />
           <div style={{ textAlign: 'right', fontSize: 12, opacity: 0.5, marginTop: 4 }}>{title.length}/{TITLE_MAX}</div>
         </div>
 
-        {/* Content Input */}
         <div style={{ backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md }}>
           <textarea
             value={content}
             onChange={e => setContent(e.target.value.substring(0, CONTENT_MAX))}
-            placeholder="¿Qué estás pensando?"
+            placeholder={t('edit_post.placeholders.content')}
             rows={6}
             style={{ width: '100%', fontSize: 16, border: 'none', outline: 'none', backgroundColor: 'transparent', color: colors.text, resize: 'none', fontFamily: 'inherit' }}
           />
           <div style={{ textAlign: 'right', fontSize: 12, opacity: 0.5, marginTop: 4 }}>{content.length}/{CONTENT_MAX}</div>
         </div>
 
-        {/* Media Preview / Picker */}
         <div style={{ marginBottom: spacing.md }}>
           {currentMediaUri ? (
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' }}>
@@ -194,13 +192,13 @@ export default function EditPostScreen() {
                 <img src={currentMediaUri} style={{ width: '100%', display: 'block' }} alt="" />
               )}
               <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 8 }}>
-                 <button onClick={() => fileInputRef.current?.click()} style={{ padding: '8px 12px', borderRadius: 20, backgroundColor: colors.primary, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>Cambiar</button>
+                 <button onClick={() => fileInputRef.current?.click()} style={{ padding: '8px 12px', borderRadius: 20, backgroundColor: colors.primary, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>{t('edit_post.buttons.change')}</button>
                  <button onClick={() => { 
                    setMediaRemoved(true); 
                    setNewMedia(null); 
                    setExistingMediaUrl(null); 
-                   setSong(null); // Clear song when media is removed
-                 }} style={{ padding: '8px 12px', borderRadius: 20, backgroundColor: colors.danger, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>Eliminar</button>
+                   setSong(null); 
+                 }} style={{ padding: '8px 12px', borderRadius: 20, backgroundColor: colors.danger, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>{t('edit_post.buttons.remove')}</button>
               </div>
             </div>
           ) : (
@@ -213,13 +211,12 @@ export default function EditPostScreen() {
               }}
             >
               <ImageIcon size={32} />
-              <ThemedText>Añadir foto o vídeo</ThemedText>
+              <ThemedText>{t('edit_post.buttons.add_media')}</ThemedText>
             </button>
           )}
           <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
         </div>
 
-        {/* Song Picker */}
         {currentMediaUri && (
           <div style={{ marginBottom: spacing.xl }}>
             {song ? (
@@ -245,7 +242,7 @@ export default function EditPostScreen() {
                 }}
               >
                 <Music size={18} />
-                <span>Añadir música</span>
+                <span>{t('edit_post.buttons.add_music')}</span>
               </button>
             )}
           </div>
@@ -266,7 +263,7 @@ export default function EditPostScreen() {
         type={alertConfig.type}
         onConfirm={alertConfig.onConfirm}
         showCancelButton={alertConfig.type === 'confirm'}
-        confirmText={alertConfig.type === 'confirm' ? 'Sí' : 'Entendido'}
+        confirmText={alertConfig.type === 'confirm' ? t('edit_post.labels.yes') : t('edit_post.labels.understood')}
         onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
       />
       <style>{`

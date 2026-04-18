@@ -7,20 +7,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { auth } from '@/config/firebase';
 import { subscribeToSavedMessages, subscribeToSavedPosts, unsaveMessage, toggleSavePost, type SavedMessage } from '@/services/savedItemsService';
 import { spacing } from '@/constants/styles';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { Post } from '@/types';
 
 type TabType = 'messages' | 'posts';
 
-function formatDate(raw: any): string {
-  if (!raw) return '';
-  const ts = typeof raw === 'string' ? new Date(raw).getTime() : raw?.seconds ? raw.seconds * 1000 : new Date(raw).getTime();
-  if (isNaN(ts)) return '';
-  return new Date(ts).toLocaleDateString();
-}
-
 export default function SavedItemsScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('messages');
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
   const [savedMessages, setSavedMessages] = useState<SavedMessage[]>([]);
@@ -77,30 +72,53 @@ export default function SavedItemsScreen() {
   const filteredMessages = savedMessages.filter(m => isWithinFilter(m.savedAt || m.createdAt));
   const filteredPosts = savedPosts.filter(p => isWithinFilter(p.createdAt));
 
+  const formatDate = (raw: any): string => {
+    if (!raw) return '';
+    const ts = typeof raw === 'string' ? new Date(raw).getTime() : raw?.seconds ? raw.seconds * 1000 : new Date(raw).getTime();
+    if (isNaN(ts)) return '';
+    const dateStr = new Date(ts).toLocaleDateString();
+    return t('saved_items.labels.saved_at', { date: dateStr });
+  };
+
   return (
     <ThemedView style={{ flex: 1 }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: colors.background }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `${spacing.sm}px ${spacing.md}px`, borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, flexShrink: 0 }}>
           <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: colors.text, display: 'flex' }}><ChevronLeft size={24} /></button>
-          <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>Guardados</ThemedText>
+          <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{t('saved_items.title')}</ThemedText>
           <div style={{ width: 32 }} />
         </div>
         <div style={{ padding: `${spacing.md}px ${spacing.lg}px`, flexShrink: 0 }}>
           <div style={{ display: 'flex', backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 4, gap: 4 }}>
-            {(['messages', 'posts'] as TabType[]).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', backgroundColor: activeTab === tab ? colors.card : 'transparent', boxShadow: activeTab === tab ? '0 2px 8px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}>
-                {tab === 'messages' ? <MessageSquare size={18} color={activeTab === tab ? colors.primary : colors.textSecondary} /> : <Bookmark size={18} color={activeTab === tab ? colors.primary : colors.textSecondary} />}
-                <span style={{ fontSize: 14, fontWeight: '600', color: activeTab === tab ? colors.text : colors.textSecondary }}>{tab === 'messages' ? 'Mensajes' : 'Posts'}</span>
+            {(['messages', 'posts'] as TabType[]).map(tabKey => (
+              <button 
+                key={tabKey} 
+                onClick={() => setActiveTab(tabKey)} 
+                style={{ 
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
+                  padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', 
+                  backgroundColor: activeTab === tabKey ? colors.card : 'transparent', 
+                  boxShadow: activeTab === tabKey ? '0 2px 8px rgba(0,0,0,0.1)' : 'none', 
+                  transition: 'all 0.2s' 
+                }}
+              >
+                {tabKey === 'messages' ? 
+                  <MessageSquare size={18} color={activeTab === tabKey ? colors.primary : colors.textSecondary} /> : 
+                  <Bookmark size={18} color={activeTab === tabKey ? colors.primary : colors.textSecondary} />
+                }
+                <span style={{ fontSize: 14, fontWeight: '600', color: activeTab === tabKey ? colors.text : colors.textSecondary }}>
+                  {tabKey === 'messages' ? t('saved_items.tabs.messages') : t('saved_items.tabs.posts')}
+                </span>
               </button>
             ))}
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }} className="no-scrollbar">
             {[
-              { id: 'all', label: 'Todo' },
-              { id: 'today', label: 'Hoy' },
-              { id: 'week', label: 'Esta semana' },
-              { id: 'month', label: 'Este mes' }
+              { id: 'all', label: t('saved_items.filters.all') },
+              { id: 'today', label: t('saved_items.filters.today') },
+              { id: 'week', label: t('saved_items.filters.week') },
+              { id: 'month', label: t('saved_items.filters.month') }
             ].map(filter => (
               <button
                 key={filter.id}
@@ -124,7 +142,10 @@ export default function SavedItemsScreen() {
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 60 }}><div style={{ width: 32, height: 32, border: `3px solid ${colors.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>
           ) : (activeTab === 'messages' ? filteredMessages : filteredPosts).length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 100, gap: 12, opacity: 0.6 }}>
-              <Bookmark size={64} color={colors.border} strokeWidth={1} /><ThemedText style={{ fontSize: 18, fontWeight: 'bold' }}>{dateFilter === 'all' ? 'No hay nada guardado' : 'No hay elementos para este filtro'}</ThemedText>
+              <Bookmark size={64} color={colors.border} strokeWidth={1} />
+              <ThemedText style={{ fontSize: 18, fontWeight: 'bold' }}>
+                {dateFilter === 'all' ? t('saved_items.empty.none') : t('saved_items.empty.filtered')}
+              </ThemedText>
             </div>
           ) : activeTab === 'messages' ? (
             filteredMessages.map(item => {
@@ -154,14 +175,14 @@ export default function SavedItemsScreen() {
                       )}
                       <div style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
                         {media.type === 'image' ? <ImageIcon size={14} color="#fff" /> : <VideoIcon size={14} color="#fff" />}
-                        <span style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>CONTENIDO MULTIMEDIA</span>
+                        <span style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>{t('saved_items.labels.media')}</span>
                       </div>
                     </div>
                   )}
 
-                  {isAudio && <ThemedText style={{ fontSize: 13, fontStyle: 'italic', display: 'block', marginBottom: 8, color: colors.primary }}>🎤 Mensaje de voz</ThemedText>}
+                  {isAudio && <ThemedText style={{ fontSize: 13, fontStyle: 'italic', display: 'block', marginBottom: 8, color: colors.primary }}>{t('saved_items.labels.voice_message')}</ThemedText>}
                   {item.text && <ThemedText style={{ fontSize: 14, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 8 }}>{item.text}</ThemedText>}
-                  <ThemedText style={{ fontSize: 11, opacity: 0.5 }}>Guardado el {formatDate(item.savedAt)}</ThemedText>
+                  <ThemedText style={{ fontSize: 11, opacity: 0.5 }}>{formatDate(item.savedAt)}</ThemedText>
                 </div>
               );
             })
@@ -175,7 +196,7 @@ export default function SavedItemsScreen() {
                 {item.mediaUrl && <img src={item.mediaUrl} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 12, marginBottom: 8 }} alt="" />}
                 <ThemedText style={{ fontSize: 13, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.content}</ThemedText>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                  <ThemedText style={{ fontSize: 12, fontWeight: '600' }}>De {item.authorName}</ThemedText>
+                  <ThemedText style={{ fontSize: 12, fontWeight: '600' }}>{t('saved_items.labels.author', { name: item.authorName })}</ThemedText>
                   <ThemedText style={{ fontSize: 11, opacity: 0.5 }}>{formatDate(item.createdAt)}</ThemedText>
                 </div>
               </div>
