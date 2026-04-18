@@ -1,166 +1,219 @@
 import {
-  collection, doc, getDoc, setDoc, updateDoc,
-  serverTimestamp, onSnapshot, addDoc, query,
-  orderBy, where, limit
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  addDoc,
+  onSnapshot,
+  serverTimestamp,
+  query,
+  where,
+  Unsubscribe
 } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import type { ActiveCall, CallType } from '@/types';
-import { sendMessage } from './dmService';
+import { db } from '../config/firebase';
 
-export const iniciarLlamada = async (
-  conversationId: string,
+export type CallType = 'audio' | 'video';
+export type CallStatus = 'ringing' | 'active' | 'ended' | 'rejected' | 'missed';
+
+export interface Call {
+  id: string;
+  callerId: string;
+  receiverId: string;
+  callerName: string;
+  callerPhoto: string | null;
+  receiverName?: string;
+  receiverPhoto?: string | null;
+  type: CallType;
+  status: CallStatus;
+  createdAt: any;
+  offer?: RTCSessionDescriptionInit;
+  answer?: RTCSessionDescriptionInit;
+  callerCamOff?: boolean;
+  receiverCamOff?: boolean;
+  callerVideoSignal?: number;
+  receiverVideoSignal?: number;
+  receiverOffer?: RTCSessionDescriptionInit;
+  callerReanswer?: RTCSessionDescriptionInit;
+  callerSharing?: boolean;
+  receiverSharing?: boolean;
+}
+
+export async function createCall(
   callerId: string,
+  receiverId: string,
   callerName: string,
   callerPhoto: string | null,
-  receiverId: string,
-  type: CallType,
-  offer: any
-): Promise<string> => {
+  receiverName: string,
+  receiverPhoto: string | null,
+  type: CallType
+): Promise<string> {
   const callRef = doc(collection(db, 'calls'));
-  const callId = callRef.id;
-
-  const newCall: Partial<ActiveCall> = {
-    id: callId,
-    conversationId,
+  await setDoc(callRef, {
     callerId,
+    receiverId,
     callerName,
     callerPhoto,
-    receiverId,
+    receiverName,
+    receiverPhoto,
     type,
     status: 'ringing',
-    startedAt: null,
-    endedAt: null,
-    duration: 0,
-    offer
-  };
-
-  await setDoc(callRef, {
-    ...newCall,
+    offer: null,
+    answer: null,
     createdAt: serverTimestamp()
   });
+  return callRef.id;
+}
 
-  return callId;
-};
-
-export const aceptarLlamada = async (callId: string, answer: any) => {
-  await updateDoc(doc(db, 'calls', callId), {
-    status: 'active',
-    startedAt: serverTimestamp(),
-    answer
-  });
-};
-
-export const rechazarLlamada = async (callId: string) => {
-  await updateDoc(doc(db, 'calls', callId), {
-    status: 'rejected',
-    endedAt: serverTimestamp()
-  });
-};
-
-export const terminarLlamada = async (
+export async function updateCallOffer(
   callId: string,
-  duration: number,
-  conversationId?: string,
-  callerId?: string,
-  callerName?: string,
-  callerPhoto?: string | null
-) => {
-  await updateDoc(doc(db, 'calls', callId), {
-    status: 'ended',
-    endedAt: serverTimestamp(),
-    duration
-  });
+  offer: RTCSessionDescriptionInit
+): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { offer });
+}
 
-  if (conversationId && callerId) {
-    const min = Math.floor(duration / 60);
-    const sec = duration % 60;
-    const durationStr = `${min}:${sec.toString().padStart(2, '0')}`;
-    try {
-      await sendMessage(
-        conversationId,
-        callerId,
-        callerName || 'Sistema',
-        callerPhoto || null,
-        `📞 Llamada finalizada (${durationStr})`
-      );
-    } catch { }
-  }
-};
-
-export const registrarLlamadaPerdida = async (
+export async function answerCall(
   callId: string,
-  conversationId: string,
-  callerId: string,
-  callerName: string,
-  callerPhoto: string | null
-) => {
-  try {
-    await updateDoc(doc(db, 'calls', callId), {
-      status: 'missed',
-      endedAt: serverTimestamp()
-    });
+  answer: RTCSessionDescriptionInit
+): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { answer, status: 'active' });
+}
 
-    await sendMessage(
-      conversationId,
-      callerId,
-      callerName,
-      callerPhoto,
-      '🚫 Llamada perdida'
-    );
-  } catch { }
-};
+export async function acceptCall(callId: string): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { status: 'active' });
+}
 
-export const agregarCandidatoICE = async (callId: string, candidate: any, senderId: string) => {
-  try {
-    const candidatesRef = collection(db, 'calls', callId, 'candidates');
-    await addDoc(candidatesRef, {
-      ...candidate,
-      senderId,
-      createdAt: serverTimestamp()
-    });
-  } catch { }
-};
+export async function rejectCall(callId: string): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { status: 'rejected' });
+}
 
-export const suscribirEstadoLlamada = (callId: string, callback: (call: ActiveCall) => void) => {
-  return onSnapshot(doc(db, 'calls', callId), (snapshot) => {
-    if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() } as ActiveCall);
-    }
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('CallState Snapshot error:', error);
-    }
+export async function endCall(callId: string): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { status: 'ended' });
+}
+
+export async function missCall(callId: string): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { status: 'missed' });
+}
+
+export async function updateCamState(callId: string, isCaller: boolean, camOff: boolean): Promise<void> {
+  const field = isCaller ? 'callerCamOff' : 'receiverCamOff';
+  await updateDoc(doc(db, 'calls', callId), { [field]: camOff });
+}
+
+export async function signalVideo(callId: string, isCaller: boolean): Promise<void> {
+  const field = isCaller ? 'callerVideoSignal' : 'receiverVideoSignal';
+  await updateDoc(doc(db, 'calls', callId), { [field]: Date.now() });
+}
+
+export async function updateCallCamState(callId: string, isCaller: boolean, camOff: boolean): Promise<void> {
+  return updateCamState(callId, isCaller, camOff);
+}
+
+export async function signalCallVideo(callId: string, isCaller: boolean): Promise<void> {
+  return signalVideo(callId, isCaller);
+}
+
+export async function updateCallSharingState(callId: string, isCaller: boolean, sharing: boolean): Promise<void> {
+  const field = isCaller ? 'callerSharing' : 'receiverSharing';
+  await updateDoc(doc(db, 'calls', callId), { [field]: sharing });
+}
+
+export async function updateReceiverOffer(callId: string, offer: RTCSessionDescriptionInit): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { receiverOffer: offer });
+}
+
+export async function updateCallerReanswer(callId: string, answer: RTCSessionDescriptionInit): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), { callerReanswer: answer });
+}
+
+export async function resetCall(callId: string): Promise<void> {
+  await updateDoc(doc(db, 'calls', callId), {
+    offer: null,
+    answer: null,
+    receiverOffer: null,
+    callerReanswer: null,
+    callerVideoSignal: 0,
+    receiverVideoSignal: 0
   });
-};
+}
 
-export const suscribirCandidatosICE = (callId: string, callback: (candidates: any[]) => void) => {
-  const q = query(collection(db, 'calls', callId, 'candidates'), orderBy('createdAt', 'asc'));
-  return onSnapshot(q, (snapshot) => {
-    const candidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(candidates);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('IceCandidates Snapshot error:', error);
-    }
+export async function addCallerCandidate(
+  callId: string,
+  candidate: RTCIceCandidateInit
+): Promise<void> {
+  await addDoc(collection(db, 'calls', callId, 'callerCandidates'), candidate);
+}
+
+export async function addReceiverCandidate(
+  callId: string,
+  candidate: RTCIceCandidateInit
+): Promise<void> {
+  await addDoc(collection(db, 'calls', callId, 'receiverCandidates'), candidate);
+}
+
+export function subscribeToCall(
+  callId: string,
+  callback: (call: Call | null) => void
+): Unsubscribe {
+  return onSnapshot(doc(db, 'calls', callId), snap => {
+    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Call) : null);
   });
-};
+}
 
-export const escucharLlamadasEntrantes = (userId: string, callback: (call: ActiveCall) => void) => {
+export function subscribeToCallerCandidates(
+  callId: string,
+  callback: (candidate: RTCIceCandidateInit) => void
+): Unsubscribe {
+  return onSnapshot(collection(db, 'calls', callId, 'callerCandidates'), snap => {
+    snap.docChanges().forEach(change => {
+      if (change.type === 'added') callback(change.doc.data() as RTCIceCandidateInit);
+    });
+  });
+}
+
+export function subscribeToReceiverCandidates(
+  callId: string,
+  callback: (candidate: RTCIceCandidateInit) => void
+): Unsubscribe {
+  return onSnapshot(collection(db, 'calls', callId, 'receiverCandidates'), snap => {
+    snap.docChanges().forEach(change => {
+      if (change.type === 'added') callback(change.doc.data() as RTCIceCandidateInit);
+    });
+  });
+}
+
+export function subscribeToIncomingCalls(
+  userId: string,
+  callback: (call: Call | null) => void
+): Unsubscribe {
   const q = query(
     collection(db, 'calls'),
     where('receiverId', '==', userId),
-    where('status', '==', 'ringing'),
-    limit(1)
+    where('status', '==', 'ringing')
   );
-
-  return onSnapshot(q, (snapshot) => {
-    if (!snapshot.empty) {
-      const d = snapshot.docs[0];
-      callback({ id: d.id, ...d.data() } as ActiveCall);
-    }
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('IncomingCalls Snapshot error:', error);
+  return onSnapshot(q, snap => {
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      callback({ id: d.id, ...d.data() } as Call);
+    } else {
+      callback(null);
     }
   });
+}
+
+export const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.ekiga.net' },
+    { urls: 'stun:stun.ideasip.com' },
+    { urls: 'stun:stun.schlund.de' },
+    { urls: 'stun:stun.voiparound.com' },
+    { urls: 'stun:stun.voipbuster.com' },
+    { urls: 'stun:stun.voipstunt.com' },
+    { urls: 'stun:stun.voxgratia.org' }
+  ],
+  iceCandidatePoolSize: 10
 };
