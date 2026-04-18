@@ -163,8 +163,17 @@ export function EventChannelView() {
                         {t(`events_channel.filters.${event.type}`)}
                       </div>
                       {isUserDepartment && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.6 }}>
-                          <Users size={14} />
+                        <div style={{ 
+                          padding: '6px 14px', 
+                          borderRadius: 20, 
+                          backgroundColor: colors.primary, 
+                          color: '#FFFFFF',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 6,
+                          boxShadow: `0 4px 10px ${colors.primary}40`
+                        }}>
+                          <Users size={14} color="#FFFFFF" />
                           <span style={{ fontSize: 10, fontWeight: 800 }}>{t('events_channel.tu_departamento')}</span>
                         </div>
                       )}
@@ -176,9 +185,14 @@ export function EventChannelView() {
                       {formatDate(event.date)}
                     </ThemedText>
 
-                    <ThemedText style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 20, lineHeight: 1.6, flex: 1 }}>
-                      {event.description || t('events_channel.no_desc')}
-                    </ThemedText>
+                    <div style={{ marginBottom: 20, flex: 1 }}>
+                      <ThemedText style={{ fontSize: 11, fontWeight: 900, color: colors.primary, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+                        {t('events_channel.description') || 'Descripción'}
+                      </ThemedText>
+                      <ThemedText style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 1.6 }}>
+                        {event.description || t('events_channel.no_desc')}
+                      </ThemedText>
+                    </div>
 
                     {/* RSVP Buttons Styled like mobile */}
                     {!isPast && (
