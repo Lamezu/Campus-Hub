@@ -1334,7 +1334,14 @@
     "speaker": "Speaker",
     "video_settings": "Video settings",
     "error_no_devices": "No microphone or camera detected. Check browser permissions.",
-    "error_no_devices_windows": "No microphone or camera detected. Check browser permissions and on Windows: Settings → Privacy → Microphone/Camera."
+    "error_no_devices_windows": "No microphone or camera detected. Check browser permissions and on Windows: Settings → Privacy → Microphone/Camera.",
+    "stop_broadcasting": "Stop broadcasting",
+    "hide_stream": "Hide stream",
+    "mute_stream": "Mute",
+    "unmute_stream": "Unmute",
+    "stream_volume": "Stream volume",
+    "watch_again": "Watch again",
+    "show_in_grid": "Show in grid"
   },
   "song_picker": {
     "title": "Choose song",

@@ -6,7 +6,8 @@ import { playRingback, stopRingback } from '../../utils/toneGenerator';
 import {
   PhoneOff, Video, VideoOff, Mic, MicOff, PhoneIncoming,
   Headphones, HeadphoneOff, Monitor, MonitorOff, Settings,
-  MoreHorizontal, Check, Maximize2, ExternalLink, Users, Presentation
+  MoreHorizontal, Check, Maximize2, ExternalLink, Users, Presentation,
+  Eye, EyeOff, Volume2, VolumeX
 } from 'lucide-react';
 import { CtrlBtn, CompoundBtn } from './shared/CallUIComponents';
 import { DevicePanel } from './shared/DevicePanel';
@@ -86,6 +87,11 @@ export default function ConferenceScreen({
   const [peers, setPeers] = useState<PeerState[]>([]);
   const [focusedTile, setFocusedTile] = useState<string | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<Array<{ uid: string; name: string; photo: string | null }>>([]);
+  const [hiddenCameraPeers, setHiddenCameraPeers] = useState<Set<string>>(new Set());
+  const [hiddenSharePeers, setHiddenSharePeers] = useState<Set<string>>(new Set());
+  const [mutedPeers, setMutedPeers] = useState<Set<string>>(new Set());
+  const [peerVolumes, setPeerVolumes] = useState<Map<string, number>>(new Map());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tileId: string } | null>(null);
 
   const durationRef = useRef(0);
   const cancelledRef = useRef(false);
@@ -142,11 +148,15 @@ export default function ConferenceScreen({
   const peersRef = useRef<PeerState[]>([]);
   const sharingRef = useRef(false);
   const focusedTileRef = useRef<string | null>(null);
+  const hiddenCameraPeersRef = useRef<Set<string>>(new Set());
+  const hiddenSharePeersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { durationRef.current = duration; }, [duration]);
   useEffect(() => { peersRef.current = peers; }, [peers]);
   useEffect(() => { sharingRef.current = sharing; }, [sharing]);
   useEffect(() => { focusedTileRef.current = focusedTile; }, [focusedTile]);
+  useEffect(() => { hiddenCameraPeersRef.current = hiddenCameraPeers; }, [hiddenCameraPeers]);
+  useEffect(() => { hiddenSharePeersRef.current = hiddenSharePeers; }, [hiddenSharePeers]);
 
   useEffect(() => {
     if (!focusedTile) return;
@@ -246,6 +256,10 @@ export default function ConferenceScreen({
     if (muteTimer) { clearTimeout(muteTimer); shareMuteTimersRef.current.delete(peerUid); }
 
     setPeers(prev => prev.filter(p => p.uid !== peerUid));
+    setHiddenCameraPeers(prev => { const n = new Set(prev); n.delete(peerUid); return n; });
+    setHiddenSharePeers(prev => { const n = new Set(prev); n.delete(peerUid); return n; });
+    setMutedPeers(prev => { const n = new Set(prev); n.delete(peerUid); return n; });
+    setPeerVolumes(prev => { const n = new Map(prev); n.delete(peerUid); return n; });
   }, []);
 
   const cleanup = useCallback(() => {
@@ -272,7 +286,7 @@ export default function ConferenceScreen({
     if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
     pipVideoRef.current?.remove();
     if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => { });
-  }, []);
+  }, [cleanupPeer]);
 
   const handleLeave = useCallback(async () => {
     cleanup();
@@ -310,10 +324,6 @@ export default function ConferenceScreen({
       const sender = pc.addTrack(activeVideoTrackRef.current, localStreamRef.current!);
       videoSendersByPeerRef.current.set(peerUid, sender);
     }
-    if (screenTrackRef.current && screenStreamRef.current) {
-      const sender = pc.addTrack(screenTrackRef.current, screenStreamRef.current);
-      screenSendersRef.current.set(peerUid, sender);
-    }
 
     pc.ontrack = (event) => {
       if (event.track.kind === 'audio') {
@@ -332,6 +342,7 @@ export default function ConferenceScreen({
         }
         return;
       }
+
       const attachShareTrack = (track: MediaStreamTrack) => {
         remoteShareStream.getTracks().forEach(t => remoteShareStream.removeTrack(t));
         remoteShareStream.addTrack(track);
@@ -342,13 +353,13 @@ export default function ConferenceScreen({
           shareEl.play().catch(() => { });
         }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
-        track.addEventListener('ended', () => {
+        track.onended = () => {
           remoteShareStream.removeTrack(track);
           const el = remoteShareVideoElsRef.current.get(peerUid);
           if (el) el.srcObject = null;
           setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: false } : p));
-        });
-        track.addEventListener('mute', () => {
+        };
+        track.onmute = () => {
           const t = shareMuteTimersRef.current.get(peerUid);
           if (t) clearTimeout(t);
           shareMuteTimersRef.current.set(peerUid, setTimeout(() => {
@@ -356,25 +367,38 @@ export default function ConferenceScreen({
             const el = remoteShareVideoElsRef.current.get(peerUid);
             if (el) el.srcObject = null;
           }, 1500));
-        });
-        track.addEventListener('unmute', () => {
+        };
+        track.onunmute = () => {
           const t = shareMuteTimersRef.current.get(peerUid);
           if (t) { clearTimeout(t); shareMuteTimersRef.current.delete(peerUid); }
           const el = remoteShareVideoElsRef.current.get(peerUid);
           if (el) { el.srcObject = null; el.srcObject = remoteShareStream; el.play().catch(() => { }); }
           setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
-        });
+        };
       };
 
       if (callType === 'audio') {
         attachShareTrack(event.track);
         return;
       }
-      const alreadyHasCam = remoteStream.getVideoTracks().length > 0;
-      if (!alreadyHasCam) {
+
+      const isKnownCam = remoteStream.getVideoTracks().some(t => t.id === event.track.id);
+      const isKnownShare = remoteShareStream.getTracks().some(t => t.id === event.track.id);
+      if (isKnownCam || isKnownShare) return;
+
+      if (remoteStream.getVideoTracks().length === 0) {
         remoteStream.addTrack(event.track);
         const videoEl = remoteVideoElsRef.current.get(peerUid);
-        if (videoEl) { videoEl.srcObject = remoteStream; videoEl.play().catch(() => { }); }
+        if (videoEl) { videoEl.srcObject = null; videoEl.srcObject = remoteStream; videoEl.play().catch(() => { }); }
+        event.track.onended = () => {
+          remoteStream.removeTrack(event.track);
+          const el = remoteVideoElsRef.current.get(peerUid);
+          if (el) el.srcObject = null;
+        };
+        event.track.onunmute = () => {
+          const el = remoteVideoElsRef.current.get(peerUid);
+          if (el && el.srcObject !== remoteStream) { el.srcObject = remoteStream; el.play().catch(() => { }); }
+        };
       } else {
         attachShareTrack(event.track);
       }
@@ -419,6 +443,10 @@ export default function ConferenceScreen({
           connectedPeersRef.current.add(peerUid);
           setStatus('active');
           startTimer();
+          if (sharingRef.current && screenTrackRef.current && screenStreamRef.current && !screenSendersRef.current.has(peerUid)) {
+            const sender = pc.addTrack(screenTrackRef.current, screenStreamRef.current);
+            screenSendersRef.current.set(peerUid, sender);
+          }
           pc.onnegotiationneeded = async () => {
             if (pc.signalingState === 'stable' && connectedPeersRef.current.has(peerUid)) {
               try {
@@ -490,6 +518,10 @@ export default function ConferenceScreen({
                 connectedPeersRef.current.add(peerUid);
                 setStatus('active');
                 startTimer();
+                if (sharingRef.current && screenTrackRef.current && screenStreamRef.current && !screenSendersRef.current.has(peerUid)) {
+                  const sender = pc.addTrack(screenTrackRef.current, screenStreamRef.current);
+                  screenSendersRef.current.set(peerUid, sender);
+                }
                 pc.onnegotiationneeded = async () => {
                   if (pc.signalingState === 'stable' && connectedPeersRef.current.has(peerUid)) {
                     try {
@@ -718,10 +750,15 @@ export default function ConferenceScreen({
     }
   };
 
+  useEffect(() => {
+    for (const [uid, audioEl] of remoteAudioElsRef.current.entries()) {
+      audioEl.muted = deafened || mutedPeers.has(uid);
+    }
+  }, [deafened, mutedPeers]);
+
   const toggleDeafen = () => {
     const next = !deafened;
     setDeafened(next);
-    for (const audioEl of remoteAudioElsRef.current.values()) audioEl.muted = next;
     if (next) {
       preMicOnRef.current = micOn;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = false; });
@@ -734,6 +771,45 @@ export default function ConferenceScreen({
       setMicOn(prev);
     }
   };
+
+  const handleTileContextMenu = (e: React.MouseEvent, tileId: string) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, tileId });
+  };
+
+  const handleHidePeer = (tileId: string) => {
+    const isShare = tileId.endsWith('-share');
+    const uid = isShare ? tileId.slice(0, -6) : tileId;
+    if (isShare) {
+      setHiddenSharePeers(prev => new Set([...prev, uid]));
+    } else {
+      setHiddenCameraPeers(prev => new Set([...prev, uid]));
+    }
+    if (focusedTile === tileId) setFocusedTile(null);
+    setContextMenu(null);
+  };
+
+  const handleToggleMutePeer = (uid: string) => {
+    setMutedPeers(prev => {
+      const n = new Set(prev);
+      n.has(uid) ? n.delete(uid) : n.add(uid);
+      return n;
+    });
+    setContextMenu(null);
+  };
+
+  const handlePeerVolume = (uid: string, v: number) => {
+    const audioEl = remoteAudioElsRef.current.get(uid);
+    if (audioEl) audioEl.volume = v / 100;
+    setPeerVolumes(prev => new Map(prev).set(uid, v));
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [contextMenu]);
 
   const openDevicePicker = async () => {
     setShowMoreMenu(false);
@@ -848,8 +924,10 @@ export default function ConferenceScreen({
         } catch { }
       }
       for (const [uid, pc] of pcsRef.current) {
-        screenSendersRef.current.set(uid, pc.addTrack(videoTrack, screenStream));
-        if (boostedTrack) screenAudioSendersRef.current.set(uid, pc.addTrack(boostedTrack, screenStream));
+        if (!screenSendersRef.current.has(uid)) {
+          screenSendersRef.current.set(uid, pc.addTrack(videoTrack, screenStream));
+          if (boostedTrack) screenAudioSendersRef.current.set(uid, pc.addTrack(boostedTrack, screenStream));
+        }
       }
       setSharing(true);
     } catch { }
@@ -927,10 +1005,13 @@ export default function ConferenceScreen({
         let photo = '';
         let showVideo = false;
 
+        const hiddenCam = hiddenCameraPeersRef.current;
+        const hiddenShare = hiddenSharePeersRef.current;
+
         if (focused && focused.endsWith('-share')) {
           const uid = focused.slice(0, -6);
           const peer = currentPeers.find(p => p.uid === uid);
-          if (peer?.sharing) {
+          if (peer?.sharing && !hiddenShare.has(uid)) {
             const rs = remoteShareStreamsRef.current.get(uid);
             if (rs && rs.getVideoTracks().some(t => !t.muted)) {
               targetStream = rs; label = `Pantalla de ${peer.name}`; showVideo = true;
@@ -942,7 +1023,7 @@ export default function ConferenceScreen({
 
         if (!targetStream) {
           for (const p of currentPeers) {
-            if (p.sharing) {
+            if (p.sharing && !hiddenShare.has(p.uid)) {
               const rs = remoteShareStreamsRef.current.get(p.uid);
               if (rs && rs.getVideoTracks().some(t => !t.muted)) {
                 targetStream = rs; label = `Pantalla de ${p.name}`; showVideo = true; break;
@@ -955,17 +1036,19 @@ export default function ConferenceScreen({
         }
 
         if (!targetStream) {
-          const speaking = currentPeers.find(p => p.speaking);
+          const speaking = currentPeers.find(p => p.speaking && !hiddenCam.has(p.uid));
           if (speaking) {
             const rs = remoteStreamsRef.current.get(speaking.uid);
             if (rs) { targetStream = rs; label = speaking.name; photo = speaking.photo ?? ''; showVideo = callType === 'video' && !speaking.camOff; }
           }
         }
 
-        if (!targetStream && currentPeers.length > 0) {
-          const first = currentPeers[0];
-          const rs = remoteStreamsRef.current.get(first.uid);
-          if (rs) { targetStream = rs; label = first.name; photo = first.photo ?? ''; showVideo = callType === 'video' && !first.camOff; }
+        if (!targetStream) {
+          const first = currentPeers.find(p => !hiddenCam.has(p.uid));
+          if (first) {
+            const rs = remoteStreamsRef.current.get(first.uid);
+            if (rs) { targetStream = rs; label = first.name; photo = first.photo ?? ''; showVideo = callType === 'video' && !first.camOff; }
+          }
         }
 
         if (targetStream !== lastStream || showVideo !== lastShowVideo) {
@@ -1032,7 +1115,6 @@ export default function ConferenceScreen({
     status === 'waiting' ? 'Esperando participantes...' :
       status === 'connecting' ? 'Conectando...' :
         status === 'active' ? formatDuration(duration) : 'Conferencia finalizada';
-
 
   const localPhoto = myPhoto;
   const localInitial = myName[0]?.toUpperCase() || '?';
@@ -1109,7 +1191,7 @@ export default function ConferenceScreen({
         display: 'flex',
         ...(!minimized
           ? (isTwoParty && !isMobile
-              ? { flexDirection: 'row', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', overflowY: 'hidden' }
+              ? { flexDirection: 'row', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }
               : { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 8, alignItems: 'center', justifyContent: 'center', alignContent: 'center' })
           : { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }
         ),
@@ -1127,15 +1209,33 @@ export default function ConferenceScreen({
         {!minimized && (
           <>
             {peers.map(peer => (
-              <div key={peer.uid} style={{ ...tileStyle(peer.uid), ...(peer.camOff && !showNoVideoParticipants && { display: 'none' }), ...(peer.speaking && !deafened && focusedTile !== peer.uid && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick(peer.uid)}>
+              <div
+                key={peer.uid}
+                style={{
+                  ...tileStyle(peer.uid),
+                  ...(peer.camOff && !showNoVideoParticipants && !hiddenCameraPeers.has(peer.uid) && { display: 'none' }),
+                  ...(peer.speaking && !deafened && focusedTile !== peer.uid && !hiddenCameraPeers.has(peer.uid) && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' })
+                }}
+                onClick={onTileClick(peer.uid)}
+                onContextMenu={e => handleTileContextMenu(e, peer.uid)}
+              >
                 {callType === 'video' && (
                   <video
-                    ref={el => { remoteVideoElsRef.current.set(peer.uid, el); }}
+                    ref={el => {
+                      remoteVideoElsRef.current.set(peer.uid, el);
+                      if (el) {
+                        const rs = remoteStreamsRef.current.get(peer.uid);
+                        if (rs && rs.getVideoTracks().length > 0 && el.srcObject !== rs) {
+                          el.srcObject = rs;
+                          el.play().catch(() => { });
+                        }
+                      }
+                    }}
                     autoPlay playsInline
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: !peer.camOff ? 1 : 0, transition: 'opacity 0.3s' }}
                   />
                 )}
-                {(callType === 'audio' || peer.camOff) && showNoVideoParticipants && (
+                {(callType === 'audio' || peer.camOff) && showNoVideoParticipants && !hiddenCameraPeers.has(peer.uid) && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
                       {peer.photo
@@ -1145,31 +1245,91 @@ export default function ConferenceScreen({
                     <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: '8px 0 2px' }}>{peer.name}</p>
                   </div>
                 )}
-                {tileLabel(peer.name)}
-                {peer.speaking && !deafened && focusedTile === peer.uid && (
+                {!hiddenCameraPeers.has(peer.uid) && tileLabel(peer.name)}
+                {peer.speaking && !deafened && focusedTile === peer.uid && !hiddenCameraPeers.has(peer.uid) && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+                )}
+                {hiddenCameraPeers.has(peer.uid) && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, backgroundColor: '#2b2d31', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f', opacity: 0.5 }}>
+                      {peer.photo
+                        ? <img src={peer.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 700 }}>{peer.name[0]?.toUpperCase() || '?'}</div>}
+                    </div>
+                    <span style={{ color: '#72767d', fontSize: 12, fontWeight: 600 }}>{peer.name}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        title={t('call.watch_again')}
+                        onClick={e => { e.stopPropagation(); setHiddenCameraPeers(prev => { const n = new Set(prev); n.delete(peer.uid); return n; }); setFocusedTile(peer.uid); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Maximize2 size={14} color="#dcddde" />
+                      </button>
+                      <button
+                        title={t('call.show_in_grid')}
+                        onClick={e => { e.stopPropagation(); setHiddenCameraPeers(prev => { const n = new Set(prev); n.delete(peer.uid); return n; }); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Eye size={14} color="#dcddde" />
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
 
             {peers.map(peer => (
-              <div key={`${peer.uid}-share`} style={{ ...tileStyle(`${peer.uid}-share`, { backgroundColor: '#111214' }), ...(!peer.sharing && { display: 'none' }) }} onClick={onTileClick(`${peer.uid}-share`)}>
+              <div
+                key={`${peer.uid}-share`}
+                style={{ ...tileStyle(`${peer.uid}-share`, { backgroundColor: '#111214' }), ...(!peer.sharing && { display: 'none' }) }}
+                onClick={onTileClick(`${peer.uid}-share`)}
+                onContextMenu={e => handleTileContextMenu(e, `${peer.uid}-share`)}
+              >
                 <video
                   ref={el => {
                     remoteShareVideoElsRef.current.set(peer.uid, el);
-                    if (el && !el.srcObject) {
+                    if (el) {
                       const rs = remoteShareStreamsRef.current.get(peer.uid);
-                      if (rs && rs.getTracks().length > 0) { el.srcObject = rs; el.play().catch(() => { }); }
+                      if (rs && rs.getTracks().length > 0 && el.srcObject !== rs) {
+                        el.srcObject = rs;
+                        el.play().catch(() => { });
+                      }
                     }
                   }}
                   autoPlay playsInline
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: hiddenSharePeers.has(peer.uid) ? 0 : 1, transition: 'opacity 0.2s' }}
                 />
-                {tileLabel(`Pantalla de ${peer.name}`)}
+                {!hiddenSharePeers.has(peer.uid) && tileLabel(t('call.screen_of', { name: peer.name }))}
+                {hiddenSharePeers.has(peer.uid) && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, backgroundColor: '#111214', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <Monitor size={32} color="#4e5058" strokeWidth={1.5} />
+                    <span style={{ color: '#72767d', fontSize: 12, fontWeight: 600 }}>{peer.name}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        title={t('call.watch_again')}
+                        onClick={e => { e.stopPropagation(); setHiddenSharePeers(prev => { const n = new Set(prev); n.delete(peer.uid); return n; }); setFocusedTile(`${peer.uid}-share`); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Maximize2 size={14} color="#dcddde" />
+                      </button>
+                      <button
+                        title={t('call.show_in_grid')}
+                        onClick={e => { e.stopPropagation(); setHiddenSharePeers(prev => { const n = new Set(prev); n.delete(peer.uid); return n; }); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Eye size={14} color="#dcddde" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
-            <div style={{ ...tileStyle('local'), ...(!localTileVisible && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
+            <div
+              style={{ ...tileStyle('local'), ...(!localTileVisible && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }}
+              onClick={onTileClick('local')}
+              onContextMenu={e => handleTileContextMenu(e, 'local')}
+            >
               {callType === 'video' && (
                 <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: focusedTile === 'local' ? 'contain' : 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
               )}
@@ -1187,7 +1347,11 @@ export default function ConferenceScreen({
               )}
             </div>
 
-            <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')}>
+            <div
+              style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }}
+              onClick={onTileClick('localShare')}
+              onContextMenu={e => handleTileContextMenu(e, 'localShare')}
+            >
               <video ref={screenShareVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
               {tileLabel('Tu pantalla')}
             </div>
@@ -1211,6 +1375,75 @@ export default function ConferenceScreen({
           </div>
         </div>
       )}
+
+      {contextMenu && (() => {
+        const { x, y, tileId } = contextMenu;
+        const isLocal = tileId === 'local' || tileId === 'localShare';
+        const peerUid = !isLocal ? (tileId.endsWith('-share') ? tileId.slice(0, -6) : tileId) : null;
+        const isMuted = peerUid ? mutedPeers.has(peerUid) : false;
+        const vol = peerUid ? (peerVolumes.get(peerUid) ?? 100) : 100;
+        const menuX = Math.min(x, window.innerWidth - 230);
+        const menuY = Math.min(y, window.innerHeight - 180);
+        const itemStyle: React.CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 10,
+          width: '100%', padding: '9px 14px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#dcddde', textAlign: 'left', fontSize: 14,
+        };
+        return (
+          <div
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', left: menuX, top: menuY, zIndex: 10002,
+              backgroundColor: '#18191c', border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 8, padding: '4px 0', minWidth: 210,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+            }}
+          >
+            {isLocal ? (
+              <button
+                style={itemStyle}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onClick={() => { tileId === 'localShare' ? stopScreenShare() : toggleCam(); setContextMenu(null); }}
+              >
+                <MonitorOff size={15} color="#dcddde" />
+                {t('call.stop_broadcasting')}
+              </button>
+            ) : (
+              <>
+                <button
+                  style={itemStyle}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  onClick={() => handleHidePeer(tileId)}
+                >
+                  <EyeOff size={15} color="#dcddde" />
+                  {t('call.hide_stream')}
+                </button>
+                <button
+                  style={itemStyle}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  onClick={() => handleToggleMutePeer(peerUid!)}
+                >
+                  {isMuted ? <Volume2 size={15} color="#dcddde" /> : <VolumeX size={15} color="#dcddde" />}
+                  {isMuted ? t('call.unmute_stream') : t('call.mute_stream')}
+                </button>
+                <div style={{ padding: '8px 14px 10px' }} onMouseDown={e => e.stopPropagation()}>
+                  <div style={{ color: '#b9bbbe', fontSize: 12, marginBottom: 6 }}>{t('call.stream_volume')}</div>
+                  <input
+                    type="range" min={0} max={100} value={vol}
+                    onChange={e => handlePeerVolume(peerUid!, Number(e.target.value))}
+                    className="call-range"
+                    style={{ background: `linear-gradient(to right, #5865f2 ${vol}%, rgba(255,255,255,0.15) ${vol}%)` }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {(isInitiator || canApprove) && pendingApprovals.length > 0 && !minimized && (
         <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10000, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>

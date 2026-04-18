@@ -6,7 +6,8 @@ import { auth } from '../../config/firebase';
 import {
   Phone, PhoneOff, Video, VideoOff, Mic, MicOff, PhoneIncoming,
   Headphones, HeadphoneOff, Monitor, MonitorOff, Settings,
-  MoreHorizontal, Check, Maximize2, ExternalLink
+  MoreHorizontal, Check, Maximize2, ExternalLink,
+  Eye, EyeOff, Volume2, VolumeX
 } from 'lucide-react';
 import { CtrlBtn, CompoundBtn } from './shared/CallUIComponents';
 import { DevicePanel } from './shared/DevicePanel';
@@ -62,6 +63,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const [remoteVideoMuted, setRemoteVideoMuted] = useState(false);
   const [remoteSharing, setRemoteSharing] = useState(false);
   const [focusedTile, setFocusedTile] = useState<'remote' | 'remoteShare' | 'localShare' | 'local' | null>(null);
+  const [hiddenRemoteCamera, setHiddenRemoteCamera] = useState(false);
+  const [hiddenRemoteShare, setHiddenRemoteShare] = useState(false);
+  const [remoteMuted, setRemoteMuted] = useState(false);
+  const [remoteVolume, setRemoteVolume] = useState(100);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tileId: 'remote' | 'remoteShare' | 'localShare' | 'local' } | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
   const [inPip, setInPip] = useState(false);
@@ -183,8 +189,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
     while (area.firstChild) area.removeChild(area.firstChild);
 
-    const shareStream = remoteSharing ? remoteShareStreamRef.current : null;
-    const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted);
+    const shareStream = remoteSharing && !hiddenRemoteShare ? remoteShareStreamRef.current : null;
+    const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted && !hiddenRemoteCamera);
     if (hasVideo) {
       const v = pip.document.createElement('video') as HTMLVideoElement;
       v.autoplay = true; v.playsInline = true; v.muted = true;
@@ -201,7 +207,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       } else { av.textContent = otherUserName[0]?.toUpperCase() || '?'; }
       area.appendChild(av);
     }
-  }, [remoteVideoReady, remoteVideoMuted, callType, otherUserName, otherUserPhoto, remoteSharing]);
+  }, [remoteVideoReady, remoteVideoMuted, callType, otherUserName, otherUserPhoto, remoteSharing, hiddenRemoteCamera, hiddenRemoteShare]);
 
   const durationRef = useRef(0);
   useEffect(() => { durationRef.current = duration; }, [duration]);
@@ -381,8 +387,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       const area = pip.document.createElement('div');
       area.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;background:#2b2d31;overflow:hidden;';
       docPipAreaRef.current = area;
-      const shareStream = remoteSharing ? remoteShareStreamRef.current : null;
-      const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted);
+      const shareStream = remoteSharing && !hiddenRemoteShare ? remoteShareStreamRef.current : null;
+      const hasVideo = shareStream != null || (callType === 'video' && remoteVideoReady && !remoteVideoMuted && !hiddenRemoteCamera);
       if (hasVideo) {
         const v = pip.document.createElement('video') as HTMLVideoElement;
         v.autoplay = true; v.playsInline = true; v.muted = true;
@@ -427,7 +433,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         setMinimized(false);
       });
     } catch {}
-  }, [callType, otherUserName, otherUserPhoto, remoteVideoReady, remoteVideoMuted, remoteSharing, triggerPip, handleHangUp]);
+  }, [callType, otherUserName, otherUserPhoto, remoteVideoReady, remoteVideoMuted, remoteSharing, hiddenRemoteCamera, hiddenRemoteShare, triggerPip, handleHangUp]);
   useEffect(() => { openDocPipRef.current = openDocPip; }, [openDocPip]);
 
   const refreshRemoteMedia = useCallback(() => {
@@ -806,11 +812,32 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     }
   };
 
+  useEffect(() => {
+    const muted = deafened || remoteMuted;
+    if (remoteAudioRef.current) remoteAudioRef.current.muted = muted;
+    if (remoteVideoRef.current) remoteVideoRef.current.muted = muted;
+  }, [deafened, remoteMuted]);
+
+  useEffect(() => {
+    if (remoteAudioRef.current) remoteAudioRef.current.volume = remoteVolume / 100;
+    if (remoteVideoRef.current) remoteVideoRef.current.volume = remoteVolume / 100;
+  }, [remoteVolume]);
+
+  const handleTileContextMenu = (e: React.MouseEvent, tileId: 'remote' | 'remoteShare' | 'localShare' | 'local') => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, tileId });
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [contextMenu]);
+
   const toggleDeafen = () => {
     const next = !deafened;
     setDeafened(next);
-    if (remoteAudioRef.current) remoteAudioRef.current.muted = next;
-    if (remoteVideoRef.current) remoteVideoRef.current.muted = next;
     if (next) {
       preMicOnRef.current = micOn;
       localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = false; });
@@ -1022,11 +1049,15 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           );
           return (
             <>
-              <div style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && { display: 'none' }), ...(remoteSpeaking && !deafened && focusedTile !== 'remote' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('remote')}>
+              <div
+                style={{ ...tileStyle('remote'), ...(!showNoVideoParticipants && (callType === 'audio' || !remoteVideoVisible) && !hiddenRemoteCamera && { display: 'none' }), ...(remoteSpeaking && !deafened && focusedTile !== 'remote' && !hiddenRemoteCamera && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }}
+                onClick={onTileClick('remote')}
+                onContextMenu={e => handleTileContextMenu(e, 'remote')}
+              >
                 {callType === 'video' && (
-                  <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
+                  <video ref={remoteVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: remoteVideoVisible && !hiddenRemoteCamera ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
-                {(callType === 'audio' || !remoteVideoVisible) && (
+                {(callType === 'audio' || !remoteVideoVisible) && !hiddenRemoteCamera && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
                       {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
@@ -1035,23 +1066,73 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                     <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{mediaError ?? (callType === 'audio' ? statusLabel : (!remoteVideoReady ? statusLabel : t('call.camera_disabled')))}</p>
                   </div>
                 )}
-                {label(otherUserName)}
-                {remoteSpeaking && !deafened && focusedTile === 'remote' && (
+                {!hiddenRemoteCamera && label(otherUserName)}
+                {remoteSpeaking && !deafened && focusedTile === 'remote' && !hiddenRemoteCamera && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', border: '3px solid #23a55a', boxShadow: 'inset 0 0 20px rgba(35,165,90,0.35)' }} />
+                )}
+                {hiddenRemoteCamera && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, backgroundColor: '#2b2d31', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f', opacity: 0.5 }}>
+                      {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
+                    </div>
+                    <span style={{ color: '#72767d', fontSize: 12, fontWeight: 600 }}>{otherUserName}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        title={t('call.watch_again')}
+                        onClick={e => { e.stopPropagation(); setHiddenRemoteCamera(false); setFocusedTile('remote'); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Maximize2 size={14} color="#dcddde" />
+                      </button>
+                      <button
+                        title={t('call.show_in_grid')}
+                        onClick={e => { e.stopPropagation(); setHiddenRemoteCamera(false); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Eye size={14} color="#dcddde" />
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              <div style={{ ...tileStyle('remoteShare', { backgroundColor: '#111214' }), ...(!remoteSharing && { display: 'none' }) }} onClick={onTileClick('remoteShare')}>
-                <video ref={remoteShareVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
-                {label(t('call.screen_of', { name: otherUserName }))}
+              <div
+                style={{ ...tileStyle('remoteShare', { backgroundColor: '#111214' }), ...(!remoteSharing && { display: 'none' }) }}
+                onClick={onTileClick('remoteShare')}
+                onContextMenu={e => handleTileContextMenu(e, 'remoteShare')}
+              >
+                <video ref={remoteShareVideoRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: hiddenRemoteShare ? 0 : 1, transition: 'opacity 0.2s' }} />
+                {!hiddenRemoteShare && label(t('call.screen_of', { name: otherUserName }))}
+                {hiddenRemoteShare && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, backgroundColor: '#111214', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <Monitor size={32} color="#4e5058" strokeWidth={1.5} />
+                    <span style={{ color: '#72767d', fontSize: 12, fontWeight: 600 }}>{otherUserName}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        title={t('call.watch_again')}
+                        onClick={e => { e.stopPropagation(); setHiddenRemoteShare(false); setFocusedTile('remoteShare'); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Maximize2 size={14} color="#dcddde" />
+                      </button>
+                      <button
+                        title={t('call.show_in_grid')}
+                        onClick={e => { e.stopPropagation(); setHiddenRemoteShare(false); }}
+                        style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Eye size={14} color="#dcddde" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')}>
+              <div style={{ ...tileStyle('localShare', { backgroundColor: '#111214' }), ...(!sharing && { display: 'none' }) }} onClick={onTileClick('localShare')} onContextMenu={e => handleTileContextMenu(e, 'localShare')}>
                 <video ref={screenShareVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
                 {label(t('call.your_screen'))}
               </div>
 
-              <div style={{ ...tileStyle('local'), ...((camOn ? !showLocalVideo : !showNoVideoParticipants) && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')}>
+              <div style={{ ...tileStyle('local'), ...((camOn ? !showLocalVideo : !showNoVideoParticipants) && { display: 'none' }), ...(localSpeaking && focusedTile !== 'local' && { boxShadow: '0 0 0 2px #23a55a, 0 0 12px rgba(35,165,90,0.45)' }) }} onClick={onTileClick('local')} onContextMenu={e => handleTileContextMenu(e, 'local')}>
                 {callType === 'video' && (
                   <video ref={localVideoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: focusedTile === 'local' ? 'contain' : 'cover', opacity: camOn ? 1 : 0, transition: 'opacity 0.3s' }} />
                 )}
@@ -1099,6 +1180,76 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           </div>
         </div>
       )}
+
+      {contextMenu && (() => {
+        const { x, y, tileId } = contextMenu;
+        const isLocal = tileId === 'local' || tileId === 'localShare';
+        const menuX = Math.min(x, window.innerWidth - 230);
+        const menuY = Math.min(y, window.innerHeight - 180);
+        const itemStyle: React.CSSProperties = {
+          display: 'flex', alignItems: 'center', gap: 10,
+          width: '100%', padding: '9px 14px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#dcddde', textAlign: 'left', fontSize: 14,
+        };
+        return (
+          <div
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', left: menuX, top: menuY, zIndex: 10002,
+              backgroundColor: '#18191c', border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 8, padding: '4px 0', minWidth: 210,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+            }}
+          >
+            {isLocal ? (
+              <button
+                style={itemStyle}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onClick={() => { tileId === 'localShare' ? stopScreenShare() : toggleCam(); setContextMenu(null); }}
+              >
+                <MonitorOff size={15} color="#dcddde" />
+                {t('call.stop_broadcasting')}
+              </button>
+            ) : (
+              <>
+                <button
+                  style={itemStyle}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  onClick={() => {
+                    if (tileId === 'remoteShare') { setHiddenRemoteShare(true); if (focusedTile === 'remoteShare') setFocusedTile(null); }
+                    else { setHiddenRemoteCamera(true); if (focusedTile === 'remote') setFocusedTile(null); }
+                    setContextMenu(null);
+                  }}
+                >
+                  <EyeOff size={15} color="#dcddde" />
+                  {t('call.hide_stream')}
+                </button>
+                <button
+                  style={itemStyle}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  onClick={() => { setRemoteMuted(m => !m); setContextMenu(null); }}
+                >
+                  {remoteMuted ? <Volume2 size={15} color="#dcddde" /> : <VolumeX size={15} color="#dcddde" />}
+                  {remoteMuted ? t('call.unmute_stream') : t('call.mute_stream')}
+                </button>
+                <div style={{ padding: '8px 14px 10px' }} onMouseDown={e => e.stopPropagation()}>
+                  <div style={{ color: '#b9bbbe', fontSize: 12, marginBottom: 6 }}>{t('call.stream_volume')}</div>
+                  <input
+                    type="range" min={0} max={100} value={remoteVolume}
+                    onChange={e => setRemoteVolume(Number(e.target.value))}
+                    className="call-range"
+                    style={{ background: `linear-gradient(to right, #5865f2 ${remoteVolume}%, rgba(255,255,255,0.15) ${remoteVolume}%)` }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {!minimized && <div style={{ backgroundColor: '#292b2f', padding: isMobile ? '10px 12px 24px' : '12px 20px 20px', flexShrink: 0, position: 'relative' }}>
 

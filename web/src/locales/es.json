@@ -1342,7 +1342,14 @@
     "speaker": "Altavoz",
     "video_settings": "Ajustes de vídeo",
     "error_no_devices": "No se detectó micrófono ni cámara. Comprueba los permisos del navegador.",
-    "error_no_devices_windows": "No se detectó micrófono ni cámara. Comprueba los permisos del navegador y en Windows: Configuración → Privacidad → Micrófono/Cámara."
+    "error_no_devices_windows": "No se detectó micrófono ni cámara. Comprueba los permisos del navegador y en Windows: Configuración → Privacidad → Micrófono/Cámara.",
+    "stop_broadcasting": "Dejar de transmitir",
+    "hide_stream": "Dejar de ver",
+    "mute_stream": "Silenciar",
+    "unmute_stream": "Reactivar sonido",
+    "stream_volume": "Volumen de la transmisión",
+    "watch_again": "Volver a ver",
+    "show_in_grid": "Ver en cuadrícula"
   },
   "song_picker": {
     "title": "Elegir canción",
