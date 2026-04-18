@@ -49,6 +49,111 @@ function EventTypeIcon({ type, size = 14, color: customColor }: { type: Calendar
   return <AlertCircle size={size} color={color} strokeWidth={2} />;
 }
 
+interface EventDetailSheetProps {
+  event: CalendarEvent;
+  colors: any;
+  canManage: boolean;
+  t: (key: string) => string;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function EventDetailSheet({ event, colors, canManage, t, onClose, onEdit, onDelete }: EventDetailSheetProps) {
+  const cfg = EVENT_TYPE_CONFIG[event.type] ?? EVENT_TYPE_CONFIG['event'];
+  const tag = t('common.locale_code');
+  const safeTag = (tag && tag.includes('-')) ? tag : 'es-ES';
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={onClose} style={styles.modalHeaderClose}>
+          <X size={20} color={colors.textSecondary} strokeWidth={2} />
+        </TouchableOpacity>
+        <View style={[styles.eventTypeBadge, { backgroundColor: cfg.color + '20' }]}>
+          <EventTypeIcon type={event.type} />
+          <ThemedText style={[styles.eventTypeBadgeText, { color: cfg.color }]}>{t(cfg.labelKey)}</ThemedText>
+        </View>
+        {canManage ? (
+          <TouchableOpacity onPress={onEdit} style={styles.modalHeaderAction}>
+            <ThemedText style={[styles.modalActionText, { color: colors.primary }]}>{t('common.edit')}</ThemedText>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 60 }} />
+        )}
+      </View>
+
+      <ScrollView style={styles.modalScroll} contentContainerStyle={styles.viewModalBody} showsVerticalScrollIndicator={false}>
+        <ThemedText style={[styles.viewEventTitle, { color: colors.text }]}>{event.title}</ThemedText>
+
+        {!!event.description && (
+          <ThemedText style={[styles.viewEventDesc, { color: colors.textSecondary }]}>{event.description}</ThemedText>
+        )}
+
+        <View style={styles.viewEventMeta}>
+          <View style={[styles.viewMetaRow, { backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 16 }]}>
+            <Calendar size={16} color={colors.primary} strokeWidth={2} />
+            <ThemedText style={[styles.viewMetaText, { color: colors.text }]}>
+              {new Date(event.date).toLocaleDateString(safeTag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </ThemedText>
+          </View>
+
+          {!!event.time && (
+            <View style={[styles.viewMetaRow, { backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 16 }]}>
+              <Clock size={16} color={colors.primary} strokeWidth={2} />
+              <ThemedText style={[styles.viewMetaText, { color: colors.text }]}>{event.time}</ThemedText>
+            </View>
+          )}
+
+          {!!event.departmentId && (
+            <View style={[styles.viewMetaRow, { backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 16 }]}>
+              <Users size={16} color={colors.textSecondary} strokeWidth={2} />
+              <ThemedText style={[styles.viewMetaText, { color: colors.textSecondary }]}>
+                {t(`explore.groups.subjects_list.${event.departmentId}`) || event.departmentId}
+              </ThemedText>
+            </View>
+          )}
+
+          {!!event.authorName && (
+            <View style={[styles.viewMetaRow, { backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 16 }]}>
+              <AlertCircle size={16} color={colors.textSecondary} strokeWidth={2} />
+              <ThemedText style={[styles.viewMetaText, { color: colors.textSecondary }]}>{event.authorName}</ThemedText>
+            </View>
+          )}
+
+          {event.publishedInChannel && (
+            <View style={[styles.viewMetaRow, { backgroundColor: '#FF3B3010', borderRadius: 12, padding: 16 }]}>
+              <Megaphone size={16} color="#FF3B30" strokeWidth={2} />
+              <ThemedText style={[styles.viewMetaText, { color: '#FF3B30' }]}>{t('explore.calendar.notified')}</ThemedText>
+            </View>
+          )}
+        </View>
+
+        {!!event.linkedAnnouncementId && (
+          <TouchableOpacity
+            style={[styles.viewAnnouncementLink, { borderColor: colors.primary + '30', backgroundColor: colors.primary + '08' }]}
+            onPress={() => { onClose(); router.push(`/announcement/${event.linkedAnnouncementId}` as never); }}
+            activeOpacity={0.7}
+          >
+            <Megaphone size={16} color={colors.primary} strokeWidth={2} />
+            <ThemedText style={[styles.viewAnnouncementText, { color: colors.primary }]}>
+              {t('explore.calendar.related_announcement')}
+            </ThemedText>
+            <ChevronRight size={16} color={colors.primary} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
+
+        {canManage && (
+          <TouchableOpacity onPress={onDelete} style={[styles.viewDeleteBtn, { borderColor: colors.danger + '40' }]}>
+            <Trash2 size={16} color={colors.danger} strokeWidth={2} />
+            <ThemedText style={[styles.viewDeleteText, { color: colors.danger }]}>{t('common.delete')}</ThemedText>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
 interface CalendarTabProps {
   eventTypes: CalendarEventType[];
   highlightDay?: string | null;
@@ -107,6 +212,7 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
   const [showCreate, setShowCreate] = useState(false);
   const [showDeptModal, setShowDeptModal] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
 
   const [formDate, setFormDate] = useState<Date>(today);
   const [formTime, setFormTime] = useState('');
@@ -304,21 +410,21 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
           selectedEvents.map((ev: CalendarEvent) => {
             const cfg = EVENT_TYPE_CONFIG[ev.type];
             const isAuthor = currentUser?.uid === ev.authorId;
-            const isAdminOrCoord = userData?.role === 'admin' || userData?.subrole === 'coordinator';
-            const canManage = isAuthor || isAdminOrCoord;
+            const isAdmin = userData?.role === 'admin';
+            const canManage = isAdmin || isAuthor;
 
             return (
               <TouchableOpacity
                 key={ev.id}
                 style={[
-                  styles.eventCard, 
-                  { 
-                    backgroundColor: colors.card + '90', 
-                    borderColor: colors.border + '15', 
-                    borderLeftColor: cfg.color 
+                  styles.eventCard,
+                  {
+                    backgroundColor: colors.card + '90',
+                    borderColor: colors.border + '15',
+                    borderLeftColor: cfg.color
                   }
                 ]}
-                onPress={canManage ? () => handleEditEvent(ev) : undefined}
+                onPress={() => setViewingEvent(ev)}
                 activeOpacity={0.7}
               >
                 <View style={styles.eventCardTop}>
@@ -389,6 +495,22 @@ export function CalendarTab({ eventTypes, highlightDay, highlightEventId }: Cale
           })
         )}
       </ScrollView>
+
+      <Modal visible={!!viewingEvent} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setViewingEvent(null)}>
+        <SafeAreaView style={[styles.modalSafe, { backgroundColor: colors.card }]} edges={['top']}>
+          {viewingEvent ? (
+            <EventDetailSheet
+              event={viewingEvent}
+              colors={colors}
+              canManage={(userData?.role === 'admin') || (currentUser?.uid === viewingEvent.authorId)}
+              t={t}
+              onClose={() => setViewingEvent(null)}
+              onEdit={() => { setViewingEvent(null); handleEditEvent(viewingEvent); }}
+              onDelete={() => { setViewingEvent(null); deleteEvent(viewingEvent.id); }}
+            />
+          ) : null}
+        </SafeAreaView>
+      </Modal>
 
       <Modal visible={showCreate} animationType="fade" transparent onRequestClose={() => setShowCreate(false)}>
         <View style={styles.modalOverlay}>
@@ -615,4 +737,15 @@ const styles = StyleSheet.create({
   deptSectionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
   deptModalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   deptModalRowText: { fontSize: 15 },
+  modalSafe: { flex: 1 },
+  viewModalBody: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
+  viewEventTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, lineHeight: 30 },
+  viewEventDesc: { fontSize: 16, lineHeight: 24 },
+  viewEventMeta: { gap: spacing.sm, marginTop: spacing.sm },
+  viewMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  viewMetaText: { fontSize: 15, fontWeight: '600', flex: 1, lineHeight: 20 },
+  viewDeleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md, paddingVertical: 14, borderRadius: 16, borderWidth: 1 },
+  viewDeleteText: { fontSize: 15, fontWeight: '700' },
+  viewAnnouncementLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 14, borderWidth: 1, marginTop: spacing.sm },
+  viewAnnouncementText: { flex: 1, fontSize: 14, fontWeight: '700' },
 });
