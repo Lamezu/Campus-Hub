@@ -1,17 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, MapPin, 
-  CheckCircle2, XCircle, Users, ExternalLink,
-  ChevronRight, Filter, User
+  CheckCircle2, XCircle, Users, Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
-import { useStudyGroups } from '@/hooks/useStudyGroups';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ThemedText } from '@/components/themed-text';
-import { ACADEMIC_CATEGORIES } from '@/constants/academic';
-import type { CalendarEvent } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   exam: '#FF3B30',
@@ -21,49 +18,35 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   event: '#34C759',
 };
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  exam: 'Examen',
-  deadline: 'Entrega',
-  class: 'Clase',
-  holiday: 'Festivo',
-  event: 'Evento',
-};
-
-type FilterType = 'Todos' | 'Evento' | 'Examen' | 'Entrega' | 'Festivo';
-
-const FILTERS: FilterType[] = ['Todos', 'Evento', 'Examen', 'Entrega', 'Festivo'];
-
 export function EventChannelView() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { firebaseUser, userData } = useCurrentUser();
+  const { userData } = useCurrentUser();
   const { allEvents, toggleRSVP, rsvpMap } = useCalendarEvents();
-  const { groups } = useStudyGroups();
   
-  const [activeFilter, setActiveFilter] = useState<FilterType>('Todos');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+
+  const FILTERS = ['all', 'event', 'exam', 'deadline', 'holiday'];
 
   const filteredEvents = useMemo(() => {
     return allEvents
       .filter(event => {
-        // 1. Department visibility logic
-        // If event is for everyone or user matches the department
         const isVisible = event.departmentId === 'Todos' || !event.departmentId || (userData?.department && event.departmentId === userData.department);
         if (!isVisible) return false;
-
-        // 2. Type filter logic
-        if (activeFilter === 'Todos') return true;
-        return EVENT_TYPE_LABELS[event.type] === activeFilter;
+        if (activeFilter === 'all') return true;
+        return event.type === activeFilter;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [allEvents, activeFilter, userData?.department]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('es-ES', { 
+    return date.toLocaleDateString(undefined, { 
       weekday: 'long', 
       day: 'numeric', 
       month: 'long' 
-    }) + (dateStr.includes('T') ? ` · ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : '');
+    }) + (dateStr.includes('T') ? ` · ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : '');
   };
 
   return (
@@ -76,16 +59,13 @@ export function EventChannelView() {
       width: '100%',
       overflow: 'hidden'
     }}>
-      {/* Category Chips */}
+      {/* Category Chips - Aligned to left as in mobile but for desktop */}
       <div style={{ 
-        padding: '16px 20px', 
+        padding: '20px', 
         display: 'flex', 
-        justifyContent: 'center',
-        gap: 10, 
+        gap: 12, 
         overflowX: 'auto', 
-        borderBottom: `1px solid ${colors.border}`,
-        backgroundColor: colors.card,
-        backdropFilter: 'blur(10px)',
+        backgroundColor: colors.background,
         zIndex: 5
       }} className="hide-scrollbar">
         {FILTERS.map(filter => (
@@ -93,20 +73,21 @@ export function EventChannelView() {
             key={filter}
             onClick={() => setActiveFilter(filter)}
             style={{
-              padding: '8px 20px',
-              borderRadius: 20,
+              padding: '10px 24px',
+              borderRadius: 14,
               border: 'none',
               backgroundColor: activeFilter === filter ? colors.primary : colors.backgroundSecondary,
               color: activeFilter === filter ? '#fff' : colors.textSecondary,
-              fontSize: 13,
-              fontWeight: 700,
+              fontSize: 14,
+              fontWeight: 800,
               cursor: 'pointer',
-              transition: 'all 0.2s',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               whiteSpace: 'nowrap',
-              boxShadow: activeFilter === filter ? `0 4px 10px ${colors.primary}40` : 'none'
+              boxShadow: activeFilter === filter ? `0 4px 12px ${colors.primary}40` : 'none',
+              transform: activeFilter === filter ? 'scale(1.05)' : 'scale(1)'
             }}
           >
-            {filter}
+            {t(`events_channel.filters.${filter}`)}
           </button>
         ))}
       </div>
@@ -114,168 +95,167 @@ export function EventChannelView() {
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
-        padding: '24px 20px',
+        padding: '10px 20px 40px',
         width: '100%'
       }} className="custom-scrollbar">
         {filteredEvents.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', opacity: 0.5, gap: 16 }}>
             <CalendarIcon size={64} color={colors.textSecondary} />
-            <ThemedText style={{ fontSize: 16, fontWeight: '600' }}>No hay eventos disponibles para esta selección</ThemedText>
+            <ThemedText style={{ fontSize: 16, fontWeight: '600' }}>{t('events_channel.no_events')}</ThemedText>
           </div>
         ) : (
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', 
-            gap: 20, 
-            maxWidth: 1200, 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', 
+            gap: 24, 
+            maxWidth: 1400, 
             margin: '0 auto', 
-            width: '100%',
-            paddingBottom: 40
+            width: '100%'
           }}>
             {filteredEvents.map(event => {
               const color = EVENT_TYPE_COLORS[event.type] || colors.primary;
               const isUserDepartment = event.departmentId && userData?.department === event.departmentId;
               const eventDate = new Date(event.date);
               const isPast = eventDate.getTime() < Date.now();
+              const rsvp = rsvpMap[event.id];
 
               return (
                 <div 
                   key={event.id}
                   style={{
-                    backgroundColor: colors.card,
+                    backgroundColor: colors.backgroundSecondary,
                     borderRadius: 24,
-                    border: `1px solid ${colors.border}`,
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                     position: 'relative',
-                    transition: 'transform 0.2s',
+                    transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s',
+                    border: `1px solid ${colors.border}`,
+                    animation: 'fadeIn 0.4s ease-out'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-6px)';
+                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
-                  {/* Top Color Bar */}
-                  <div style={{ height: 6, width: '100%', backgroundColor: color }} />
+                  {/* Left Accent Border */}
+                  <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: color }} />
                   
                   <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ 
-                          padding: '4px 10px', 
-                          borderRadius: 8, 
-                          backgroundColor: color + '15', 
-                          color: color,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          textTransform: 'uppercase'
-                        }}>
-                          {EVENT_TYPE_LABELS[event.type]}
-                        </div>
-                        {isUserDepartment && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, backgroundColor: colors.primary + '10', color: colors.primary }}>
-                            <Users size={12} />
-                            <span style={{ fontSize: 10, fontWeight: 800 }}>TU DEPARTAMENTO</span>
-                          </div>
-                        )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ 
+                        padding: '6px 12px', 
+                        borderRadius: 10, 
+                        backgroundColor: color + '15', 
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+                        {t(`events_channel.filters.${event.type}`)}
                       </div>
-                    </div>
-
-                    <ThemedText style={{ fontSize: 22, fontWeight: 900, marginBottom: 8, color: colors.text, lineHeight: 1.2 }}>{event.title}</ThemedText>
-                    
-                    <ThemedText style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 20, lineHeight: 1.5, flex: 1 }}>
-                      {event.description || 'Sin descripción adicional.'}
-                    </ThemedText>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, padding: '16px', backgroundColor: colors.backgroundSecondary, borderRadius: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: colors.text }}>
-                        <Clock size={16} color={colors.primary} />
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>{formatDate(event.date)}</span>
-                      </div>
-                      {event.location && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: colors.textSecondary }}>
-                          <MapPin size={16} />
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{event.location}</span>
+                      {isUserDepartment && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.6 }}>
+                          <Users size={14} />
+                          <span style={{ fontSize: 10, fontWeight: 800 }}>{t('events_channel.tu_departamento')}</span>
                         </div>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <ThemedText style={{ fontSize: 24, fontWeight: 900, marginBottom: 8, color: colors.text, lineHeight: 1.2 }}>{event.title}</ThemedText>
+                    
+                    <ThemedText style={{ fontSize: 16, color: colors.primary, fontWeight: 700, marginBottom: 12 }}>
+                      {formatDate(event.date)}
+                    </ThemedText>
+
+                    <ThemedText style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 20, lineHeight: 1.6, flex: 1 }}>
+                      {event.description || t('events_channel.no_desc')}
+                    </ThemedText>
+
+                    {/* RSVP Buttons Styled like mobile */}
+                    {!isPast && (
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                        <button 
+                          onClick={() => toggleRSVP(event.id, 'going')}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            padding: '12px',
+                            borderRadius: 16,
+                            backgroundColor: rsvp === 'going' ? '#34C759' : 'transparent',
+                            color: rsvp === 'going' ? '#fff' : '#34C759',
+                            border: `2px solid ${rsvp === 'going' ? '#34C759' : '#34C759'}`,
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            transition: '0.2s'
+                          }}
+                        >
+                          <CheckCircle2 size={18} />
+                          {t('events_channel.status_going')}
+                        </button>
+                        <button 
+                          onClick={() => toggleRSVP(event.id, 'not_going')}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            padding: '12px',
+                            borderRadius: 16,
+                            backgroundColor: rsvp === 'not_going' ? colors.danger : 'transparent',
+                            color: rsvp === 'not_going' ? '#fff' : colors.danger,
+                            border: `2px solid ${rsvp === 'not_going' ? colors.danger : colors.danger}`,
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            transition: '0.2s'
+                          }}
+                        >
+                          <XCircle size={18} />
+                          {t('events_channel.status_not_going')}
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', backgroundColor: colors.background, borderRadius: 12 }}>
+                        <Users size={16} color={colors.textSecondary} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary }}>
+                          {event.attendeesCount === 1 ? t('events_channel.confirmed_count_one') : t('events_channel.confirmed_count', { count: event.attendeesCount || 0 })}
+                        </span>
+                      </div>
+                      
                       <button 
                         onClick={() => navigate('/tabs/campus', { state: { tab: 'calendario', selectedId: event.id } })}
                         style={{
-                          flex: 1,
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 10,
-                          padding: '14px',
-                          borderRadius: 16,
-                          backgroundColor: colors.background,
-                          color: colors.text,
-                          border: `1px solid ${colors.border}`,
+                          gap: 6,
+                          background: 'none',
+                          border: 'none',
+                          color: colors.primary,
                           fontWeight: 700,
                           cursor: 'pointer',
-                          fontSize: 13
+                          fontSize: 14,
+                          padding: '8px'
                         }}
                       >
-                        <CalendarIcon size={16} />
-                        Calendario
+                         <Calendar size={18} />
+                         {t('events_channel.view_calendar')}
                       </button>
-
-                      {!isPast && (
-                        <div style={{ display: 'flex', gap: 8, flex: 1.5 }}>
-                           <button 
-                            onClick={() => toggleRSVP(event.id, 'going')}
-                            style={{
-                              flex: 1,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: 6,
-                              padding: '14px',
-                              borderRadius: 16,
-                              backgroundColor: rsvpMap[event.id] === 'going' ? '#34C759' : '#34C75915',
-                              color: rsvpMap[event.id] === 'going' ? '#fff' : '#34C759',
-                              border: 'none',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              fontSize: 13,
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            <CheckCircle2 size={16} />
-                            Voy
-                          </button>
-                          <button 
-                            onClick={() => toggleRSVP(event.id, 'not_going')}
-                            style={{
-                              padding: '14px',
-                              borderRadius: 16,
-                              backgroundColor: rsvpMap[event.id] === 'not_going' ? colors.danger : colors.danger + '15',
-                              color: rsvpMap[event.id] === 'not_going' ? '#fff' : colors.danger,
-                              border: 'none',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              fontSize: 13,
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            <XCircle size={16} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 8, opacity: 0.8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                         {[...Array(Math.min(3, event.attendeesCount || 0))].map((_, i) => (
-                           <div key={i} style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.backgroundSecondary, border: `2px solid ${colors.card}`, marginLeft: i === 0 ? 0 : -8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                             <User size={12} color={colors.textSecondary} />
-                           </div>
-                         ))}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary }}>{event.attendeesCount || 0} alumnos van</span>
                     </div>
                   </div>
                 </div>
@@ -288,6 +268,10 @@ export function EventChannelView() {
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </div>
   );

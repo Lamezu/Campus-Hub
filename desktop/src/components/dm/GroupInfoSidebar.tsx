@@ -13,6 +13,7 @@ import { NewGroupModal } from './NewGroupModal';
 import { useNavigate } from 'react-router-dom';
 import { getStarredMessagesForGroup, unstarMessage } from '@/services/starredMessagesService';
 import { playTone } from '@/utils/toneGenerator';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface GroupInfoSidebarProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface GroupInfoSidebarProps {
 }
 
 export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarProps) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { showAlert } = useAlert();
   const navigate = useNavigate();
@@ -119,17 +121,7 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
     if (!currentUser) return;
     setSettings((prev: any) => ({ ...prev, alertTone: tone }));
     
-    const toneMap: Record<string, string> = { 
-      'Predeterminado': 'default', 
-      'Clásico': 'classic', 
-      'Suave': 'soft', 
-      'Melodía': 'melody', 
-      'Campana': 'bell', 
-      'Pulso': 'pulse', 
-      'Sin tono': 'silent' 
-    };
-    
-    playTone(toneMap[tone] || 'default');
+    playTone(tone === 'none' ? 'silent' : tone);
     await updateGroupSettings(currentUser.uid, group.id, { alertTone: tone });
   };
 
@@ -177,7 +169,7 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, zIndex: 10 }}>
           <button onClick={view === 'main' ? onClose : () => setView('main')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
           <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>
-            {view === 'starred' ? 'Mensajes destacados' : view === 'notifications' ? 'Notificaciones' : 'Info. del grupo'}
+            {view === 'starred' ? t('chat_ui.channel_info.starred_messages') : view === 'notifications' ? t('settings.notifications') : t('chat_ui.channel_info.title')}
           </ThemedText>
           <div style={{ width: 32 }} />
         </div>
@@ -226,7 +218,7 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', borderRadius: 16, backgroundColor: colors.backgroundSecondary, border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }}
             >
               <Bell size={22} color={isMuted ? colors.textSecondary : colors.primary} fill={isMuted ? 'none' : colors.primary + '33'} />
-              <ThemedText style={{ fontSize: 12, fontWeight: 700 }}>{isMuted ? 'Silenciado' : 'Silenciar'}</ThemedText>
+              <ThemedText style={{ fontSize: 12, fontWeight: 700 }}>{isMuted ? t('settings.mute_options.always') : t('chat_ui.channel_info.mute_notifs')}</ThemedText>
             </button>
           </div>
 
@@ -432,8 +424,8 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
           ) : starredMessages.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: 12, padding: 40, textAlign: 'center' }}>
               <Star size={48} />
-              <ThemedText style={{ fontWeight: 700 }}>No hay destacados</ThemedText>
-              <ThemedText style={{ fontSize: 13 }}>Los mensajes que destaques aparecerán aquí para que puedas encontrarlos fácilmente.</ThemedText>
+              <ThemedText style={{ fontWeight: 700 }}>{t('chat_ui.channel_info.starred_view.no_starred')}</ThemedText>
+              <ThemedText style={{ fontSize: 13 }}>{t('chat_ui.channel_info.starred_view.no_starred_desc')}</ThemedText>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -466,13 +458,13 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
 
       {view === 'notifications' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: 20 }} className="custom-scrollbar">
-          <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>Silenciar notificaciones</ThemedText>
+          <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>{t('chat_ui.channel_info.mute_notifs')}</ThemedText>
           <div style={{ backgroundColor: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: 24 }}>
             {[
-              { id: '8h', label: '8 horas', desc: 'Silenciar durante 8 horas' },
-              { id: '1w', label: '1 semana', desc: 'Silenciar durante 7 días' },
-              { id: 'always', label: 'Siempre', desc: 'Silenciar indefinidamente' },
-              { id: 'off', label: 'No silenciar', desc: 'Recibir todas las notificaciones' }
+              { id: '8h', label: t('settings.mute_options.8h'), desc: t('settings.mute_options.8h_desc') },
+              { id: '1w', label: t('settings.mute_options.1w'), desc: t('settings.mute_options.1w_desc') },
+              { id: 'always', label: t('settings.mute_options.always'), desc: t('settings.mute_options.always_desc') },
+              { id: 'off', label: t('settings.mute_options.none'), desc: t('settings.mute_options.none_desc') }
             ].map((opt, i, arr) => (
               <React.Fragment key={opt.id}>
                 <div onClick={() => handleMuteChange(opt.id as MuteDuration)} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
@@ -487,14 +479,14 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
             ))}
           </div>
 
-          <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>Tono de alerta</ThemedText>
+          <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>{t('settings.notifications_desc')}</ThemedText>
           <div style={{ backgroundColor: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: 24 }}>
-            {['Predeterminado', 'Clásico', 'Suave', 'Melodía', 'Campana', 'Pulso', 'Sin tono'].map((tone, i, arr) => (
+            {['default', 'classic', 'soft', 'melody', 'bell', 'pulse', 'none'].map((tone, i, arr) => (
               <React.Fragment key={tone}>
-                <div onClick={() => handleToneChange(tone)} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                <div onClick={() => handleToneChange(t(`settings.tones.${tone}`))} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                   <Music size={18} color={colors.textSecondary} />
-                  <ThemedText style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{tone}</ThemedText>
-                  {(settings?.alertTone || 'Predeterminado') === tone && <Check size={20} color={colors.primary} />}
+                  <ThemedText style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{t(`settings.tones.${tone}`)}</ThemedText>
+                  {(settings?.alertTone || t('settings.tones.default')) === t(`settings.tones.${tone}`) && <Check size={20} color={colors.primary} />}
                 </div>
                 {i < arr.length - 1 && <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />}
               </React.Fragment>

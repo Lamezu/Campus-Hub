@@ -5,6 +5,7 @@ import { ThemedText } from '../themed-text';
 import { collection, getDocs, query, orderBy, doc, updateDoc, arrayUnion, where } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import type { User } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface InviteMembersModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface InviteMembersModalProps {
 
 export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberIds, onAdded }: InviteMembersModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [invitedUsers, setInvitedUsers] = useState<string[]>([]);
@@ -72,14 +74,14 @@ export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberId
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000, backdropFilter: 'blur(10px)', padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 440, height: 600, backgroundColor: colors.background, borderRadius: 24, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <ThemedText style={{ fontSize: 18, fontWeight: '900' }}>Invitar Miembros</ThemedText>
+          <ThemedText style={{ fontSize: 18, fontWeight: '900' }}>{t('chat.invite.title')}</ThemedText>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={24} /></button>
         </div>
         
         <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', backgroundColor: colors.backgroundSecondary, borderRadius: 12 }}>
             <Search size={18} opacity={0.5} />
-            <input id="invite-search-input" placeholder="Buscar usuarios..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 14 }} />
+            <input id="invite-search-input" placeholder={t('chat.invite.search_placeholder')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 14 }} />
           </div>
 
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
@@ -95,7 +97,7 @@ export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberId
                   fontSize: 11, fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s'
                 }}
               >
-                {role === 'all' ? 'Todos' : role === 'student' ? 'Estudiantes' : role === 'teacher' ? 'Profesores' : 'Admins'}
+                {t(`chat.invite.filter_${role === 'all' ? 'all' : role + 's'}`)}
               </button>
             ))}
           </div>
@@ -111,7 +113,7 @@ export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberId
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <ThemedText style={{ fontSize: 15, fontWeight: '700' }}>{user.displayName}</ThemedText>
-                  <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{user.bio || 'Sin biografía'}</ThemedText>
+                  <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{user.bio || t('chat.no_bio')}</ThemedText>
                 </div>
                 <div style={{ width: 24, height: 24, borderRadius: 12, border: `2px solid ${isSelected ? colors.primary : colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', backgroundColor: isSelected ? colors.primary : 'transparent' }}>
                   {isSelected && <CheckCircle2 size={16} color="#fff" />}
@@ -123,7 +125,7 @@ export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberId
 
         <div style={{ padding: '20px 24px', borderTop: `1px solid ${colors.border}` }}>
           <button id="invite-submit-btn" onClick={handleAdd} disabled={loading || invitedUsers.length === 0} style={{ width: '100%', padding: '14px', borderRadius: 14, backgroundColor: colors.primary, color: '#fff', border: 'none', fontWeight: '800', cursor: 'pointer', opacity: (loading || invitedUsers.length === 0) ? 0.5 : 1 }}>
-            {loading ? 'Añadiendo...' : `Invitar (${invitedUsers.length})`}
+            {loading ? t('chat.invite.submitting') : `${t('chat.invite.submit_btn')} (${invitedUsers.length})`}
           </button>
         </div>
       </div>

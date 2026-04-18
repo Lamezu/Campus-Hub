@@ -13,12 +13,14 @@ import {
   where, getDocs, onSnapshot, 
   updateDoc, arrayRemove, deleteDoc, limit, arrayUnion
 } from 'firebase/firestore';
+import { Avatar } from '../common/Avatar';
 import type { User, Channel } from '@/types';
 import { AlertModal } from '@/components/AlertModal';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ContactInfoModal } from '@/components/dm/ContactInfoModal';
 import { InviteMembersModal } from './InviteMembersModal';
 import { uploadChannelPhoto } from '@/config/cloudinary';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface ChannelInfoModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ interface ChannelInfoModalProps {
 
 export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: ChannelInfoModalProps) {
   const { colors } = useTheme();
+  const { t, language } = useTranslation();
   const { isAdmin } = useCurrentUser();
   const meId = auth.currentUser?.uid;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,7 +191,7 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
       }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, zIndex: 10 }}>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Info. del canal</ThemedText>
+          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat.group.info_title')}</ThemedText>
           <div style={{ width: 32 }} />
         </div>
 
@@ -221,114 +224,133 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
             {(channelData as any)?.isSystem && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: `${colors.primary}10`, padding: '4px 12px', borderRadius: 20, marginBottom: 12, border: `1px solid ${colors.primary}30` }}>
                 <ShieldCheck size={14} color={colors.primary} />
-                <ThemedText style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>CANAL OFICIAL</ThemedText>
+                <ThemedText style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>{t('chat.info.official_channel')}</ThemedText>
               </div>
             )}
-            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 4 }}>Canal del Campus • {members.length} miembros</ThemedText>
-            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{channelData?.description || 'Canal oficial para toda la comunidad del Campus'}</ThemedText>
+            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 4 }}>{t('chat.info.campus_channel')} • {members.length} {members.length === 1 ? t('chat.info.miembro') : t('chat.info.miembros')}</ThemedText>
+            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
           </div>
+          {(channelData as any)?.isSystem ? (
+            <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Description Card */}
+              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20 }}>
+                <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>{t('chat.info.channel_description')}</ThemedText>
+                <ThemedText style={{ fontSize: 15, lineHeight: 1.5, opacity: 0.8 }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
+              </div>
 
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>Miembros</ThemedText>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, marginLeft: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', backgroundColor: colors.backgroundSecondary, borderRadius: 10, flex: 1 }}>
-                  <Search size={14} color={colors.textSecondary} />
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar miembro..." style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 13 }} />
+              {/* Metadata Cards */}
+              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.type')}</ThemedText>
+                  <div style={{ padding: '6px 14px', backgroundColor: `${colors.primary}15`, borderRadius: 12 }}>
+                    <ThemedText style={{ fontSize: 13, fontWeight: 700, color: colors.primary }}>{t('chat.info.public_channel')}</ThemedText>
+                  </div>
+                </div>
+                <div style={{ height: 1, backgroundColor: colors.border, opacity: 0.5 }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.members_label')}</ThemedText>
+                  <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{t('chat.info.all_users')}</ThemedText>
                 </div>
               </div>
-            </div>
-            
-            <div style={{ backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', maxHeight: 320 }}>
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 12, 
-                  padding: '14px 16px', 
-                  color: colors.primary, 
-                  cursor: (channelData as any)?.isSystem ? 'default' : 'pointer', 
-                  borderBottom: `1px solid ${colors.border}`, 
-                  flexShrink: 0, 
-                  transition: 'background-color 0.2s',
-                  opacity: (channelData as any)?.isSystem ? 0.5 : 1
-                }} 
-                onMouseEnter={e => !(channelData as any)?.isSystem && (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)} 
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')} 
-                onClick={() => !(channelData as any)?.isSystem && setShowInviteModal(true)}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserPlus size={18} /></div>
-                <ThemedText style={{ fontWeight: 700, color: colors.primary }}>Añadir miembros</ThemedText>
+
+              {/* Limited Actions */}
+              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setIsMuted(!isMuted)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Bell size={20} color={colors.textSecondary} />
+                    <ThemedText style={{ fontWeight: 600 }}>{t('chat.info.mute_notifications')}</ThemedText>
+                  </div>
+                  <div style={{ width: 40, height: 22, borderRadius: 11, backgroundColor: isMuted ? colors.primary : colors.border, position: 'relative', transition: '0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: isMuted ? 20 : 2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', transition: '0.2s shadow, 0.2s left' }} />
+                  </div>
+                </div>
+                <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer' }} onClick={() => setShowStarredView(true)}>
+                  <Star size={20} color={colors.textSecondary} />
+                  <ThemedText style={{ fontWeight: 600 }}>{t('chat.group.starred')}</ThemedText>
+                </div>
               </div>
-              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }} className="custom-scrollbar">
-                {filteredMembers.map((member, i) => (
-                  <React.Fragment key={member.uid}>
-                    {i > 0 && <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 64 }} />}
-                    <div 
-                      onClick={() => setSelectedUser(member)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer' }} 
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} 
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <div style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.backgroundSecondary }}>
-                        {member.photoURL ? <img src={member.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontWeight: 800, color: colors.textSecondary }}>{member.displayName[0]}</ThemedText></div>}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <ThemedText style={{ fontWeight: 700 }}>{member.uid === meId ? 'Tú' : member.displayName}</ThemedText>
-                        <ThemedText style={{ fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{member.bio || 'Sin biografía'}</ThemedText>
-                      </div>
-                      <ChevronRight size={18} color={colors.textSecondary} />
+
+              <div style={{ padding: '0 8px', opacity: 0.6, textAlign: 'center' }}>
+                <ThemedText style={{ fontSize: 12 }}>{t('chat.info.mandatory_desc')}</ThemedText>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 24, padding: '0 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>{t('friends.title')}</ThemedText>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, marginLeft: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', backgroundColor: colors.backgroundSecondary, borderRadius: 10, flex: 1 }}>
+                      <Search size={14} color={colors.textSecondary} />
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('chat.info.search_members')} style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 13 }} />
                     </div>
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </div>
+                  </div>
+                </div>
 
-          <div style={{ backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', border: `1px solid ${colors.border}`, marginBottom: 32 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setIsMuted(!isMuted)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Bell size={20} color={colors.textSecondary} />
-                <ThemedText style={{ fontWeight: 600 }}>Silenciar notificaciones</ThemedText>
+                <div 
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px', borderRadius: 16, cursor: 'pointer', marginBottom: 8, transition: '0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)} 
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')} 
+                  onClick={() => !(channelData as any)?.isSystem && setShowInviteModal(true)}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserPlus size={18} /></div>
+                  <ThemedText style={{ fontWeight: 700, color: colors.primary }}>{t('chat.info.add_members')}</ThemedText>
+                </div>
+                <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }} className="custom-scrollbar">
+                  {filteredMembers.map((member, i) => (
+                    <div key={member.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.backgroundSecondary, overflow: 'hidden' }}>
+                          {member.photoURL ? <img src={member.photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10' }}><ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{member.displayName[0]}</ThemedText></div>}
+                        </div>
+                        <div>
+                          <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{member.displayName}{member.uid === auth.currentUser?.uid && ` (${t('chat.info.you')})`}</ThemedText>
+                          <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{member.bio || t('chat.no_bio')}</ThemedText>
+                        </div>
+                      </div>
+                      {member.role === 'admin' && (
+                        <div style={{ padding: '2px 8px', borderRadius: 6, backgroundColor: colors.backgroundSecondary, border: `1px solid ${colors.border}` }}>
+                          <ThemedText style={{ fontSize: 10, fontWeight: '800', color: colors.primary }}>{t('chat.info.admin')}</ThemedText>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div style={{ width: 40, height: 22, borderRadius: 11, backgroundColor: isMuted ? colors.primary : colors.border, position: 'relative', transition: '0.2s' }}>
-                <div style={{ position: 'absolute', top: 2, left: isMuted ? 20 : 2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', transition: '0.2s shadow, 0.2s left' }} />
-              </div>
-            </div>
-            <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer' }} onClick={() => setShowStarredView(true)}>
-              <Star size={20} color={colors.textSecondary} />
-              <ThemedText style={{ fontWeight: 600 }}>Mensajes destacados</ThemedText>
-            </div>
-            <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', color: '#FF9500' }} onClick={() => setShowClearAlert(true)}>
-              <Trash2 size={20} />
-              <ThemedText style={{ fontWeight: 600, color: '#FF9500' }}>Vaciar chat</ThemedText>
-            </div>
-            <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
-            <div 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 12, 
-                padding: '14px 16px', 
-                cursor: (channelData as any)?.isSystem && !isAdmin ? 'default' : 'pointer', 
-                color: colors.danger,
-                opacity: (channelData as any)?.isSystem && !isAdmin ? 0.5 : 1
-              }} 
-              onClick={() => (!((channelData as any)?.isSystem && !isAdmin)) && setShowExitAlert(true)}
-            >
-              <LogOut size={20} />
-              <ThemedText style={{ fontWeight: 600, color: colors.danger }}>
-                {(channelData as any)?.isSystem ? 'Canal obligatorio' : 'Salir del grupo'}
-              </ThemedText>
-            </div>
-          </div>
 
-          {(channelData as any)?.isSystem && (
-            <div style={{ padding: '0 16px', opacity: 0.6, textAlign: 'center' }}>
-              <ThemedText style={{ fontSize: 12 }}>Este es un canal oficial gestionado por el CampusHub. No puedes abandonar este canal.</ThemedText>
-            </div>
+              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, margin: '0 16px 20px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setIsMuted(!isMuted)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Bell size={20} color={colors.textSecondary} />
+                    <ThemedText style={{ fontWeight: 600 }}>{t('chat.info.mute_notifications')}</ThemedText>
+                  </div>
+                  <div style={{ width: 40, height: 22, borderRadius: 11, backgroundColor: isMuted ? colors.primary : colors.border, position: 'relative', transition: '0.2s' }}>
+                    <div style={{ position: 'absolute', top: 2, left: isMuted ? 20 : 2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', transition: '0.2s shadow, 0.2s left' }} />
+                  </div>
+                </div>
+                <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer' }} onClick={() => setShowStarredView(true)}>
+                  <Star size={20} color={colors.textSecondary} />
+                  <ThemedText style={{ fontWeight: 600 }}>{t('chat.group.starred')}</ThemedText>
+                </div>
+                <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', color: '#FF9500' }} onClick={() => setShowClearAlert(true)}>
+                  <Trash2 size={20} />
+                  <ThemedText style={{ fontWeight: 600, color: '#FF9500' }}>{t('chat.settings.clear_chat')}</ThemedText>
+                </div>
+                <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
+                <div 
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', color: colors.danger, opacity: (channelData as any)?.isSystem ? 0.5 : 1 }}
+                  onClick={() => !(channelData as any)?.isSystem && setShowExitAlert(true)}
+                >
+                  <LogOut size={20} />
+                  <ThemedText style={{ fontWeight: 600, color: colors.danger }}>
+                    {t('chat.info.leave_group')}
+                  </ThemedText>
+                </div>
+              </div>
+            </>
           )}
         </div>
         
@@ -361,11 +383,11 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
       <AlertModal 
         isOpen={showClearAlert} 
         type="confirm" 
-        title="Vaciar chat" 
-        message={`¿Estás seguro de que quieres vaciar los mensajes de ${channelName}?`}
-        confirmText="Vaciar para mí"
-        confirmText2={isAdmin ? "Vaciar para todos" : undefined}
-        cancelText="Volver"
+        title={t('chat.clear_alert.title')} 
+        message={t('chat.clear_alert.message')}
+        confirmText={t('chat.clear_alert.confirm_me')}
+        confirmText2={isAdmin ? t('chat.clear_alert.confirm_all') : undefined}
+        cancelText={t('chat.clear_alert.back')}
         confirmStyle={{ backgroundColor: colors.danger, color: '#fff' }}
         confirm2Style={{ backgroundColor: colors.danger, color: '#fff' }}
         cancelStyle={{ backgroundColor: colors.backgroundSecondary, color: colors.text, opacity: 1, fontWeight: '700' }}
@@ -377,10 +399,10 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
       <AlertModal 
         isOpen={showExitAlert} 
         type="confirm" 
-        title="Salir del grupo" 
-        message={`¿Estás seguro de que quieres salir de ${channelName}?`}
-        confirmText="Salir del grupo"
-        cancelText="Volver"
+        title={t('chat.exit_alert.title')} 
+        message={t('chat.exit_alert.message')}
+        confirmText={t('chat.exit_alert.confirm')}
+        cancelText={t('chat.exit_alert.back')}
         confirmStyle={{ backgroundColor: colors.danger, color: '#fff' }}
         cancelStyle={{ backgroundColor: colors.backgroundSecondary, color: colors.text, opacity: 1, fontWeight: '700' }}
         onClose={() => setShowExitAlert(false)}
@@ -398,6 +420,7 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
 
 function StarredMessagesView({ channelId, onBack }: { channelId: string; onBack: () => void }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const meId = auth.currentUser?.uid;
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -425,7 +448,7 @@ function StarredMessagesView({ channelId, onBack }: { channelId: string; onBack:
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: colors.background }}>
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${colors.border}` }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Mensajes destacados</ThemedText>
+        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat.starred_view.title')}</ThemedText>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
@@ -434,8 +457,8 @@ function StarredMessagesView({ channelId, onBack }: { channelId: string; onBack:
         ) : items.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: 12, padding: 40, textAlign: 'center' }}>
             <Star size={48} />
-            <ThemedText style={{ fontWeight: 700 }}>No hay destacados</ThemedText>
-            <ThemedText style={{ fontSize: 13 }}>Los mensajes que destaques aparecerán aquí para que puedas encontrarlos fácilmente.</ThemedText>
+            <ThemedText style={{ fontWeight: 700 }}>{t('chat.starred_view.no_items')}</ThemedText>
+            <ThemedText style={{ fontSize: 13 }}>{t('chat.starred_view.no_items_desc')}</ThemedText>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>

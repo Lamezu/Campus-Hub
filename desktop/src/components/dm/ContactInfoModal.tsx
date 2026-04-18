@@ -1,28 +1,33 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, ChevronLeft, MessageSquare, Phone, Video, 
   Image as ImageIcon, Star, Bell, ImagePlus, 
   Plus, ChevronRight, Share2, UserPlus, 
   UserCheck, Heart, Trash2, Shield, AlertTriangle,
-  Loader2, Search, Send, Hash, FileText, Globe, Play, Maximize2, Check, Music, Download, Camera
+  Loader2, Search, Send, Hash, FileText, Globe, Play, Check, Music, Download
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useCurrentUser } from '@/contexts/UserContext';
 import { ThemedText } from '@/components/themed-text';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { spacing } from '@/constants/styles';
 import { auth, db } from '@/config/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
-import type { User, MutualGroup, MuteDuration, SaveToPhotosPreference, SharedMedia, DMConversation, Channel } from '@/types';
+import { collection, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
+import type { User, MutualGroup, MuteDuration, SaveToPhotosPreference, SharedMedia, DMConversation } from '@/types';
 import * as contactService from '@/services/contactSettingsService';
-import { subscribeToConversations, getConversationId, sendMessage as dmSendMessage, getOrCreateConversation } from '@/services/dmService';
+import { subscribeToConversations, getOrCreateConversation } from '@/services/dmService';
 import { MOCK_CHANNELS as CHANNELS } from '@/constants/mockData';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertModal } from '@/components/AlertModal';
 import { subscribeToFriendshipStatus } from '@/services/friendsService';
+import { useCall } from '@/contexts/CallContext';
+import { createCall } from '@/services/callService';
 
 interface ContactInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
+  viewType?: string;
 }
 
 type SubView = 'media' | 'notifications' | 'photos' | 'share' | 'starred' | null;
@@ -33,29 +38,33 @@ const roleBadgeColor = (role: string) => {
   return '#34C759';
 };
 
-const roleLabel = (role: string) => {
-  if (role === 'teacher') return 'Profesor/a';
-  if (role === 'admin') return 'Administrador/a';
-  return 'Estudiante';
+const roleLabel = (role: string, t: any) => {
+  if (role === 'teacher') return t('common.roles.teacher');
+  if (role === 'admin') return t('common.roles.admin');
+  return t('common.roles.student');
 };
 
-export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProps) {
+export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInfoModalProps) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { setActiveCall, setActiveCallId } = useCall();
   const meId = auth.currentUser?.uid;
   
   const [loading, setLoading] = useState(true);
   const [activeSubView, setActiveSubView] = useState<SubView>(null);
   const [mute, setMute] = useState<MuteDuration>('off');
   const [saveToPhotos, setSaveToPhotos] = useState<SaveToPhotosPreference>('default');
-  const [alertTone, setAlertTone] = useState('Predeterminado');
+  const [alertTone, setAlertTone] = useState('default');
   const [isBestFriend, setIsBestFriend] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
   const [friendRequestStatus, setFriendRequestStatus] = useState<'none' | 'sent' | 'received'>('none');
   const [sharedMedia, setSharedMedia] = useState<SharedMedia[]>([]);
   const [mutualGroups, setMutualGroups] = useState<MutualGroup[]>([]);
   const [showClearAlert, setShowClearAlert] = useState(false);
+  const [showBlockAlert, setShowBlockAlert] = useState(false);
+  const [showReportAlert, setShowReportAlert] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !meId || !user.uid) return;
@@ -73,12 +82,12 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
 
         setMute(settings.mute);
         setSaveToPhotos(settings.saveToPhotos);
-        setAlertTone(settings.alertTone || 'Predeterminado');
+        setAlertTone(settings.alertTone || 'default');
         setIsBestFriend(settings.isBestFriend);
         setSharedMedia(media);
         setMutualGroups(groups);
       } catch (error) {
-        console.error('Error loading contact info:', error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -87,7 +96,6 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
     loadData();
   }, [isOpen, meId, user.uid]);
 
-  // Reactive Friendship Status
   useEffect(() => {
     if (!isOpen || !meId || !user.uid) return;
 
@@ -119,8 +127,64 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
         setIsBestFriend(next);
       }
     } catch (error) {
-      console.error('Friend action error:', error);
+      console.error(error);
     }
+  };
+
+  const handleBlock = async () => {
+    if (!meId || !user.uid) return;
+    try {
+      await contactService.blockUser(meId, user.uid);
+      setShowBlockAlert(false);
+      onClose();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!meId || !user.uid) return;
+    try {
+      await contactService.reportUser(meId, user.uid);
+      setShowReportAlert(false);
+      onClose();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleAudioCall = async () => {
+    if (!meId || !user.uid) return;
+    const callId = await createCall(
+      meId, user.uid, 
+      auth.currentUser?.displayName || 'Usuario', auth.currentUser?.photoURL || null,
+      user.displayName || 'Usuario', user.photoURL || null,
+      'audio'
+    );
+    setActiveCallId(callId);
+    setActiveCall({
+      callId, participantId: user.uid, participantName: user.displayName || 'Usuario', participantPhoto: user.photoURL || null,
+      myUid: meId, myName: auth.currentUser?.displayName || 'Usuario', myPhoto: auth.currentUser?.photoURL || null,
+      isInitiator: true, type: 'audio'
+    } as any);
+    onClose();
+  };
+
+  const handleVideoCall = async () => {
+    if (!meId || !user.uid) return;
+    const callId = await createCall(
+      meId, user.uid, 
+      auth.currentUser?.displayName || 'Usuario', auth.currentUser?.photoURL || null,
+      user.displayName || 'Usuario', user.photoURL || null,
+      'video'
+    );
+    setActiveCallId(callId);
+    setActiveCall({
+      callId, participantId: user.uid, participantName: user.displayName || 'Usuario', participantPhoto: user.photoURL || null,
+      myUid: meId, myName: auth.currentUser?.displayName || 'Usuario', myPhoto: auth.currentUser?.photoURL || null,
+      isInitiator: true, type: 'video'
+    } as any);
+    onClose();
   };
 
   const menuContainerStyle: React.CSSProperties = {
@@ -146,7 +210,6 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
     marginLeft: 48
   };
 
-
   return (
     <>
       <div style={{
@@ -167,105 +230,125 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
           <>
             <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, zIndex: 10 }}>
               <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-              <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Info. del contacto</ThemedText>
+              <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('contact_info.title')}</ThemedText>
               <div style={{ width: 32 }} />
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }} className="custom-scrollbar">
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
-                <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', marginBottom: 16, border: `4px solid ${colors.border}` }}>
-                  {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{user.displayName[0]}</ThemedText></div>}
-                </div>
-                <ThemedText style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{user.displayName}</ThemedText>
-                <div style={{ padding: '4px 12px', borderRadius: 20, backgroundColor: `${roleBadgeColor(user.role)}22`, color: roleBadgeColor(user.role), fontSize: 12, fontWeight: 700, marginBottom: 12 }}>{roleLabel(user.role)}</div>
-                <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{user.bio || 'Sin descripción'}</ThemedText>
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                {[
-                  { icon: MessageSquare, label: 'Mensaje', onClick: onClose },
-                  { icon: Phone, label: 'Llamar', onClick: () => navigate(`/dm/${user.uid}/call?type=audio`) },
-                  { icon: Video, label: 'Video', onClick: () => navigate(`/dm/${user.uid}/call?type=video`) }
-                ].map((action, i) => (
-                  <button key={i} onClick={action.onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', borderRadius: 16, backgroundColor: colors.backgroundSecondary, border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }}><action.icon size={22} color={colors.primary} /><ThemedText style={{ fontSize: 12, fontWeight: 600 }}>{action.label}</ThemedText></button>
-                ))}
-              </div>
-
-              <div style={menuContainerStyle}>
-                <div style={rowStyle} onClick={() => setActiveSubView('media')}>
-                  <ImageIcon size={20} color={colors.textSecondary} />
-                  <ThemedText style={{ flex: 1, fontWeight: 600 }}>Archivos, enlaces y docs</ThemedText>
-                  <ThemedText style={{ color: colors.textSecondary, fontSize: 14 }}>{sharedMedia.length}</ThemedText>
-                  <ChevronRight size={18} color={colors.textSecondary} />
-                </div>
-                <div style={dividerStyle} />
-                <div style={rowStyle} onClick={() => setActiveSubView('starred')}>
-                  <Star size={20} color={colors.textSecondary} />
-                  <ThemedText style={{ flex: 1, fontWeight: 600 }}>Destacados</ThemedText>
-                  <ChevronRight size={18} color={colors.textSecondary} />
-                </div>
-                <div style={dividerStyle} />
-                <div style={rowStyle} onClick={() => setActiveSubView('notifications')}>
-                  <Bell size={20} color={colors.textSecondary} />
-                  <ThemedText style={{ flex: 1, fontWeight: 600 }}>Notificaciones</ThemedText>
-                  <ThemedText style={{ color: colors.textSecondary, fontSize: 14 }}>{mute === 'off' ? 'Activas' : (mute === '8h' ? '8 horas' : (mute === '1w' ? '1 semana' : 'Siempre'))}</ThemedText>
-                  <ChevronRight size={18} color={colors.textSecondary} />
-                </div>
-                <div style={dividerStyle} />
-                <div style={rowStyle} onClick={() => setActiveSubView('photos')}>
-                  <ImagePlus size={20} color={colors.textSecondary} />
-                  <ThemedText style={{ flex: 1, fontWeight: 600 }}>Guardar en Fotos</ThemedText>
-                  <ThemedText style={{ color: colors.textSecondary, fontSize: 14 }}>{saveToPhotos === 'default' ? 'Por defecto' : (saveToPhotos === 'always' ? 'Siempre' : 'Nunca')}</ThemedText>
-                  <ChevronRight size={18} color={colors.textSecondary} />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 24 }}>
-                <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginLeft: 8 }}>Grupos en común</ThemedText>
-                <div style={menuContainerStyle}>
-                  <div style={{ ...rowStyle, color: colors.primary }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={18} /></div>
-                    <ThemedText style={{ fontWeight: 700, color: colors.primary }}>Crear grupo con {user.displayName.split(' ')[0]}</ThemedText>
-                  </div>
-                  {mutualGroups.map((group, i) => (
-                    <React.Fragment key={group.id}>
-                      <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 64 }} />
-                      <div style={rowStyle} onClick={() => navigate(`/chat/${group.id}`)}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontWeight: 800, color: colors.textSecondary }}>{group.name[0].toUpperCase()}</ThemedText></div>
-                        <div style={{ flex: 1 }}>
-                          <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</ThemedText>
-                          <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block' }}>{group.memberCount} miembros • {group.memberPreview}</ThemedText>
-                        </div>
-                        <ChevronRight size={18} color={colors.textSecondary} />
+              {viewType === 'support' || user.displayName?.toLowerCase().includes('ayuda') ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16 }}>
+                  <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: `4px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, marginBottom: 20 }}>
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{user.displayName[0]}</ThemedText>
                       </div>
-                    </React.Fragment>
-                  ))}
+                    )}
+                  </div>
+                  <ThemedText style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, textAlign: 'center' }}>{user.displayName}</ThemedText>
+                  <ThemedText style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: '1.5', padding: '0 8px' }}>{user.bio || t('contact_info.bio_default')}</ThemedText>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
+                    <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', marginBottom: 16, border: `4px solid ${colors.border}` }}>
+                      {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{user.displayName[0]}</ThemedText></div>}
+                    </div>
+                    <ThemedText style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{user.displayName}</ThemedText>
+                    <div style={{ padding: '4px 12px', borderRadius: 20, backgroundColor: `${roleBadgeColor(user.role)}22`, color: roleBadgeColor(user.role), fontSize: 12, fontWeight: 700, marginBottom: 12 }}>{roleLabel(user.role, t)}</div>
+                    <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{user.bio || t('chat_ui.channel_info.no_bio')}</ThemedText>
+                  </div>
 
-              <div style={menuContainerStyle}>
-                <div style={{ ...rowStyle, color: '#34C759' }} onClick={() => setActiveSubView('share')}>
-                  <Share2 size={20} />
-                  <ThemedText style={{ fontWeight: 600, color: '#34C759' }}>Compartir usuario</ThemedText>
-                </div>
-                <div style={dividerStyle} />
-                <div style={{ ...rowStyle, cursor: friendRequestStatus === 'sent' ? 'default' : 'pointer' }} onClick={handleFriendAction}>
-                  {isFriend ? (isBestFriend ? <Heart size={20} color={colors.primary} fill={colors.primary} /> : <UserCheck size={20} color={colors.primary} />) : friendRequestStatus === 'received' ? (<UserCheck size={20} color="#34C759" />) : (<UserPlus size={20} color={friendRequestStatus === 'sent' ? colors.textSecondary : colors.primary} />)}
-                  <ThemedText style={{ flex: 1, fontWeight: 600, color: isFriend ? colors.primary : (friendRequestStatus === 'received' ? '#34C759' : (friendRequestStatus === 'sent' ? colors.textSecondary : colors.primary)) }}>
-                    {isFriend ? (isBestFriend ? 'Quitar de mejores amigos' : 'Añadir a mejores amigos') : (friendRequestStatus === 'received' ? 'Aceptar solicitud de amistad' : (friendRequestStatus === 'sent' ? 'Solicitud enviada' : 'Enviar solicitud de amistad'))}
-                  </ThemedText>
-                </div>
-                <div style={dividerStyle} />
-                <div style={{ ...rowStyle, color: '#FF9500' }} onClick={() => setShowClearAlert(true)}>
-                  <Trash2 size={20} />
-                  <ThemedText style={{ fontWeight: 600, color: '#FF9500' }}>Vaciar chat</ThemedText>
-                </div>
-              </div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+                    {[
+                      { icon: MessageSquare, label: t('chat_ui.menu.reply'), onClick: () => { onClose(); navigate(`/dm/${user.uid}`); } },
+                      ...(user.displayName !== 'Usuario eliminado' ? [
+                        { icon: Phone, label: t('dm_chat.menu.audio_call').replace('📞 ', ''), onClick: handleAudioCall },
+                        { icon: Video, label: t('dm_chat.menu.video_call').replace('📹 ', ''), onClick: handleVideoCall }
+                      ] : [])
+                    ].map((action, i) => (
+                      <button key={i} onClick={action.onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0', borderRadius: 16, backgroundColor: colors.backgroundSecondary, border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }}><action.icon size={22} color={colors.primary} /><ThemedText style={{ fontSize: 12, fontWeight: 600 }}>{action.label}</ThemedText></button>
+                    ))}
+                  </div>
 
-              <div style={menuContainerStyle}>
-                <div style={{ ...rowStyle, color: colors.danger }}><Shield size={20} /><ThemedText style={{ fontWeight: 600, color: colors.danger }}>Bloquear a {user.displayName.split(' ')[0]}</ThemedText></div>
-                <div style={dividerStyle} /><div style={{ ...rowStyle, color: colors.danger }}><AlertTriangle size={20} /><ThemedText style={{ fontWeight: 600, color: colors.danger }}>Reportar a {user.displayName.split(' ')[0]}</ThemedText></div>
-              </div>
+                  <div style={menuContainerStyle}>
+                    <div style={rowStyle} onClick={() => setActiveSubView('media')}>
+                      <ImageIcon size={20} color={colors.textSecondary} />
+                      <ThemedText style={{ flex: 1, fontWeight: 600 }}>{t('chat_ui.channel_info.starred_view.image')}, {t('common.more').toLowerCase()}...</ThemedText>
+                      <ThemedText style={{ color: colors.textSecondary, fontSize: 14 }}>{sharedMedia.length}</ThemedText>
+                      <ChevronRight size={18} color={colors.textSecondary} />
+                    </div>
+                    <div style={dividerStyle} />
+                    <div style={rowStyle} onClick={() => setActiveSubView('starred')}>
+                      <Star size={20} color={colors.textSecondary} />
+                      <ThemedText style={{ flex: 1, fontWeight: 600 }}>{t('chat_ui.channel_info.starred_messages')}</ThemedText>
+                      <ChevronRight size={18} color={colors.textSecondary} />
+                    </div>
+                    <div style={dividerStyle} />
+                    <div style={rowStyle} onClick={() => setActiveSubView('notifications')}>
+                      <Bell size={20} color={colors.textSecondary} />
+                      <ThemedText style={{ flex: 1, fontWeight: 600 }}>{t('settings.notifications')}</ThemedText>
+                      <ThemedText style={{ color: colors.textSecondary, fontSize: 14 }}>{mute === 'off' ? t('settings.mute_options.none') : (mute === '8h' ? t('settings.mute_options.8h') : (mute === '1w' ? t('settings.mute_options.1w') : t('settings.mute_options.always')))}</ThemedText>
+                      <ChevronRight size={18} color={colors.textSecondary} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginLeft: 8 }}>{t('contact_info.mutual_groups')}</ThemedText>
+                    <div style={menuContainerStyle}>
+                      <div style={{ ...rowStyle, color: colors.primary }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={18} /></div>
+                        <ThemedText style={{ fontWeight: 700, color: colors.primary }}>{t('contact_info.create_group_with', { name: user.displayName.split(' ')[0] })}</ThemedText>
+                      </div>
+                      {mutualGroups.map((group, i) => (
+                        <React.Fragment key={group.id}>
+                          <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 64 }} />
+                          <div style={rowStyle} onClick={() => navigate(`/chat/${group.id}`)}>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontWeight: 800, color: colors.textSecondary }}>{group.name[0].toUpperCase()}</ThemedText></div>
+                            <div style={{ flex: 1 }}>
+                              <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</ThemedText>
+                              <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block' }}>{t('chat_ui.members_count', { count: group.memberCount })} • {group.memberPreview}</ThemedText>
+                            </div>
+                            <ChevronRight size={18} color={colors.textSecondary} />
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={menuContainerStyle}>
+                    <div style={{ ...rowStyle, color: '#34C759' }} onClick={() => setActiveSubView('share')}>
+                      <Share2 size={20} />
+                      <ThemedText style={{ fontWeight: 600, color: '#34C759' }}>{t('contact_info.share')}</ThemedText>
+                    </div>
+                    <div style={dividerStyle} />
+                    <div style={{ ...rowStyle, cursor: friendRequestStatus === 'sent' ? 'default' : 'pointer' }} onClick={handleFriendAction}>
+                      {isFriend ? (isBestFriend ? <Heart size={20} color={colors.primary} fill={colors.primary} /> : <UserCheck size={20} color={colors.primary} />) : friendRequestStatus === 'received' ? (<UserCheck size={20} color="#34C759" />) : (<UserPlus size={20} color={friendRequestStatus === 'sent' ? colors.textSecondary : colors.primary} />)}
+                      <ThemedText style={{ flex: 1, fontWeight: 600, color: isFriend ? colors.primary : (friendRequestStatus === 'received' ? '#34C759' : (friendRequestStatus === 'sent' ? colors.textSecondary : colors.primary)) }}>
+                        {isFriend ? (isBestFriend ? t('contact_info.best_friend_remove') : t('contact_info.best_friend_add')) : (friendRequestStatus === 'received' ? t('contact_info.friend_request_accept') : (friendRequestStatus === 'sent' ? t('contact_info.friend_request_sent') : t('contact_info.friend_request_send')))}
+                      </ThemedText>
+                    </div>
+                    <div style={dividerStyle} />
+                    <div style={{ ...rowStyle, color: '#FF9500' }} onClick={() => setShowClearAlert(true)}>
+                      <Trash2 size={20} />
+                      <ThemedText style={{ fontWeight: 600, color: '#FF9500' }}>{t('contact_info.clear_chat')}</ThemedText>
+                    </div>
+                  </div>
+
+                  <div style={menuContainerStyle}>
+                    <div style={{ ...rowStyle, color: colors.danger }} onClick={() => setShowBlockAlert(true)}>
+                      <Shield size={20} />
+                      <ThemedText style={{ fontWeight: 600, color: colors.danger }}>{t('contact_info.block', { name: user.displayName.split(' ')[0] })}</ThemedText>
+                    </div>
+                    <div style={dividerStyle} />
+                    <div style={{ ...rowStyle, color: colors.danger }} onClick={() => setShowReportAlert(true)}>
+                      <AlertTriangle size={20} />
+                      <ThemedText style={{ fontWeight: 600, color: colors.danger }}>{t('contact_info.report', { name: user.displayName.split(' ')[0] })}</ThemedText>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </>
         ) : activeSubView === 'starred' ? (
@@ -280,23 +363,12 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
               setMute(m);
               await contactService.updateContactSettings(meId!, user.uid, { mute: m });
             }}
-            onToneChange={async (t) => {
-              setAlertTone(t);
+            onToneChange={async (tName) => {
+              setAlertTone(tName);
               const { playTone } = await import('@/utils/toneGenerator');
-              const toneMap: Record<string, string> = { 'Predeterminado': 'default', 'Clásico': 'classic', 'Suave': 'soft', 'Melodía': 'melody', 'Campana': 'bell', 'Pulso': 'pulse', 'Sin tono': 'silent' };
-              playTone(toneMap[t] || 'default');
-              await contactService.updateContactSettings(meId!, user.uid, { alertTone: t });
+              playTone(tName === 'none' ? 'silent' : tName);
+              await contactService.updateContactSettings(meId!, user.uid, { alertTone: tName });
             }}
-            onBack={() => setActiveSubView(null)} 
-          />
-        ) : activeSubView === 'photos' ? (
-          <SaveToPhotosModal 
-            current={saveToPhotos} 
-            onSelect={async (p) => {
-              setSaveToPhotos(p);
-              await contactService.updateContactSettings(meId!, user.uid, { saveToPhotos: p });
-              setActiveSubView(null);
-            }} 
             onBack={() => setActiveSubView(null)} 
           />
         ) : activeSubView === 'share' ? (
@@ -307,9 +379,9 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
       <AlertModal 
         isOpen={showClearAlert} 
         type="confirm" 
-        title="Vaciar chat" 
-        message={`¿Estás seguro de que quieres vaciar todos los mensajes del chat con ${user.displayName}? Esta acción no se puede deshacer.`}
-        confirmText="Vaciar"
+        title={t('contact_info.clear_chat')} 
+        message={t('chat_ui.channel_info.alerts.clear_msg', { name: user.displayName })}
+        confirmText={t('chat_ui.delete_btn')}
         showCancelButton
         onClose={() => setShowClearAlert(false)}
         onConfirm={async () => {
@@ -318,6 +390,28 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
           setShowClearAlert(false);
           onClose();
         }}
+      />
+
+      <AlertModal
+        isOpen={showBlockAlert}
+        type="confirm"
+        title={t('contact_info.block', { name: user.displayName.split(' ')[0] })}
+        message={t('friends_screen.alerts.remove_friend_msg', { name: user.displayName })}
+        confirmText={t('common.confirm')}
+        showCancelButton
+        onClose={() => setShowBlockAlert(false)}
+        onConfirm={handleBlock}
+      />
+
+      <AlertModal
+        isOpen={showReportAlert}
+        type="confirm"
+        title={t('contact_info.report', { name: user.displayName.split(' ')[0] })}
+        message={t('chat_ui.delete_bg_msg')}
+        confirmText={t('common.confirm')}
+        showCancelButton
+        onClose={() => setShowReportAlert(false)}
+        onConfirm={handleReport}
       />
       
       <style>{`
@@ -328,7 +422,6 @@ export function ContactInfoModal({ isOpen, onClose, user }: ContactInfoModalProp
     </>
   );
 }
-
 
 const handleDownload = (url: string, filename: string) => {
   const link = document.createElement('a');
@@ -341,6 +434,7 @@ const handleDownload = (url: string, filename: string) => {
 };
 
 function StarredMessagesView({ user, onBack }: { user: User, onBack: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const meId = auth.currentUser?.uid;
   const [items, setItems] = useState<any[]>([]);
@@ -370,7 +464,7 @@ function StarredMessagesView({ user, onBack }: { user: User, onBack: () => void 
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${colors.border}` }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Mensajes destacados</ThemedText>
+        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat_ui.channel_info.starred_messages')}</ThemedText>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
@@ -379,8 +473,8 @@ function StarredMessagesView({ user, onBack }: { user: User, onBack: () => void 
         ) : items.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: 12, padding: 40, textAlign: 'center' }}>
             <Star size={48} />
-            <ThemedText style={{ fontWeight: 700 }}>No hay destacados</ThemedText>
-            <ThemedText style={{ fontSize: 13 }}>Los mensajes que destaques aparecerán aquí para que puedas encontrarlos fácilmente.</ThemedText>
+            <ThemedText style={{ fontWeight: 700 }}>{t('chat_ui.channel_info.starred_view.no_starred')}</ThemedText>
+            <ThemedText style={{ fontSize: 13 }}>{t('chat_ui.channel_info.starred_view.no_starred_desc')}</ThemedText>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -408,7 +502,7 @@ function StarredMessagesView({ user, onBack }: { user: User, onBack: () => void 
                     <Star size={18} fill="#FFD60A" />
                   </button>
                 </div>
-                <ThemedText style={{ fontSize: 14, lineHeight: '1.4' }} numberOfLines={3}>{item.text || (item.type === 'image' ? '📷 Imagen' : item.type === 'file' ? '📎 Archivo' : 'Mensaje')}</ThemedText>
+                <ThemedText style={{ fontSize: 14, lineHeight: '1.4' }} numberOfLines={3}>{item.text || (item.type === 'image' ? t('chat_ui.channel_info.starred_view.image') : item.type === 'file' ? t('chat_ui.channel_info.starred_view.file') : t('chat_ui.channel_info.starred_view.message'))}</ThemedText>
               </div>
             ))}
           </div>
@@ -419,6 +513,7 @@ function StarredMessagesView({ user, onBack }: { user: User, onBack: () => void 
 }
 
 function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMedia[], onBack: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'images' | 'videos' | 'files' | 'audio' | 'links'>('images');
   const [fullScreenMedia, setFullScreenMedia] = useState<SharedMedia | null>(null);
@@ -435,19 +530,21 @@ function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMed
   }, [media, activeTab]);
 
   const tabs = [
-    { id: 'images', label: `Imágenes (${media.filter(m => m.type === 'image').length})` },
-    { id: 'videos', label: `Vídeos (${media.filter(m => m.type === 'video').length})` },
-    { id: 'files', label: `Archivos (${media.filter(m => m.type === 'file').length})` },
-    { id: 'audio', label: `Audio (${media.filter(m => m.type === 'audio').length})` },
-    { id: 'links', label: `Enlaces (${media.filter(m => m.type === 'link').length})` },
+    { id: 'images', key: 'images', icon: ImageIcon, label: t('chat_ui.image') },
+    { id: 'videos', key: 'videos', icon: ImageIcon, label: t('chat_ui.video') },
+    { id: 'files', key: 'documents', icon: FileText, label: t('saved_items.tabs.documents') },
+    { id: 'audio', key: 'audio', icon: Music, label: 'Audio' },
+    { id: 'links', key: 'links', icon: Globe, label: 'Links' },
   ];
+
+  const currentTabLabel = tabs.find(t => t.id === activeTab)?.label || t('saved_items.tabs.documents');
 
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${colors.border}` }}>
           <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Archivos, enlaces y docs</ThemedText>
+          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{currentTabLabel}</ThemedText>
         </div>
         
         <div style={{ display: 'flex', overflowX: 'auto', padding: '0 10px', borderBottom: `1px solid ${colors.border}` }} className="no-scrollbar">
@@ -461,10 +558,19 @@ function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMed
                 border: 'none',
                 borderBottom: activeTab === tab.id ? `3px solid ${colors.primary}` : '3px solid transparent',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
               }}
             >
-              <ThemedText style={{ fontSize: 13, fontWeight: 700, color: activeTab === tab.id ? colors.primary : colors.textSecondary }}>{tab.label}</ThemedText>
+              <ThemedText style={{ 
+                fontSize: 13, 
+                fontWeight: activeTab === tab.id ? 800 : 600,
+                color: activeTab === tab.id ? colors.primary : colors.textSecondary
+              }}>
+                {tab.label} ({media.filter(m => m.type === (tab.id === 'files' ? 'file' : tab.id === 'images' ? 'image' : tab.id === 'videos' ? 'video' : tab.id)).length})
+              </ThemedText>
             </button>
           ))}
         </div>
@@ -473,7 +579,7 @@ function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMed
           {filteredMedia.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: 12 }}>
               <ImageIcon size={48} />
-              <ThemedText>No hay elementos compartidos</ThemedText>
+              <ThemedText>{t('saved_items.empty.none')}</ThemedText>
             </div>
           ) : (
             <div style={{ 
@@ -529,7 +635,7 @@ function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMed
               onClick={() => handleDownload(fullScreenMedia.url, fullScreenMedia.name)}
               style={{ background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', color: '#fff', padding: '8px 16px', borderRadius: 20, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
             >
-              <Download size={18} /> Guardar
+              <Download size={18} /> {t('post_screen.save')}
             </button>
           </div>
         </div>
@@ -539,33 +645,33 @@ function SharedMediaView({ user, media, onBack }: { user: User, media: SharedMed
 }
 
 function NotificationsView({ mute, currentTone, onMuteChange, onToneChange, onBack }: { mute: MuteDuration, currentTone: string, onMuteChange: (m: MuteDuration) => void, onToneChange: (t: string) => void, onBack: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   
-  const muteOptions: { id: MuteDuration, label: string, desc: string }[] = [
-    { id: '8h', label: '8 horas', desc: 'Silenciar durante 8 horas' },
-    { id: '1w', label: '1 semana', desc: 'Silenciar durante 7 días' },
-    { id: 'always', label: 'Siempre', desc: 'Silenciar indefinidamente' },
-    { id: 'off', label: 'No silenciar', desc: 'Recibir todas las notificaciones' }
+  const muteOptions: { id: MuteDuration, label: string }[] = [
+    { id: '8h', label: t('settings.mute_options.8h') },
+    { id: '1w', label: t('settings.mute_options.1w') },
+    { id: 'always', label: t('settings.mute_options.always') },
+    { id: 'off', label: t('settings.mute_options.none') }
   ];
 
-  const tones = ['Predeterminado', 'Clásico', 'Suave', 'Melodía', 'Campana', 'Pulso', 'Sin tono'];
+  const tones = ['default', 'classic', 'soft', 'melody', 'bell', 'pulse', 'none'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${colors.border}` }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Notificaciones</ThemedText>
+        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('settings.notifications')}</ThemedText>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 20 }} className="custom-scrollbar">
-        <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>Silenciar notificaciones</ThemedText>
+        <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>{t('chat_ui.channel_info.mute_notifs')}</ThemedText>
         <div style={{ backgroundColor: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: 24 }}>
           {muteOptions.map((opt, i) => (
             <React.Fragment key={opt.id}>
               <div onClick={() => onMuteChange(opt.id)} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                 <div style={{ flex: 1 }}>
                   <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{opt.label}</ThemedText>
-                  <ThemedText style={{ fontSize: 12, color: colors.textSecondary }}>{opt.desc}</ThemedText>
                 </div>
                 {mute === opt.id && <Check size={20} color={colors.primary} />}
               </div>
@@ -574,55 +680,30 @@ function NotificationsView({ mute, currentTone, onMuteChange, onToneChange, onBa
           ))}
         </div>
 
-        <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>Tono de alerta</ThemedText>
+        <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', marginBottom: 12, marginLeft: 8 }}>{t('settings.notifications_desc')}</ThemedText>
         <div style={{ backgroundColor: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: 24 }}>
           {tones.map((tone, i) => (
             <React.Fragment key={tone}>
               <div onClick={() => onToneChange(tone)} style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
                 <Music size={18} color={colors.textSecondary} />
-                <ThemedText style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{tone}</ThemedText>
+                <ThemedText style={{ flex: 1, fontWeight: 600, fontSize: 15 }}>{t(`settings.tones.${tone}`)}</ThemedText>
                 {currentTone === tone && <Check size={20} color={colors.primary} />}
               </div>
               {i < tones.length - 1 && <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />}
             </React.Fragment>
           ))}
         </div>
-        <ThemedText style={{ fontSize: 11, color: colors.textSecondary, textAlign: 'center', padding: '0 20px' }}>Toca un tono para escuchar una previsualización.</ThemedText>
       </div>
     </div>
   );
 }
 
-function SaveToPhotosModal({ current, onSelect, onBack }: { current: SaveToPhotosPreference, onSelect: (p: SaveToPhotosPreference) => void, onBack: () => void }) {
-  const { colors } = useTheme();
-  const options: { id: SaveToPhotosPreference, label: string, desc: string }[] = [
-    { id: 'default', label: 'Por defecto (Sí)', desc: 'Guardar automáticamente según configuración global' },
-    { id: 'always', label: 'Siempre', desc: 'Guardar siempre en la galería' },
-    { id: 'never', label: 'Nunca', desc: 'No guardar nunca en la galería' }
-  ];
 
-  return (
-    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: '24px 20px', boxShadow: '0 -10px 40px rgba(0,0,0,0.3)', zIndex: 50 }}>
-      <div style={{ width: 40, height: 4, backgroundColor: colors.border, borderRadius: 2, margin: '0 auto 20px' }} />
-      <ThemedText style={{ fontSize: 18, fontWeight: 800, marginBottom: 20 }}>Guardar en Fotos</ThemedText>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
-        {options.map(opt => (
-          <div key={opt.id} onClick={() => onSelect(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-            <div style={{ flex: 1 }}>
-              <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{opt.label}</ThemedText>
-              <ThemedText style={{ fontSize: 12, color: colors.textSecondary }}>{opt.desc}</ThemedText>
-            </div>
-            {current === opt.id && <Check size={20} color={colors.primary} />}
-          </div>
-        ))}
-      </div>
-      <button onClick={onBack} style={{ width: '100%', padding: 14, borderRadius: 12, backgroundColor: `${colors.text}10`, border: 'none', cursor: 'pointer' }}><ThemedText style={{ fontWeight: 700 }}>Cancelar</ThemedText></button>
-    </div>
-  );
-}
 
 function ShareContactModal({ user, onBack }: { user: User, onBack: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
+  const { userData } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<'channels' | 'dms'>('channels');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -637,12 +718,21 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
 
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase();
+    const isAdmin = userData?.role === 'admin' || userData?.role === 'teacher';
+    
     if (activeTab === 'channels') {
-      return CHANNELS.filter(c => c.name.toLowerCase().includes(q));
+      return CHANNELS.filter(c => {
+        const matchesSearch = c.name.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+        if (isAdmin) return true;
+        const nameLower = c.name.toLowerCase();
+        const isRestricted = nameLower.includes('anuncios') || nameLower.includes('actividades') || nameLower.includes('ayuda') || nameLower.includes('soporte');
+        return !isRestricted;
+      });
     } else {
       return conversations.filter(c => c.participantName.toLowerCase().includes(q));
     }
-  }, [activeTab, query, conversations]);
+  }, [activeTab, query, conversations, userData]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -659,14 +749,21 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
       const me = auth.currentUser;
       if (!me) return;
 
-      const messageText = `👤 ${user.displayName} — ${user.bio || 'Sin descripción'}`;
+      const contactCard = {
+        userId: user.uid,
+        name: user.displayName || 'Usuario',
+        photo: user.photoURL || null,
+        role: user.role || 'student',
+        bio: user.bio || null
+      };
+
       const batch = writeBatch(db);
-      
+
       for (const id of Array.from(selectedIds)) {
         if (activeTab === 'channels') {
           const chMsgRef = doc(collection(db, 'channels', id, 'messages'));
           batch.set(chMsgRef, {
-            text: messageText,
+            text: '',
             senderId: me.uid,
             senderName: me.displayName || 'Tú',
             senderPhoto: me.photoURL,
@@ -674,7 +771,8 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
             edited: false,
             reactions: {},
             replyTo: null,
-            forwarded: true
+            forwarded: true,
+            contactCard
           });
         } else {
           const conv = conversations.find(c => c.id === id);
@@ -682,7 +780,7 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
             const convId = await getOrCreateConversation(me.uid, conv.participantId);
             const dmMsgRef = doc(collection(db, 'conversations', convId, 'messages'));
             batch.set(dmMsgRef, {
-              text: messageText,
+              text: '',
               senderId: me.uid,
               senderName: me.displayName || 'Tú',
               senderPhoto: me.photoURL,
@@ -690,7 +788,8 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
               edited: false,
               reactions: {},
               replyTo: null,
-              forwarded: true
+              forwarded: true,
+              contactCard
             });
           }
         }
@@ -709,11 +808,11 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: colors.background }}>
       <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, borderBottom: `1px solid ${colors.border}` }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>Compartir contacto</ThemedText>
+        <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('contact_info.share')}</ThemedText>
       </div>
 
       <div style={{ padding: '12px 20px', borderBottom: `1px solid ${colors.border}` }}>
-        <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block', marginBottom: 4 }}>Contacto a compartir</ThemedText>
+        <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block', marginBottom: 4 }}>{t('forward.preview_label')}</ThemedText>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 32, height: 32, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>{user.displayName[0]}</ThemedText>}
@@ -723,9 +822,9 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
       </div>
 
       <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
-        {(['channels', 'dms'] as const).map(t => (
-          <button key={t} onClick={() => { setActiveTab(t); setQuery(''); }} style={{ flex: 1, padding: 16, background: 'none', border: 'none', borderBottom: activeTab === t ? `2px solid ${colors.primary}` : 'none', cursor: 'pointer' }}>
-            <ThemedText style={{ fontWeight: 700, color: activeTab === t ? colors.primary : colors.textSecondary }}>{t === 'channels' ? 'Canales' : 'Mensajes directos'}</ThemedText>
+        {(['channels', 'dms'] as const).map(tabId => (
+          <button key={tabId} onClick={() => { setActiveTab(tabId); setQuery(''); }} style={{ flex: 1, padding: 16, background: 'none', border: 'none', borderBottom: activeTab === tabId ? `2px solid ${colors.primary}` : 'none', cursor: 'pointer' }}>
+            <ThemedText style={{ fontWeight: 700, color: activeTab === tabId ? colors.primary : colors.textSecondary }}>{tabId === 'channels' ? t('forward.tabs.channels') : t('forward.tabs.dms')}</ThemedText>
           </button>
         ))}
       </div>
@@ -736,7 +835,7 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
           <input 
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={activeTab === 'channels' ? "Buscar canal..." : "Buscar chat..."}
+            placeholder={activeTab === 'channels' ? t('forward.search.channels') : t('forward.search.dms')}
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 14 }}
           />
         </div>
@@ -748,7 +847,7 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
           const isSelected = selectedIds.has(id);
           const name = activeTab === 'channels' ? item.name : item.participantName;
           const photo = activeTab === 'channels' ? null : item.participantPhoto;
-          const desc = activeTab === 'channels' ? item.description : (item.participantRole === 'teacher' ? 'Profesor/a' : 'Estudiante');
+          const desc = activeTab === 'channels' ? item.description : (item.participantRole === 'teacher' ? t('forward.roles.teacher') : t('forward.roles.student'));
 
           return (
             <div key={id} onClick={() => toggleSelect(id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}>
@@ -773,7 +872,7 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
           disabled={selectedIds.size === 0 || sending}
           style={{ width: '100%', padding: '16px', borderRadius: 16, backgroundColor: selectedIds.size > 0 ? colors.primary : colors.border, border: 'none', cursor: selectedIds.size > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
         >
-          {sending ? <Loader2 size={24} className="animate-spin" color="#fff" /> : <><Send size={20} color="#fff" /><ThemedText style={{ fontWeight: 700, color: '#fff' }}>Enviar {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</ThemedText></>}
+          {sending ? <Loader2 size={24} className="animate-spin" color="#fff" /> : <><Send size={20} color="#fff" /><ThemedText style={{ fontWeight: 700, color: '#fff' }}>{t('forward.button.send')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</ThemedText></>}
         </button>
       </div>
     </div>

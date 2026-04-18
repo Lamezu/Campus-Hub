@@ -9,6 +9,7 @@ import { createGroupConversation } from '@/services/groupDMService';
 import { ThemedText } from '../themed-text';
 import { spacing } from '@/constants/styles';
 import type { User, UserRole } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface NewGroupModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export function NewGroupModal({
   isOpen, onClose, onGroupCreated, onMembersAdded, 
   mode = 'create', existingMemberIds = [] 
 }: NewGroupModalProps) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('friends');
   const [search, setSearch] = useState('');
@@ -70,7 +72,6 @@ export function NewGroupModal({
 
   const filteredUsers = useMemo(() => {
     const source = activeTab === 'friends' ? friends : allUsers;
-    if (existingMemberIds.includes(source.map(u => u.uid).toString())) return []; // Placeholder logic for filter
     const searchTerm = search.toLowerCase().trim();
     
     return source.filter(u => {
@@ -118,11 +119,11 @@ export function NewGroupModal({
       }
 
       const allMembers = [
-        { id: currentUser.uid, name: currentUser.displayName || 'Usuario', photo: currentUser.photoURL },
+        { id: currentUser.uid, name: currentUser.displayName || t('common.unknown_user', { defaultValue: 'Usuario' }), photo: currentUser.photoURL },
         ...members
       ];
       
-      const groupId = await createGroupConversation(allMembers, groupName || 'Nuevo Grupo', groupPhoto, currentUser.uid);
+      const groupId = await createGroupConversation(allMembers, groupName || t('messages.modals.new_group.title'), groupPhoto, currentUser.uid);
       onGroupCreated?.(groupId);
       onClose();
     } catch (error) {
@@ -150,10 +151,10 @@ export function NewGroupModal({
         <div style={{ padding: '24px 28px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <ThemedText style={{ fontSize: 20, fontWeight: '800', display: 'block' }}>
-              {mode === 'create' ? 'Crear Nuevo Grupo' : 'Añadir Participantes'}
+              {mode === 'create' ? t('messages.modals.new_group.title') : t('messages.modals.new_group.invite_title')}
             </ThemedText>
             <ThemedText style={{ fontSize: 13, opacity: 0.6 }}>
-              {mode === 'create' ? 'Selecciona participantes y configura el grupo' : 'Selecciona a quién quieres invitar'}
+              {mode === 'create' ? t('messages.modals.new_group.subtitle') : t('messages.modals.new_group.invite_subtitle')}
             </ThemedText>
           </div>
           <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.backgroundSecondary, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary }}>
@@ -188,14 +189,14 @@ export function NewGroupModal({
                 <input 
                   value={groupName}
                   onChange={e => setGroupName(e.target.value)}
-                  placeholder="Nombre del grupo..."
+                  placeholder={t('messages.modals.new_group.name_placeholder')}
                   style={{
                     width: '100%', padding: '12px 0', fontSize: 18, fontWeight: '700',
                     background: 'none', border: 'none', borderBottom: `2px solid ${colors.border}`,
                     outline: 'none', color: colors.text, marginBottom: 8
                   }}
                 />
-                <ThemedText style={{ fontSize: 12, opacity: 0.5 }}>Puedes ponerle un nombre ahora o dejarlo para después.</ThemedText>
+                <ThemedText style={{ fontSize: 12, opacity: 0.5 }}>{t('messages.modals.new_group.name_hint')}</ThemedText>
               </div>
             </div>
           )}
@@ -214,7 +215,7 @@ export function NewGroupModal({
                 }}
               >
                 <UserCheck size={18} />
-                <span style={{ fontSize: 13 }}>Amigos</span>
+                <span style={{ fontSize: 13 }}>{t('messages.modals.new_group.tabs.friends')}</span>
               </button>
               <button
                 onClick={() => setActiveTab('all')}
@@ -227,7 +228,7 @@ export function NewGroupModal({
                 }}
               >
                 <Users size={18} />
-                <span style={{ fontSize: 13 }}>Todo el campus</span>
+                <span style={{ fontSize: 13 }}>{t('messages.modals.new_group.tabs.all')}</span>
               </button>
             </div>
 
@@ -240,7 +241,7 @@ export function NewGroupModal({
               <input 
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por nombre o email..."
+                placeholder={t('messages.modals.new_group.search_placeholder')}
                 style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 14 }}
               />
             </div>
@@ -253,7 +254,7 @@ export function NewGroupModal({
                </div>
             ) : filteredUsers.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, opacity: 0.5 }}>
-                <ThemedText style={{ fontSize: 14 }}>No se encontraron resultados</ThemedText>
+                <ThemedText style={{ fontSize: 14 }}>{t('messages.modals.new_group.empty_results')}</ThemedText>
               </div>
             ) : (
               filteredUsers.map(user => {
@@ -279,7 +280,9 @@ export function NewGroupModal({
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <ThemedText style={{ fontWeight: '700', fontSize: 15, display: 'block' }}>{user.displayName}</ThemedText>
-                      <ThemedText style={{ fontSize: 12, opacity: 0.6, textTransform: 'capitalize' }}>{user.role}</ThemedText>
+                      <ThemedText style={{ fontSize: 12, opacity: 0.6, textTransform: 'capitalize' }}>
+                        {user.role === 'teacher' ? t('common.roles.teacher') : user.role === 'admin' ? t('common.roles.admin') : t('common.roles.student')}
+                      </ThemedText>
                     </div>
                     <div style={{ 
                       width: 24, height: 24, borderRadius: 8, 
@@ -300,14 +303,14 @@ export function NewGroupModal({
         {/* Footer */}
         <div style={{ padding: '20px 28px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.backgroundSecondary + '20' }}>
           <ThemedText style={{ fontSize: 14, fontWeight: '600' }}>
-            {selectedUserIds.size === 0 ? 'Selecciona participantes' : `${selectedUserIds.size} participantes seleccionados`}
+            {selectedUserIds.size === 0 ? t('messages.modals.new_group.footer.no_selection') : t('messages.modals.new_group.footer.selection_count', { count: selectedUserIds.size })}
           </ThemedText>
           <div style={{ display: 'flex', gap: 12 }}>
             <button 
               onClick={onClose}
               style={{ padding: '10px 20px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', cursor: 'pointer', color: colors.textSecondary, fontWeight: '700' }}
             >
-              Cancelar
+              {t('messages.modals.new_group.footer.cancel')}
             </button>
             <button 
               onClick={handleCreate}
@@ -320,7 +323,7 @@ export function NewGroupModal({
               }}
             >
               {creating ? <Loader2 size={18} className="animate-spin" /> : (mode === 'invite' ? <UserPlus size={18} /> : <Users size={18} />)}
-              <span>{mode === 'invite' ? 'Añadir' : 'Crear Grupo'}</span>
+              <span>{mode === 'invite' ? t('messages.modals.new_group.footer.add') : t('messages.modals.new_group.footer.create')}</span>
             </button>
           </div>
         </div>

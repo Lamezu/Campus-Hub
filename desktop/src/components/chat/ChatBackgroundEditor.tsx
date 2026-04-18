@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Check, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedText } from '@/components/themed-text';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface ChatBackgroundEditorProps {
   imageUri: string;
@@ -11,6 +12,7 @@ interface ChatBackgroundEditorProps {
 
 export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgroundEditorProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   
   // States for transform
   const [scale, setScale] = useState(1);
@@ -91,8 +93,8 @@ export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgrou
         color: '#fff'
       }}>
         <div>
-          <ThemedText style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>Editar fondo de chat</ThemedText>
-          <ThemedText style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>Arrastra para mover y usa la rueda del ratón para hacer zoom</ThemedText>
+          <ThemedText style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{t('chat.settings.edit_bg')}</ThemedText>
+          <ThemedText style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{t('chat.settings.edit_bg_desc')}</ThemedText>
         </div>
         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: 10, cursor: 'pointer', color: '#fff' }}>
           <X size={24} />
@@ -158,7 +160,7 @@ export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgrou
             backdropFilter: 'blur(4px)',
             maxWidth: '60%'
           }}>
-            <ThemedText style={{ fontSize: 14 }}>¡Este fondo se ve increíble!</ThemedText>
+            <ThemedText style={{ fontSize: 14 }}>{t('chat.preview.incoming', { defaultValue: '¡Este fondo se ve increíble!' })}</ThemedText>
           </div>
           <div style={{ 
             alignSelf: 'flex-end', 
@@ -170,7 +172,7 @@ export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgrou
             maxWidth: '60%',
             color: '#fff'
           }}>
-            <ThemedText style={{ fontSize: 14, color: '#fff' }}>Sí, me encanta cómo queda con mis mensajes.</ThemedText>
+            <ThemedText style={{ fontSize: 14, color: '#fff' }}>{t('chat.preview.outgoing', { defaultValue: 'Sí, me encanta cómo queda con mis mensajes.' })}</ThemedText>
           </div>
         </div>
 
@@ -201,7 +203,7 @@ export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgrou
             cursor: 'pointer' 
           }}
         >
-          Cancelar
+          {t('common.cancel')}
         </button>
         <button 
           onClick={() => {
@@ -223,7 +225,7 @@ export function ChatBackgroundEditor({ imageUri, onClose, onSave }: ChatBackgrou
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
           }}
         >
-          <Check size={20} /> Guardar fondo
+          <Check size={20} /> {t('common.save', { defaultValue: 'Guardar' })}
         </button>
       </div>
 

@@ -5,6 +5,7 @@ import { auth, db } from '@/config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { subscribeToFriends } from '@/services/friendsService';
 import { ThemedText } from './themed-text';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { spacing } from '@/constants/styles';
 import type { User, UserRole } from '@/types';
 
@@ -18,6 +19,7 @@ type TabType = 'friends' | 'all';
 
 export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('friends');
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
@@ -87,7 +89,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
       }}>
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <ThemedText style={{ fontSize: 18, fontWeight: '800' }}>Nuevo Mensaje</ThemedText>
+          <ThemedText style={{ fontSize: 18, fontWeight: '800' }}>{t('dm.new_message')}</ThemedText>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
             <X size={24} />
           </button>
@@ -106,7 +108,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
             }}
           >
             <UserCheck size={18} />
-            <span>Amigos</span>
+            <span>{t('dm.tabs.friends')}</span>
           </button>
           <button
             onClick={() => setActiveTab('all')}
@@ -119,7 +121,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
             }}
           >
             <Users size={18} />
-            <span>Todo el mundo</span>
+            <span>{t('dm.tabs.everyone')}</span>
           </button>
         </div>
 
@@ -134,7 +136,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o email..."
+              placeholder={t('dm.search_placeholder')}
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 15 }}
             />
           </div>
@@ -151,7 +153,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
                   fontSize: 12, fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s'
                 }}
               >
-                {role === 'all' ? 'Todos' : role === 'student' ? 'Estudiantes' : role === 'teacher' ? 'Profesores' : 'Admin'}
+                {role === 'all' ? t('dm.filter.all') : role === 'student' ? t('dm.filter.student') : role === 'teacher' ? t('dm.filter.teacher') : t('dm.filter.admin')}
               </button>
             ))}
           </div>
@@ -166,7 +168,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
           ) : filteredUsers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40, opacity: 0.5 }}>
               <ThemedText style={{ fontSize: 14 }}>
-                {search ? 'No se encontraron resultados' : activeTab === 'friends' ? 'Aún no tienes amigos agregados' : 'No hay usuarios disponibles'}
+                {search ? t('dm.no_results') : activeTab === 'friends' ? t('dm.no_friends') : t('dm.no_users')}
               </ThemedText>
             </div>
           ) : (
@@ -193,7 +195,7 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
                     {user.displayName}
                   </ThemedText>
                   <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>
-                    {user.role === 'teacher' ? 'Profesor' : user.role === 'admin' ? 'Administrador' : 'Estudiante'}
+                    {user.role === 'teacher' ? t('dm.filter.teacher') : user.role === 'admin' ? t('dm.filter.admin') : t('dm.filter.student')}
                   </ThemedText>
                 </div>
                 <MessageSquare size={18} color={colors.primary} />
