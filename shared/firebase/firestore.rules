@@ -57,10 +57,6 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && (isOwner(userId) || isOwner(friendId));
       }
-
-      match /notificationMeta/{docId} {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
     }
 
     match /roles/{roleId} {
@@ -272,14 +268,18 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if isSignedIn() && (
-          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid)) ||
+          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
           isStaff()
         );
-        allow create: if isSignedIn() &&
-          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid));
+        allow create: if isSignedIn() && (
+          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
+          isStaff()
+        );
         allow update: if request.auth.uid == resource.data.senderId ||
-                      (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
-        allow delete: if request.auth.uid == resource.data.senderId || isStaff();
+                      (isSignedIn() && 
+                       request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
+        allow delete: if request.auth.uid == resource.data.senderId || isAdmin();
       }
     }
 

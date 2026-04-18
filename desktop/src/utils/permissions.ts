@@ -16,6 +16,7 @@ const BASE_PERMISSIONS: Record<UserRole, Permission[]> = {
   teacher: [
     'createAnnouncement',
     'createAcademicEvent',
+    'createHolidayEvent',
     'createGeneralEvent',
     'createStudyGroup',
     'pinContent',
@@ -36,6 +37,7 @@ const BASE_PERMISSIONS: Record<UserRole, Permission[]> = {
 const SUBROLE_EXTRA_PERMISSIONS: Partial<Record<NonNullable<UserSubrole>, Permission[]>> = {
   delegate: [
     'createAcademicEvent',
+    'createHolidayEvent',
     'createGeneralEvent',
     'createStudyGroup'
   ],
