@@ -1,54 +1,44 @@
 import { ChannelService } from '../channelService';
 
-const mockDb = {
+const mockDb = {};
+
+jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
-  doc: jest.fn()
-};
-
-const mockCollection = jest.fn();
-const mockDoc = jest.fn();
-const mockGetDoc = jest.fn();
-const mockGetDocs = jest.fn();
-const mockSetDoc = jest.fn();
-const mockUpdateDoc = jest.fn();
-const mockDeleteDoc = jest.fn();
-const mockWriteBatch = jest.fn();
-
-const mockFirestore = {
-  collection: mockCollection,
-  doc: mockDoc,
-  getDoc: mockGetDoc,
-  getDocs: mockGetDocs,
-  setDoc: mockSetDoc,
-  updateDoc: mockUpdateDoc,
-  deleteDoc: mockDeleteDoc,
-  serverTimestamp: () => ({}),
-  writeBatch: mockWriteBatch,
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  setDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  serverTimestamp: () => ({ _seconds: Date.now() / 1000 }),
+  writeBatch: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
   orderBy: jest.fn(),
-  limit: jest.fn(),
-  onSnapshot: jest.fn(),
-  increment: jest.fn()
-};
+  increment: jest.fn((val) => ({ _increment: val })),
+  onSnapshot: jest.fn()
+}));
 
 describe('ChannelService', () => {
   let channelService;
 
   beforeEach(() => {
-    channelService = new ChannelService(mockDb, mockFirestore);
+    channelService = new ChannelService(mockDb);
     jest.clearAllMocks();
   });
 
   describe('createChannel', () => {
     it('debería crear un canal y añadir al creador como admin', async () => {
+      const { writeBatch, doc, collection } = require('firebase/firestore');
+      
       const mockBatch = {
         set: jest.fn(),
         commit: jest.fn().mockResolvedValue(undefined)
       };
 
-      mockCollection.mockReturnValue('channels-collection');
-      mockDoc.mockReturnValue({ id: 'channel-123' });
+      writeBatch.mockReturnValue(mockBatch);
+      collection.mockReturnValue('channels-collection');
+      doc.mockReturnValue({ id: 'channel-123' });
 
       const channelData = {
         name: 'DAM - 2º Año',
@@ -61,20 +51,23 @@ describe('ChannelService', () => {
       const channelId = await channelService.createChannel(channelData, 'user-1');
 
       expect(channelId).toBe('channel-123');
-      expect(mockSetDoc).toHaveBeenCalledTimes(2);
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+      expect(mockBatch.commit).toHaveBeenCalled();
     });
   });
 
   describe('getChannel', () => {
     it('debería obtener un canal por ID', async () => {
+      const { getDoc, doc } = require('firebase/firestore');
+
       const mockChannelData = {
         name: 'General',
         type: 'public',
         memberCount: 10
       };
 
-      mockDoc.mockReturnValue('channel-ref');
-      mockGetDoc.mockResolvedValue({
+      doc.mockReturnValue('channel-ref');
+      getDoc.mockResolvedValue({
         exists: () => true,
         id: 'channel-1',
         data: () => mockChannelData
@@ -86,6 +79,71 @@ describe('ChannelService', () => {
         id: 'channel-1',
         ...mockChannelData
       });
+    });
+
+    it('debería retornar null si el canal no existe', async () => {
+      const { getDoc } = require('firebase/firestore');
+
+      getDoc.mockResolvedValue({
+        exists: () => false
+      });
+
+      const channel = await channelService.getChannel('non-existent');
+
+      expect(channel).toBeNull();
+    });
+  });
+
+  describe('joinChannel', () => {
+    it('debería añadir un usuario al canal', async () => {
+      const { writeBatch, increment } = require('firebase/firestore');
+
+      const mockBatch = {
+        set: jest.fn(),
+        update: jest.fn(),
+        commit: jest.fn().mockResolvedValue(undefined)
+      };
+
+      writeBatch.mockReturnValue(mockBatch);
+
+      await channelService.joinChannel('channel-1', 'user-2');
+
+      expect(mockBatch.set).toHaveBeenCalled();
+      expect(mockBatch.update).toHaveBeenCalled();
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+  });
+
+  describe('leaveChannel', () => {
+    it('debería eliminar un usuario del canal', async () => {
+      const { writeBatch } = require('firebase/firestore');
+
+      const mockBatch = {
+        delete: jest.fn(),
+        update: jest.fn(),
+        commit: jest.fn().mockResolvedValue(undefined)
+      };
+
+      writeBatch.mockReturnValue(mockBatch);
+
+      await channelService.leaveChannel('channel-1', 'user-2');
+
+      expect(mockBatch.delete).toHaveBeenCalled();
+      expect(mockBatch.update).toHaveBeenCalled();
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMemberRole', () => {
+    it('debería actualizar el rol de un miembro', async () => {
+      const { updateDoc, doc } = require('firebase/firestore');
+
+      doc.mockReturnValue('member-ref');
+      updateDoc.mockResolvedValue(undefined);
+
+      await channelService.updateMemberRole('channel-1', 'user-1', 'moderator');
+
+      expect(updateDoc).toHaveBeenCalledWith('member-ref', { role: 'moderator' });
     });
   });
 });

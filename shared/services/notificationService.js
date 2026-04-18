@@ -99,13 +99,6 @@ export class NotificationService {
     });
   }
 
-  async enableNotifications(userId) {
-    const userRef = this.fs.doc(this.db, 'users', userId);
-    await this.fs.updateDoc(userRef, {
-      notificationsEnabled: true
-    });
-  }
-
   async markAsRead(userId, notificationId) {
     const notificationRef = this.fs.doc(this.db, 'notifications', userId, 'items', notificationId);
     await this.fs.updateDoc(notificationRef, { read: true });

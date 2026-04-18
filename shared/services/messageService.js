@@ -53,6 +53,7 @@ export class MessageService {
 
     if (messageSnap.exists()) {
       const data = messageSnap.data();
+      // Si el mensaje es un aviso de evento, limpiar el flag en el evento
       if (data.type === 'event' && data.metadata?.eventId) {
         const eventRef = this.fs.doc(this.db, 'events', data.metadata.eventId);
         const eventSnap = await this.fs.getDoc(eventRef);

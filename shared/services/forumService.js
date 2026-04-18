@@ -275,7 +275,7 @@ export class ForumService {
       return this.fs.onSnapshot(q, (snapshot) => {
         const pinned = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(post => post.pinned === true); // Client side filter
+          .filter(post => post.pinned === true); // Filtrado en cliente
         callback(pinned);
       });
     } catch (error) {
