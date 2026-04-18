@@ -166,7 +166,8 @@ export default function CallScreen({
 
   const remoteAudioSetupDoneRef = useRef<string | null>(null);
 
-  const setupRemoteAudio = (track: MediaStreamTrack) => {
+  const setupRemoteAudio = async (track: MediaStreamTrack) => {
+    console.log(`[WebRTC] setupRemoteAudio for track: ${track.id}, kind: ${track.kind}`);
     if (remoteAudioSetupDoneRef.current === track.id) return;
     remoteAudioSetupDoneRef.current = track.id;
 
@@ -177,15 +178,25 @@ export default function CallScreen({
         });
       }
       const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
+      
+      // Ensure the context is running
+      if (ctx.state === 'suspended') {
+        console.log('[WebRTC] Resuming AudioContext...');
+        await ctx.resume();
+      }
+      console.log(`[WebRTC] AudioContext state: ${ctx.state}`);
 
       const audioEl = remoteAudioElRef.current;
-      if (!audioEl) return;
+      if (!audioEl) {
+        console.warn("[WebRTC] remoteAudioElRef is null during setupRemoteAudio");
+        return;
+      }
       
       const stream = new MediaStream([track]);
       audioEl.srcObject = stream;
-      audioEl.muted = true;
-
+      
+      // We always un-mute the element briefly to ensure it can start playing
+      // but if the AudioContext is running, we route through nodes for processing
       if (remoteGainNodeRef.current) {
         try { remoteGainNodeRef.current.disconnect(); } catch { }
       }
@@ -203,8 +214,30 @@ export default function CallScreen({
       remoteAnalyserRef.current = an;
       remoteGainNodeRef.current = gn;
 
-      audioEl.play().catch(() => { });
-    } catch (err) { console.error("Audio Setup Error:", err); }
+      audioEl.play().then(() => {
+        console.log('[WebRTC] Remote audio element playing');
+        // If AudioContext is active, we mute the element to avoid double audio
+        // and rely on the WebAudio destination.
+        if (ctx.state === 'running') {
+          audioEl.muted = true;
+        } else {
+          audioEl.muted = false;
+        }
+      }).catch((err) => {
+        console.warn("[WebRTC] audioEl.play() initial fail, retrying unmuted:", err);
+        audioEl.muted = false;
+        audioEl.play().catch(e => console.error("[WebRTC] audioEl.play() definitive fail:", e));
+      });
+    } catch (err) { 
+      console.error("[WebRTC] Audio Setup Error:", err);
+      // Absolute fallback: just use the audio element
+      const audioEl = remoteAudioElRef.current;
+      if (audioEl) {
+        audioEl.muted = false;
+        audioEl.srcObject = new MediaStream([track]);
+        audioEl.play().catch(() => {});
+      }
+    }
   };
 
   useEffect(() => {
@@ -241,12 +274,19 @@ export default function CallScreen({
         const add = isCaller ? addCallerCandidate : addReceiverCandidate;
         add(callId, e.candidate.toJSON()).catch(() => { });
       };
+      
+      pc.oniceconnectionstatechange = () => {
+        console.log(`[WebRTC] ICE Connection State: ${pc.iceConnectionState}`);
+      };
 
       pc.ontrack = (e: RTCTrackEvent) => {
         const track = e.track;
-        console.log(`[WebRTC] Track Received: ${track.kind}, id: ${track.id}`);
+        const transceiver = e.transceiver;
+        const transceiverIdx = pc.getTransceivers().indexOf(transceiver);
+        console.log(`[WebRTC] Track Received: ${track.kind}, id: ${track.id}, transceiverIdx: ${transceiverIdx}, direction: ${transceiver.direction}, currentDirection: ${transceiver.currentDirection}`);
 
         if (track.kind === 'audio') {
+          console.log('[WebRTC] Processing Audio Track');
           const stream = remoteStreamRef.current;
           stream.getAudioTracks().forEach(t => stream.removeTrack(t));
           stream.addTrack(track);
@@ -256,13 +296,16 @@ export default function CallScreen({
           const txs = pc.getTransceivers();
           const videoTxs = txs.filter(tx => tx.receiver.track?.kind === 'video');
           const videoIdx = videoTxs.findIndex(tx => tx === e.transceiver);
-          const isActuallyScreen = (videoIdx > 0);
+          const isActuallyScreen = (videoIdx > 0 || transceiverIdx > 2); 
+          console.log(`[WebRTC] Video Track Received. videoIdx: ${videoIdx}, isActuallyScreen: ${isActuallyScreen}`);
 
           if (!isActuallyScreen) {
             console.log('[WebRTC] Receiving Remote Camera');
             const stream = remoteStreamRef.current;
             stream.getVideoTracks().forEach(t => stream.removeTrack(t));
             stream.addTrack(track);
+            // Trigger state update for camera video
+            setRemoteStream(new MediaStream(stream.getTracks()));
           } else {
             console.log(`[WebRTC] Receiving Remote Screen Share: ${track.id}`);
             const stream = remoteShareStreamRef.current;
@@ -271,12 +314,15 @@ export default function CallScreen({
             stream.getVideoTracks().forEach(t => stream.removeTrack(t));
             stream.addTrack(track);
             
+            // Trigger state update for screen share video
+            setRemoteShareStream(new MediaStream(stream.getTracks()));
             setRemoteShareActive(true); 
             track.onended = () => { 
                 stream.removeTrack(track);
                 if (stream.getVideoTracks().length === 0) {
                   setRemoteShareActive(false); 
                   setPeerSharing(false);
+                  setRemoteShareStream(new MediaStream());
                 }
             };
           }
@@ -305,17 +351,18 @@ export default function CallScreen({
       if (isCaller) {
         pc.addTransceiver('audio', { direction: 'sendrecv' });
         pc.addTransceiver('video', { direction: 'sendrecv' });
-        pc.addTransceiver('video', { direction: 'sendrecv' });
+        // We don't add the screen share transceiver yet to keep the initial offer simple
         if (audioTrack) pc.getTransceivers()[0].sender.replaceTrack(audioTrack);
         if (videoTrack && camOn) pc.getTransceivers()[1].sender.replaceTrack(videoTrack);
       }
 
-      if (audioTrack) {
+          if (audioTrack) {
         try {
           if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
           }
           const ctx = audioCtxRef.current;
+          if (ctx.state === 'suspended') ctx.resume().catch(() => {});
           localAnalyserRef.current = ctx.createAnalyser();
           const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
           src.connect(localAnalyserRef.current);
@@ -343,18 +390,22 @@ export default function CallScreen({
               await pc.setRemoteDescription(new RTCSessionDescription(description));
               if (description.type === 'offer') {
                 const txs = pc.getTransceivers();
-                txs.forEach(tx => {
-                  if (tx.receiver.track?.kind === 'audio' || tx.receiver.track?.kind === 'video') {
+                txs.forEach((tx, idx) => {
+                  console.log(`[WebRTC] Offer Transceiver ${idx}: ${tx.receiver.track?.kind}, current direction: ${tx.direction}`);
+                  // Force sendrecv on all offered transceivers so we can send back
+                  if (tx.direction !== 'sendrecv') {
                     tx.direction = 'sendrecv';
                   }
                 });
 
-                if (!isCaller && !receiverTracksFilledRef.current) {
+                // Always ensure our tracks are attached to transceivers on new offers
+                if (!receiverTracksFilledRef.current) {
                   receiverTracksFilledRef.current = true;
                   const audioTx = txs.find(tx => tx.receiver.track?.kind === 'audio');
                   const videoTxs = txs.filter(tx => tx.receiver.track?.kind === 'video');
-                  if (audioTrack && audioTx) await audioTx.sender.replaceTrack(audioTrack);
-                  if (videoTrack && camOn && videoTxs[0]) await videoTxs[0].sender.replaceTrack(videoTrack);
+                  
+                  if (audioTrack && audioTx) await audioTx.sender.replaceTrack(audioTrack).catch(e => console.warn("Replace audio failed", e));
+                  if (videoTrack && camOn && videoTxs[0]) await videoTxs[0].sender.replaceTrack(videoTrack).catch(e => console.warn("Replace video failed", e));
                 }
                 await pc.setLocalDescription();
                 const sync = isCaller ? updateCallerReanswer : answerCall;
@@ -373,7 +424,18 @@ export default function CallScreen({
           lastProcessedAnswerRef.current = answer.sdp ?? null;
           signalingLockRef.current = true;
           try {
+            console.log('[WebRTC] Processing Answer...');
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            
+            // After setting answer, ensure transceivers are set to sendrecv to receive tracks
+            const txs = pc.getTransceivers();
+            txs.forEach((tx, idx) => {
+              console.log(`[WebRTC] Answer Transceiver ${idx}: ${tx.receiver.track?.kind}, direction: ${tx.direction}, currentDirection: ${tx.currentDirection}`);
+              if (tx.direction === 'recvonly' || tx.direction === 'inactive') {
+                tx.direction = 'sendrecv';
+              }
+            });
+
             while (candQueueRef.current.length > 0) {
               const c = candQueueRef.current.shift();
               if (c) await pc.addIceCandidate(c).catch(() => { });
@@ -404,6 +466,9 @@ export default function CallScreen({
         else candQueueRef.current.push(c);
       });
       unsubsRef.current.push(unsubCall, unsubCand);
+      
+      // Auto-resume audio context on init
+      setTimeout(() => resumeAudio(), 1000);
     }
     init();
     return () => {
@@ -512,10 +577,19 @@ export default function CallScreen({
 
       const pc = pcRef.current;
       if (pc) {
-        const existing = pc.getSenders()[2];
-        if (existing) {
-          screenSenderRef.current = existing;
-          await existing.replaceTrack(t);
+        const txs = pc.getTransceivers();
+        // Audio is index 0, Camera is index 1. Screen share should be index 2.
+        let existingTx = txs[2];
+        
+        // If no 3rd transceiver, add one
+        if (!existingTx && txs.length < 3) {
+          console.log('[WebRTC] Adding dynamic screen share transceiver');
+          existingTx = pc.addTransceiver('video', { direction: 'sendrecv' });
+        }
+
+        if (existingTx) {
+          screenSenderRef.current = existingTx.sender;
+          await existingTx.sender.replaceTrack(t);
         } else {
           screenSenderRef.current = pc.addTrack(t, s);
         }
@@ -734,7 +808,7 @@ export default function CallScreen({
               <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: '100%', maxWidth: '1200px', height: '100%' }}>
                   {focusedTile === 'remote' && <VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} speaking={peerSpeaking} camOff={peerCamOff} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile(null)} />}
-                  {focusedTile === 'remoteShare' && <VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing onStopViewing={() => { setPeerSharing(false); setRemoteShareActive(false); setRemoteShareStream(null); }} onClick={() => setFocusedTile(null)} />}
+                  {focusedTile === 'remoteShare' && hasRemoteShare && <VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing onStopViewing={() => { setPeerSharing(false); setRemoteShareActive(false); setRemoteShareStream(null); }} onClick={() => setFocusedTile(null)} />}
                   {focusedTile === 'local' && <VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile(null)} />}
                   {focusedTile === 'localShare' && <VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile(null)} />}
                 </div>
