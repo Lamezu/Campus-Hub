@@ -23,8 +23,12 @@ export function subscribeToChannelUnread(
 ): () => void {
   let innerUnsub: (() => void) | null = null;
 
+  const isStudyGroup = channelId.startsWith('sg_');
+  const cleanId = channelId.replace(/^(sg_|group_|channel_|group_)/, '');
+  const collectionName = isStudyGroup ? 'studyGroups' : 'channels';
+
   const readRef = doc(db, 'channelReads', readKey(userId, channelId));
-  const messagesRef = collection(db, 'channels', channelId, 'messages');
+  const messagesRef = collection(db, collectionName, cleanId, 'messages');
 
   const outerUnsub = onSnapshot(readRef, (readSnap) => {
     innerUnsub?.();

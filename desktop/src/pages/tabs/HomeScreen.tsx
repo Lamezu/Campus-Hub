@@ -115,7 +115,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user?.uid || channels.length === 0) return;
 
-    const channelsToTrack = [...channels.map(c => c.id), ...groups.map(g => g.id)];
+    const channelsToTrack = [...channels.map(c => c.id), ...groups.map(g => `sg_${g.id}`)];
     const unsubs: Array<() => void> = [];
 
     channelsToTrack.forEach(id => {
@@ -322,15 +322,15 @@ export default function HomeScreen() {
                 <div key={group.id} style={{ position: 'relative' }}>
                   <ChannelCard
                     channel={{
-                      id: group.id,
+                      id: `sg_${group.id}`,
                       name: group.name,
                       description: group.subject,
                       icon: 'users',
                       photoURL: group.photoURL,
-                      unreadCount: unreadCounts[group.id] || 0,
+                      unreadCount: unreadCounts[`sg_${group.id}`] || 0,
                     } as any}
                     accentColor={group.color}
-                    onPress={() => handleChannelPress(group)}
+                    onPress={() => navigate(`/chat/sg_${group.id}`)}
                   />
                   {(userData?.role === 'teacher' || userData?.role === 'admin') && (
                     <div style={{ position: 'absolute', top: '50%', right: 48, transform: 'translateY(-50%)', display: 'flex', gap: 8, zIndex: 10 }}>

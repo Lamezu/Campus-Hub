@@ -86,6 +86,10 @@ export default function ForwardScreen() {
 
     if (selectedChannels.size > 0) {
       selectedChannels.forEach(channelId => {
+        const isStudyGroup = channelId.startsWith('sg_');
+        const cleanId = channelId.replace(/^(sg_|group_|channel_|group_)/, '');
+        const collectionName = isStudyGroup ? 'studyGroups' : 'channels';
+        
         const msgData = {
           text: messageText ?? '',
           senderId: meId, senderName, senderPhoto,
@@ -93,7 +97,7 @@ export default function ForwardScreen() {
           attachments: audioUrl ? [{ url: audioUrl, type: 'audio', duration: parseFloat(audioDuration || '0') }] : null,
           reactions: {}, replyTo: null, forwarded: true,
         };
-        tasks.push(addDoc(collection(db, 'channels', channelId, 'messages'), msgData));
+        tasks.push(addDoc(collection(db, collectionName, cleanId, 'messages'), msgData));
       });
     }
 

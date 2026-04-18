@@ -15,9 +15,10 @@ export interface StarredMessage extends Message {
 export async function starMessage(
   userId: string,
   message: Message,
-  chatType: 'dm' | 'channel',
+  chatType: 'dm' | 'channel' | 'group',
   conversationId?: string,
   channelId?: string,
+  groupId?: string,
 ): Promise<void> {
   const ref = doc(db, 'users', userId, 'starredMessages', message.id);
   
@@ -31,6 +32,7 @@ export async function starMessage(
     chatType,
     ...(conversationId ? { conversationId } : {}),
     ...(channelId ? { channelId } : {}),
+    ...(groupId ? { groupId } : {}),
   });
 }
 

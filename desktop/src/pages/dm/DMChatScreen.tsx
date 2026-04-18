@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { ChevronLeft, Phone, Video, MoreVertical, UserPlus, UserCheck, Type, Bold, Italic, Check, Plus, Search, Camera, Loader2, Trash2 } from 'lucide-react';
+import { ChevronLeft, Phone, Video, Settings, UserPlus, UserCheck, Type, Bold, Italic, Check, Plus, Search, Camera, Loader2, Trash2 } from 'lucide-react';
 import { ChatBackgroundEditor } from '@/components/chat/ChatBackgroundEditor';
 import { uploadChannelPhoto } from '@/config/cloudinary';
 import { ThemedView } from '@/components/themed-view';
@@ -22,6 +22,7 @@ import { useCall } from '@/contexts/CallContext';
 import { createCall } from '@/services/callService';
 import type { DirectMessage, ReplyPreview, User, Message } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { ChatLoadingOverlay } from '@/components/chat/ChatLoadingOverlay';
 
 export default function DMChatScreen() {
   const { t } = useTranslation();
@@ -316,14 +317,6 @@ export default function DMChatScreen() {
     });
   };
 
-  if (loading) {
-    return (
-      <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTop: `3px solid ${colors.primary}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <ThemedText style={{ marginTop: spacing.md, opacity: 0.6 }}>{t('dm_chat.loading')}</ThemedText>
-      </ThemedView>
-    );
-  }
 
   const participantName = participant?.displayName || t('profile.username_placeholder');
   const filteredMessages = searchQuery.trim()
@@ -412,7 +405,7 @@ export default function DMChatScreen() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: `${spacing.sm}px ${spacing.md}px`, backgroundColor: colors.card, borderBottom: `1px solid ${colors.border}`, flexShrink: 0, zIndex: 10, height: 64, boxSizing: 'border-box' }}>
           <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, display: 'flex' }}><ChevronLeft size={24} /></button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer' }} onClick={() => participant && setSelectedContact(participant)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer' }} onClick={() => setShowContactInfo(true)}>
             {participant?.photoURL ? <img src={participant.photoURL} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: `${colors.primary}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{participantName[0]}</ThemedText></div>}
             <div>
               <ThemedText style={{ fontWeight: '700', fontSize: 16, display: 'block', color: colors.text }}>{participantName}</ThemedText>
@@ -441,23 +434,9 @@ export default function DMChatScreen() {
             )}
 
             <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isSearchOpen ? colors.primary : colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Search size={20} /></button>
-            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><MoreVertical size={22} /></button>
+            <button onClick={() => setShowSettings(!showSettings)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Settings size={22} /></button>
           </div>
 
-          {showHeaderMenu && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowHeaderMenu(false)} />
-              <div style={{ position: 'absolute', top: 60, right: 20, zIndex: 100, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: 200, padding: spacing.xs }}>
-                <button onClick={() => { setShowSettings(true); setShowHeaderMenu(false); }} style={headerMenuItemStyle(colors)}><Type size={16} /> {t('dm_chat.menu.customize')}</button>
-                <div style={{ height: 1, backgroundColor: colors.border, margin: '4px' }} />
-                <button onClick={() => { handleAudioCall(); setShowHeaderMenu(false); }} style={headerMenuItemStyle(colors)}>{t('dm_chat.menu.audio_call')}</button>
-                <button onClick={() => { handleVideoCall(); setShowHeaderMenu(false); }} style={headerMenuItemStyle(colors)}>{t('dm_chat.menu.video_call')}</button>
-                <div style={{ height: 1, backgroundColor: colors.border, margin: '4px' }} />
-
-                <button onClick={() => { setShowContactInfo(true); setShowHeaderMenu(false); }} style={headerMenuItemStyle(colors)}>{t('dm_chat.menu.view_profile')}</button>
-              </div>
-            </>
-          )}
         </div>
 
         {isSearchOpen && (
@@ -541,8 +520,8 @@ export default function DMChatScreen() {
         </div>
 
         {showSettings && (
-          <div style={{ position: 'absolute', top: 60, right: 20, width: 280, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1000, padding: spacing.md, maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}><ThemedText style={{ fontWeight: 'bold' }}>{t('chat_ui.customize_title')}</ThemedText><button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
+          <div style={{ position: 'absolute', top: 60, right: 20, width: 350, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1000, padding: spacing.md, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}><ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat_ui.customize_title')}</ThemedText><button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
             {chatSettings.savedCustomBackgrounds && chatSettings.savedCustomBackgrounds.length > 0 && (
               <div style={{ marginBottom: spacing.lg }}>
                 <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.your_backgrounds')}</ThemedText>
@@ -661,7 +640,15 @@ export default function DMChatScreen() {
         <div style={{ backgroundColor: colors.background, paddingBottom: 8 }}>
           <MessageInput ref={messageInputRef} onSend={handleSendMessage} onSendAudio={handleSendAudio} onSendMedia={handleSendMedia} onSendPoll={handleSendPoll} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
         </div>
+        {loading && <ChatLoadingOverlay />}
       </div>
+      {participant && (
+        <ContactInfoModal 
+          isOpen={showContactInfo} 
+          onClose={() => setShowContactInfo(false)} 
+          user={participant} 
+        />
+      )}
       {selectedContact && (
         <ContactInfoModal 
           isOpen={!!selectedContact} 

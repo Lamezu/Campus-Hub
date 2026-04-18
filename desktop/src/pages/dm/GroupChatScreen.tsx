@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, MoreVertical, Users, Search, Plus, Info, LogOut, Phone, Video, Camera, Loader2, Bold, Italic, Trash2, Type, Check } from 'lucide-react';
+import { ChevronLeft, Settings, Users, Search, Plus, Info, LogOut, Phone, Video, Camera, Loader2, Bold, Italic, Trash2, Type, Check } from 'lucide-react';
 import { ChatBackgroundEditor } from '@/components/chat/ChatBackgroundEditor';
 import { uploadChannelPhoto } from '@/config/cloudinary';
 import { chatThemes, spacing } from '@/constants/styles';
@@ -23,6 +23,7 @@ import type { User } from '@/types';
 import { useCall } from '@/contexts/CallContext';
 import { createGroupCall } from '@/services/groupCallService';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { ChatLoadingOverlay } from '@/components/chat/ChatLoadingOverlay';
 
 export default function GroupChatScreen() {
   const { t } = useTranslation();
@@ -312,14 +313,6 @@ export default function GroupChatScreen() {
     });
   };
 
-  if (loading) {
-    return (
-      <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTop: `3px solid ${colors.primary}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <ThemedText style={{ marginTop: spacing.md, opacity: 0.6 }}>{t('group_chat.loading')}</ThemedText>
-      </ThemedView>
-    );
-  }
 
   const groupName = group?.name || t('group_chat.group_placeholder');
   const filteredMessages = searchQuery.trim()
@@ -417,25 +410,10 @@ export default function GroupChatScreen() {
             </button>
 
             <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isSearchOpen ? colors.primary : colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Search size={20} /></button>
-            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><MoreVertical size={22} /></button>
+            <button onClick={() => setShowSettings(!showSettings)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Settings size={22} /></button>
           </div>
 
 
-          {showHeaderMenu && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowHeaderMenu(false)} />
-              <div style={{ position: 'absolute', top: 60, right: 20, zIndex: 100, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: 200, padding: 6 }}>
-                <button onClick={() => { setShowSettings(true); setShowHeaderMenu(false); }} style={menuItemStyle(colors)}><Type size={16} /> {t('group_chat.menu.customize')}</button>
-                <div style={{ height: 1, backgroundColor: colors.border, margin: '4px' }} />
-                <button onClick={() => { handleAudioCall(); setShowHeaderMenu(false); }} style={menuItemStyle(colors)}><Phone size={16} /> {t('group_chat.menu.audio_call')}</button>
-                <button onClick={() => { handleVideoCall(); setShowHeaderMenu(false); }} style={menuItemStyle(colors)}><Video size={16} /> {t('group_chat.menu.video_call')}</button>
-                <div style={{ height: 1, backgroundColor: colors.border, margin: '4px' }} />
-                <button onClick={() => { setShowGroupInfo(true); setShowHeaderMenu(false); }} style={menuItemStyle(colors)}><Info size={16} /> {t('group_chat.menu.group_info')}</button>
-                <div style={{ height: 1, backgroundColor: colors.border, margin: '4px' }} />
-                <button onClick={handleLeaveGroup} style={{ ...menuItemStyle(colors), color: colors.danger }}><LogOut size={16} /> {t('group_chat.menu.leave_group')}</button>
-              </div>
-            </>
-          )}
         </div>
 
         {isSearchOpen && (
@@ -518,11 +496,12 @@ export default function GroupChatScreen() {
             disabled={sending} 
           />
         </div>
+        {loading && <ChatLoadingOverlay />}
       </div>
 
       {showSettings && (
-        <div style={{ position: 'absolute', top: 64, right: 28, width: 280, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1000, padding: spacing.md, maxHeight: '80vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}><ThemedText style={{ fontWeight: 'bold' }}>{t('chat_ui.customize_title')}</ThemedText><button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
+        <div style={{ position: 'absolute', top: 64, right: 28, width: 350, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1000, padding: spacing.md, maxHeight: '80vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}><ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat_ui.customize_title')}</ThemedText><button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
           {chatSettings.savedCustomBackgrounds && chatSettings.savedCustomBackgrounds.length > 0 && (
             <div style={{ marginBottom: spacing.lg }}>
               <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.your_backgrounds')}</ThemedText>
