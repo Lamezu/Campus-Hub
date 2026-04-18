@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getColors, type AppTheme, type ThemeColors, type ChatSettings, chatSettingsDefaults } from '@/constants/styles';
 import { auth, db } from '@/config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 type ThemeContextType = {
   theme: AppTheme;
@@ -38,17 +38,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     mediaQuery.addEventListener('change', handleChange);
 
     const unsubAuth = onAuthStateChanged(auth, (user) => {
-      // Immediate cleanup to avoid "ghost" data from previous user
       setChatSettingsState(chatSettingsDefaults);
 
       if (user) {
-        // Load from local for speed
         const local = localStorage.getItem(`chatSettings_${user.uid}`);
         if (local) {
           try { setChatSettingsState(JSON.parse(local)); } catch (e) {}
         }
 
-        // Setup Firestore listener for Cloud Sync using user root document
         const userRef = doc(db, 'users', user.uid);
         const unsubFirestore = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
@@ -122,10 +119,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setChatSettingsState(updated);
       
       if (uid) {
-        // Save to local
         localStorage.setItem(`chatSettings_${uid}`, JSON.stringify(updated));
-        
-        // Save to Cloud (Root User Doc)
         const userRef = doc(db, 'users', uid);
         await updateDoc(userRef, { chatSettings: updated });
       }
@@ -144,7 +138,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       chatSettings,
       setTheme,
       setCustomPrimary,
-      setChatSettings,
+      setChatSettings
     }}>
       {children}
     </ThemeContext.Provider>

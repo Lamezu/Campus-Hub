@@ -14,6 +14,7 @@ type UserContextType = {
   isTeacherOrAdmin: boolean;
   isAdmin: boolean;
   can: (permission: Permission) => boolean;
+  updateUserData: (data: Partial<User>) => Promise<void>;
   loading: boolean;
 };
 
@@ -25,6 +26,7 @@ const UserContext = createContext<UserContextType>({
   isTeacherOrAdmin: false,
   isAdmin: false,
   can: () => false,
+  updateUserData: async () => { },
   loading: true,
 });
 
@@ -32,6 +34,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const updateUserData = useCallback(async (data: Partial<User>) => {
+    if (!firebaseUser) return;
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      throw error;
+    }
+  }, [firebaseUser]);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, fbUser => {
@@ -88,11 +103,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       isTeacherOrAdmin: role === 'teacher' || role === 'admin',
       isAdmin: role === 'admin',
       can,
+      updateUserData,
       loading,
     }}>
       {children}
     </UserContext.Provider>
   );
+}
+
+export function useUser() {
+  return useContext(UserContext);
 }
 
 export function useCurrentUser() {
