@@ -21,7 +21,7 @@
     "babel-jest": "^29.7.0",
     "jest": "^29.7.0"
   },
-  "dependencies": {
+  "peerDependencies": {
     "firebase": "^12.8.0"
   },
   "jest": {
