@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Loader2, Calendar as CalendarIcon, Clock, Tag, Trash2, Share2, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Loader2, Calendar as CalendarIcon, Clock, Trash2, Share2, Users } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { EventModal } from './EventModal';
 import { useCurrentUser } from '@/contexts/UserContext';
@@ -15,41 +16,24 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   event: '#34C759',
 };
 
-const DEPARTMENT_MAP: Record<string, string> = {
-  'hospitality': 'Hostelería y Turismo',
-  'health': 'Sanidad',
-  'it_comms': 'Informática y Comunicaciones',
-  'sports': 'Actividades Físicas y Deportivas',
-  'admin_mgmt': 'Administración y Gestión',
-  'social_services': 'Servicios Socioculturales',
-  'energy_water': 'Energía y Agua',
-  'wood_furniture': 'Madera, Mueble y Corcho',
-  'security_env': 'Seguridad y Medio Ambiente',
-  'languages': 'Idiomas',
-  'fol': 'FOL',
-  'counseling': 'Orientación',
-  'innovation': 'Innovación y Calidad',
-  'Todos': 'Todos'
-};
-
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  exam: 'Examen',
-  deadline: 'Entrega',
-  class: 'Clase',
-  holiday: 'Festivo',
-  event: 'Evento',
-};
-
-const WEEKDAYS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
-
 export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, onConsumeId?: () => void }) {
   const { colors } = useTheme();
+  const { t, language } = useTranslation();
   const { can } = useCurrentUser();
   const { allEvents, loading, saveEvent, deleteEvent, publishEventToSocial } = useCalendarEvents();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+
+  const monthsResult = t('calendar.months', { returnObjects: true });
+  const months = (Array.isArray(monthsResult) ? monthsResult : [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]) as unknown as string[];
+
+  const daysResult = t('calendar.days_short', { returnObjects: true });
+  const weekdays = (Array.isArray(daysResult) ? daysResult : ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]) as unknown as string[];
 
   React.useEffect(() => {
     if (initialId && allEvents.length > 0) {
@@ -81,9 +65,8 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
     return range;
   }, [yearRangeStart]);
 
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const monthName = currentDate.toLocaleString('es-ES', { month: 'long' });
-  const yearName = currentDate.toLocaleString('es-ES', { year: 'numeric' });
+  const monthName = months[month];
+  const yearName = year.toString();
 
   const eventsInMonth = useMemo(() => {
     return allEvents.filter(e => {
@@ -111,126 +94,136 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
   }
 
   return (
-    <div style={{ padding: '16px 20px', overflowY: 'auto', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: colors.backgroundSecondary, padding: '6px 12px', borderRadius: 12, border: `1px solid ${colors.border}`, minWidth: 260, justifyContent: 'space-between' }}>
-            <button onClick={prevMonth} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex' }}><ChevronLeft size={20} /></button>
-            <div onClick={() => setShowSelector(true)} style={{ fontWeight: 800, fontSize: 16, color: colors.text, textTransform: 'capitalize', cursor: 'pointer' }}>{monthName} <span style={{ opacity: 0.5 }}>{yearName}</span></div>
-            <button onClick={nextMonth} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex' }}><ChevronRight size={20} /></button>
+    <>
+    <div style={{ display: 'flex', gap: 40, height: '100%', overflow: 'hidden', padding: '0 10px' }}>
+      {/* Left Column: Fixed Calendar Control */}
+      <div style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', backgroundColor: colors.backgroundSecondary, padding: '10px 20px', borderRadius: 20, border: `1px solid ${colors.border}`, justifyContent: 'space-between' }}>
+          <button onClick={prevMonth} style={{ padding: 8, background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex' }}><ChevronLeft size={22} /></button>
+          <div onClick={() => setShowSelector(true)} style={{ fontWeight: 800, fontSize: 18, color: colors.text, textTransform: 'capitalize', cursor: 'pointer' }}>{monthName} <span style={{ opacity: 0.5 }}>{yearName}</span></div>
+          <button onClick={nextMonth} style={{ padding: 8, background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex' }}><ChevronRight size={22} /></button>
+        </div>
+
+        <div style={{ backgroundColor: colors.card, borderRadius: 28, border: `1px solid ${colors.border}`, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 16 }}>
+            {weekdays.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: '800', color: colors.textSecondary, opacity: 0.6 }}>{d}</div>)}
           </div>
-        </div>
-        {(can('createAcademicEvent') || can('createGeneralEvent')) && (
-          <button onClick={() => { setEditingEvent(null); setShowModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 12, backgroundColor: colors.primary, color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${colors.primary}30`, fontSize: 14 }}>
-            <Plus size={18} /><span>Nuevo Evento</span>
-          </button>
-        )}
-      </div>
-
-      <div style={{ backgroundColor: colors.card, borderRadius: 20, border: `1px solid ${colors.border}`, padding: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 12 }}>
-          {WEEKDAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: '800', color: colors.textSecondary, opacity: 0.6 }}>{d}</div>)}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
-          {Array.from({ length: startOffset }).map((_, i) => <div key={`empty-${i}`} />)}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-            const isSelected = selectedDay === day;
-            const dayEvents = getEventsForDay(day);
-
-            return (
-              <div key={day} onClick={() => setSelectedDay(day)} style={{ minHeight: 90, padding: 8, borderRadius: 12, backgroundColor: isSelected ? `${colors.primary}10` : isToday ? colors.backgroundSecondary : 'transparent', border: isSelected ? `1.5px solid ${colors.primary}` : `1px solid ${colors.border}44`, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontSize: 14, fontWeight: isToday || isSelected ? '800' : '600', color: isSelected ? colors.primary : colors.text, opacity: isToday || isSelected ? 1 : 0.7 }}>{day}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {dayEvents.slice(0, 2).map(event => (
-                    <div key={event.id} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, backgroundColor: `${EVENT_TYPE_COLORS[event.type]}15`, color: EVENT_TYPE_COLORS[event.type], fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</div>
-                  ))}
-                  {dayEvents.length > 2 && <div style={{ fontSize: 9, fontWeight: 'bold', color: colors.textSecondary, paddingLeft: 6, marginTop: 1 }}>+ {dayEvents.length - 2} tareas</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <CalendarIcon size={18} color={colors.primary} />
-          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{selectedDay ? `Eventos para el ${selectedDay} de ${monthName}` : 'Selecciona un día'}</ThemedText>
-        </div>
-        {selectedDayEvents.length === 0 ? (
-          <div style={{ padding: '32px', textAlign: 'center', borderRadius: 20, border: `2px dashed ${colors.border}`, opacity: 0.5 }}><ThemedText style={{ fontSize: 14 }}>No hay eventos programados para hoy</ThemedText></div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {selectedDayEvents.map(event => {
-              const color = EVENT_TYPE_COLORS[event.type] || colors.primary;
-              const deptLabel = event.departmentId ? (DEPARTMENT_MAP[event.departmentId] || event.departmentId) : null;
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
+            {Array.from({ length: startOffset }).map((_, i) => <div key={`empty-${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+              const isSelected = selectedDay === day;
+              const dayEvents = getEventsForDay(day);
 
               return (
-                <div key={event.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, borderRadius: 16, backgroundColor: colors.card, border: `1px solid ${colors.border}`, transition: 'transform 0.1s' }}>
-                  <div style={{ width: 4, height: 60, borderRadius: 2, backgroundColor: color }} />
-                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => { setEditingEvent(event); setShowModal(true); }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                      <div style={{ 
-                        padding: '2px 8px', 
-                        borderRadius: 6, 
-                        backgroundColor: color + '15', 
-                        color: color,
-                        fontSize: 9,
-                        fontWeight: 900,
-                        textTransform: 'uppercase'
-                      }}>
-                        {EVENT_TYPE_LABELS[event.type]}
-                      </div>
-                      {deptLabel && deptLabel !== 'Todos' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 6, backgroundColor: colors.backgroundSecondary, color: colors.textSecondary }}>
-                          <Users size={10} />
-                          <span style={{ fontSize: 9, fontWeight: 800 }}>{deptLabel}</span>
-                        </div>
-                      )}
-                    </div>
-                    <ThemedText style={{ fontWeight: '700', fontSize: 16, display: 'block', marginBottom: 6 }}>{event.title}</ThemedText>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: 0.6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /><ThemedText style={{ fontSize: 12 }}>{event.time || 'Todo el día'}</ThemedText></div>
-                      {event.location && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Tag size={12} /><ThemedText style={{ fontSize: 12 }}>{event.location}</ThemedText></div>}
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {!event.isPublished && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); publishEventToSocial(event); }}
-                        style={{ width: 36, height: 36, borderRadius: 10, border: 'none', backgroundColor: colors.primary + '10', color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                        title="Publicar en Descubrir"
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = colors.primary + '20'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = colors.primary + '10'; }}
-                      >
-                        <Share2 size={16} />
-                      </button>
-                    )}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); deleteEvent(event.id); }}
-                      style={{ width: 36, height: 36, borderRadius: 10, border: 'none', backgroundColor: colors.danger + '10', color: colors.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                      title="Eliminar evento"
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = colors.danger + '20'; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = colors.danger + '10'; }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                <div 
+                  key={day} 
+                  onClick={() => setSelectedDay(day)} 
+                  style={{ 
+                    aspectRatio: '1', 
+                    borderRadius: 12, 
+                    backgroundColor: isSelected ? colors.primary : isToday ? colors.backgroundSecondary : 'transparent', 
+                    border: isSelected ? `none` : isToday ? `1px solid ${colors.primary}40` : `1px solid transparent`, 
+                    cursor: 'pointer', 
+                    transition: 'all 0.2s', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: isToday || isSelected ? '800' : '600', color: isSelected ? '#fff' : colors.text }}>{day}</div>
+                  {dayEvents.length > 0 && !isSelected && (
+                    <div style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.primary }} />
+                  )}
                 </div>
               );
             })}
           </div>
+        </div>
+
+        {(can('createAcademicEvent') || can('createGeneralEvent')) && (
+          <button onClick={() => { setEditingEvent(null); setShowModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px', borderRadius: 16, backgroundColor: colors.primary, color: '#fff', border: 'none', fontWeight: 800, cursor: 'pointer', boxShadow: `0 8px 20px ${colors.primary}40`, fontSize: 15, width: '100%', justifyContent: 'center' }}>
+            <Plus size={20} /><span>{t('calendar.add_event')}</span>
+          </button>
         )}
       </div>
+
+      {/* Right Column: Scrollable Event List */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CalendarIcon size={20} color={colors.primary} />
+            <ThemedText style={{ fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>{t('calendar.upcoming_events')}</ThemedText>
+          </div>
+          {selectedDay && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <ThemedText style={{ fontSize: 32, fontWeight: '800' }}>{selectedDay}</ThemedText>
+              <ThemedText style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>
+                {t('calendar.date_format', { day: selectedDay, month: months[month] })}
+              </ThemedText>
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: 12 }}>
+          {selectedDayEvents.length === 0 ? (
+            <div style={{ padding: '60px 40px', textAlign: 'center', borderRadius: 24, border: `2px dashed ${colors.border}`, opacity: 0.5, backgroundColor: colors.backgroundSecondary }}>
+              <ThemedText style={{ fontSize: 15, fontWeight: '600' }}>{t('calendar.no_events_day')}</ThemedText>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {selectedDayEvents.map(event => {
+                const color = EVENT_TYPE_COLORS[event.type] || colors.primary;
+                const deptKey = event.departmentId?.toLowerCase().replace(/ /g, '_');
+                const deptLabel = deptKey ? t(`common.departments.${deptKey}`, { defaultValue: event.departmentId }) : null;
+
+                return (
+                  <div key={event.id} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: 20, borderRadius: 20, backgroundColor: colors.backgroundSecondary, border: `1px solid ${colors.border}`, transition: 'all 0.2s', cursor: 'default' }}>
+                    <div style={{ width: 4, height: 60, borderRadius: 10, backgroundColor: color, boxShadow: `0 0 10px ${color}40` }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <div style={{ padding: '4px 10px', borderRadius: 8, backgroundColor: color + '20', color: color, fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>
+                          {t(`calendar.event_types.${event.type?.toLowerCase()}`)}
+                        </div>
+                        {deptLabel && event.departmentId !== 'all' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, backgroundColor: colors.border + '30', color: colors.textSecondary, fontSize: 10, fontWeight: 800 }}>
+                            <Users size={12} />
+                            <span>{deptLabel}</span>
+                          </div>
+                        )}
+                      </div>
+                      <ThemedText style={{ fontWeight: '800', fontSize: 18, display: 'block', marginBottom: 8 }}>{event.title}</ThemedText>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, opacity: 0.6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Clock size={14} /><ThemedText style={{ fontSize: 13, fontWeight: '600' }}>{event.time || t('calendar.all_day')}</ThemedText></div>
+                        <div style={{ marginLeft: 'auto', fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>{new Date(event.date).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { day: 'numeric', month: 'short' })}</div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(can('createAcademicEvent') || can('createGeneralEvent')) && (
+                        <>
+                          {!event.isPublished && (
+                            <button onClick={() => publishEventToSocial(event)} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.primary + '15', color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Share2 size={16} /></button>
+                          )}
+                          <button onClick={() => deleteEvent(event.id)} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.danger + '15', color: colors.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
 
       {showSelector && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
           <div style={{ backgroundColor: colors.card, borderRadius: 24, padding: 24, width: 340, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><ThemedText style={{ fontWeight: '800', fontSize: 18 }}>Seleccionar fecha</ThemedText><button onClick={() => setShowSelector(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><ThemedText style={{ fontWeight: '800', fontSize: 18 }}>{t('calendar.select_date')}</ThemedText><button onClick={() => setShowSelector(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>{months.map((m, i) => <button key={m} onClick={() => { setCurrentDate(new Date(year, i, 1)); setShowSelector(false); }} style={{ padding: '10px 4px', borderRadius: 10, border: 'none', backgroundColor: month === i ? colors.primary : colors.backgroundSecondary, color: month === i ? '#fff' : colors.text, fontSize: 12, fontWeight: '700', cursor: 'pointer' }}>{m.slice(0, 3).toUpperCase()}</button>)}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}><button onClick={() => setYearRangeStart(yearRangeStart - 12)} style={{ padding: 6, background: 'none', border: 'none', color: colors.textSecondary }}><ChevronLeft size={18} /></button><div style={{ flex: 1, height: 1, backgroundColor: colors.border }} /><button onClick={() => setYearRangeStart(yearRangeStart + 12)} style={{ padding: 6, background: 'none', border: 'none', color: colors.textSecondary }}><ChevronRight size={18} /></button></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>{years.map(y => <button key={y} onClick={() => { setCurrentDate(new Date(y, month, 1)); setShowSelector(false); }} style={{ padding: '8px 4px', borderRadius: 8, border: 'none', backgroundColor: year === y ? colors.primary : 'transparent', color: year === y ? '#fff' : colors.text, fontSize: 11, fontWeight: '700', cursor: 'pointer' }}>{y}</button>)}</div>
@@ -248,6 +241,6 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
           }}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Lock, CheckCircle2, Search, UserPlus } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
@@ -13,51 +14,36 @@ interface StudyGroupModalProps {
   initialData?: any;
 }
 
-const CATEGORIES = {
-  asignaturas: [
-    'Matemáticas', 'Física', 'Química', 'Historia', 'Inglés', 'Francés', 
-    'Filosofía', 'Economía', 'Tecnología', 'Programación', 'Otro'
-  ],
-  departamentos: [
-    'Hostelería y Turismo', 'Sanidad', 'Informática y Comunicaciones', 
-    'Actividades Físicas y Deportivas', 'Administración y Gestión', 
-    'Servicios Socioculturales', 'Energía y Agua', 'Madera, Mueble y Corcho', 
-    'Seguridad y Medio Ambiente', 'Idiomas', 'FOL', 'Orientación', 
-    'Innovación y Calidad'
-  ],
-  ciclos: [
-    'ASIR', 'DAM', 'DAW', 'SMR', 'TSEAS', 'TCAE', 'Emergencias Sanitarias', 
-    'Higiene Bucodental', 'Educación Infantil', 'TAPSD', 'Gestión Administrativa', 
-    'Finanzas y Seguros', 'Guía, Información y Asistencia', 'Otro'
-  ]
-};
-
-const COLORS = [
-  '#007AFF', '#34C759', '#FF9500', '#FF3B30', 
-  '#AF52DE', '#5AC8FA', '#FF2D55', '#FFCC00'
-];
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administración',
-  teacher: 'Profesor/a',
-  student: 'Alumno/a'
-};
-
 export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyGroupModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { showAlert } = useAlert();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<keyof typeof CATEGORIES>('asignaturas');
+  const [activeTab, setActiveTab] = useState<'subjects' | 'departments' | 'cycles'>('subjects');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [invitedUsers, setInvitedUsers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const subjects = ['math', 'physics', 'chemistry', 'history', 'english', 'french', 'philosophy', 'economy', 'technology', 'programming', 'other'];
+  const departments = ['admin_mgmt', 'counseling', 'energy_water', 'fol', 'health', 'hospitality_tourism', 'innovation', 'it_comms', 'languages', 'security_env', 'social_services', 'sports', 'wood_furniture'];
+  const cycles = ['asir', 'dam', 'daw', 'smr', 'tseas', 'tcae', 'emergencias_sanitarias', 'higiene_bucodental', 'educacion_infantil', 'tapsd', 'gestion_administrativa', 'finanzas_y_seguros', 'guia,_informacion_y_asistencia'];
+
+  const ROLE_LABELS: Record<string, string> = {
+    admin: t('common.role_admin'),
+    teacher: t('common.role_teacher'),
+    student: t('common.role_student')
+  };
+
+  const COLORS = [
+    '#007AFF', '#34C759', '#FF9500', '#FF3B30', 
+    '#AF52DE', '#5AC8FA', '#FF2D55', '#FFCC00'
+  ];
+
   const [form, setForm] = useState({
     name: '',
     description: '',
-    category: '', // Mantenemos como categoria principal (segun la ultima seleccion o la primera)
-    categoryType: 'asignaturas' as keyof typeof CATEGORIES,
+    categoryType: 'subjects' as 'subjects' | 'departments' | 'cycles',
     isPrivate: false,
     color: COLORS[0],
     whoCanJoin: 'everyone' as 'everyone' | 'teacher' | 'student' | 'admin',
@@ -71,8 +57,7 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
       setForm({
         name: initialData.name || '',
         description: initialData.description || '',
-        category: initialData.category || initialData.subject || '',
-        categoryType: (initialData.categoryType as any) || 'asignaturas',
+        categoryType: (initialData.categoryType as any) || 'subjects',
         isPrivate: initialData.isPrivate || false,
         color: initialData.color || COLORS[0],
         whoCanJoin: initialData.whoCanJoin || 'everyone',
@@ -80,10 +65,10 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
         departments: initialData.departments || [],
         cycles: initialData.cycles || [],
       });
-      setActiveTab((initialData.categoryType as any) || 'asignaturas');
+      setActiveTab((initialData.categoryType as any) || 'subjects');
     } else {
       setForm({
-        name: '', description: '', category: '', categoryType: 'asignaturas',
+        name: '', description: '', categoryType: 'subjects',
         isPrivate: false, color: COLORS[0], whoCanJoin: 'everyone',
         subjects: [], departments: [], cycles: []
       });
@@ -107,20 +92,19 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
   const handleSave = async () => {
     const hasCategory = form.subjects.length > 0 || form.departments.length > 0 || form.cycles.length > 0;
     if (!form.name || !hasCategory) {
-      showAlert({ title: 'Atención', message: 'Por favor, rellena el nombre y selecciona al menos una categoría.', type: 'info' });
+      showAlert({ title: t('common.info'), message: t('groups.alerts.complete_fields'), type: 'info' });
       return;
     }
     setLoading(true);
     try {
       await onSave({
         ...form,
-        subject: form.subjects[0] || form.departments[0] || form.cycles[0] || 'Otro',
         invitedUsers,
       });
       onClose();
     } catch (err) {
       console.error(err);
-      showAlert({ title: 'Error', message: 'Error al guardar el grupo', type: 'error' });
+      showAlert({ title: t('common.error'), message: t('groups.alerts.save_error'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -151,9 +135,9 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: colors.text }}>
-                {initialData ? 'Editar Grupo' : 'Nuevo Grupo de Estudio'}
+                {initialData ? t('groups.edit_title') : t('groups.new_group_title')}
               </h2>
-              <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>Configura tu espacio de estudio</ThemedText>
+              <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{t('groups.group_setup')}</ThemedText>
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', color: colors.textSecondary }}>
@@ -164,82 +148,69 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>NOMBRE DEL GRUPO</label>
+              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>{t('groups.fields.name')}</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="Ej: Dream Team Programación"
+                placeholder={t('groups.placeholders.name')}
                 style={{ padding: '14px 18px', borderRadius: 14, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none', fontWeight: 500 }}
               />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>DESCRIPCIÓN</label>
+              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>{t('groups.fields.description')}</label>
               <textarea
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="Describe el objetivo del grupo..."
+                placeholder={t('groups.placeholders.description')}
                 rows={2}
                 style={{ padding: '14px 18px', borderRadius: 14, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, outline: 'none', resize: 'none', fontWeight: 500 }}
               />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>CATEGORÍA / ASIGNATURA</label>
-              <div style={{ display: 'flex', gap: 8, padding: 4, backgroundColor: colors.backgroundSecondary, borderRadius: 14 }}>
-                {(['asignaturas', 'departamentos', 'ciclos'] as const).map(tab => (
+              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>{t('groups.fields.category')}</label>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20, backgroundColor: colors.backgroundSecondary, padding: 6, borderRadius: 14 }}>
+                {['subjects', 'departments', 'cycles'].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => { setActiveTab(tab); setForm({...form, categoryType: tab}); }}
+                    onClick={() => { setActiveTab(tab as any); setForm({...form, categoryType: tab as any}); }}
                     style={{
                       flex: 1, padding: '10px', borderRadius: 10, border: 'none',
                       backgroundColor: activeTab === tab ? colors.primary : 'transparent',
                       color: activeTab === tab ? '#fff' : colors.textSecondary,
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize'
+                      fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s'
                     }}
                   >
-                    {tab}
+                    {t(`groups.types.${tab}`)}
                   </button>
                 ))}
               </div>
 
-              <div style={{ 
-                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10
-              }}>
-                {CATEGORIES[activeTab].map(item => {
-                  const currentList = activeTab === 'asignaturas' ? form.subjects : 
-                                    activeTab === 'departamentos' ? form.departments : 
-                                    form.cycles;
-                  const isSelected = currentList.includes(item);
-
-                  const toggleSelection = () => {
-                    let newList: string[];
-                    if (isSelected) {
-                      newList = currentList.filter(i => i !== item);
-                    } else {
-                      newList = [...currentList, item];
-                    }
-
-                    if (activeTab === 'asignaturas') setForm({ ...form, subjects: newList });
-                    else if (activeTab === 'departamentos') setForm({ ...form, departments: newList });
-                    else setForm({ ...form, cycles: newList });
-                  };
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, padding: 16, backgroundColor: colors.backgroundSecondary, borderRadius: 16, maxHeight: 180, overflowY: 'auto' }}>
+                {(activeTab === 'subjects' ? subjects : activeTab === 'departments' ? departments : cycles).map((item) => {
+                  const isSelected = form.subjects.includes(item) || form.departments.includes(item) || form.cycles.includes(item);
+                  const translationKey = activeTab === 'subjects' ? `groups.subjects_list.${item}` : activeTab === 'departments' ? `common.departments.${item}` : `groups.cycles_list.${item}`;
+                  const label = t(translationKey, { defaultValue: item.toUpperCase() });
 
                   return (
                     <button
                       key={item}
-                      onClick={toggleSelection}
+                      onClick={() => {
+                        const field = activeTab === 'subjects' ? 'subjects' : activeTab === 'departments' ? 'departments' : 'cycles';
+                        const current = (form as any)[field];
+                        const next = current.includes(item) ? current.filter((s: string) => s !== item) : [...current, item];
+                        setForm({ ...form, [field]: next });
+                      }}
                       style={{
-                        padding: '12px', borderRadius: 12, border: `1.5px solid ${isSelected ? colors.primary : colors.border}`,
-                        backgroundColor: isSelected ? colors.primary + '10' : colors.card,
-                        color: isSelected ? colors.primary : colors.text,
-                        fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        padding: '8px 16px', borderRadius: 20, border: `1px solid ${isSelected ? colors.primary : colors.border}`,
+                        backgroundColor: isSelected ? colors.primary : colors.card,
+                        color: isSelected ? '#fff' : colors.text,
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
                       }}
                     >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item}</span>
-                      {isSelected && <CheckCircle2 size={14} />}
+                      {label}
                     </button>
                   );
                 })}
@@ -247,7 +218,7 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>COLOR DEL GRUPO</label>
+              <label style={{ fontSize: 13, fontWeight: 800, color: colors.text, opacity: 0.8 }}>{t('groups.fields.color')}</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 {COLORS.map(c => (
                   <button
@@ -281,22 +252,22 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
                   }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <ThemedText style={{ fontSize: 14, fontWeight: '800' }}>Grupo Privado</ThemedText>
-                  <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>Solo accesible mediante invitación directa</ThemedText>
+                  <ThemedText style={{ fontSize: 14, fontWeight: '800' }}>{t('groups.fields.privacy')}</ThemedText>
+                  <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{t('groups.fields.privacy_desc')}</ThemedText>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 800, opacity: 0.6 }}>QUIÉN PUEDE UNIRSE</label>
+                <label style={{ fontSize: 12, fontWeight: 800, opacity: 0.6 }}>{t('groups.fields.who_can_join')}</label>
                 <select 
                   value={form.whoCanJoin}
                   onChange={e => setForm({ ...form, whoCanJoin: e.target.value as any })}
                   style={{ padding: '10px', borderRadius: 10, border: `1px solid ${colors.border}`, backgroundColor: colors.background, color: colors.text, outline: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
                 >
-                  <option value="everyone">Todos</option>
-                  <option value="teacher">Solo profesores</option>
-                  <option value="student">Solo alumnos</option>
-                  <option value="admin">Solo administradores</option>
+                  <option value="everyone">{t('groups.visibility_options.everyone')}</option>
+                  <option value="teacher">{t('groups.visibility_options.teacher')}</option>
+                  <option value="student">{t('groups.visibility_options.student')}</option>
+                  <option value="admin">{t('groups.visibility_options.admin')}</option>
                 </select>
               </div>
             </div>
@@ -311,19 +282,19 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
               }}
             >
               <UserPlus size={20} />
-              <span>Invitar Miembros ({invitedUsers.length})</span>
+              <span>{t('groups.invite_btn')} ({invitedUsers.length})</span>
             </button>
           </div>
         </div>
 
         <div style={{ padding: '24px 32px', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: 12 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '16px', borderRadius: 16, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 800, cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={onClose} style={{ flex: 1, padding: '16px', borderRadius: 16, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 800, cursor: 'pointer' }}>{t('common.cancel')}</button>
           <button 
             onClick={handleSave}
             disabled={!form.name || (!form.subjects.length && !form.departments.length && !form.cycles.length) || loading}
             style={{ flex: 1, padding: '16px', borderRadius: 16, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 800, cursor: 'pointer', opacity: (!form.name || (!form.subjects.length && !form.departments.length && !form.cycles.length) || loading) ? 0.5 : 1 }}
           >
-            {loading ? 'Guardando...' : initialData ? 'Guardar Cambios' : 'Crear Grupo'}
+            {loading ? t('common.saving') : initialData ? t('common.save') : t('groups.create_btn')}
           </button>
         </div>
       </div>
@@ -340,7 +311,7 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
             <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <ThemedText style={{ fontSize: 18, fontWeight: '900' }}>Invitar Usuarios</ThemedText>
+              <ThemedText style={{ fontSize: 18, fontWeight: '900' }}>{t('groups.invite_title')}</ThemedText>
               <button onClick={() => setShowInviteModal(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={24} /></button>
             </div>
             
@@ -348,7 +319,7 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', backgroundColor: colors.backgroundSecondary, borderRadius: 12 }}>
                 <Search size={18} opacity={0.5} />
                 <input 
-                  placeholder="Buscar usuarios..." 
+                  placeholder={t('groups.placeholders.search_users')} 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.text, fontSize: 14 }}
@@ -391,7 +362,7 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
 
             <div style={{ padding: '20px 24px', borderTop: `1px solid ${colors.border}` }}>
               <button onClick={() => setShowInviteModal(false)} style={{ width: '100%', padding: '14px', borderRadius: 14, backgroundColor: colors.primary, color: '#fff', border: 'none', fontWeight: '800', cursor: 'pointer' }}>
-                Listo ({invitedUsers.length})
+                {t('groups.ready')} ({invitedUsers.length})
               </button>
             </div>
           </div>

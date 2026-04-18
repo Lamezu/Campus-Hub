@@ -3,17 +3,9 @@ import { Pin, Share2, Calendar, User, Trash2, Edit2, ExternalLink } from 'lucide
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ThemedText } from '../themed-text';
+import { Avatar } from '../common/Avatar';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { Post } from '@/types';
-
-const CATEGORIES: Record<string, { label: string; color: string }> = {
-  general:    { label: 'General',         color: '#8E8E93' },
-  erasmus:    { label: 'Erasmus+',         color: '#007AFF' },
-  matricula:  { label: 'Matrícula',        color: '#34C759' },
-  eventos:    { label: 'Eventos',          color: '#AF52DE' },
-  fct:        { label: 'Prácticas FCT',    color: '#FF6B35' },
-  becas:      { label: 'Becas',            color: '#5AC8FA' },
-  evaluacion: { label: 'Evaluación',       color: '#FF3B30' },
-};
 
 interface AnnouncementCardProps {
   post: Post;
@@ -33,9 +25,20 @@ export function AnnouncementCard({
   onPress
 }: AnnouncementCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { isAdmin, firebaseUser } = useCurrentUser();
   const isAuthor = post.authorId === firebaseUser?.uid;
   const canManage = isAdmin || isAuthor;
+
+  const CATEGORIES: Record<string, { label: string; color: string }> = {
+    general:    { label: t('announcements.categories.general'),    color: '#8E8E93' },
+    erasmus:    { label: t('announcements.categories.erasmus'),    color: '#007AFF' },
+    matricula:  { label: t('announcements.categories.matricula'),  color: '#34C759' },
+    eventos:    { label: t('announcements.categories.eventos'),    color: '#AF52DE' },
+    fct:        { label: t('announcements.categories.fct'),        color: '#FF6B35' },
+    becas:      { label: t('announcements.categories.becas'),      color: '#5AC8FA' },
+    evaluacion: { label: t('announcements.categories.evaluacion'), color: '#FF3B30' },
+  };
 
   return (
     <div 
@@ -69,46 +72,36 @@ export function AnnouncementCard({
       {post.pinned && (
         <div style={{
           position: 'absolute',
-          top: -12,
-          left: 24,
+          top: 12,
+          left: 12,
           backgroundColor: colors.primary,
           color: '#fff',
-          padding: '6px 14px',
-          borderRadius: 12,
-          fontSize: 11,
+          padding: '4px 10px',
+          borderRadius: 8,
+          fontSize: 10,
           fontWeight: 800,
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
-          boxShadow: `0 8px 16px ${colors.primary}40`,
+          gap: 4,
+          boxShadow: `0 4px 10px ${colors.primary}40`,
           textTransform: 'uppercase',
           letterSpacing: 0.5,
+          zIndex: 10,
         }}>
-          <Pin size={12} fill="#fff" />
-          Fijado
+          <Pin size={10} fill="#fff" />
+          {t('announcements.card.pinned')}
         </div>
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            backgroundColor: colors.primary + '15',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}>
-            {post.authorPhoto ? (
-              <img src={post.authorPhoto} alt={post.authorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <User size={22} color={colors.primary} />
-            )}
-          </div>
+            <Avatar 
+              src={post.authorPhoto} 
+              name={post.authorName || t('announcements.card.administration')} 
+              size={44} 
+            />
           <div>
-            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: colors.text }}>{post.authorName || 'Administración'}</h4>
+            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: colors.text }}>{post.authorName || t('announcements.card.administration')}</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: colors.textSecondary, fontSize: 12 }}>
               <Calendar size={12} />
               {new Date(post.createdAt).toLocaleDateString()}
@@ -124,7 +117,7 @@ export function AnnouncementCard({
                 style={{ background: 'none', border: 'none', padding: 8, borderRadius: 12, color: post.pinned ? colors.primary : colors.textSecondary, cursor: 'pointer', transition: 'background 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                title={post.pinned ? "Desfijar" : "Fijar"}
+                title={post.pinned ? t('announcements.tooltips.unpin') : t('announcements.tooltips.pin')}
               >
                 <Pin size={18} fill={post.pinned ? colors.primary : 'none'} />
               </button>
@@ -135,7 +128,7 @@ export function AnnouncementCard({
                 style={{ background: 'none', border: 'none', padding: 8, borderRadius: 12, color: colors.textSecondary, cursor: 'pointer', transition: 'background 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                title="Editar"
+                title={t('announcements.tooltips.edit')}
               >
                 <Edit2 size={18} />
               </button>
@@ -145,7 +138,7 @@ export function AnnouncementCard({
               style={{ background: 'none', border: 'none', padding: 8, borderRadius: 12, color: '#FF3B30', cursor: 'pointer', transition: 'background 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FF3B3010'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              title="Eliminar"
+              title={t('announcements.tooltips.delete')}
             >
               <Trash2 size={18} />
             </button>
@@ -166,11 +159,11 @@ export function AnnouncementCard({
           {post.title}
         </ThemedText>
         <ThemedText 
-          numberOfLines={3}
+          numberOfLines={6}
           style={{ 
             margin: 0, 
             fontSize: 14, 
-            lineHeight: '1.5', 
+            lineHeight: '1.6', 
             color: colors.textSecondary,
             opacity: 0.8
           }}
@@ -228,7 +221,7 @@ export function AnnouncementCard({
             display: 'flex', alignItems: 'center', gap: 6, 
             fontSize: 13, color: colors.primary, fontWeight: 700 
           }}>
-            Leer más
+            {t('announcements.card.read_more')}
             <ExternalLink size={14} />
           </div>
         )}

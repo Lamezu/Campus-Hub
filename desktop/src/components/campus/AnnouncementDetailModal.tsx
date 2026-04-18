@@ -10,6 +10,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { RichTextEditor } from './RichTextEditor';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { useAlert } from '@/contexts/AlertContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { allowedEventTypes } from '@/utils/permissions';
 import type { CalendarEventType } from '@/types';
 
@@ -39,10 +40,29 @@ const EVENT_TYPES_DATA: { id: CalendarEventType; label: string; color: string }[
 
 export function AnnouncementDetailModal({ isOpen, onClose, announcement }: AnnouncementDetailModalProps) {
   const { colors } = useTheme();
+  const { t, language } = useTranslation();
   const { isAdmin, role, subrole } = useCurrentUser();
   const { updateAnnouncement, publishAsSocialPost } = useAnnouncements();
   const { createLinkedEvent, deleteEvent, allEvents } = useCalendarEvents();
   const { showAlert } = useAlert();
+
+  const CATEGORIES: Record<string, { label: string; color: string }> = {
+    general:    { label: t('announcements.categories.general'),    color: '#8E8E93' },
+    erasmus:    { label: t('announcements.categories.erasmus'),    color: '#007AFF' },
+    matricula:  { label: t('announcements.categories.matricula'),  color: '#34C759' },
+    eventos:    { label: t('announcements.categories.eventos'),    color: '#AF52DE' },
+    fct:        { label: t('announcements.categories.fct'),        color: '#FF6B35' },
+    becas:      { label: t('announcements.categories.becas'),      color: '#5AC8FA' },
+    evaluacion: { label: t('announcements.categories.evaluacion'), color: '#FF3B30' },
+  };
+
+  const EVENT_TYPES_DATA: { id: CalendarEventType; label: string; color: string }[] = [
+    { id: 'exam', label: t('announcements.event_types.exam'), color: '#FF3B30' },
+    { id: 'deadline', label: t('announcements.event_types.deadline'), color: '#FF9500' },
+    { id: 'class', label: t('announcements.event_types.class'), color: '#007AFF' },
+    { id: 'holiday', label: t('announcements.event_types.holiday'), color: '#AF52DE' },
+    { id: 'event', label: t('announcements.event_types.event'), color: '#34C759' },
+  ];
 
   const allowedTypes = allowedEventTypes(role, subrole);
   const visibleEventTypes = EVENT_TYPES_DATA.filter(t => allowedTypes.includes(t.id));
@@ -77,11 +97,11 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                    Object.values(CATEGORIES).find(c => c.label.toLowerCase() === catKey) || 
                    CATEGORIES.general || { label: 'General', color: '#8E8E93' };
   
-  const dateStr = announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString('es-ES', {
+  const dateStr = announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString(t('common.locale_code'), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }) : 'Fecha desconocida';
+  }) : t('announcements.details.date_unknown');
 
   const handleSaveDocs = async () => {
     await updateAnnouncement(announcement.id, {
@@ -100,7 +120,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
     });
 
     if (success) {
-      showAlert({ title: 'Vinculado', message: 'Se ha creado un evento en el calendario.', type: 'success' });
+      showAlert({ title: t('announcements.link_modal.success_title'), message: t('announcements.link_modal.success_message'), type: 'success' });
       setIsLinkingEvent(false);
     }
   };
@@ -172,14 +192,33 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
           <div style={{ 
             padding: '24px 40px', 
             display: 'flex', 
-            justifyContent: 'flex-end', 
-            alignItems: 'baseline', 
-            gap: 12,
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
             borderBottom: `1px solid ${colors.border}`,
             backgroundColor: (colors.backgroundSecondary || '#eee') + '20'
           }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 }}>DOCUMENTACIÓN /</div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.textSecondary, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{announcement.title}</h2>
+            <button 
+              onClick={() => setView('details')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: colors.primary,
+                padding: '4px 8px',
+                borderRadius: 8,
+                backgroundColor: colors.primary + '10'
+              }}
+            >
+              <ArrowLeft size={18} />
+              <span style={{ fontWeight: 800, fontSize: 13, textTransform: 'uppercase' }}>{t('announcements.editor.back_to_details')}</span>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 }}>DOCUMENTACIÓN /</div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.textSecondary, maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{announcement.title}</h2>
+            </div>
           </div>
         )}
 
@@ -195,13 +234,13 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
             <>
               <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                 <div style={{ padding: '6px 12px', borderRadius: 8, backgroundColor: (category?.color || '#888') + '15', color: category?.color || '#888', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>{category.label}</div>
-                {announcement.pinned && <div style={{ padding: '6px 12px', borderRadius: 8, backgroundColor: (colors.primary || '#007AFF') + '15', color: colors.primary, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><Pin size={12} fill={colors.primary} />Fijado</div>}
+                {announcement.pinned && <div style={{ padding: '6px 12px', borderRadius: 8, backgroundColor: (colors.primary || '#007AFF') + '15', color: colors.primary, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4, textTransform: 'uppercase' }}><Pin size={12} fill={colors.primary} />{t('announcements.details.pinned')}</div>}
               </div>
 
               <h1 style={{ margin: '0 0 16px 0', fontSize: 32, fontWeight: 800, color: colors.text, lineHeight: 1.2 }}>{announcement.title}</h1>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 32, color: colors.textSecondary, fontSize: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={16} /><span style={{ fontWeight: 600 }}>{announcement.authorName || 'Administración'}</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={16} /><span style={{ fontWeight: 600 }}>{announcement.authorName || t('common.user')}</span></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={16} /><span>{dateStr}</span></div>
               </div>
 
@@ -212,7 +251,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
               <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <h3 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 700, color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: 10 }}>
                   <BookOpen size={20} />
-                  Documentación Detallada
+                  {t('announcements.details.documentation')}
                 </h3>
                 
                 {docsContent ? (
@@ -248,7 +287,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                       background: `linear-gradient(transparent, ${colors.background})`,
                       display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 15
                     }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: colors.primary }}>Haga clic para expandir</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: colors.primary }}>{t('announcements.details.expand')}</span>
                     </div>
                   </div>
                 ) : (
@@ -264,7 +303,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                     onMouseLeave={e => e.currentTarget.style.borderColor = colors.border}
                   >
                     <Plus size={24} style={{ opacity: 0.5 }} />
-                    <span style={{ fontWeight: 600 }}>{isAdmin ? 'Añadir documentación técnica' : 'No hay documentación disponible'}</span>
+                    <span style={{ fontWeight: 600 }}>{isAdmin ? t('announcements.details.add_docs') : t('announcements.details.no_docs')}</span>
                   </button>
                 )}
 
@@ -274,7 +313,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                   {isLinkingEvent ? (
                     <div style={{ padding: 24, backgroundColor: colors.backgroundSecondary + '40', borderRadius: 24, border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 800, fontSize: 16 }}>Configurar Evento</span>
+                        <span style={{ fontWeight: 800, fontSize: 16 }}>{t('announcements.link_modal.title')}</span>
                         <X size={20} onClick={() => setIsLinkingEvent(false)} style={{ cursor: 'pointer', opacity: 0.5 }} />
                       </div>
 
@@ -324,7 +363,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                           boxShadow: `0 8px 20px ${colors.primary}40`
                         }}
                       >
-                        Confirmar Vinculación
+                        {t('announcements.link_modal.confirm')}
                       </button>
                     </div>
                   ) : (
@@ -337,7 +376,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
                         }}
                       >
-                        {existingEvent ? <Trash2 size={18} /> : <Calendar size={18} />} {existingEvent ? 'Desvincular' : 'Calendario'}
+                        {existingEvent ? t('announcements.details.unlink') : t('announcements.details.link_calendar')}
                       </button>
                       <button
                         onClick={(announcement.socialId || announcement.isPublished) ? undefined : handlePublishSocial}
@@ -352,7 +391,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                           opacity: (announcement.socialId || announcement.isPublished) ? 0.6 : 1,
                         }}
                       >
-                        <Share2 size={18} /> {(announcement.socialId || announcement.isPublished) ? 'Ya en Feed' : 'Publicar'}
+                        <Share2 size={18} /> {(announcement.socialId || announcement.isPublished) ? t('announcements.details.already_published') : t('announcements.details.publish_social')}
                       </button>
                     </div>
                   )}
@@ -373,7 +412,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                   <RichTextEditor 
                     value={docsContent} 
                     onChange={setDocsContent} 
-                    placeholder="Escribe aquí la documentación detallada del anuncio..."
+                    placeholder={t('announcements.editor.placeholder')}
                     minHeight={600}
                   />
                 </div>
@@ -395,7 +434,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                   <div style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: (colors.primary || '#007AFF') + '10', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
                     <BookOpen size={40} color={colors.primary} style={{ opacity: 0.6 }} />
                   </div>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: 22, fontWeight: 700, color: colors.text }}>Sin documentación disponible</h3>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: 22, fontWeight: 700, color: colors.text }}>{t('announcements.details.no_docs')}</h3>
                   <p style={{ margin: '0 0 32px 0', color: colors.textSecondary, fontSize: 15, maxWidth: 360, lineHeight: 1.6 }}>
                     Por ahora no se ha añadido información detallada a este anuncio. Si eres administrador, puedes empezar a redactar ahora mismo.
                   </p>
@@ -405,7 +444,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 32px', borderRadius: 16, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: `0 8px 20px ${colors.primary}40` }}
                     >
                       <Plus size={20} />
-                      Crear Documentación
+                      {t('announcements.editor.create')}
                     </button>
                   )}
                 </div>
@@ -430,29 +469,24 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                     onClick={() => setIsEditingDocs(false)}
                     style={{ padding: '12px 32px', borderRadius: 16, border: `1px solid ${colors.border}`, backgroundColor: colors.background, color: colors.text, fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
                   >
-                    Cancelar
+                    {t('announcements.editor.cancel')}
                   </button>
                   <button 
                     onClick={handleSaveDocs}
                     style={{ padding: '12px 48px', borderRadius: 16, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: `0 8px 20px ${colors.primary}40` }}
                   >
-                    Publicar Documentación
+                    {t('announcements.editor.publish')}
                   </button>
                 </>
               ) : (
                 <>
-                  <button 
-                    onClick={() => setView('details')}
-                    style={{ padding: '12px 32px', borderRadius: 16, border: `1px solid ${colors.border}`, backgroundColor: colors.background, color: colors.text, fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
-                  >
-                    Volver a Detalles
-                  </button>
+                  <div style={{ width: 140 }} />
                   {isAdmin && (
                     <button 
                       onClick={() => setIsEditingDocs(true)}
                       style={{ padding: '12px 48px', borderRadius: 16, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: `0 8px 20px ${colors.primary}40` }}
                     >
-                      {docsContent ? 'Editar Documentación' : 'Añadir Nueva'}
+                      {docsContent ? t('announcements.editor.edit') : t('announcements.editor.create')}
                     </button>
                   )}
                 </>
@@ -463,7 +497,7 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
               onClick={onClose}
               style={{ padding: '12px 48px', borderRadius: 16, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}
             >
-              Entendido
+              {t('common.done')}
             </button>
           )}
         </div>

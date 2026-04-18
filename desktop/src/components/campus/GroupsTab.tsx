@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, Loader2, Users as UsersIcon, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { useStudyGroups } from '@/hooks/useStudyGroups';
 import { GroupCard } from './GroupCard';
 import { StudyGroupModal } from './StudyGroupModal';
@@ -9,6 +10,7 @@ import { useCurrentUser } from '@/contexts/UserContext';
 
 export function GroupsTab() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { can, firebaseUser } = useCurrentUser();
   const navigate = useNavigate();
   const { groups, loading, createGroup, updateGroup, deleteGroup, joinGroup, leaveGroup } = useStudyGroups();
@@ -63,7 +65,7 @@ export function GroupsTab() {
           <Search size={20} color={colors.textSecondary} />
           <input 
             type="text" 
-            placeholder="Buscar grupos de estudio o asignaturas..."
+            placeholder={t('groups.search_placeholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ 
@@ -86,7 +88,7 @@ export function GroupsTab() {
             }}
           >
             <Plus size={20} />
-            <span>Crear Grupo</span>
+            <span>{t('groups.create_btn')}</span>
           </button>
         )}
       </div>
@@ -100,10 +102,10 @@ export function GroupsTab() {
         }}>
           <UsersIcon size={48} color={colors.textSecondary} opacity={0.5} />
           <div style={{ color: colors.textSecondary, fontSize: 18, fontWeight: 600 }}>
-            {search ? 'No se encontraron grupos para esta búsqueda' : 'No hay grupos de estudio disponibles'}
+            {search ? t('groups.no_results') : t('groups.no_groups')}
           </div>
           {canCreate && !search && (
-            <span style={{ fontSize: 14, opacity: 0.6 }}>Crea un grupo para estudiar con tus compañeros</span>
+            <span style={{ fontSize: 14, opacity: 0.6 }}>{t('groups.placeholders.name_hint')}</span>
           )}
         </div>
       ) : (

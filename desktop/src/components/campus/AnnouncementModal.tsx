@@ -3,6 +3,7 @@ import { X, Pin, Image as ImageIcon, Check, Loader2, Trash2 } from 'lucide-react
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { uploadAnnouncementMedia } from '@/config/cloudinary';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface AnnouncementModalProps {
   isOpen: boolean;
@@ -11,19 +12,10 @@ interface AnnouncementModalProps {
   initialData?: any;
 }
 
-const CATEGORIES = [
-  { id: 'general',    label: 'General',         color: '#8E8E93' },
-  { id: 'erasmus',    label: 'Erasmus+',         color: '#007AFF' },
-  { id: 'matricula',  label: 'Matrícula',        color: '#34C759' },
-  { id: 'eventos',    label: 'Eventos',          color: '#AF52DE' },
-  { id: 'fct',        label: 'Prácticas FCT',    color: '#FF6B35' },
-  { id: 'becas',      label: 'Becas',            color: '#5AC8FA' },
-  { id: 'evaluacion', label: 'Evaluación',       color: '#FF3B30' },
-];
-
 export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: AnnouncementModalProps) {
   const { colors } = useTheme();
   const { showAlert } = useAlert();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState({
@@ -33,6 +25,16 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
     category: 'general',
     imageUrl: '',
   });
+
+  const CATEGORIES = [
+    { id: 'general',    label: t('announcements.categories.general'),    color: '#8E8E93' },
+    { id: 'erasmus',    label: t('announcements.categories.erasmus'),    color: '#007AFF' },
+    { id: 'matricula',  label: t('announcements.categories.matricula'),  color: '#34C759' },
+    { id: 'eventos',    label: t('announcements.categories.eventos'),    color: '#AF52DE' },
+    { id: 'fct',        label: t('announcements.categories.fct'),        color: '#FF6B35' },
+    { id: 'becas',      label: t('announcements.categories.becas'),      color: '#5AC8FA' },
+    { id: 'evaluacion', label: t('announcements.categories.evaluacion'), color: '#FF3B30' },
+  ];
 
   useEffect(() => {
     if (initialData) {
@@ -58,7 +60,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
       onClose();
     } catch (err) {
       console.error(err);
-      showAlert({ title: 'Error', message: 'Error al guardar el anuncio', type: 'error' });
+      showAlert({ title: t('common.error'), message: t('announcements.announcement_alerts.alerts.error_subtitle'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -69,13 +71,12 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
     if (!file) return;
 
     try {
-      console.log('Starting image upload for file:', file.name);
+      setUploadingImage(true);
       const url = await uploadAnnouncementMedia(file, initialData?.id || 'new');
-      console.log('Upload successful, URL:', url);
       setForm(prev => ({ ...prev, imageUrl: url }));
     } catch (err) {
       console.error(err);
-      showAlert({ title: 'Error', message: 'Error al subir la imagen', type: 'error' });
+      showAlert({ title: t('common.error'), message: t('announcements.announcement_alerts.alerts.error_subtitle'), type: 'error' });
     } finally {
       setUploadingImage(false);
     }
@@ -112,7 +113,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
           alignItems: 'center',
         }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: colors.text }}>
-            {initialData ? 'Editar Anuncio' : 'Nuevo Anuncio'}
+            {initialData ? t('announcements.edit_announcement') : t('announcements.new_announcement')}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
             <X size={24} />
@@ -124,7 +125,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
           {/* Category Selection */}
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: colors.textSecondary, marginBottom: 12, textTransform: 'uppercase' }}>
-              Categoría
+              {t('announcements.category')}
             </label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {CATEGORIES.map(cat => (
@@ -150,12 +151,12 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Título</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('announcements.title')}</label>
             <input
               type="text"
               value={form.title}
               onChange={e => setForm({ ...form, title: e.target.value })}
-              placeholder="Introduce un título impactante..."
+              placeholder={t('announcements.title_placeholder')}
               style={{
                 padding: '12px 16px',
                 borderRadius: 12,
@@ -169,11 +170,11 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Contenido</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('announcements.content')}</label>
             <textarea
               value={form.content}
               onChange={e => setForm({ ...form, content: e.target.value })}
-              placeholder="¿Qué quieres anunciar?"
+              placeholder={t('announcements.content_placeholder')}
               rows={6}
               style={{
                 padding: '12px 16px',
@@ -190,7 +191,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
 
           {/* Image Upload Area */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Imagen de Portada (Opcional)</label>
+            <label style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('announcements.image_label')}</label>
             
             {form.imageUrl ? (
               <div style={{ position: 'relative', width: '100%', height: 200, borderRadius: 16, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
@@ -230,7 +231,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
                 ) : (
                   <>
                     <ImageIcon size={24} />
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>Cargar imagen</span>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{t('announcements.upload_image')}</span>
                   </>
                 )}
               </button>
@@ -261,8 +262,8 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Pin size={20} color={form.pinned ? colors.primary : colors.textSecondary} fill={form.pinned ? colors.primary : 'none'} />
               <div>
-                <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: colors.text }}>Fijar anuncio</span>
-                <span style={{ display: 'block', fontSize: 12, color: colors.textSecondary }}>Aparecerá destacado al principio del tablón</span>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: colors.text }}>{t('announcements.pin_announcement')}</span>
+                <span style={{ display: 'block', fontSize: 12, color: colors.textSecondary }}>{t('announcements.pin_help')}</span>
               </div>
             </div>
             <div style={{
@@ -296,7 +297,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
             fontWeight: 700,
             cursor: 'pointer',
           }}>
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button 
             onClick={handleSave}
@@ -312,7 +313,7 @@ export function AnnouncementModal({ isOpen, onClose, onSave, initialData }: Anno
               opacity: (!form.title || !form.content || loading) ? 0.5 : 1,
             }}
           >
-            {loading ? 'Guardando...' : initialData ? 'Guardar Cambios' : 'Publicar Anuncio'}
+            {loading ? t('common.loading') : initialData ? t('announcements.save_changes') : t('announcements.publish')}
           </button>
         </div>
       </div>

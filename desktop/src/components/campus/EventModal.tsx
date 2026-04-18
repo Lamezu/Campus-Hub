@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Type, Tag, ExternalLink, Trash2, Share2, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { allowedEventTypes } from '@/utils/permissions';
@@ -16,21 +17,22 @@ interface EventModalProps {
   initialData?: any;
 }
 
-const EVENT_TYPES_DATA: { id: CalendarEventType; label: string; color: string }[] = [
-  { id: 'exam', label: 'Examen', color: '#FF3B30' },
-  { id: 'deadline', label: 'Entrega', color: '#FF9500' },
-  { id: 'class', label: 'Clase', color: '#007AFF' },
-  { id: 'holiday', label: 'Festivo', color: '#AF52DE' },
-  { id: 'event', label: 'Evento', color: '#34C759' },
-];
-
 export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { showAlert } = useAlert();
   const { role, subrole } = useCurrentUser();
   const { deleteEvent, publishEventToSocial } = useCalendarEvents();
   const navigate = useNavigate();
   
+  const EVENT_TYPES_DATA: { id: CalendarEventType; label: string; color: string }[] = [
+    { id: 'exam', label: t('calendar.event_types.exam'), color: '#FF3B30' },
+    { id: 'deadline', label: t('calendar.event_types.deadline'), color: '#FF9500' },
+    { id: 'class', label: t('calendar.event_types.class'), color: '#007AFF' },
+    { id: 'holiday', label: t('calendar.event_types.holiday'), color: '#AF52DE' },
+    { id: 'event', label: t('calendar.event_types.event'), color: '#34C759' },
+  ];
+
   const allowedTypes = allowedEventTypes(role, subrole);
   const visibleTypes = EVENT_TYPES_DATA.filter(t => allowedTypes.includes(t.id));
   const [loading, setLoading] = useState(false);
@@ -79,7 +81,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
       onClose();
     } catch (err) {
       console.error(err);
-      showAlert({ title: 'Error', message: 'Error al guardar el evento', type: 'error' });
+      showAlert({ title: t('common.error'), message: t('calendar.save_error'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -104,7 +106,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
       onClose();
       navigate('/tabs/campus', { 
         state: { 
-          tab: 'tablon', 
+          tab: 'bulletin', 
           selectedId: initialData.linkedAnnouncementId 
         } 
       });
@@ -134,7 +136,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
       }}>
         <div style={{ padding: '24px 32px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: colors.text }}>
-            {initialData?.id ? 'Detalles del Evento' : 'Nuevo Evento'}
+            {initialData?.id ? t('calendar.event_details') : t('calendar.new_event')}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
             <X size={24} />
@@ -162,24 +164,24 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
               }}
             >
               <ExternalLink size={18} />
-              Ver Anuncio Original
+              {t('calendar.view_announcement')}
             </button>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Título</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.title')}</label>
             <input
               type="text"
               value={form.title}
               onChange={e => setForm({ ...form, title: e.target.value })}
-              placeholder="Nombre del evento o examen"
+              placeholder={t('calendar.placeholders.title')}
               style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none' }}
             />
           </div>
 
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Fecha</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.date')}</label>
               <input
                 type="date"
                 value={form.date}
@@ -188,7 +190,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
               />
             </div>
             <div style={{ width: 120, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Hora</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.time')}</label>
               <input
                 type="time"
                 value={form.time}
@@ -199,7 +201,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Tipo de Evento</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.type')}</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {visibleTypes.map((t: any) => (
                 <button
@@ -224,18 +226,18 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Descripción (Opcional)</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.description')} ({t('common.optional')})</label>
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="Notas adicionales..."
+              placeholder={t('calendar.placeholders.description')}
               rows={3}
               style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, outline: 'none', resize: 'none' }}
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>Departamento</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.department')}</label>
             <div style={{ position: 'relative' }}>
               <select
                 value={form.departmentId}
@@ -255,7 +257,9 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
                 }}
               >
                 {DEPARTMENTS.map(dep => (
-                  <option key={dep} value={dep}>{dep}</option>
+                  <option key={dep} value={dep}>
+                    {t(`common.departments.${dep.toLowerCase().replace(/ /g, '_')}`, { defaultValue: dep })}
+                  </option>
                 ))}
               </select>
               <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
@@ -267,16 +271,15 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
 
         <div style={{ padding: '24px 32px', borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            {/* Action buttons removed from here and moved to list items */}
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 700, cursor: 'pointer' }}>{t('common.cancel')}</button>
             <button 
               onClick={handleSave}
               disabled={!form.title || loading}
               style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, cursor: 'pointer', opacity: (!form.title || loading) ? 0.5 : 1 }}
             >
-              {loading ? 'Guardando...' : initialData?.id ? 'Actualizar' : 'Crear Evento'}
+              {loading ? t('common.loading') : initialData?.id ? t('common.update') : t('calendar.add_event')}
             </button>
           </div>
         </div>

@@ -1,7 +1,9 @@
 import React from 'react';
 import { Users, BookOpen, Trash2, Edit2, LogOut, Info } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import type { StudyGroup } from '@/types';
+import { useCurrentUser } from '@/contexts/UserContext';
 
 interface GroupCardProps {
   group: StudyGroup;
@@ -13,8 +15,6 @@ interface GroupCardProps {
   onDelete?: () => void;
 }
 
-import { useCurrentUser } from '@/contexts/UserContext';
-
 export function GroupCard({
   group,
   userId,
@@ -25,9 +25,13 @@ export function GroupCard({
   onDelete
 }: GroupCardProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { isAdmin } = useCurrentUser();
   const isMember = group.memberIds.includes(userId);
   const isCreatorOrAdmin = group.createdBy === userId || isAdmin;
+
+  // Resolve subject translation
+  const subjectLabel = t(`groups.subjects_list.${group.subject.toLowerCase()}`, { defaultValue: group.subject });
 
   return (
     <div 
@@ -69,6 +73,7 @@ export function GroupCard({
             <button 
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
               style={{ background: 'none', border: 'none', padding: 8, borderRadius: '50%', color: colors.textSecondary, cursor: 'pointer' }}
+              title={t('common.edit')}
             >
               <Edit2 size={18} />
             </button>
@@ -77,6 +82,7 @@ export function GroupCard({
             <button 
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
               style={{ background: 'none', border: 'none', padding: 8, borderRadius: '50%', color: '#FF3B30', cursor: 'pointer' }}
+              title={t('common.delete')}
             >
               <Trash2 size={18} />
             </button>
@@ -96,10 +102,10 @@ export function GroupCard({
             textTransform: 'uppercase',
             letterSpacing: '0.5px'
           }}>
-            {group.subject}
+            {subjectLabel}
           </span>
           {group.isPrivate && (
-             <span style={{ fontSize: 11, color: colors.textSecondary, fontWeight: 600 }}>Privado</span>
+             <span style={{ fontSize: 11, color: colors.textSecondary, fontWeight: 600 }}>{t('groups.card.private')}</span>
           )}
         </div>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: colors.text }}>{group.name}</h3>
@@ -110,13 +116,13 @@ export function GroupCard({
             {group.departments?.map(dept => (
               <div key={dept} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 4, backgroundColor: colors.background, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
                 <Users size={10} />
-                <span style={{ fontSize: 9, fontWeight: 800 }}>{dept}</span>
+                <span style={{ fontSize: 9, fontWeight: 800 }}>{t(`common.departments.${dept}`, { defaultValue: dept })}</span>
               </div>
             ))}
             {group.cycles?.map(cycle => (
               <div key={cycle} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 4, backgroundColor: colors.background, border: `1px solid ${colors.border}`, color: colors.textSecondary }}>
                 <BookOpen size={10} />
-                <span style={{ fontSize: 9, fontWeight: 800 }}>{cycle}</span>
+                <span style={{ fontSize: 9, fontWeight: 800 }}>{t(`groups.cycles_list.${cycle}`, { defaultValue: cycle })}</span>
               </div>
             ))}
           </div>
@@ -132,7 +138,7 @@ export function GroupCard({
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden'
         }}>
-          {group.description || 'Sin descripción.'}
+          {group.description || t('groups.card.no_description')}
         </p>
       </div>
 
@@ -146,12 +152,12 @@ export function GroupCard({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.textSecondary }}>
           <Users size={16} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{group.memberCount} miembros</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{t('groups.card.member_count', { count: group.memberCount })}</span>
         </div>
 
         {isMember ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, color: colors.primary, fontWeight: 700 }}>Miembro</span>
+            <span style={{ fontSize: 13, color: colors.primary, fontWeight: 700 }}>{t('groups.card.member_status')}</span>
             <button 
               onClick={(e) => { e.stopPropagation(); onLeave(); }}
               style={{ 
@@ -169,7 +175,7 @@ export function GroupCard({
               }}
             >
               <LogOut size={14} />
-              Salir
+              {t('groups.card.leave')}
             </button>
           </div>
         ) : (
@@ -187,7 +193,7 @@ export function GroupCard({
               transition: 'background-color 0.2s ease'
             }}
           >
-            Unirse al grupo
+            {t('groups.card.join')}
           </button>
         )}
       </div>

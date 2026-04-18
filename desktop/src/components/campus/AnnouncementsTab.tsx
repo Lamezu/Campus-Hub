@@ -6,20 +6,22 @@ import { AnnouncementCard } from './AnnouncementCard';
 import { AnnouncementModal } from './AnnouncementModal';
 import { AnnouncementDetailModal } from './AnnouncementDetailModal';
 import { useCurrentUser } from '@/contexts/UserContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const CATEGORIES = [
-  { key: 'all', label: 'Todos' },
-  { key: 'general', label: 'General' },
-  { key: 'erasmus', label: 'Erasmus+' },
-  { key: 'matricula', label: 'Matrícula' },
-  { key: 'eventos', label: 'Eventos' },
-  { key: 'fct', label: 'Prácticas FCT' },
-  { key: 'becas', label: 'Becas' },
-  { key: 'evaluacion', label: 'Evaluación' },
+  { key: 'all', labelKey: 'announcements.categories.all' },
+  { key: 'general', labelKey: 'announcements.categories.general' },
+  { key: 'erasmus', labelKey: 'announcements.categories.erasmus' },
+  { key: 'matricula', labelKey: 'announcements.categories.matricula' },
+  { key: 'eventos', labelKey: 'announcements.categories.eventos' },
+  { key: 'fct', labelKey: 'announcements.categories.fct' },
+  { key: 'becas', labelKey: 'announcements.categories.becas' },
+  { key: 'evaluacion', labelKey: 'announcements.categories.evaluacion' },
 ];
 
 export function AnnouncementsTab({ initialId, onConsumeId }: { initialId?: string, onConsumeId?: () => void }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { can } = useCurrentUser();
   const { 
     announcements, loading, createAnnouncement, updateAnnouncement, 
@@ -92,7 +94,7 @@ export function AnnouncementsTab({ initialId, onConsumeId }: { initialId?: strin
           <Search size={20} color={colors.textSecondary} />
           <input 
             type="text" 
-            placeholder="Buscar comunicados importantes..."
+            placeholder={t('announcements.search_announcements')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ 
@@ -118,7 +120,7 @@ export function AnnouncementsTab({ initialId, onConsumeId }: { initialId?: strin
             onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
           >
             <Plus size={20} />
-            <span>Nuevo Anuncio</span>
+            <span>{t('announcements.new_announcement')}</span>
           </button>
         )}
       </div>
@@ -141,7 +143,7 @@ export function AnnouncementsTab({ initialId, onConsumeId }: { initialId?: strin
               whiteSpace: 'nowrap',
             }}
           >
-            {cat.label}
+            {t(cat.labelKey)}
           </button>
         ))}
       </div>
@@ -155,19 +157,18 @@ export function AnnouncementsTab({ initialId, onConsumeId }: { initialId?: strin
         }}>
           <Sparkles size={48} color={colors.textSecondary} opacity={0.5} />
           <div style={{ color: colors.textSecondary, fontSize: 18, fontWeight: 600 }}>
-            {search || activeCategory !== 'all' ? 'No se encontraron comunicados con ese filtro' : 'No hay comunicados publicados'}
+            {search || activeCategory !== 'all' ? t('announcements.no_results') : t('announcements.no_announcements')}
           </div>
           {canCreate && !search && activeCategory === 'all' && (
-            <span style={{ fontSize: 14, opacity: 0.6 }}>Sé el primero en informar a la comunidad</span>
+            <span style={{ fontSize: 14, opacity: 0.6 }}>{t('announcements.create_first')}</span>
           )}
         </div>
       ) : (
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: 28,
-          paddingRight: 10,
-          overflowY: 'auto',
+          paddingBottom: 40,
         }}>
           {filtered.map(ann => (
             <AnnouncementCard 
