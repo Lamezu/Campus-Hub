@@ -1,36 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NotificationBell } from '@/components/NotificationBell';
-import { Settings, LogOut, ChevronRight, MessageSquare, Users, Hash, Edit2, Shield, GraduationCap, MapPin, Calendar, Mail, Bookmark, Star, Bell } from 'lucide-react';
+import { Settings, ChevronRight, Bookmark, Users, Shield, Star } from 'lucide-react';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { auth, db } from '@/config/firebase';
-import {
-  doc, onSnapshot, collection, query, where,
-  getCountFromServer, getDocs
-} from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
-
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ManageUsersModal } from '@/components/admin/ManageUsersModal';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { userData, loading: userLoading, isAdmin } = useCurrentUser();
-  const [stats, setStats] = useState({ channels: 0, messages: 0, friends: 0 });
   const [showManageUsers, setShowManageUsers] = useState(false);
   const currentUser = auth.currentUser;
-
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({ channels: 0, friends: 0 });
 
   useEffect(() => {
     if (!userLoading) setLoading(false);
   }, [userLoading]);
-
-  // Real stats from Firestore
-  const [counts, setCounts] = useState({ channels: 0, friends: 0 });
 
   useEffect(() => {
     if (!currentUser) return;
@@ -40,7 +34,7 @@ export default function ProfileScreen() {
 
     const unsubChannels = onSnapshot(
       query(collection(db, 'channels'), where('memberIds', 'array-contains', currentUser.uid)),
-      (snap) => {
+      snap => {
         cCount = snap.size;
         setCounts(prev => ({ ...prev, channels: cCount + sgCount }));
       }
@@ -48,7 +42,7 @@ export default function ProfileScreen() {
 
     const unsubStudyGroups = onSnapshot(
       query(collection(db, 'studyGroups'), where('memberIds', 'array-contains', currentUser.uid)),
-      (sgSnap) => {
+      sgSnap => {
         sgCount = sgSnap.size;
         setCounts(prev => ({ ...prev, channels: cCount + sgCount }));
       }
@@ -56,7 +50,7 @@ export default function ProfileScreen() {
 
     const unsubFriends = onSnapshot(
       collection(db, 'users', currentUser.uid, 'friends'),
-      (snap) => {
+      snap => {
         setCounts(prev => ({ ...prev, friends: snap.size }));
       }
     );
@@ -71,34 +65,30 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <ThemedText>Cargando perfil...</ThemedText>
+        <ThemedText>{t('profile_screen.loading')}</ThemedText>
       </ThemedView>
     );
   }
 
-  const displayName = userData?.displayName || currentUser?.displayName || 'Usuario';
+  const displayName = userData?.displayName || currentUser?.displayName || '';
   const initial = displayName.charAt(0).toUpperCase();
 
   const actions = [
-    { title: 'Mensajes Guardados', subtitle: 'Ver contenido guardado', Icon: Bookmark, route: '/saved-items' },
-    { title: 'Amigos', subtitle: 'Gestionar lista de amigos', Icon: Users, route: '/friends' },
-    { title: 'Notificaciones', subtitle: 'Ver todas las notificaciones', Icon: Bell, route: '/notifications' },
+    { title: t('profile_screen.saved_messages'), subtitle: t('profile_screen.saved_messages_desc'), Icon: Bookmark, route: '/saved-items' },
+    { title: t('profile_screen.friends'), subtitle: t('profile_screen.friends_desc'), Icon: Users, route: '/friends' },
+    ...(isAdmin ? [{ title: t('profile_screen.manage_users'), subtitle: t('profile_screen.manage_users_desc'), Icon: Shield, route: '#manage-users' }] : []),
   ];
 
-  if (isAdmin) {
-    actions.unshift({ 
-      title: 'Gestionar Usuarios', 
-      subtitle: 'Cambiar roles y permisos', 
-      Icon: Shield, 
-      route: '#manage-users' 
-    });
-  }
+  const stats = [
+    { value: counts.channels, label: t('profile_screen.stat_channels') },
+    { value: (userData as any)?.messageCount || 0, label: t('profile_screen.stat_messages') },
+    { value: counts.friends, label: t('profile_screen.stat_friends') },
+  ];
 
   return (
     <ThemedView style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
       <div style={{ flex: 1, overflowY: 'auto' }}>
 
-        {/* Profile Header */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: `${spacing.xl}px ${spacing.lg}px`,
@@ -121,7 +111,7 @@ export default function ProfileScreen() {
             marginBottom: spacing.lg, overflow: 'hidden',
           }}>
             {userData?.photoURL
-              ? <img src={userData.photoURL} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={userData.photoURL} alt={t('common.avatar')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <ThemedText style={{ fontSize: 40, fontWeight: 'bold' }}>{initial}</ThemedText>
             }
           </div>
@@ -143,22 +133,17 @@ export default function ProfileScreen() {
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
-            Editar Perfil
+            {t('profile_screen.edit_btn')}
           </button>
         </div>
 
-        {/* Stats Row (real data) */}
         <div style={{
           display: 'flex', justifyContent: 'space-around',
           margin: `${spacing.lg}px ${spacing.lg}px`,
           padding: spacing.lg, borderRadius: 20,
           backgroundColor: colors.backgroundSecondary,
         }}>
-          {[
-            { value: counts.channels, label: 'Canales' },
-            { value: (userData as any)?.messageCount || 0, label: 'Mensajes' },
-            { value: counts.friends, label: 'Amigos' },
-          ].map(stat => (
+          {stats.map(stat => (
             <div key={stat.label} style={{ textAlign: 'center' }}>
               <ThemedText style={{ fontSize: 24, fontWeight: 'bold', display: 'block' }}>{stat.value}</ThemedText>
               <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{stat.label}</ThemedText>
@@ -166,10 +151,9 @@ export default function ProfileScreen() {
           ))}
         </div>
 
-        {/* Quick Actions */}
         <div style={{ padding: spacing.lg }}>
           <ThemedText style={{ fontSize: typography.sizes.lg, fontWeight: 'bold', marginBottom: spacing.md, display: 'block' }}>
-            Acciones Rápidas
+            {t('profile_screen.quick_actions')}
           </ThemedText>
           {actions.map((action, idx) => (
             <button
@@ -204,7 +188,7 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      <ManageUsersModal 
+      <ManageUsersModal
         isOpen={showManageUsers}
         onClose={() => setShowManageUsers(false)}
       />

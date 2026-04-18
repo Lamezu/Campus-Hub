@@ -1,28 +1,30 @@
 import React, { useState } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { House, Compass, MessagesSquare, UserRound, LogOut, GraduationCap, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react';
+import { House, Compass, MessagesSquare, UserRound, LogOut, GraduationCap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import HomeScreen from './HomeScreen';
 import ExploreScreen from './ExploreScreen';
 import CampusScreen from './CampusScreen';
 import MessagesScreen from './MessagesScreen';
 import ProfileScreen from './ProfileScreen';
 
-const TABS = [
-  { id: 'home', path: '/tabs/home', label: 'Inicio', Icon: House },
-  { id: 'campus', path: '/tabs/campus', label: 'Campus', Icon: GraduationCap },
-  { id: 'explore', path: '/tabs/explore', label: 'Explorar', Icon: Compass },
-  { id: 'messages', path: '/tabs/messages', label: 'Mensajes', Icon: MessagesSquare },
-  { id: 'profile', path: '/tabs/profile', label: 'Perfil', Icon: UserRound },
-];
-
 export default function TabsLayout() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const TABS = [
+    { id: 'home', path: '/tabs/home', label: t('tabs.home'), Icon: House },
+    { id: 'campus', path: '/tabs/campus', label: t('tabs.campus'), Icon: GraduationCap },
+    { id: 'explore', path: '/tabs/explore', label: t('tabs.explore'), Icon: Compass },
+    { id: 'messages', path: '/tabs/messages', label: t('tabs.messages'), Icon: MessagesSquare },
+    { id: 'profile', path: '/tabs/profile', label: t('tabs.profile'), Icon: UserRound },
+  ];
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -33,7 +35,6 @@ export default function TabsLayout() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: colors.background, overflow: 'hidden' }}>
-      {/* Sidebar */}
       <div style={{
         width: isCollapsed ? 70 : 220,
         minWidth: isCollapsed ? 70 : 220,
@@ -45,7 +46,6 @@ export default function TabsLayout() {
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'hidden',
       }}>
-        {/* Logo & Toggle */}
         <div style={{ 
           padding: isCollapsed ? '0 0 20px' : '0 20px 20px', 
           borderBottom: `1px solid ${colors.border}`, 
@@ -90,7 +90,6 @@ export default function TabsLayout() {
           </button>
         </div>
 
-        {/* Nav tabs */}
         <div style={{ flex: 1, padding: '0 8px' }}>
           {TABS.map(({ id, path, label, Icon }) => {
             const active = isActive(path);
@@ -131,11 +130,10 @@ export default function TabsLayout() {
           })}
         </div>
 
-        {/* Logout */}
         <div style={{ padding: '0 8px', borderTop: `1px solid ${colors.border}`, marginTop: 8, paddingTop: 8 }}>
           <button
             onClick={handleLogout}
-            title={isCollapsed ? "Cerrar sesión" : undefined}
+            title={isCollapsed ? t('tabs.logout') : undefined}
             style={{
               display: 'flex', 
               alignItems: 'center', 
@@ -153,12 +151,11 @@ export default function TabsLayout() {
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <LogOut size={20} strokeWidth={1.8} />
-            {!isCollapsed && <span>Cerrar sesión</span>}
+            {!isCollapsed && <span>{t('tabs.logout')}</span>}
           </button>
         </div>
       </div>
 
-      {/* Main content */}
       <div className="scrollable" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="home" element={<HomeScreen />} />

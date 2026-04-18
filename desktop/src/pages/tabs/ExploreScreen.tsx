@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, increment, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Image as ImageIcon, Video as VideoIcon, Volume2, VolumeX, X, Music, Compass, PlusCircle } from 'lucide-react';
@@ -8,13 +8,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { PostCard } from '@/components/PostCard';
 import { NotificationBell } from '@/components/NotificationBell';
-import { spacing, typography } from '@/constants/styles';
+import { spacing } from '@/constants/styles';
 import { AlertModal } from '@/components/AlertModal';
 import { SongPicker } from '@/components/SongPicker';
 import { uploadPostMedia } from '@/config/cloudinary';
 import { toggleSavePost } from '@/services/savedItemsService';
 import { SharePostModal } from '@/components/SharePostModal';
-import type { Post, JamendoTrack } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
+import type { Post as ProjectPost, JamendoTrack } from '@/types/index';
 
 const TITLE_MAX = 50;
 const CONTENT_MAX = 500;
@@ -28,14 +29,14 @@ interface MediaAsset {
 export default function ExploreScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const currentUser = auth.currentUser;
 
   const [activeTab, setActiveTab] = useState<'discover' | 'publish'>('discover');
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<ProjectPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
-  const [sharingPost, setSharingPost] = useState<Post | null>(null);
+  const [sharingPost, setSharingPost] = useState<ProjectPost | null>(null);
 
-  // Publish state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [media, setMedia] = useState<MediaAsset | null>(null);
@@ -65,17 +66,37 @@ export default function ExploreScreen() {
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Post[] = snapshot.docs
+      const data: ProjectPost[] = snapshot.docs
         .map((doc) => {
           const d = doc.data();
+          let createdAtStr = new Date().toISOString();
+          if (d.createdAt) {
+            if (typeof d.createdAt === 'string') {
+              createdAtStr = d.createdAt;
+            } else if (typeof d.createdAt.toDate === 'function') {
+              createdAtStr = d.createdAt.toDate().toISOString();
+            } else if (d.createdAt.seconds) {
+              createdAtStr = new Date(d.createdAt.seconds * 1000).toISOString();
+            }
+          }
+          let updatedAtStr = null;
+          if (d.updatedAt) {
+            if (typeof d.updatedAt === 'string') {
+               updatedAtStr = d.updatedAt;
+            } else if (typeof d.updatedAt.toDate === 'function') {
+               updatedAtStr = d.updatedAt.toDate().toISOString();
+            } else if (d.updatedAt.seconds) {
+               updatedAtStr = new Date(d.updatedAt.seconds * 1000).toISOString();
+            }
+          }
           return {
             id: doc.id,
             ...d,
-            createdAt: d.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-            updatedAt: d.updatedAt?.toDate?.()?.toISOString() ?? null,
-          } as Post;
+            createdAt: createdAtStr,
+            updatedAt: updatedAtStr,
+          } as ProjectPost;
         })
-        .filter(p => p.postType !== 'announcement' || p.isPublished);
+        .filter((p: ProjectPost) => p.postType !== 'announcement' || p.isPublished);
       setPosts(data);
       setPostsLoading(false);
     }, (error) => {
@@ -124,10 +145,8 @@ export default function ExploreScreen() {
     try {
       let mediaUrl: string | null = null;
       if (media) {
-        console.log('[Explore] Starting media upload flow...');
         const tempId = doc(collection(db, 'posts')).id;
         mediaUrl = await uploadPostMedia(media.file, media.type, tempId);
-        console.log('[Explore] Media upload finished:', mediaUrl);
       }
       await addDoc(collection(db, 'posts'), {
         title: title.trim(),
@@ -154,7 +173,7 @@ export default function ExploreScreen() {
       setActiveTab('discover');
     } catch (error: any) {
       console.error('Error publishing:', error);
-      setAlertConfig({ isOpen: true, title: 'Error', message: error.message || 'No se pudo publicar el post. Inténtalo de nuevo.', type: 'error' });
+      setAlertConfig({ isOpen: true, title: 'Error', message: error.message || t('explore.publish.error_msg'), type: 'error' });
     } finally {
       setPublishLoading(false);
     }
@@ -162,20 +181,18 @@ export default function ExploreScreen() {
 
   return (
     <ThemedView style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
       <div style={{
-        padding: `${spacing.sm}px ${spacing.md}px`,
+        padding: `${spacing.lg}px ${spacing.md}px`,
         borderBottom: `1px solid ${colors.border}`,
         backgroundColor: colors.card,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between'
       }}>
-        <ThemedText style={{ fontSize: 20, fontWeight: 'bold' }}>Explorar</ThemedText>
-        <NotificationBell category="social" />
+        <ThemedText style={{ fontSize: 32, fontWeight: '900', margin: 0 }}>{t('explore.title')}</ThemedText>
+        <NotificationBell category="social" size={28} />
       </div>
 
-      {/* Tab Bar */}
       <div style={{
         display: 'flex',
         backgroundColor: colors.card,
@@ -192,7 +209,7 @@ export default function ExploreScreen() {
           }}
         >
           <Compass size={18} />
-          Descubrir
+          {t('explore.tabs.discover')}
         </button>
         <button
           onClick={() => setActiveTab('publish')}
@@ -204,7 +221,7 @@ export default function ExploreScreen() {
           }}
         >
           <PlusCircle size={18} />
-          Publicar
+          {t('explore.tabs.publish')}
         </button>
       </div>
 
@@ -217,7 +234,7 @@ export default function ExploreScreen() {
               </div>
             ) : posts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: spacing.xl, opacity: 0.5, marginTop: 100 }}>
-                <ThemedText style={{ fontSize: 14 }}>No hay publicaciones todavía.</ThemedText>
+                <ThemedText style={{ fontSize: 14 }}>{t('explore.no_posts')}</ThemedText>
               </div>
             ) : (
               posts.map(post => (
@@ -234,17 +251,16 @@ export default function ExploreScreen() {
             )}
           </div>
         ) : (
-          <div style={{ 
-            padding: `${spacing.lg}px ${spacing.md}px`, 
+          <div style={{
+            padding: `${spacing.lg}px ${spacing.md}px`,
             width: '100%',
             boxSizing: 'border-box',
             maxWidth: '100%'
           }}>
-            {/* Post Creation Form */}
             <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, marginBottom: spacing.md, boxSizing: 'border-box' }}>
               <input
                 type="text"
-                placeholder="Título del post"
+                placeholder={t('explore.publish.title_placeholder')}
                 value={title}
                 onChange={e => setTitle(e.target.value.slice(0, TITLE_MAX))}
                 style={{ width: '100%', border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4, boxSizing: 'border-box' }}
@@ -254,7 +270,7 @@ export default function ExploreScreen() {
 
             <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, marginBottom: spacing.md, boxSizing: 'border-box' }}>
               <textarea
-                placeholder="Escribe tu post aquí..."
+                placeholder={t('explore.publish.content_placeholder')}
                 value={content}
                 onChange={e => setContent(e.target.value.slice(0, CONTENT_MAX))}
                 style={{ width: '100%', minHeight: 150, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: 14, color: colors.text, resize: 'none', boxSizing: 'border-box' }}
@@ -275,12 +291,12 @@ export default function ExploreScreen() {
                   ) : (
                     <div style={{ height: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.backgroundSecondary }}>
                       <VideoIcon size={32} />
-                      <ThemedText style={{ fontSize: 12 }}>Vídeo seleccionado</ThemedText>
+                      <ThemedText style={{ fontSize: 12 }}>{t('explore.publish.video_selected')}</ThemedText>
                       <button
                         onClick={(e) => { e.stopPropagation(); setMuteOriginalAudio(!muteOriginalAudio); }}
                         style={{ padding: '4px 12px', borderRadius: 12, border: 'none', backgroundColor: muteOriginalAudio ? colors.danger : colors.primary, color: '#fff', fontSize: 11, fontWeight: 'bold', cursor: 'pointer' }}
                       >
-                        {muteOriginalAudio ? <VolumeX size={12} /> : <Volume2 size={12} />} {muteOriginalAudio ? 'Sin audio' : 'Con audio'}
+                        {muteOriginalAudio ? <VolumeX size={12} /> : <Volume2 size={12} />} {muteOriginalAudio ? t('explore.publish.audio_off') : t('explore.publish.audio_on')}
                       </button>
                     </div>
                   )}
@@ -291,7 +307,7 @@ export default function ExploreScreen() {
               ) : (
                 <div style={{ opacity: 0.5 }}>
                   <ImageIcon size={32} style={{ marginBottom: 8 }} />
-                  <ThemedText style={{ fontSize: 13, display: 'block' }}>Añadir foto o vídeo</ThemedText>
+                  <ThemedText style={{ fontSize: 13, display: 'block' }}>{t('explore.publish.add_media')}</ThemedText>
                 </div>
               )}
             </div>
@@ -313,7 +329,7 @@ export default function ExploreScreen() {
                 ) : (
                   <>
                     <Music size={20} style={{ opacity: 0.5 }} />
-                    <ThemedText style={{ fontSize: 13, opacity: 0.5 }}>Añadir canción</ThemedText>
+                    <ThemedText style={{ fontSize: 13, opacity: 0.5 }}>{t('explore.publish.add_song')}</ThemedText>
                   </>
                 )}
               </div>
@@ -324,7 +340,7 @@ export default function ExploreScreen() {
               disabled={!title.trim() || publishLoading}
               style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', backgroundColor: title.trim() ? colors.primary : `${colors.primary}66`, color: '#fff', fontWeight: 'bold', cursor: title.trim() ? 'pointer' : 'default' }}
             >
-              {publishLoading ? 'Publicando...' : 'Publicar'}
+              {publishLoading ? t('explore.publish.submitting_btn') : t('explore.publish.submit_btn')}
             </button>
           </div>
         )}

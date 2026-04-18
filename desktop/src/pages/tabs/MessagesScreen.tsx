@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Search, MoreHorizontal, CheckCheck, BellOff, Trash2 } from 'lucide-react';
+import { MessageSquare, Search, MoreHorizontal, CheckCheck, BellOff, Info, UserPlus, Eraser, Ban, Trash2, Users as UsersIcon, Plus } from 'lucide-react';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { NewDMModal } from '@/components/NewDMModal';
@@ -13,14 +13,14 @@ import { subscribeToGroupConversations, markGroupAsRead } from '@/services/group
 import { DMConversation, GroupConversation, User } from '@/types';
 import { NotificationBell } from '@/components/NotificationBell';
 import { NewGroupModal } from '@/components/dm/NewGroupModal';
-import { Users as UsersIcon, Plus } from 'lucide-react';
+import { useTranslation } from '@/contexts/LanguageContext';
 
-function timeLabel(iso: string): string {
+function timeLabel(iso: string, t: any): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'ahora';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+  if (diff < 60) return t('messages.time.now');
+  if (diff < 3600) return t('messages.time.m', { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t('messages.time.h', { n: Math.floor(diff / 3600) });
+  if (diff < 604800) return t('messages.time.d', { n: Math.floor(diff / 86400) });
   const d = new Date(iso);
   const now = new Date();
   if (now.getTime() - d.getTime() < 86400000 * 7) {
@@ -35,15 +35,10 @@ const ROLE_COLORS: Record<string, string> = {
   student: '#1b3b5c'
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administración',
-  teacher: 'Profesor/a',
-  student: 'Alumno/a'
-};
-
 export default function MessagesScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [conversations, setConversations] = useState<DMConversation[]>([]);
   const [groupConversations, setGroupConversations] = useState<GroupConversation[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
@@ -53,6 +48,12 @@ export default function MessagesScreen() {
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const currentUser = auth.currentUser;
+
+  const ROLE_LABELS: Record<string, string> = {
+    admin: t('messages.roles.admin'),
+    teacher: t('messages.roles.teacher'),
+    student: t('messages.roles.student')
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -82,7 +83,7 @@ export default function MessagesScreen() {
         participantId: g.id,
         participantName: g.name || 'Grupo sin nombre',
         participantPhoto: g.photoURL,
-        participantRole: 'student' as const, // For sorting/UI dummy
+        participantRole: 'student' as const,
         lastMessage: g.lastMessageSenderName ? `${g.lastMessageSenderName}: ${g.lastMessage}` : g.lastMessage,
         lastMessageAt: g.lastMessageAt || g.createdAt,
         lastMessageSenderId: g.lastMessageSenderId || '',
@@ -111,13 +112,13 @@ export default function MessagesScreen() {
     <ThemedView style={{ flex: 1 }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: colors.background }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px 20px`, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
-          <ThemedText style={{ fontSize: 22, fontWeight: '800' }}>Mensajes</ThemedText>
+          <ThemedText style={{ fontSize: 22, fontWeight: '800' }}>{t('messages.title')}</ThemedText>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <NotificationBell category="dm" />
             <div style={{ display: 'flex', gap: 8 }}>
               <button 
                 onClick={() => setShowNewGroupModal(true)} 
-                title="Nuevo Grupo"
+                title={t('messages.new_group_tooltip')}
                 style={{ 
                   background: `${colors.primary}15`, border: 'none', cursor: 'pointer', 
                   width: 38, height: 38, borderRadius: 10, display: 'flex', 
@@ -128,7 +129,7 @@ export default function MessagesScreen() {
               </button>
               <button 
                 onClick={() => setShowNewDMModal(true)} 
-                title="Nuevo DM"
+                title={t('messages.new_dm_tooltip')}
                 style={{ 
                   background: colors.primary, border: 'none', cursor: 'pointer', 
                   width: 38, height: 38, borderRadius: 10, display: 'flex', 
@@ -160,7 +161,7 @@ export default function MessagesScreen() {
             <input 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
-              placeholder="Buscar o iniciar chat..." 
+              placeholder={t('messages.search_placeholder')}
               style={{ 
                 flex: 1, 
                 background: 'none', 
@@ -179,7 +180,7 @@ export default function MessagesScreen() {
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 60 }}><div style={{ width: 32, height: 32, border: `3px solid ${colors.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>
           ) : filtered.length === 0 && filteredFriends.length === 0 ? (
             <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, opacity: 0.5, marginTop: 40 }}>
-              <MessageSquare size={48} strokeWidth={1.5} /><ThemedText style={{ fontSize: 16, fontWeight: 'bold' }}>No hay chats activos</ThemedText>
+              <MessageSquare size={48} strokeWidth={1.5} /><ThemedText style={{ fontSize: 16, fontWeight: 'bold' }}>{t('messages.no_chats')}</ThemedText>
             </div>
           ) : (
             <>
@@ -217,12 +218,12 @@ export default function MessagesScreen() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                           <ThemedText style={{ fontWeight: hasUnread ? '800' : '700', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.participantName}</ThemedText>
                           {!isGroup && <div style={{ backgroundColor: ROLE_COLORS[role] || colors.primary, padding: '2px 8px', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.8 }}><span style={{ color: '#fff', fontSize: 10, fontWeight: '600' }}>{ROLE_LABELS[role]}</span></div>}
-                          {isGroup && <div style={{ backgroundColor: colors.backgroundSecondary, padding: '2px 8px', borderRadius: 6, border: `1px solid ${colors.border}` }}><span style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '700' }}>GRUPO</span></div>}
+                          {isGroup && <div style={{ backgroundColor: colors.backgroundSecondary, padding: '2px 8px', borderRadius: 6, border: `1px solid ${colors.border}` }}><span style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '700' }}>{t('messages.group_badge')}</span></div>}
                         </div>
-                        <span style={{ fontSize: 11, color: colors.textSecondary }}>{timeLabel(conv.lastMessageAt)}</span>
+                        <span style={{ fontSize: 11, color: colors.textSecondary }}>{timeLabel(conv.lastMessageAt, t)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-                        <ThemedText style={{ fontSize: 13, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{conv.lastMessage || 'Nueva conversación'}</ThemedText>
+                        <ThemedText style={{ fontSize: 13, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{conv.lastMessage || t('messages.new_conv')}</ThemedText>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {hasUnread && <div style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingInline: 5 }}><span style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span></div>}
                           <button 
@@ -236,35 +237,44 @@ export default function MessagesScreen() {
                         </div>
 
                         {menuOpenId === conv.id && (
-                          <div style={{ position: 'absolute', top: 30, right: 0, width: 180, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 8px 16px rgba(0,0,0,0.2)', zIndex: 100, padding: 6 }}>
-                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={async (e) => { 
-                              e.stopPropagation(); 
-                              if (currentUser) {
-                                if (isGroup) {
-                                  await markGroupAsRead(conv.id, currentUser.uid);
-                                } else {
-                                  await markConversationAsRead(conv.id, currentUser.uid);
+                          <div style={{ position: 'absolute', top: 30, right: 0, width: 220, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 12, boxShadow: '0 8px 16px rgba(0,0,0,0.2)', zIndex: 100, padding: 6 }}>
+                            {hasUnread && (
+                              <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={async (e) => { 
+                                e.stopPropagation(); 
+                                if (currentUser) {
+                                  if (isGroup) {
+                                    await markGroupAsRead(conv.id, currentUser.uid);
+                                  } else {
+                                    await markConversationAsRead(conv.id, currentUser.uid);
+                                  }
                                 }
-                              }
-                              setMenuOpenId(null); 
-                            }}>
-                              <CheckCheck size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>Leído</ThemedText>
+                                setMenuOpenId(null); 
+                              }}>
+                                <CheckCheck size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>{t('messages.menu.mark_read')}</ThemedText>
+                              </button>
+                            )}
+                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}>
+                              <BellOff size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>{t('messages.menu.mute')}</ThemedText>
                             </button>
                             <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}>
-                              <BellOff size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>Silenciar</ThemedText>
+                              <Info size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>{t('messages.menu.contact_info')}</ThemedText>
+                            </button>
+                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}>
+                              <UserPlus size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>{t('messages.menu.add_friend')}</ThemedText>
+                            </button>
+                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.text }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}>
+                              <Eraser size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600 }}>{t('messages.menu.clear_chat')}</ThemedText>
                             </button>
                             <div style={{ height: 1, backgroundColor: colors.border, margin: '4px 8px' }} />
-                            <button 
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.danger }} 
-                              onMouseEnter={e => e.currentTarget.style.backgroundColor = `${colors.danger}15`} 
-                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} 
-                              onClick={async (e) => { 
-                                e.stopPropagation(); 
-                                if (currentUser) await deleteConversation(conv.id, currentUser.uid);
-                                setMenuOpenId(null); 
-                              }}
-                            >
-                              <Trash2 size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600, color: colors.danger }}>Eliminar chat</ThemedText>
+                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.danger }} onMouseEnter={e => e.currentTarget.style.backgroundColor = `${colors.danger}15`} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}>
+                              <Ban size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600, color: colors.danger }}>{t('messages.menu.block_user', { name: conv.participantName.split(' ')[0] })}</ThemedText>
+                            </button>
+                            <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: colors.danger }} onMouseEnter={e => e.currentTarget.style.backgroundColor = `${colors.danger}15`} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} onClick={async (e) => { 
+                              e.stopPropagation(); 
+                              if (currentUser) await deleteConversation(conv.id, currentUser.uid);
+                              setMenuOpenId(null); 
+                            }}>
+                              <Trash2 size={16} /><ThemedText style={{ fontSize: 13, fontWeight: 600, color: colors.danger }}>{t('messages.menu.delete_chat')}</ThemedText>
                             </button>
                           </div>
                         )}
@@ -281,7 +291,7 @@ export default function MessagesScreen() {
                       <ThemedText style={{ fontWeight: '700', fontSize: 15 }}>{f.displayName}</ThemedText>
                       <div style={{ backgroundColor: ROLE_COLORS[f.role] || colors.primary, padding: '2px 8px', borderRadius: 6, opacity: 0.8 }}><span style={{ color: '#fff', fontSize: 10, fontWeight: '600' }}>{ROLE_LABELS[f.role]}</span></div>
                     </div>
-                    <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>Empezar chat ahora</ThemedText>
+                    <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{t('messages.friends.start_chat')}</ThemedText>
                   </div>
                 </div>
               ))}

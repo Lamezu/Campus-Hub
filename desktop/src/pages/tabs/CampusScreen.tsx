@@ -5,13 +5,14 @@ import { AnnouncementsTab } from '@/components/campus/AnnouncementsTab';
 import { CalendarTab } from '@/components/campus/CalendarTab';
 import { GroupsTab } from '@/components/campus/GroupsTab';
 import { NotificationBell } from '@/components/NotificationBell';
-import { spacing } from '@/constants/styles';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 type TabId = 'tablon' | 'calendario' | 'grupos';
 
 export default function CampusScreen() {
   const { colors } = useTheme();
   const location = useLocation();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>((location.state as any)?.tab || 'tablon');
   const [initialSelectedId, setInitialSelectedId] = useState<string | undefined>((location.state as any)?.selectedId);
 
@@ -29,14 +30,14 @@ export default function CampusScreen() {
   }, [location.state]);
 
   const TABS = [
-    { id: 'tablon' as const, label: 'Tablón' },
-    { id: 'calendario' as const, label: 'Calendario' },
-    { id: 'grupos' as const, label: 'Grupos' },
+    { id: 'tablon' as const, label: t('campus.tabs.tablon') },
+    { id: 'calendario' as const, label: t('campus.tabs.calendario') },
+    { id: 'grupos' as const, label: t('campus.tabs.grupos') },
   ];
 
   return (
     <div style={{
-      padding: '32px 40px',
+      padding: '32px 40px 5px',
       maxWidth: 1400,
       margin: '0 auto',
       width: '100%',
@@ -47,8 +48,8 @@ export default function CampusScreen() {
     }}>
       <div style={{ marginBottom: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: colors.text }}>Campus</h1>
-          <p style={{ margin: '8px 0 0', color: colors.textSecondary, fontSize: 16 }}>Explora el tablón de anuncios, consulta el calendario académico y únete a grupos de estudio.</p>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: colors.text }}>{t('campus.title')}</h1>
+          <p style={{ margin: '8px 0 0', color: colors.textSecondary, fontSize: 16 }}>{t('campus.description')}</p>
         </div>
         <NotificationBell category="campus" size={28} />
       </div>

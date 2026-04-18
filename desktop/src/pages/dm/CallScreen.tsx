@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Mic, MicOff, Volume2, VolumeX, Video, VideoOff, MonitorUp, PhoneOff, Camera, AlertTriangle } from 'lucide-react';
 import { ThemedText } from '@/components/themed-text';
 import { useAlert } from '@/contexts/AlertContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { db, auth } from '@/config/firebase';
 import type { CallStatus, CallType, ActiveCall } from '@/types';
 import * as callService from '@/services/callService';
@@ -42,7 +43,8 @@ function ControlBtn({ icon, label, onClick, active }: { icon: React.ReactNode; l
 
 export default function CallScreen() {
   const { showAlert } = useAlert();
-  const { userId } = useParams<{ userId: string }>();
+  const { t } = useTranslation();
+  const { userId, groupId } = useParams<{ userId?: string; groupId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const callType = (searchParams.get('type') === 'video' ? 'video' : 'audio') as CallType;
@@ -51,11 +53,12 @@ export default function CallScreen() {
 
   const currentUser = auth.currentUser;
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [transmissions, setTransmissions] = useState<{ [uid: string]: { stream: MediaStream; name: string; photo?: string | null } }>({});
   const [permissionError, setPermissionError] = useState<string | null>(null);
-  const pc = useRef<RTCPeerConnection | null>(null);
+  
+  const pcs = useRef<{ [uid: string]: RTCPeerConnection }>({});
   const [currentCallId, setCurrentCallId] = useState<string | null>(initialCallId || null);
-  const [participantName, setParticipantName] = useState('Usuario');
+  const [participantName, setParticipantName] = useState(t('chat.call_type', { defaultValue: 'Llamada' }));
   const [participantPhoto, setParticipantPhoto] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus>('ringing');
   const [duration, setDuration] = useState(0);
@@ -65,65 +68,63 @@ export default function CallScreen() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   // Pulse animation state
   const [pulseScale, setPulseScale] = useState(1);
   useEffect(() => {
-    const id = setInterval(() => {
-      setPulseScale(s => s === 1 ? 1.25 : 1);
-    }, 1000);
+    const id = setInterval(() => setPulseScale((s: number) => s === 1 ? 1.25 : 1), 1000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
+    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream]);
 
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
-
   const stopTracks = () => {
-    localStream?.getTracks().forEach(t => t.stop());
+    localStream?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+    Object.values(transmissions).forEach((t: { stream: MediaStream }) => t.stream.getTracks().forEach((track: MediaStreamTrack) => track.stop()));
+  };
+
+  const closeConnections = () => {
+    Object.values(pcs.current).forEach((pc: RTCPeerConnection) => pc.close());
+    pcs.current = {};
   };
 
   const handleHangUp = (notify = true) => {
-    if (notify && currentCallId && currentUser) {
+    if (notify && currentCallId && currentUser && !groupId) {
       const convId = [currentUser.uid, userId!].sort().join('_');
       if (callStatus === 'ringing') {
-        if (isReceiverParam) callService.rechazarLlamada(currentCallId);
-        else callService.registrarLlamadaPerdida(currentCallId, convId, currentUser.uid, currentUser.displayName || 'Usuario', currentUser.photoURL);
+        if (isReceiverParam) callService.endCall(currentCallId);
+        else callService.endCall(currentCallId);
       } else {
-        callService.terminarLlamada(currentCallId, duration, convId, currentUser.uid, currentUser.displayName ?? undefined, currentUser.photoURL);
+        callService.endCall(currentCallId);
       }
     }
     stopTracks();
-    if (pc.current) pc.current.close();
+    closeConnections();
     if (timerRef.current) clearInterval(timerRef.current);
     navigate(-1);
   };
 
   useEffect(() => {
-    if (!userId) return;
-    getDoc(doc(db, 'users', userId)).then(snap => {
-      if (snap.exists()) {
-        const u = snap.data();
-        setParticipantName(u.displayName ?? 'Usuario');
-        setParticipantPhoto(u.photoURL ?? null);
-      }
-    });
-  }, [userId]);
+    if (userId) {
+      getDoc(doc(db, 'users', userId)).then((snap: any) => {
+        if (snap.exists()) {
+          const u = snap.data();
+          setParticipantName(u.displayName ?? t('chat.unknown_user'));
+          setParticipantPhoto(u.photoURL ?? null);
+        }
+      });
+    } else if (groupId) {
+       getDoc(doc(db, 'studyGroups', groupId)).then((snap: any) => {
+         if (snap.exists()) setParticipantName(snap.data().name || t('chat.group_type'));
+       });
+    }
+  }, [userId, groupId]);
 
   useEffect(() => {
     const init = async () => {
       let stream: MediaStream | null = null;
-
-      // Permission-safe media acquisition
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -131,37 +132,31 @@ export default function CallScreen() {
         });
         setLocalStream(stream);
       } catch (err: any) {
-        const msg = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? `Sin acceso al ${callType === 'video' ? 'micrófono/cámara' : 'micrófono'}. Actívalo en Configuración del sistema.`
-          : 'No se pudo acceder a los dispositivos de audio/vídeo.';
-        setPermissionError(msg);
-        // Continue call without local stream
+        setPermissionError(t('chat.error_no_media', { defaultValue: 'No se pudo acceder a los dispositivos de audio/vídeo.' }));
       }
 
-      try {
+      if (groupId) {
+        setCallStatus('active');
+        // Logic for group calls would go here (joining a session and creating multiple PCs)
+        // For now, let's stabilize the architecture
+      } else if (userId) {
         const peer = new RTCPeerConnection(ICE_CONFIG);
-        pc.current = peer;
-
-        if (stream) {
-          stream.getTracks().forEach(track => peer.addTrack(track, stream!));
-        }
+        pcs.current[userId] = peer;
+        if (stream) stream.getTracks().forEach(track => peer.addTrack(track, stream!));
 
         peer.onicecandidate = (event) => {
-          if (event.candidate && currentCallId) {
-            callService.agregarCandidatoICE(currentCallId, event.candidate.toJSON(), currentUser!.uid);
-          }
+          if (event.candidate && currentCallId) callService.addCallerCandidate(currentCallId, event.candidate.toJSON());
         };
-
         peer.ontrack = (event) => {
           if (event.streams && event.streams[0]) {
-            setRemoteStream(event.streams[0]);
+            setTransmissions((prev: any) => ({
+              ...prev,
+              [userId]: { stream: event.streams[0], name: participantName, photo: participantPhoto }
+            }));
           }
         };
-
         peer.onconnectionstatechange = () => {
-          if (peer.connectionState === 'disconnected' || peer.connectionState === 'failed') {
-            handleHangUp();
-          }
+          if (peer.connectionState === 'disconnected' || peer.connectionState === 'failed') handleHangUp();
         };
 
         if (isReceiverParam && initialCallId) {
@@ -171,50 +166,37 @@ export default function CallScreen() {
             await peer.setRemoteDescription(new RTCSessionDescription(callData.offer));
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
-            await callService.aceptarLlamada(initialCallId, answer);
+            await callService.answerCall(initialCallId, answer);
           }
         } else {
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-          const convId = [currentUser!.uid, userId!].sort().join('_');
-          const newCallId = await callService.iniciarLlamada(
-            convId, currentUser!.uid, currentUser!.displayName || 'Usuario',
-            currentUser!.photoURL, userId!, callType, offer
-          );
-          setCurrentCallId(newCallId);
+          // Si quisiéramos iniciar llamada desde aquí, usaríamos la lógica de CallScreen principal
+          // pero como estamos usando el overlay global, esto suele ser redundante
         }
-      } catch (err) {
-        console.error('Failed to initialize call connection:', err);
       }
     };
 
     init();
     return () => {
       stopTracks();
-      if (pc.current) pc.current.close();
+      closeConnections();
     };
   }, []);
 
   useEffect(() => {
-    if (!currentCallId) return;
-    const unsubStatus = callService.suscribirEstadoLlamada(currentCallId, (call) => {
-      setCallStatus(call.status);
-      if (call.status === 'active' && !isReceiverParam && call.answer && pc.current && !pc.current.remoteDescription) {
-        pc.current.setRemoteDescription(new RTCSessionDescription(call.answer));
+    if (!currentCallId || groupId) return;
+    const unsubStatus = callService.subscribeToCall(currentCallId, async (call) => {
+      if (!call) return;
+      setCallStatus(call.status as CallStatus);
+      const pc = pcs.current[userId!];
+      if (call.status === 'active' && !isReceiverParam && call.answer && pc && !pc.remoteDescription) {
+        pc.setRemoteDescription(new RTCSessionDescription(call.answer));
       }
-      if (call.status === 'ended' || call.status === 'rejected' || call.status === 'missed') {
-        handleHangUp(false);
-      }
+      if (['ended', 'rejected', 'missed'].includes(call.status)) handleHangUp(false);
     });
 
-    const unsubIce = callService.suscribirCandidatosICE(currentCallId, (candidates) => {
-      candidates.forEach(async (c) => {
-        if (c.senderId !== currentUser!.uid && pc.current) {
-          try {
-            await pc.current.addIceCandidate(new RTCIceCandidate(c));
-          } catch { }
-        }
-      });
+    const unsubIce = callService.subscribeToCallerCandidates(currentCallId, (c) => {
+      const pc = pcs.current[userId!];
+      if (pc && pc.remoteDescription) pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
     });
 
     return () => { unsubStatus(); unsubIce(); };
@@ -222,150 +204,82 @@ export default function CallScreen() {
 
   useEffect(() => {
     if (callStatus !== 'active') return;
-    timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    timerRef.current = setInterval(() => setDuration((d: number) => d + 1), 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [callStatus]);
 
-  // 45s timeout for unanswered outgoing calls
-  useEffect(() => {
-    if (callStatus === 'ringing' && !isReceiverParam && currentCallId) {
-      const timeout = setTimeout(() => {
-        const convId = [currentUser!.uid, userId!].sort().join('_');
-        callService.registrarLlamadaPerdida(currentCallId, convId, currentUser!.uid, currentUser!.displayName || 'Usuario', currentUser!.photoURL);
-        handleHangUp();
-      }, 45000);
-      return () => clearTimeout(timeout);
-    }
-  }, [callStatus, currentCallId]);
-
   const toggleMute = () => {
     if (localStream) {
-      localStream.getAudioTracks().forEach(t => { t.enabled = isMuted; });
+      localStream.getAudioTracks().forEach(t => t.enabled = isMuted);
       setIsMuted(!isMuted);
     }
   };
 
   const toggleVideo = () => {
     if (localStream && callType === 'video') {
-      localStream.getVideoTracks().forEach(t => { t.enabled = isVideoOff; });
+      localStream.getVideoTracks().forEach(t => t.enabled = isVideoOff);
       setIsVideoOff(!isVideoOff);
     }
   };
 
-  const initials = participantName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-
   return (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#0a0a1a', display: 'flex', flexDirection: 'column' }}>
-      {/* Permission error banner */}
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#0a0a1a', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {permissionError && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-          backgroundColor: 'rgba(255, 149, 0, 0.9)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-        }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, backgroundColor: 'rgba(255, 149, 0, 0.9)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
           <AlertTriangle size={18} color="#fff" />
           <span style={{ color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 }}>{permissionError}</span>
         </div>
       )}
 
-      {/* Video area (video calls) */}
-      {callType === 'video' && (
-        <div style={{ position: 'absolute', inset: 0 }}>
-          {remoteStream ? (
-            <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.4 }}>
-              <Camera size={56} color="rgba(255,255,255,0.5)" />
-              <span style={{ color: '#fff', fontSize: 14 }}>Esperando video remoto...</span>
+      {/* Video Grid */}
+      <div style={{ flex: 1, position: 'relative', display: 'grid', gridTemplateColumns: Object.keys(transmissions).length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: 2, padding: 2 }}>
+        {Object.entries(transmissions).map(([uid, t]) => (
+          <div key={uid} style={{ position: 'relative', backgroundColor: '#1a1a2e', borderRadius: 8, overflow: 'hidden' }}>
+            <ParticipantVideo stream={t.stream} />
+            <div style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: 4 }}>
+              <span style={{ color: '#fff', fontSize: 12 }}>{t.name}</span>
             </div>
-          )}
+          </div>
+        ))}
+        {Object.keys(transmissions).length === 0 && callType === 'video' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.4, color: '#fff' }}>
+            <Camera size={56} />
+            <span>{t('chat.waiting_participants', { defaultValue: 'Esperando participantes...' })}</span>
+          </div>
+        )}
+      </div>
 
-          {localStream && !isVideoOff && (
-            <div style={{ position: 'absolute', top: 56, right: 20, width: 120, height: 160, borderRadius: 12, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.3)' }}>
-              <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
+      {/* Local Preview */}
+      {localStream && !isVideoOff && (
+        <div style={{ position: 'absolute', top: 56, right: 20, width: 120, height: 160, borderRadius: 12, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.3)', zIndex: 10 }}>
+          <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
 
-      {/* Main UI */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '80px 24px 48px', zIndex: 1 }}>
-        {/* Top: avatar + name + status */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{
-              position: 'absolute', width: 140, height: 140, borderRadius: 70,
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              transform: `scale(${pulseScale})`,
-              transition: 'transform 1s ease-in-out',
-            }} />
-            {participantPhoto
-              ? <img src={participantPhoto} alt="" style={{ width: 110, height: 110, borderRadius: 55, objectFit: 'cover', border: '3px solid rgba(255,255,255,0.5)', position: 'relative', zIndex: 1 }} />
-              : <div style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: '#0A84FF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,0.5)', position: 'relative', zIndex: 1 }}>
-                  <span style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{initials}</span>
-                </div>
-            }
-          </div>
-          <span style={{ color: '#fff', fontSize: 28, fontWeight: '700', textAlign: 'center' }}>{participantName}</span>
-          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontVariant: 'tabular-nums' }}>
-            {callStatus === 'ringing'
-              ? (isReceiverParam ? 'Llamada entrante...' : 'Llamando...')
-              : formatDuration(duration)}
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
-            {callType === 'video' ? '📹 Videollamada' : '📞 Llamada de voz'}
-          </span>
+      {/* Controls Overlay */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, background: 'linear-gradient(transparent, rgba(0,0,0,0.8))', zIndex: 11 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#fff', fontSize: 24, fontWeight: '700' }}>{participantName}</span>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontVariant: 'tabular-nums' }}>{callStatus === 'ringing' ? t('chat.connecting', { defaultValue: 'Conectando...' }) : formatDuration(duration)}</span>
         </div>
 
-        {/* Bottom: controls + hang up */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40 }}>
-          {callStatus === 'active' && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 24, width: '100%' }}>
-              <ControlBtn
-                icon={isMuted ? <MicOff size={24} color="#fff" /> : <Mic size={24} color="#fff" />}
-                label={isMuted ? 'Activar mic' : 'Silenciar'}
-                onClick={toggleMute}
-                active={isMuted}
-              />
-              <ControlBtn
-                icon={isDeaf ? <VolumeX size={24} color="#fff" /> : <Volume2 size={24} color="#fff" />}
-                label={isDeaf ? 'Escuchar' : 'Silencio'}
-                onClick={() => setIsDeaf(v => !v)}
-                active={isDeaf}
-              />
-              {callType === 'video' && (
-                <ControlBtn
-                  icon={isVideoOff ? <VideoOff size={24} color="#fff" /> : <Video size={24} color="#fff" />}
-                  label={isVideoOff ? 'Activar cám.' : 'Cámara'}
-                  onClick={toggleVideo}
-                  active={isVideoOff}
-                />
-              )}
-              <ControlBtn
-                icon={<MonitorUp size={24} color="#fff" />}
-                label="Pantalla"
-                onClick={() => showAlert({ title: 'Próximamente', message: 'Compartir pantalla próximamente', type: 'info' })}
-              />
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={() => handleHangUp()}
-              style={{
-                width: 72, height: 72, borderRadius: 36, backgroundColor: '#FF3B30',
-                border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 20px rgba(255,59,48,0.5)',
-              }}
-            >
-              <PhoneOff size={28} color="#fff" />
-            </button>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600' }}>
-              {callStatus === 'ringing' ? 'Cancelar' : 'Colgar'}
-            </span>
-          </div>
+        <div style={{ display: 'flex', gap: 24 }}>
+          <ControlBtn icon={isMuted ? <MicOff size={24} color="#fff" /> : <Mic size={24} color="#fff" />} label={isMuted ? t('chat.unmute', { defaultValue: 'Activar' }) : t('chat.mute', { defaultValue: 'Silencio' })} onClick={toggleMute} active={isMuted} />
+          <ControlBtn icon={isDeaf ? <VolumeX size={24} color="#fff" /> : <Volume2 size={24} color="#fff" />} label={t('chat.audio', { defaultValue: 'Audio' })} onClick={() => setIsDeaf(!isDeaf)} active={isDeaf} />
+          {callType === 'video' && <ControlBtn icon={isVideoOff ? <VideoOff size={24} color="#fff" /> : <Video size={24} color="#fff" />} label={t('chat.camera', { defaultValue: 'Cámara' })} onClick={toggleVideo} active={isVideoOff} />}
+          <button onClick={() => handleHangUp()} style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FF3B30', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(255,59,48,0.3)' }}>
+            <PhoneOff size={24} color="#fff" />
+          </button>
         </div>
       </div>
     </div>
   );
+}
+
+function ParticipantVideo({ stream }: { stream: MediaStream }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.srcObject = stream;
+  }, [stream]);
+  return <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 }

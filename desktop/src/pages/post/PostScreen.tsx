@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   doc,
@@ -13,33 +13,19 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
-  getDoc,
 } from 'firebase/firestore';
-import { ChevronLeft, Heart, Music2, Volume2, VolumeX, BarChart2, MessageCircle, Pencil, Trash2, Send, Play, Pause, ChevronRight, Bookmark, X, CornerDownRight, Share2 } from 'lucide-react';
+import { ChevronLeft, Heart, Play, Pause, Bookmark, X, CornerDownRight, Share2, Pencil, Trash2, MessageCircle, BarChart2 } from 'lucide-react';
 import { SharePostModal } from '@/components/SharePostModal';
 import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography } from '@/constants/styles';
+import { spacing } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Post, Comment } from '@/types';
-
-function getTimeAgo(dateString: string | undefined): string {
-  if (!dateString) return 'Ahora';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return 'Ahora';
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return 'Ahora';
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  if (days < 30) return `${days}d`;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-}
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function PostScreen() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const { colors } = useTheme();
   const navigate = useNavigate();
@@ -51,12 +37,29 @@ export default function PostScreen() {
   const [replyTo, setReplyTo] = useState<{ id: string; authorName: string } | null>(null);
   const [commentText, setCommentText] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isPlayingSong, setIsPlayingSong] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const viewProcessed = useRef(false);
+
+  const getTimeAgo = (dateString: string | undefined): string => {
+    if (!dateString) return t('common.now');
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return t('common.now');
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return t('common.now');
+    if (minutes < 60) return t('common.time_ago_min', { count: minutes });
+    if (hours < 24) return t('common.time_ago_hour', { count: hours });
+    if (days < 30) return t('common.time_ago_day', { count: days });
+    return date.toLocaleDateString(t('common.locale_code'), { day: 'numeric', month: 'short' });
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -75,13 +78,10 @@ export default function PostScreen() {
     return unsub;
   }, [id]);
 
-  // Increment view count on entry (Permanent per user)
-  const viewProcessed = useRef(false);
   useEffect(() => {
     if (!id || !currentUser || !post || viewProcessed.current) return;
     
     const incrementView = async () => {
-      // Check if user already viewed (using post.views array)
       const hasViewed = post.views?.includes(currentUser.uid);
       if (hasViewed) {
         viewProcessed.current = true;
@@ -96,8 +96,7 @@ export default function PostScreen() {
           viewsCount: increment(1)
         });
       } catch (err) {
-        // Silently catch permission errors as we cannot update global counts without rule changes
-        console.warn('Silent skip of view increment due to permissions or other error');
+        console.warn('Silent skip of view increment');
       }
     };
 
@@ -121,8 +120,6 @@ export default function PostScreen() {
     });
   }, [id]);
 
-  const [isPlayingSong, setIsPlayingSong] = useState(false);
-
   useEffect(() => {
     if (post?.song?.audioUrl) {
       const audio = new Audio(post.song.audioUrl);
@@ -131,12 +128,9 @@ export default function PostScreen() {
       
       const playSong = async () => {
         try {
-          // Note: Browsers block auto-play until interaction.
-          // We'll try to play and if it fails, we keep isPlayingSong false.
           await audio.play();
           setIsPlayingSong(true);
         } catch (e) {
-          console.warn('Auto-play blocked');
           setIsPlayingSong(false);
         }
       };
@@ -170,13 +164,13 @@ export default function PostScreen() {
     });
   };
 
-  const isSaved = !!(currentUser && post?.savedBy?.includes(currentUser.uid));
+  const isPostSaved = !!(currentUser && post?.savedBy?.includes(currentUser.uid));
 
   const toggleSave = async () => {
     if (!currentUser || !post) return;
     try {
       const postRef = doc(db, 'posts', post.id);
-      if (isSaved) {
+      if (isPostSaved) {
         await updateDoc(postRef, { savedBy: arrayRemove(currentUser.uid) });
       } else {
         await updateDoc(postRef, { savedBy: arrayUnion(currentUser.uid) });
@@ -193,7 +187,7 @@ export default function PostScreen() {
       await addDoc(collection(db, 'posts', id, 'comments'), {
         content: commentText.trim(),
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || 'Usuario',
+        authorName: currentUser.displayName || t('profile.username_placeholder'),
         authorPhoto: currentUser.photoURL,
         createdAt: serverTimestamp(),
         parentCommentId: replyTo?.id || null,
@@ -247,7 +241,7 @@ export default function PostScreen() {
   if (!post) {
     return (
       <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <ThemedText style={{ color: colors.textSecondary }}>Post no encontrado.</ThemedText>
+        <ThemedText style={{ color: colors.textSecondary }}>{t('post_screen.not_found')}</ThemedText>
       </ThemedView>
     );
   }
@@ -256,7 +250,6 @@ export default function PostScreen() {
 
   return (
     <ThemedView style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: colors.background }}>
-      {/* Header */}
       <div style={{
         padding: `${spacing.sm}px ${spacing.md}px`,
         borderBottom: `1px solid ${colors.border}`,
@@ -267,7 +260,7 @@ export default function PostScreen() {
       }}>
         <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: colors.primary }}>
           <ChevronLeft size={24} strokeWidth={2} />
-          <span style={{ fontWeight: '600' }}>Volver</span>
+          <span style={{ fontWeight: '600' }}>{t('common.back')}</span>
         </button>
         {currentUser?.uid === post.authorId && (
           <div style={{ display: 'flex', gap: spacing.xs }}>
@@ -283,8 +276,6 @@ export default function PostScreen() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: spacing.md }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
-          
-          {/* Author info */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.md }}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                {post.authorPhoto ? <img src={post.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', fontWeight: 'bold' }}>{post.authorName[0]}</span>}
@@ -302,7 +293,6 @@ export default function PostScreen() {
             {post.content}
           </ThemedText>
 
-          {/* Media */}
           {post.mediaUrl && (
             <div style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', marginBottom: spacing.md, position: 'relative' }}>
               {post.mediaType === 'video' ? (
@@ -364,8 +354,6 @@ export default function PostScreen() {
                   border: `1px solid ${colors.border}`, background: 'transparent',
                   cursor: 'pointer', color: colors.textSecondary, transition: 'all 0.2s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Share2 size={18} />
                 <span style={{ fontWeight: '600' }}>{post.sharesCount ?? 0}</span>
@@ -374,27 +362,26 @@ export default function PostScreen() {
                 onClick={toggleSave}
                 style={{ 
                   display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px', borderRadius: 20,
-                  backgroundColor: isSaved ? `${colors.primary}15` : 'transparent',
-                  border: `1px solid ${isSaved ? colors.primary : colors.border}`,
-                  cursor: 'pointer', color: isSaved ? colors.primary : colors.textSecondary,
+                  backgroundColor: isPostSaved ? `${colors.primary}15` : 'transparent',
+                  border: `1px solid ${isPostSaved ? colors.primary : colors.border}`,
+                  cursor: 'pointer', color: isPostSaved ? colors.primary : colors.textSecondary,
                   transition: 'all 0.2s'
                 }}
               >
-                <Bookmark size={18} fill={isSaved ? colors.primary : 'none'} color={isSaved ? colors.primary : colors.textSecondary} />
-                <span style={{ fontWeight: '600' }}>{isSaved ? 'Guardado' : 'Guardar'}</span>
+                <Bookmark size={18} fill={isPostSaved ? colors.primary : 'none'} color={isPostSaved ? colors.primary : colors.textSecondary} />
+                <span style={{ fontWeight: '600' }}>{isPostSaved ? t('post_screen.saved') : t('post_screen.save')}</span>
               </button>
             </div>
 
           <div style={{ height: 1, backgroundColor: colors.border, marginBottom: spacing.lg }} />
 
-          {/* Comments Section */}
           <div style={{ paddingBottom: 100 }}>
              <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: spacing.md, display: 'block' }}>
-               Comentarios ({comments.length})
+               {t('post_screen.comments_title', { count: comments.length })}
              </ThemedText>
              {comments.length === 0 ? (
                <ThemedText style={{ color: colors.textSecondary, textAlign: 'center', display: 'block', padding: '40px 0' }}>
-                 No hay comentarios aún. ¡Sé el primero!
+                 {t('post_screen.no_comments')}
                </ThemedText>
              ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginBottom: spacing.xl }}>
@@ -432,13 +419,12 @@ export default function PostScreen() {
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}
                         >
                           <CornerDownRight size={12} />
-                          Responder
+                          {t('post_screen.reply')}
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Replies Rendering */}
                   {comments
                     .filter(reply => reply.parentCommentId === comment.id)
                     .map(reply => (
@@ -497,7 +483,7 @@ export default function PostScreen() {
           }}>
             <CornerDownRight size={14} color={colors.primary} />
             <ThemedText style={{ fontSize: 12, color: colors.textSecondary }}>
-              Respondiendo a <span style={{ fontWeight: 700, color: colors.text }}>{replyTo.authorName}</span>
+              {t('post_screen.replying_to', { name: replyTo.authorName })}
             </ThemedText>
             <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.textSecondary }}>
               <X size={14} />
@@ -507,7 +493,7 @@ export default function PostScreen() {
         <div style={{ display: 'flex', gap: spacing.md }}>
           <input
             type="text"
-            placeholder="Escribe un comentario..."
+            placeholder={t('post_screen.comment_placeholder')}
             value={commentText}
             onChange={e => setCommentText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSendComment()}
@@ -534,20 +520,19 @@ export default function PostScreen() {
               cursor: commentText.trim() ? 'pointer' : 'default'
             }}
           >
-            {sendingComment ? '...' : 'Enviar'}
+            {sendingComment ? '...' : t('common.send')}
           </button>
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: colors.card, borderRadius: 18, padding: spacing.lg, width: 300, textAlign: 'center' }}>
-            <ThemedText style={{ fontSize: 18, fontWeight: 'bold', display: 'block', marginBottom: 8 }}>Eliminar post</ThemedText>
-            <ThemedText style={{ fontSize: 14, opacity: 0.7, display: 'block', marginBottom: spacing.lg }}>Esta acción no se puede deshacer.</ThemedText>
+            <ThemedText style={{ fontSize: 18, fontWeight: 'bold', display: 'block', marginBottom: 8 }}>{t('post_screen.delete.title')}</ThemedText>
+            <ThemedText style={{ fontSize: 14, opacity: 0.7, display: 'block', marginBottom: spacing.lg }}>{t('post_screen.delete.confirm_msg')}</ThemedText>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-              <button onClick={handleDeletePost} style={{ padding: '12px', borderRadius: 12, backgroundColor: colors.danger, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>Eliminar</button>
-              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '12px', borderRadius: 12, border: `1px solid ${colors.border}`, color: colors.text, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleDeletePost} style={{ padding: '12px', borderRadius: 12, backgroundColor: colors.danger, color: '#FFF', border: 'none', fontWeight: '600', cursor: 'pointer' }}>{t('common.delete')}</button>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '12px', borderRadius: 12, border: `1px solid ${colors.border}`, color: colors.text, cursor: 'pointer' }}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>
