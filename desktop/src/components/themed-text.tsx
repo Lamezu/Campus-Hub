@@ -24,17 +24,18 @@ export function ThemedText({
 
   const baseStyle: React.CSSProperties = {
     color: colors.text,
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontFamily: "inherit",
     margin: 0,
     padding: 0,
+    letterSpacing: 'inherit',
   };
 
   const typeStyles: Record<TextType, React.CSSProperties> = {
-    default: { fontSize: 16, lineHeight: '24px' },
-    title: { fontSize: 32, fontWeight: 'bold', lineHeight: '1.2' },
-    defaultSemiBold: { fontSize: 16, fontWeight: '600', lineHeight: '24px' },
-    subtitle: { fontSize: 20, fontWeight: '600', lineHeight: '1.3' },
-    link: { fontSize: 16, lineHeight: '30px', color: colors.primary },
+    default: { fontSize: 16, lineHeight: '1.5' },
+    title: { fontSize: 32, fontWeight: '700', lineHeight: '1.2', letterSpacing: '-0.02em' },
+    defaultSemiBold: { fontSize: 16, fontWeight: '600', lineHeight: '1.5' },
+    subtitle: { fontSize: 20, fontWeight: '600', lineHeight: '1.3', letterSpacing: '-0.01em' },
+    link: { fontSize: 16, lineHeight: '1.5', color: colors.primary },
   };
 
   const overflowStyle: React.CSSProperties = numberOfLines

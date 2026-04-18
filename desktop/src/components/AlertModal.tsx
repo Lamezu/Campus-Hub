@@ -3,6 +3,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { spacing } from '@/constants/styles';
 import { ThemedText } from './themed-text';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface AlertModalProps {
   isOpen: boolean;
@@ -30,14 +31,18 @@ export const AlertModal: React.FC<AlertModalProps> = ({
     onConfirm2,
     showCancelButton = false,
     type = 'info',
-    confirmText = 'Entendido',
+    confirmText,
     confirmText2,
-    cancelText = 'Cancelar',
+    cancelText,
     confirmStyle,
     confirm2Style,
     cancelStyle
   }) => {
     const { colors } = useTheme();
+    const { t } = useTranslation();
+    
+    const finalConfirmText = confirmText || t('common.ok', { defaultValue: 'Entendido' });
+    const finalCancelText = cancelText || t('common.cancel', { defaultValue: 'Cancelar' });
   
     if (!isOpen) return null;
   
@@ -104,7 +109,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              {confirmText}
+              {finalConfirmText}
             </button>
   
             {confirmText2 && (
@@ -130,7 +135,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
               </button>
             )}
   
-            {(showCancelButton || cancelText !== 'Cancelar') && (
+            {(showCancelButton || cancelText) && (
               <button
                 onClick={onClose}
                 style={{
@@ -149,7 +154,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                 onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
               >
-                {cancelText}
+                {finalCancelText}
               </button>
             )}
           </div>
