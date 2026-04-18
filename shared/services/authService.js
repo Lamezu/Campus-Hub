@@ -72,6 +72,16 @@ export class AuthService {
     }, { merge: true });
   }
 
+  async deleteAccount(uid) {
+    await this.fs.updateDoc(this.fs.doc(this.db, 'users', uid), {
+      deleted: true,
+      deletedAt: this.fs.serverTimestamp(),
+      fcmToken: null,
+    });
+    const user = this.auth.currentUser;
+    if (user) await this.am.deleteUser(user);
+  }
+
   onAuthStateChanged(callback) {
     return this.am.onAuthStateChanged(this.auth, callback);
   }

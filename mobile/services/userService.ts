@@ -32,7 +32,7 @@ export async function deleteUserAccount(password: string): Promise<void> {
   const notifSnap = await getDocs(collection(db, 'notifications', uid, 'items'));
   notifSnap.forEach(d => batch.delete(d.ref));
 
-  batch.delete(doc(db, 'users', uid));
+  batch.update(doc(db, 'users', uid), { deleted: true, fcmToken: null });
 
   await batch.commit();
 
