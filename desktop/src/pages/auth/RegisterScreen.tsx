@@ -5,11 +5,12 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, typography } from '@/constants/styles';
-import { ThemedText } from '@/components/themed-text';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function RegisterScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,17 +23,17 @@ export default function RegisterScreen() {
     setError('');
 
     if (!email || !password || !confirmPassword || !name) {
-      setError('Por favor completa todos los campos');
+      setError(t('register.error_empty'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError(t('register.error_no_match'));
       return;
     }
 
     if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError(t('register.error_too_short'));
       return;
     }
 
@@ -60,11 +61,10 @@ export default function RegisterScreen() {
       navigate('/tabs/home', { replace: true });
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('Este email ya está registrado');
+        setError(t('register.error_email_used'));
       } else {
-        setError('No se pudo crear la cuenta');
+        setError(t('register.error_generic'));
       }
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -97,13 +97,13 @@ export default function RegisterScreen() {
           CampusHub
         </h1>
         <p style={{ textAlign: 'center', color: colors.textSecondary, marginBottom: spacing.xl, fontSize: typography.sizes.md, fontFamily: 'Inter, sans-serif' }}>
-          Únete a la comunidad
+          {t('register.welcome')}
         </p>
 
         <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column' }}>
           <input
             type="text"
-            placeholder="Nombre completo"
+            placeholder={t('register.name_placeholder')}
             value={name}
             onChange={e => setName(e.target.value)}
             style={inputStyle}
@@ -111,7 +111,7 @@ export default function RegisterScreen() {
           />
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t('register.email_placeholder')}
             value={email}
             onChange={e => setEmail(e.target.value)}
             style={inputStyle}
@@ -119,7 +119,7 @@ export default function RegisterScreen() {
           />
           <input
             type="password"
-            placeholder="Contraseña"
+            placeholder={t('register.password_placeholder')}
             value={password}
             onChange={e => setPassword(e.target.value)}
             style={inputStyle}
@@ -127,7 +127,7 @@ export default function RegisterScreen() {
           />
           <input
             type="password"
-            placeholder="Confirmar contraseña"
+            placeholder={t('register.confirm_placeholder')}
             value={confirmPassword}
             onChange={e => setConfirmPassword(e.target.value)}
             style={inputStyle}
@@ -156,17 +156,17 @@ export default function RegisterScreen() {
               marginTop: spacing.sm,
             }}
           >
-            {loading ? 'Creando cuenta...' : 'Registrarse'}
+            {loading ? t('register.loading') : t('register.submit')}
           </button>
         </form>
 
         <p style={{ textAlign: 'center', marginTop: spacing.xl, fontFamily: 'Inter, sans-serif', fontSize: typography.sizes.sm }}>
-          <span style={{ color: colors.textSecondary }}>¿Ya tienes cuenta? </span>
+          <span style={{ color: colors.textSecondary }}>{t('register.have_account')}</span>
           <button
             onClick={() => navigate('/auth/login')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontWeight: '600', fontSize: typography.sizes.sm, fontFamily: 'Inter, sans-serif' }}
           >
-            Inicia sesión
+            {t('register.login_link')}
           </button>
         </p>
       </div>

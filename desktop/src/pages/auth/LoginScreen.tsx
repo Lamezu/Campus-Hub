@@ -1,49 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  onAuthStateChanged,
   signInWithCredential,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAccounts } from '@/contexts/AccountsContext';
 import { spacing, typography } from '@/constants/styles';
-import { useEffect } from 'react';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function LoginScreen() {
   const { colors } = useTheme();
   const { addAccount } = useAccounts();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) navigate('/tabs/home', { replace: true });
-    });
-    return unsub;
-  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !password) { setError('Por favor completa todos los campos'); return; }
+    if (!email || !password) { setError(t('login.error_empty')); return; }
     setLoading(true);
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const user = credential.user;
       
-      // Save credentials for account switching
       addAccount({
         uid: user.uid,
         email: user.email || email,
-        displayName: user.displayName || user.email || 'Usuario',
+        displayName: user.displayName || user.email || t('common.user'),
         photoURL: user.photoURL || null,
         refreshToken: user.refreshToken,
         _pw: btoa(password)
@@ -51,10 +45,10 @@ export default function LoginScreen() {
 
       navigate('/tabs/home', { replace: true });
     } catch (err: any) {
-      let msg = 'Credenciales inválidas';
-      if (err.code === 'auth/user-not-found') msg = 'Usuario no encontrado';
-      if (err.code === 'auth/wrong-password') msg = 'Contraseña incorrecta';
-      if (err.code === 'auth/too-many-requests') msg = 'Demasiados intentos, prueba más tarde';
+      let msg = t('login.error_invalid');
+      if (err.code === 'auth/user-not-found') msg = t('login.error_not_found');
+      if (err.code === 'auth/wrong-password') msg = t('login.error_wrong_password');
+      if (err.code === 'auth/too-many-requests') msg = t('login.error_too_many');
       setError(msg);
     } finally {
       setLoading(false);
@@ -65,15 +59,25 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      let user;
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI?.googleAuth) {
+        const tokens = await electronAPI.googleAuth();
+        if (!tokens) { setLoading(false); return; }
+        const credential = GoogleAuthProvider.credential(tokens.idToken, tokens.accessToken);
+        const result = await signInWithCredential(auth, credential);
+        user = result.user;
+      } else {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        user = result.user;
+      }
       const userRef = doc(db, 'users', user.uid);
       const existing = await getDoc(userRef);
       if (!existing.exists()) {
         await setDoc(userRef, {
           uid: user.uid, email: user.email,
-          displayName: user.displayName || 'Usuario',
+          displayName: user.displayName || t('common.user'),
           photoURL: user.photoURL || null,
           role: 'alumno', provider: 'Google',
           emailVerified: user.emailVerified,
@@ -86,9 +90,9 @@ export default function LoginScreen() {
       }
       navigate('/tabs/home', { replace: true });
     } catch (err: any) {
-      let msg = 'No se pudo iniciar sesión con Google';
-      if (err.code === 'auth/popup-closed-by-user') msg = 'Inicio de sesión cancelado';
-      if (err.code === 'auth/unauthorized-domain') msg = 'Dominio no autorizado en Firebase';
+      let msg = t('login.error_google');
+      if (err.code === 'auth/popup-closed-by-user') msg = t('login.error_popup_closed');
+      if (err.code === 'auth/unauthorized-domain') msg = t('login.error_domain');
       setError(msg);
     } finally {
       setLoading(false);
@@ -116,13 +120,13 @@ export default function LoginScreen() {
           CampusHub
         </h1>
         <p style={{ textAlign: 'center', color: colors.textSecondary, marginBottom: spacing.xl, fontSize: typography.sizes.md, fontFamily: 'Inter, sans-serif' }}>
-          Bienvenido de nuevo
+          {t('login.welcome')}
         </p>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t('login.email_placeholder')}
             value={email}
             onChange={e => setEmail(e.target.value)}
             style={inputStyle}
@@ -131,7 +135,7 @@ export default function LoginScreen() {
           />
           <input
             type="password"
-            placeholder="Contraseña"
+            placeholder={t('login.password_placeholder')}
             value={password}
             onChange={e => setPassword(e.target.value)}
             style={inputStyle}
@@ -158,14 +162,13 @@ export default function LoginScreen() {
               transition: 'opacity 0.15s',
             }}
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {loading ? t('login.loading') : t('login.submit')}
           </button>
         </form>
 
-        {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', margin: `${spacing.lg}px 0`, gap: spacing.sm }}>
           <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-          <span style={{ color: colors.textSecondary, fontSize: typography.sizes.sm, fontFamily: 'Inter, sans-serif' }}>O continuar con</span>
+          <span style={{ color: colors.textSecondary, fontSize: typography.sizes.sm, fontFamily: 'Inter, sans-serif' }}>{t('login.divider')}</span>
           <div style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
         </div>
 
@@ -189,16 +192,16 @@ export default function LoginScreen() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Continuar con Google
+          {t('login.google_btn')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: spacing.xl, fontFamily: 'Inter, sans-serif', fontSize: typography.sizes.sm }}>
-          <span style={{ color: colors.textSecondary }}>¿No tienes cuenta? </span>
+          <span style={{ color: colors.textSecondary }}>{t('login.no_account')}</span>
           <button
             onClick={() => navigate('/auth/register')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontWeight: '600', fontSize: typography.sizes.sm, fontFamily: 'Inter, sans-serif' }}
           >
-            Regístrate
+            {t('login.register_link')}
           </button>
         </p>
       </div>

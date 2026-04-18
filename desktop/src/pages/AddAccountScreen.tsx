@@ -7,12 +7,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAccounts } from '@/contexts/AccountsContext';
 import { useAlert } from '@/contexts/AlertContext';
 import firebaseConfig from '@/config/firebase';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function AddAccountScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const { addAccount, activeUid, accounts } = useAccounts();
   const { showAlert } = useAlert();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,13 +38,13 @@ export default function AddAccountScreen() {
       const { uid, displayName, photoURL, refreshToken } = credential.user;
 
       if (uid === activeUid) {
-        setError('Esta cuenta ya es la cuenta activa.');
+        setError(t('add_account.error_already_active'));
         await signOut(tempAuth);
         return;
       }
 
       if (accounts.some(a => a.uid === uid)) {
-        setError('Esta cuenta ya ha sido añadida.');
+        setError(t('add_account.error_already_added'));
         await signOut(tempAuth);
         return;
       }
@@ -57,16 +59,16 @@ export default function AddAccountScreen() {
       });
 
       await signOut(tempAuth);
-      showAlert({ title: 'Éxito', message: 'Cuenta añadida correctamente.', type: 'success' });
+      showAlert({ title: t('add_account.success_title'), message: t('add_account.success_msg'), type: 'success' });
       navigate(-1);
     } catch (err: any) {
       const code = err?.code ?? '';
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        setError('Credenciales incorrectas.');
+        setError(t('add_account.error_invalid_credentials'));
       } else if (code === 'auth/invalid-email') {
-        setError('Email no válido.');
+        setError(t('add_account.error_invalid_email'));
       } else {
-        setError('Ha ocurrido un error al añadir la cuenta.');
+        setError(t('add_account.error_generic'));
       }
     } finally {
       setLoading(false);
@@ -83,7 +85,6 @@ export default function AddAccountScreen() {
       color: colors.text,
       fontFamily: 'Inter, sans-serif'
     }}>
-      {/* Header */}
       <div style={{
         padding: '20px 40px',
         borderBottom: `1px solid ${colors.border}`,
@@ -95,70 +96,50 @@ export default function AddAccountScreen() {
         <button
           onClick={() => navigate(-1)}
           style={{
-            background: 'none',
-            border: 'none',
-            color: colors.text,
-            cursor: 'pointer',
-            padding: 8,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'background-color 0.2s'
+            background: 'none', border: 'none', color: colors.text, cursor: 'pointer',
+            padding: 8, borderRadius: '50%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', transition: 'background-color 0.2s'
           }}
           onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           <ChevronLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Añadir Cuenta</h1>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{t('add_account.title')}</h1>
       </div>
 
-      {/* Content */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px'
-      }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
         <div style={{
-          maxWidth: 480,
-          width: '100%',
-          backgroundColor: colors.card,
-          borderRadius: 32,
-          padding: 40,
+          maxWidth: 480, width: '100%',
+          backgroundColor: colors.card, borderRadius: 32, padding: 40,
           border: `2px solid ${colors.border}`,
           boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 32
+          display: 'flex', flexDirection: 'column', gap: 32
         }}>
           <div style={{ textAlign: 'center' }}>
-            <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>Vuelve a conectarte</h2>
+            <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 8 }}>{t('add_account.subtitle')}</h2>
             <p style={{ fontSize: 14, color: colors.textSecondary, lineHeight: '1.5' }}>
-              Inicia sesión con otra de tus cuentas de CampusHub. Podrás alternar entre ellas al instante sin cerrar tu sesión actual.
+              {t('add_account.desc')}
             </p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', marginLeft: 4 }}>Email</label>
+              <label style={{
+                fontSize: 12, fontWeight: 800, color: colors.textSecondary,
+                textTransform: 'uppercase', letterSpacing: '0.5px', marginLeft: 4
+              }}>
+                {t('add_account.email_label')}
+              </label>
               <input
                 type="email"
-                placeholder="ejemplo@campus-hub.com"
+                placeholder={t('add_account.email_placeholder')}
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError(''); }}
                 style={{
-                  padding: '16px 20px',
-                  borderRadius: 16,
-                  border: `2px solid ${colors.border}`,
-                  backgroundColor: colors.backgroundSecondary,
-                  color: colors.text,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  outline: 'none',
-                  transition: 'border-color 0.2s'
+                  padding: '16px 20px', borderRadius: 16, border: `2px solid ${colors.border}`,
+                  backgroundColor: colors.backgroundSecondary, color: colors.text,
+                  fontSize: 16, fontWeight: 600, outline: 'none', transition: 'border-color 0.2s'
                 }}
                 onFocus={e => e.currentTarget.style.borderColor = colors.primary}
                 onBlur={e => e.currentTarget.style.borderColor = colors.border}
@@ -166,26 +147,24 @@ export default function AddAccountScreen() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px', marginLeft: 4 }}>Contraseña</label>
+              <label style={{
+                fontSize: 12, fontWeight: 800, color: colors.textSecondary,
+                textTransform: 'uppercase', letterSpacing: '0.5px', marginLeft: 4
+              }}>
+                {t('add_account.password_label')}
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Tu contraseña"
+                  placeholder={t('add_account.password_placeholder')}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError(''); }}
                   style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    paddingRight: 60,
-                    borderRadius: 16,
-                    border: `2px solid ${colors.border}`,
-                    backgroundColor: colors.backgroundSecondary,
-                    color: colors.text,
-                    fontSize: 16,
-                    fontWeight: 600,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    transition: 'border-color 0.2s'
+                    width: '100%', padding: '16px 20px', paddingRight: 60,
+                    borderRadius: 16, border: `2px solid ${colors.border}`,
+                    backgroundColor: colors.backgroundSecondary, color: colors.text,
+                    fontSize: 16, fontWeight: 600, outline: 'none',
+                    boxSizing: 'border-box', transition: 'border-color 0.2s'
                   }}
                   onFocus={e => e.currentTarget.style.borderColor = colors.primary}
                   onBlur={e => e.currentTarget.style.borderColor = colors.border}
@@ -194,18 +173,9 @@ export default function AddAccountScreen() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
-                    position: 'absolute',
-                    right: 16,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: colors.textSecondary,
-                    cursor: 'pointer',
-                    padding: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                    position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: colors.textSecondary,
+                    cursor: 'pointer', padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}
                 >
                   {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
@@ -215,16 +185,10 @@ export default function AddAccountScreen() {
 
             {error && (
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                color: '#FF3B30',
-                fontSize: 14,
-                fontWeight: 600,
-                padding: '12px 16px',
-                backgroundColor: '#FF3B3015',
-                borderRadius: 12,
-                border: '1px solid #FF3B3030'
+                display: 'flex', alignItems: 'center', gap: 10,
+                color: '#FF3B30', fontSize: 14, fontWeight: 600,
+                padding: '12px 16px', backgroundColor: '#FF3B3015',
+                borderRadius: 12, border: '1px solid #FF3B3030'
               }}>
                 <AlertCircle size={18} />
                 {error}
@@ -235,19 +199,11 @@ export default function AddAccountScreen() {
               onClick={handleAdd}
               disabled={!canSubmit}
               style={{
-                marginTop: 10,
-                padding: '18px',
-                borderRadius: 16,
+                marginTop: 10, padding: '18px', borderRadius: 16,
                 backgroundColor: canSubmit ? colors.primary : colors.border,
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 800,
-                border: 'none',
-                cursor: canSubmit ? 'pointer' : 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 12,
+                color: '#fff', fontSize: 16, fontWeight: 800,
+                border: 'none', cursor: canSubmit ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
                 boxShadow: canSubmit ? `0 10px 20px ${colors.primary}40` : 'none',
                 transition: 'all 0.2s'
               }}
@@ -264,7 +220,7 @@ export default function AddAccountScreen() {
                 }
               }}
             >
-              {loading ? <Loader2 size={24} className="animate-spin" /> : 'Añadir Cuenta'}
+              {loading ? <Loader2 size={24} className="animate-spin" /> : t('add_account.submit_btn')}
             </button>
           </div>
         </div>

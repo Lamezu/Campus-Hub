@@ -4,12 +4,14 @@ import { ChevronLeft, Plus, Check, Trash2, User as UserIcon, Loader2 } from 'luc
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAccounts, type StoredAccount } from '@/contexts/AccountsContext';
 import { useAlert } from '@/contexts/AlertContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export default function ManageAccountsScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const { accounts, activeUid, switching, switchAccount, removeAccount } = useAccounts();
   const { showAlert } = useAlert();
+  const { t } = useTranslation();
 
   const handleSwitch = async (account: StoredAccount) => {
     if (account.uid === activeUid || switching) return;
@@ -17,18 +19,19 @@ export default function ManageAccountsScreen() {
       await switchAccount(account);
       navigate('/tabs/home');
     } catch (err: any) {
-      const message = err.message === 'no_credentials' 
-        ? 'No se encontraron las credenciales guardadas. Deberás volver a iniciar sesión con esta cuenta.'
-        : err.message === 'invalid_credentials'
-        ? 'Contraseña incorrecta. Por favor, vuelve a añadir la cuenta.'
-        : 'No se pudo cambiar de cuenta.';
-      showAlert({ title: 'Error al cambiar cuenta', message, type: 'error' });
+      const message =
+        err.message === 'no_credentials'
+          ? t('manage_accounts.switch_error_no_credentials')
+          : err.message === 'invalid_credentials'
+          ? t('manage_accounts.switch_error_invalid')
+          : t('manage_accounts.switch_error_generic');
+      showAlert({ title: t('manage_accounts.switch_error_title'), message, type: 'error' });
     }
   };
 
   const handleRemove = (account: StoredAccount) => {
     if (account.uid === activeUid) return;
-    if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta de la lista? Tendrás que volver a iniciar sesión para acceder a ella.')) {
+    if (window.confirm(t('manage_accounts.remove_confirm'))) {
       removeAccount(account.uid);
     }
   };
@@ -42,7 +45,6 @@ export default function ManageAccountsScreen() {
       color: colors.text,
       fontFamily: 'Inter, sans-serif'
     }}>
-      {/* Header */}
       <div style={{
         padding: '20px 40px',
         borderBottom: `1px solid ${colors.border}`,
@@ -54,34 +56,19 @@ export default function ManageAccountsScreen() {
         <button
           onClick={() => navigate(-1)}
           style={{
-            background: 'none',
-            border: 'none',
-            color: colors.text,
-            cursor: 'pointer',
-            padding: 8,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'background-color 0.2s'
+            background: 'none', border: 'none', color: colors.text, cursor: 'pointer',
+            padding: 8, borderRadius: '50%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', transition: 'background-color 0.2s'
           }}
           onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           <ChevronLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Gestionar Cuentas</h1>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{t('manage_accounts.title')}</h1>
       </div>
 
-      {/* Content */}
-      <div style={{
-        flex: 1,
-        padding: '40px',
-        overflowY: 'auto',
-        maxWidth: 800,
-        width: '100%',
-        margin: '0 auto'
-      }}>
+      <div style={{ flex: 1, padding: '40px', overflowY: 'auto', maxWidth: 800, width: '100%', margin: '0 auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {accounts.map(account => {
             const isActive = account.uid === activeUid;
@@ -90,10 +77,7 @@ export default function ManageAccountsScreen() {
                 key={account.uid}
                 onClick={() => handleSwitch(account)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 20,
-                  padding: '20px',
+                  display: 'flex', alignItems: 'center', gap: 20, padding: '20px',
                   borderRadius: 20,
                   backgroundColor: isActive ? colors.primary + '10' : colors.card,
                   border: `2px solid ${isActive ? colors.primary : colors.border}`,
@@ -115,14 +99,9 @@ export default function ManageAccountsScreen() {
                 }}
               >
                 <div style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 20,
-                  backgroundColor: colors.backgroundSecondary,
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  width: 60, height: 60, borderRadius: 20,
+                  backgroundColor: colors.backgroundSecondary, overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
                   {account.photoURL ? (
                     <img src={account.photoURL} alt={account.displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -139,18 +118,12 @@ export default function ManageAccountsScreen() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {isActive ? (
                     <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      color: colors.primary,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      padding: '8px 16px',
-                      backgroundColor: colors.primary + '20',
-                      borderRadius: 12
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      color: colors.primary, fontWeight: 700, fontSize: 14,
+                      padding: '8px 16px', backgroundColor: colors.primary + '20', borderRadius: 12
                     }}>
                       <Check size={18} />
-                      Activa
+                      {t('manage_accounts.active')}
                     </div>
                   ) : (
                     <>
@@ -158,21 +131,11 @@ export default function ManageAccountsScreen() {
                         <Loader2 className="animate-spin" size={24} color={colors.primary} />
                       ) : (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemove(account);
-                          }}
+                          onClick={e => { e.stopPropagation(); handleRemove(account); }}
                           style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#FF3B30',
-                            cursor: 'pointer',
-                            padding: 10,
-                            borderRadius: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.2s'
+                            background: 'none', border: 'none', color: '#FF3B30', cursor: 'pointer',
+                            padding: 10, borderRadius: 12, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', transition: 'background-color 0.2s'
                           }}
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FF3B3015'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -190,19 +153,10 @@ export default function ManageAccountsScreen() {
           <button
             onClick={() => navigate('/add-account')}
             style={{
-              marginTop: 10,
-              padding: '24px',
-              borderRadius: 20,
-              backgroundColor: 'transparent',
-              border: `2px dashed ${colors.border}`,
-              color: colors.primary,
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 12,
+              marginTop: 10, padding: '24px', borderRadius: 20,
+              backgroundColor: 'transparent', border: `2px dashed ${colors.border}`,
+              color: colors.primary, fontSize: 16, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
               transition: 'all 0.2s'
             }}
             onMouseEnter={e => {
@@ -215,7 +169,7 @@ export default function ManageAccountsScreen() {
             }}
           >
             <Plus size={24} />
-            Añadir otra cuenta
+            {t('manage_accounts.add_account')}
           </button>
         </div>
       </div>
