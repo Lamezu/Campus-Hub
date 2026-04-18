@@ -9,12 +9,10 @@ shared/
 │   ├── __tests__/
 │   │   ├── authService.test.js
 │   │   ├── channelService.test.js
-│   │   ├── messageService.test.js
-│   │   └── notificationService.test.js
+│   │   └── messageService.test.js
 │   ├── authService.js
 │   ├── channelService.js
-│   ├── messageService.js
-│   └── notificationService.js
+│   └── messageService.js
 ├── firebase/
 │   ├── config.js
 │   ├── firestore.rules
@@ -55,7 +53,6 @@ Tests cover:
 - ✅ **AuthService**: Authentication and user management
 - ✅ **ChannelService**: Channel and member management
 - ✅ **MessageService**: Messaging and reactions
-- ✅ **NotificationService**: Push notifications and FCM tokens
 
 Coverage target: **70%** across all metrics.
 
@@ -65,17 +62,10 @@ import { auth, db } from '@/config/firebase';
 import { AuthService } from '../../shared/services/authService';
 import { ChannelService } from '../../shared/services/channelService';
 import { MessageService } from '../../shared/services/messageService';
-import { NotificationService } from '../../shared/services/notificationService';
 
 const authService = new AuthService(auth, db);
 const channelService = new ChannelService(db);
 const messageService = new MessageService(db);
-const notificationService = new NotificationService(db);
-
-await authService.signIn('email@example.com', 'password');
-const channels = await channelService.getUserChannels(userId);
-await messageService.sendMessage(channelId, 'Hello!', userId, 'Samuel');
-await notificationService.registerForPushNotifications(userId, fcmToken);
 ```
 
 ## 🔧 Usage in Web
@@ -84,26 +74,10 @@ import { auth, db } from './config/firebase';
 import { AuthService } from '../../shared/services/authService';
 import { ChannelService } from '../../shared/services/channelService';
 import { MessageService } from '../../shared/services/messageService';
-import { NotificationService } from '../../shared/services/notificationService';
 
 const authService = new AuthService(auth, db);
 const channelService = new ChannelService(db);
 const messageService = new MessageService(db);
-const notificationService = new NotificationService(db);
-```
-
-## 🔧 Usage in Desktop
-```javascript
-import { auth, db } from './config/firebase';
-import { AuthService } from '../../shared/services/authService';
-import { ChannelService } from '../../shared/services/channelService';
-import { MessageService } from '../../shared/services/messageService';
-import { NotificationService } from '../../shared/services/notificationService';
-
-const authService = new AuthService(auth, db);
-const channelService = new ChannelService(db);
-const messageService = new MessageService(db);
-const notificationService = new NotificationService(db);
 ```
 
 ## 🛠️ Development
@@ -145,43 +119,12 @@ describe('MessageService', () => {
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Generate coverage report
 
-## 📱 Sprint 3: Push Notifications
-
-### New Features
-
-**NotificationService:**
-- Register FCM tokens
-- Send push notifications to users
-- Send channel-wide notifications
-- Enable/disable notifications per user
-
-**MessageService (updated):**
-- Save FCM tokens for users
-
-**Cloud Function:**
-- `onMessageCreated` - Automatically sends push notifications when a new message is created in a channel
-
-### Cloud Function Setup
-
-The `onMessageCreated` function is deployed in Firebase Functions v2:
-```javascript
-// Trigger: onCreate in /channels/{channelId}/messages/{messageId}
-// Action: Send push notification to all channel members except sender
-```
-
-To deploy:
-```bash
-cd functions
-firebase deploy --only functions
-```
-
 ## 🔐 Security
 
 ⚠️ **NEVER commit:**
 - Firebase credentials
 - Access tokens
 - API keys
-- Service account keys
 
 ## 👥 Team
 
