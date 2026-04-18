@@ -173,15 +173,27 @@ export function useCalendarEvents() {
       if (oldStatus === status) {
         // Al darle de nuevo al mismo estado, cancelamos el RSVP (borramos el documento)
         await deleteDoc(rsvpRef);
+        // Si el estado anterior era 'going', restamos del contador
+        if (oldStatus === 'going') {
+          await updateDoc(doc(db, 'events', eventId), { attendeesCount: increment(-1) });
+        }
       } else {
-        // Creamos o actualizamos el RSVP. El backend (Cloud Function) se encargará
-        // de actualizar el attendeesCount en el documento del evento.
+        // Creamos o actualizamos el RSVP.
         await setDoc(rsvpRef, {
           eventId,
           userId: currentUser.uid,
           status,
           updatedAt: serverTimestamp()
         }, { merge: true });
+
+        // Si el nuevo estado es 'going' y el anterior NO lo era, sumamos 1
+        if (status === 'going' && oldStatus !== 'going') {
+          await updateDoc(doc(db, 'events', eventId), { attendeesCount: increment(1) });
+        } 
+        // Si el nuevo estado es 'not_going' y el anterior era 'going', restamos 1
+        else if (status === 'not_going' && oldStatus === 'going') {
+          await updateDoc(doc(db, 'events', eventId), { attendeesCount: increment(-1) });
+        }
       }
     } catch (err) {
       console.error('Error toggling RSVP:', err);
