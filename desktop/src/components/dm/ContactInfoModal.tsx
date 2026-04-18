@@ -213,7 +213,7 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
   return (
     <>
       <div style={{
-        width: isOpen ? 380 : 0,
+        width: isOpen ? 475 : 0,
         opacity: isOpen ? 1 : 0,
         height: '100%',
         backgroundColor: colors.background,
@@ -304,7 +304,10 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
                       {mutualGroups.map((group, i) => (
                         <React.Fragment key={group.id}>
                           <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 64 }} />
-                          <div style={rowStyle} onClick={() => navigate(`/chat/${group.id}`)}>
+                          <div style={rowStyle} onClick={() => {
+                            const prefix = group.type === 'studyGroup' ? 'sg_' : '';
+                            navigate(`/chat/${prefix}${group.id}`);
+                          }}>
                             <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontWeight: 800, color: colors.textSecondary }}>{group.name[0].toUpperCase()}</ThemedText></div>
                             <div style={{ flex: 1 }}>
                               <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</ThemedText>

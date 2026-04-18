@@ -152,7 +152,7 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
   return (
     <>
       <div style={{
-        width: isOpen ? 380 : 0,
+        width: isOpen ? 475 : 0,
         opacity: isOpen ? 1 : 0,
         height: '100%',
         backgroundColor: colors.background,
@@ -323,7 +323,7 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
                              <ThemedText style={{ fontWeight: 700, fontSize: 14 }}>{name} {userId === currentUser?.uid && '(Tú)'}</ThemedText>
                              {isMemberAdmin && <div style={{ padding: '2px 6px', borderRadius: 4, backgroundColor: `${colors.primary}15` }}><ThemedText style={{ fontSize: 9, color: colors.primary, fontWeight: 800, textTransform: 'uppercase' }}>Admin</ThemedText></div>}
                           </div>
-                          <ThemedText style={{ fontSize: 11, color: colors.textSecondary, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <ThemedText style={{ fontSize: 11, color: colors.textSecondary, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
                             {details?.bio || (details?.role === 'teacher' ? 'Profesor' : details?.role === 'admin' ? 'Administrador' : 'Estudiante')}
                           </ThemedText>
                           {details?.lastActive && (

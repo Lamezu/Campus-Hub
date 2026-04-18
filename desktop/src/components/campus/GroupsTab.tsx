@@ -123,7 +123,7 @@ export function GroupsTab() {
               onJoin={() => joinGroup(group.id)}
               onLeave={() => leaveGroup(group.id)}
               onDelete={() => deleteGroup(group.id)}
-              onNavigate={() => navigate(`/chat/${group.id}`)}
+              onNavigate={() => navigate(`/chat/sg_${group.id}`)}
               onEdit={() => { setEditingGroup(group); setShowModal(true); }}
             />
           ))}

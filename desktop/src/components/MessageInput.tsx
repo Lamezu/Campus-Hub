@@ -6,6 +6,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { ThemedText } from './themed-text';
 import { uploadAudio, uploadMessageMedia } from '@/config/cloudinary';
+import { uploadChatFile } from '@/config/storage';
 import { spacing, typography } from '@/constants/styles';
 import { PollModal } from './PollModal';
 
@@ -149,7 +150,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
     if (isPlayingPreview) {
       previewAudioRef.current.pause();
     } else {
-      previewAudioRef.current.play();
+      previewAudioRef.current.play().catch(err => {
+        console.error("Preview play failed:", err);
+        setIsPlayingPreview(false);
+      });
     }
     setIsPlayingPreview(!isPlayingPreview);
   };
@@ -204,7 +208,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
     try {
       if (type === 'file') {
         if (onSendFile) {
-          const url = await uploadMessageMedia(file);
+          const url = await uploadChatFile(file, file.name);
           onSendFile(url, file.name, file.size);
         }
       } else if (onSendMedia) {
@@ -413,7 +417,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
       )}
 
       <input type="file" ref={fileInputRef} hidden accept="image/*,video/*" onChange={e => handleFileSelect(e, 'image')} />
-      <input type="file" ref={docInputRef} hidden accept=".pdf,.txt,.doc,.docx,.xlsx,.pptx" onChange={e => handleFileSelect(e, 'file')} />
+      <input type="file" ref={docInputRef} hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={e => handleFileSelect(e, 'file')} />
 
       {showMenu && (
         <>

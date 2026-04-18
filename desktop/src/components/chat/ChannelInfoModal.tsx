@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, ChevronLeft, Search, Plus, 
   Bell, Trash2, LogOut, ChevronRight,
-  UserPlus, Check, Loader2, Camera, Star, CheckCircle2, ShieldCheck
+  UserPlus, Check, Loader2, Camera, Star, CheckCircle2, ShieldCheck, CalendarRange
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -38,6 +38,9 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
   const [showStarredView, setShowStarredView] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isStudyGroup = channelId?.startsWith('sg_');
+  const cleanId = channelId?.replace(/^(sg_|group_|channel_|group_)/, '') || '';
+  const collectionName = isStudyGroup ? 'studyGroups' : 'channels';
   
   const [loading, setLoading] = useState(true);
   const [channelData, setChannelData] = useState<any>(null);
@@ -53,7 +56,7 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
   const handleClearChat = async (forAll = false) => {
     if (!channelId || !meId) return;
     try {
-      const messagesRef = collection(db, 'channels', channelId, 'messages');
+      const messagesRef = collection(db, collectionName, cleanId, 'messages');
       const q = query(messagesRef);
       const snap = await getDocs(q);
       
@@ -139,7 +142,24 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
 
     loadChannel();
     return () => unsub?.();
-  }, [isOpen, channelId, meId]);
+  }, [isOpen, channelId, meId, channelName]);
+
+  const isSystemChannel = useMemo(() => {
+    const name = (channelData?.name || channelName || '').toLowerCase();
+    const systemNames = ['general', 'anuncios oficiales', 'eventos y actividad', 'ayuda y soporte', 'eventos y actividades'];
+    return systemNames.some(sn => name.includes(sn));
+  }, [channelData, channelName]);
+
+  const viewType = useMemo(() => {
+    const name = (channelData?.name || channelName || '').toLowerCase();
+    if (name.includes('ayuda') || name.includes('soporte')) return 'support';
+    if (name.includes('eventos')) return 'events';
+    return 'default';
+  }, [channelData, channelName]);
+
+  const isSpecialView = useMemo(() => {
+    return viewType === 'support' || viewType === 'events';
+  }, [viewType]);
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => 
@@ -176,7 +196,7 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
   return (
     <>
       <div style={{
-        width: isOpen ? 380 : 0,
+        width: isOpen ? 475 : 0,
         opacity: isOpen ? 1 : 0,
         height: '100%',
         backgroundColor: colors.background,
@@ -190,8 +210,12 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
       }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, zIndex: 10 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}><ChevronLeft size={24} /></button>
-          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat.group.info_title')}</ThemedText>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text }}>
+            {isSpecialView ? <X size={24} /> : <ChevronLeft size={24} />}
+          </button>
+          <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>
+            {isSpecialView ? t('chat_ui.channel_info.title') : t('chat.group.info_title')}
+          </ThemedText>
           <div style={{ width: 32 }} />
         </div>
 
@@ -219,61 +243,55 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <ThemedText style={{ fontSize: 24, fontWeight: 800 }}>{channelName}</ThemedText>
-              {(channelData as any)?.isSystem && <CheckCircle2 size={20} color="#007AFF" fill="#007AFF15" />}
+              {isSystemChannel && <CheckCircle2 size={20} color="#007AFF" fill="#007AFF15" />}
             </div>
-            {(channelData as any)?.isSystem && (
+            {isSystemChannel && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: `${colors.primary}10`, padding: '4px 12px', borderRadius: 20, marginBottom: 12, border: `1px solid ${colors.primary}30` }}>
                 <ShieldCheck size={14} color={colors.primary} />
                 <ThemedText style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>{t('chat.info.official_channel')}</ThemedText>
               </div>
             )}
-            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 4 }}>{t('chat.info.campus_channel')} • {members.length} {members.length === 1 ? t('chat.info.miembro') : t('chat.info.miembros')}</ThemedText>
-            <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
+            {!isSpecialView && (
+               <ThemedText style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 4 }}>{t('chat.info.campus_channel')} • {members.length} {members.length === 1 ? t('chat.info.miembro') : t('chat.info.miembros')}</ThemedText>
+            )}
+            {!isSpecialView && (
+               <ThemedText style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
+            )}
           </div>
-          {(channelData as any)?.isSystem ? (
+          {isSpecialView ? (
             <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Description Card */}
               <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20 }}>
-                <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>{t('chat.info.channel_description')}</ThemedText>
-                <ThemedText style={{ fontSize: 15, lineHeight: 1.5, opacity: 0.8 }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
+                <ThemedText style={{ fontSize: 12, fontWeight: 800, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, display: 'block' }}>{t('chat.info.channel_description')}</ThemedText>
+                <ThemedText style={{ fontSize: 15, lineHeight: 1.5 }}>{channelData?.description || t('chat.info.official_desc')}</ThemedText>
               </div>
 
-              {/* Metadata Cards */}
-              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.type')}</ThemedText>
-                  <div style={{ padding: '6px 14px', backgroundColor: `${colors.primary}15`, borderRadius: 12 }}>
-                    <ThemedText style={{ fontSize: 13, fontWeight: 700, color: colors.primary }}>{t('chat.info.public_channel')}</ThemedText>
+              {/* Metadata / Specific Cards */}
+              {viewType === 'support' ? (
+                <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.type')}</ThemedText>
+                    <ThemedText style={{ fontSize: 14, fontWeight: 700, color: colors.primary }}>{t('chat.info.public_channel')}</ThemedText>
+                  </div>
+                  <div style={{ height: 1, backgroundColor: colors.border, opacity: 0.5 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.members_label')}</ThemedText>
+                    <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{t('chat.info.all_users')}</ThemedText>
                   </div>
                 </div>
-                <div style={{ height: 1, backgroundColor: colors.border, opacity: 0.5 }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <ThemedText style={{ fontSize: 14, fontWeight: 600, opacity: 0.6 }}>{t('chat.info.members_label')}</ThemedText>
-                  <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{t('chat.info.all_users')}</ThemedText>
+              ) : viewType === 'events' ? (
+                <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CalendarRange size={20} color={colors.primary} />
+                  </div>
+                  <ThemedText style={{ fontSize: 14, fontWeight: 600, flex: 1, opacity: 0.8 }}>
+                    {language === 'es' ? 'Canal de eventos, exámenes y actividades del centro.' : 'Events, exams and activities channel for the school.'}
+                  </ThemedText>
                 </div>
-              </div>
+              ) : null}
 
               {/* Limited Actions */}
-              <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 20, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', cursor: 'pointer' }} onClick={() => setIsMuted(!isMuted)}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Bell size={20} color={colors.textSecondary} />
-                    <ThemedText style={{ fontWeight: 600 }}>{t('chat.info.mute_notifications')}</ThemedText>
-                  </div>
-                  <div style={{ width: 40, height: 22, borderRadius: 11, backgroundColor: isMuted ? colors.primary : colors.border, position: 'relative', transition: '0.2s' }}>
-                    <div style={{ position: 'absolute', top: 2, left: isMuted ? 20 : 2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', transition: '0.2s shadow, 0.2s left' }} />
-                  </div>
-                </div>
-                <div style={{ height: 1, backgroundColor: colors.border, marginLeft: 48 }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer' }} onClick={() => setShowStarredView(true)}>
-                  <Star size={20} color={colors.textSecondary} />
-                  <ThemedText style={{ fontWeight: 600 }}>{t('chat.group.starred')}</ThemedText>
-                </div>
-              </div>
-
-              <div style={{ padding: '0 8px', opacity: 0.6, textAlign: 'center' }}>
-                <ThemedText style={{ fontSize: 12 }}>{t('chat.info.mandatory_desc')}</ThemedText>
-              </div>
+              {/* [DELETED] Limited Actions for system channels */}
             </div>
           ) : (
             <>
@@ -304,9 +322,9 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
                         <div style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.backgroundSecondary, overflow: 'hidden' }}>
                           {member.photoURL ? <img src={member.photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10' }}><ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{member.displayName[0]}</ThemedText></div>}
                         </div>
-                        <div>
-                          <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{member.displayName}{member.uid === auth.currentUser?.uid && ` (${t('chat.info.you')})`}</ThemedText>
-                          <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{member.bio || t('chat.no_bio')}</ThemedText>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <ThemedText style={{ fontSize: 14, fontWeight: 700, display: 'block' }}>{member.displayName}{member.uid === auth.currentUser?.uid && ` (${t('chat.info.you')})`}</ThemedText>
+                          <ThemedText style={{ fontSize: 12, opacity: 0.6, marginTop: 2, display: 'block' }}>{member.bio || t('chat.no_bio')}</ThemedText>
                         </div>
                       </div>
                       {member.role === 'admin' && (

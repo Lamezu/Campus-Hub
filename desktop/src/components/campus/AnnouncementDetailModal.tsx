@@ -313,23 +313,23 @@ export function AnnouncementDetailModal({ isOpen, onClose, announcement }: Annou
                   {isLinkingEvent ? (
                     <div style={{ padding: 24, backgroundColor: colors.backgroundSecondary + '40', borderRadius: 24, border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 800, fontSize: 16 }}>{t('announcements.link_modal.title')}</span>
+                        <span style={{ fontWeight: 800, fontSize: 16, color: colors.text }}>{t('announcements.link_modal.title')}</span>
                         <X size={20} onClick={() => setIsLinkingEvent(false)} style={{ cursor: 'pointer', opacity: 0.5 }} />
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase' }}>Fecha</label>
+                          <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase', color: colors.text }}>Fecha</label>
                           <input type="date" value={linkForm.date} onChange={e => setLinkForm({...linkForm, date: e.target.value})} style={{ padding: '12px 14px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.background, color: colors.text, fontSize: 14, outline: 'none' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase' }}>Hora</label>
+                          <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase', color: colors.text }}>Hora</label>
                           <input type="time" value={linkForm.time} onChange={e => setLinkForm({...linkForm, time: e.target.value})} style={{ padding: '12px 14px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.background, color: colors.text, fontSize: 14, outline: 'none' }} />
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase' }}>Tipo de Evento</label>
+                        <label style={{ fontSize: 11, fontWeight: 700, opacity: 0.6, textTransform: 'uppercase', color: colors.text }}>Tipo de Evento</label>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                           {visibleEventTypes.map((t) => (
                             <button

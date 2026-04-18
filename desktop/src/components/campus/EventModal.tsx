@@ -15,9 +15,10 @@ interface EventModalProps {
   onClose: () => void;
   onSave: (data: any) => Promise<void>;
   initialData?: any;
+  isReadOnly?: boolean;
 }
 
-export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalProps) {
+export function EventModal({ isOpen, onClose, onSave, initialData, isReadOnly }: EventModalProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { showAlert } = useAlert();
@@ -136,7 +137,7 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
       }}>
         <div style={{ padding: '24px 32px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: colors.text }}>
-            {initialData?.id ? t('calendar.event_details') : t('calendar.new_event')}
+            {isReadOnly ? t('calendar.event_details') : (initialData?.id ? t('calendar.edit_event') : t('calendar.new_event'))}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
             <X size={24} />
@@ -175,7 +176,8 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
               value={form.title}
               onChange={e => setForm({ ...form, title: e.target.value })}
               placeholder={t('calendar.placeholders.title')}
-              style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none' }}
+              disabled={isReadOnly}
+              style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: isReadOnly ? colors.backgroundSecondary + '80' : colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none', opacity: isReadOnly ? 0.8 : 1 }}
             />
           </div>
 
@@ -186,7 +188,8 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
                 type="date"
                 value={form.date}
                 onChange={e => setForm({ ...form, date: e.target.value })}
-                style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none' }}
+                disabled={isReadOnly}
+                style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: isReadOnly ? colors.backgroundSecondary + '80' : colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none', opacity: isReadOnly ? 0.8 : 1 }}
               />
             </div>
             <div style={{ width: 120, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -195,7 +198,8 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
                 type="time"
                 value={form.time}
                 onChange={e => setForm({ ...form, time: e.target.value })}
-                style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none' }}
+                disabled={isReadOnly}
+                style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: isReadOnly ? colors.backgroundSecondary + '80' : colors.backgroundSecondary, color: colors.text, fontSize: 15, outline: 'none', opacity: isReadOnly ? 0.8 : 1 }}
               />
             </div>
           </div>
@@ -203,25 +207,34 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase' }}>{t('calendar.fields.type')}</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {visibleTypes.map((t: any) => (
-                <button
-                  key={t.id}
-                  onClick={() => setForm({ ...form, type: t.id })}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    border: `1px solid ${form.type === t.id ? t.color : colors.border}`,
-                    backgroundColor: form.type === t.id ? t.color + '15' : 'transparent',
-                    color: form.type === t.id ? t.color : colors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
+              {isReadOnly ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, backgroundColor: (EVENT_TYPES_DATA.find(t => t.id === form.type)?.color || colors.primary) + '15' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: EVENT_TYPES_DATA.find(t => t.id === form.type)?.color }} />
+                  <span style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                    {EVENT_TYPES_DATA.find(t => t.id === form.type)?.label}
+                  </span>
+                </div>
+              ) : (
+                visibleTypes.map((t: any) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setForm({ ...form, type: t.id })}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      border: `1px solid ${form.type === t.id ? t.color : colors.border}`,
+                      backgroundColor: form.type === t.id ? t.color + '15' : 'transparent',
+                      color: form.type === t.id ? t.color : colors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -232,7 +245,8 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
               onChange={e => setForm({ ...form, description: e.target.value })}
               placeholder={t('calendar.placeholders.description')}
               rows={3}
-              style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 14, outline: 'none', resize: 'none' }}
+              disabled={isReadOnly}
+              style={{ padding: '12px 16px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: isReadOnly ? colors.backgroundSecondary + '80' : colors.backgroundSecondary, color: colors.text, fontSize: 14, outline: 'none', resize: 'none', opacity: isReadOnly ? 0.8 : 1 }}
             />
           </div>
 
@@ -242,18 +256,20 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
               <select
                 value={form.departmentId}
                 onChange={e => setForm({ ...form, departmentId: e.target.value })}
+                disabled={isReadOnly}
                 style={{
                   width: '100%',
                   padding: '12px 16px',
                   borderRadius: 12,
                   border: `1px solid ${colors.border}`,
-                  backgroundColor: colors.backgroundSecondary,
+                  backgroundColor: isReadOnly ? colors.backgroundSecondary + '80' : colors.backgroundSecondary,
                   color: colors.text,
                   fontSize: 15,
                   outline: 'none',
                   appearance: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 600
+                  cursor: isReadOnly ? 'default' : 'pointer',
+                  fontWeight: 600,
+                  opacity: isReadOnly ? 0.8 : 1
                 }}
               >
                 {DEPARTMENTS.map(dep => (
@@ -273,14 +289,16 @@ export function EventModal({ isOpen, onClose, onSave, initialData }: EventModalP
           <div style={{ display: 'flex', gap: 8 }}>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 700, cursor: 'pointer' }}>{t('common.cancel')}</button>
-            <button 
-              onClick={handleSave}
-              disabled={!form.title || loading}
-              style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, cursor: 'pointer', opacity: (!form.title || loading) ? 0.5 : 1 }}
-            >
-              {loading ? t('common.loading') : initialData?.id ? t('common.update') : t('calendar.add_event')}
-            </button>
+            <button onClick={onClose} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.backgroundSecondary, color: colors.text, fontWeight: 700, cursor: 'pointer' }}>{isReadOnly ? t('common.done') : t('common.cancel')}</button>
+            {!isReadOnly && (
+              <button 
+                onClick={handleSave}
+                disabled={!form.title || loading}
+                style={{ padding: '12px 24px', borderRadius: 12, border: 'none', backgroundColor: colors.primary, color: '#fff', fontWeight: 700, cursor: 'pointer', opacity: (!form.title || loading) ? 0.5 : 1 }}
+              >
+                {loading ? t('common.loading') : initialData?.id ? t('common.update') : t('calendar.add_event')}
+              </button>
+            )}
           </div>
         </div>
       </div>

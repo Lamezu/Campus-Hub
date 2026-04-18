@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { spacing } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { downloadAndOpenFile } from '@/utils/fileDownload';
 import { ThemedText } from './themed-text';
 import { toggleSaveMessage, isMessageSaved } from '@/services/savedItemsService';
 import type { Message } from '@/types';
@@ -352,23 +353,7 @@ function FileBubble({ file, textColor, t }: any) {
         if (downloading) return;
         try {
           setDownloading(true);
-          // @ts-ignore
-          if (window.electronAPI?.downloadFile) {
-            // @ts-ignore
-            await window.electronAPI.downloadFile(file.url, file.name || 'documento');
-          } else {
-            // Fallback for web or if electronAPI is not yet updated
-            const response = await fetch(file.url);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = file.name || 'documento';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(blobUrl);
-          }
+          await downloadAndOpenFile(file.url, file.name || 'documento');
         } catch (e) {
           console.error("Download failed", e);
         } finally {

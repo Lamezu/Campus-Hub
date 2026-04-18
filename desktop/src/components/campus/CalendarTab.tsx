@@ -19,7 +19,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, onConsumeId?: () => void }) {
   const { colors } = useTheme();
   const { t, language } = useTranslation();
-  const { can } = useCurrentUser();
+  const { can, isAdmin, userData } = useCurrentUser();
   const { allEvents, loading, saveEvent, deleteEvent, publishEventToSocial } = useCalendarEvents();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
@@ -161,7 +161,7 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <ThemedText style={{ fontSize: 32, fontWeight: '800' }}>{selectedDay}</ThemedText>
               <ThemedText style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary }}>
-                {t('calendar.date_format', { day: selectedDay, month: months[month] })}
+                {t('calendar.date_format', { month: months[month], year: year })}
               </ThemedText>
             </div>
           )}
@@ -179,8 +179,35 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
                 const deptKey = event.departmentId?.toLowerCase().replace(/ /g, '_');
                 const deptLabel = deptKey ? t(`common.departments.${deptKey}`, { defaultValue: event.departmentId }) : null;
 
+                const canEdit = isAdmin || ((can('createAcademicEvent') || can('createGeneralEvent')) && event.authorId === userData?.uid);
+
                 return (
-                  <div key={event.id} style={{ display: 'flex', alignItems: 'center', gap: 20, padding: 20, borderRadius: 20, backgroundColor: colors.backgroundSecondary, border: `1px solid ${colors.border}`, transition: 'all 0.2s', cursor: 'default' }}>
+                  <div 
+                    key={event.id} 
+                    onClick={() => {
+                      setEditingEvent(event);
+                      setShowModal(true);
+                    }}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 20, 
+                      padding: 20, 
+                      borderRadius: 20, 
+                      backgroundColor: colors.backgroundSecondary, 
+                      border: `1px solid ${colors.border}`, 
+                      transition: 'all 0.2s', 
+                      cursor: 'pointer' 
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.borderColor = colors.primary;
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.borderColor = colors.border;
+                    }}
+                  >
                     <div style={{ width: 4, height: 60, borderRadius: 10, backgroundColor: color, boxShadow: `0 0 10px ${color}40` }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -202,14 +229,14 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {(can('createAcademicEvent') || can('createGeneralEvent')) && (
-                        <>
-                          {!event.isPublished && (
-                            <button onClick={() => publishEventToSocial(event)} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.primary + '15', color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Share2 size={16} /></button>
-                          )}
-                          <button onClick={() => deleteEvent(event.id)} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.danger + '15', color: colors.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                        </>
-                      )}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {!event.isPublished && (
+                          <button onClick={(e) => { e.stopPropagation(); publishEventToSocial(event); }} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.primary + '15', color: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Share2 size={16} /></button>
+                        )}
+                        {canEdit && (
+                          <button onClick={(e) => { e.stopPropagation(); deleteEvent(event.id); }} style={{ width: 34, height: 34, borderRadius: 10, border: 'none', backgroundColor: colors.danger + '15', color: colors.danger, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -236,6 +263,7 @@ export function CalendarTab({ initialId, onConsumeId }: { initialId?: string, on
           isOpen={showModal}
           onClose={() => { setShowModal(false); setEditingEvent(null); }}
           onSave={handleSave}
+          isReadOnly={editingEvent ? !(isAdmin || (can('createAcademicEvent') || can('createGeneralEvent')) && editingEvent.authorId === userData?.uid) : false}
           initialData={editingEvent || {
             date: `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay || new Date().getDate()).padStart(2, '0')}`,
           }}
