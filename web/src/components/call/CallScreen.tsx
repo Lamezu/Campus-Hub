@@ -305,8 +305,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const screenStreamRef = useRef<MediaStream | null>(null);
   const screenShareVideoRef = useRef<HTMLVideoElement>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
-  const screenAudioSenderRef = useRef<RTCRtpSender | null>(null);
-  const screenAudioCtxRef = useRef<AudioContext | null>(null);
+  const receiverTracksFilledRef = useRef(false);
+  const screenAudioSrcRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const screenAudioGainRef = useRef<GainNode | null>(null);
   const videoSenderRef = useRef<RTCRtpSender | null>(null);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const remoteShareStreamRef = useRef<MediaStream>(new MediaStream());
@@ -511,48 +512,38 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           pcAudioTracks = dest.stream.getAudioTracks();
         } catch {}
       }
-      pcAudioTracks.forEach(t => pc.addTrack(t, stream));
-      stream.getVideoTracks().forEach(t => { activeVideoTrackRef.current = t; videoSenderRef.current = pc.addTrack(t, stream); });
+      pc.ontrack = (e: RTCTrackEvent) => {
+        const idx = pc.getTransceivers().findIndex(tx => tx === e.transceiver);
+        const track = e.track;
 
-      pc.ontrack = (event) => {
-        if (event.track.kind === 'audio') {
+        if (idx === 0) {
+          // slot 0 = remote audio
           const rs = remoteStreamRef.current;
-          if (!rs.getTracks().find(t => t.id === event.track.id)) rs.addTrack(event.track);
+          if (!rs.getTracks().find(t => t.id === track.id)) rs.addTrack(track);
           if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = rs; remoteAudioRef.current.play().catch(() => {}); }
+          if (remoteVideoRef.current?.srcObject) { remoteVideoRef.current.srcObject = rs; }
           if (!remoteAudioCtxRef.current) {
             try {
               const ctx = new AudioContext();
               remoteAudioCtxRef.current = ctx;
               const analyser = ctx.createAnalyser();
               analyser.fftSize = 256;
-              ctx.createMediaStreamSource(new MediaStream([event.track])).connect(analyser);
+              ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
               remoteAnalyserRef.current = analyser;
             } catch {}
           }
-          return;
-        }
-        if (callType === 'audio') {
-          const rss = remoteShareStreamRef.current;
-          rss.getTracks().forEach(t => rss.removeTrack(t));
-          rss.addTrack(event.track);
-          if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
-          setRemoteSharing(true);
-          event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
-          event.track.addEventListener('mute', () => setRemoteSharing(false));
-          event.track.addEventListener('unmute', () => setRemoteSharing(true));
-          return;
-        }
-        const alreadyHasCam = remoteStreamRef.current.getVideoTracks().length > 0;
-        if (!alreadyHasCam) {
-          remoteStreamRef.current.addTrack(event.track);
+        } else if (idx === 1) {
+          // slot 1 = remote camera
+          const rs = remoteStreamRef.current;
+          if (!rs.getTracks().find(t => t.id === track.id)) rs.addTrack(track);
           if (callType === 'video' && remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            remoteVideoRef.current.srcObject = rs;
             remoteVideoRef.current.play().catch(() => {});
           }
-          setRemoteVideoMuted(event.track.muted);
-          if (!event.track.muted) setRemoteVideoReady(true);
-          event.track.addEventListener('mute', () => setRemoteVideoMuted(true));
-          event.track.addEventListener('unmute', () => {
+          setRemoteVideoMuted(track.muted);
+          if (!track.muted) setRemoteVideoReady(true);
+          track.addEventListener('mute', () => setRemoteVideoMuted(true));
+          track.addEventListener('unmute', () => {
             setRemoteVideoMuted(false);
             setRemoteVideoReady(true);
             if (callType === 'video' && remoteVideoRef.current) {
@@ -560,19 +551,28 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               remoteVideoRef.current.play().catch(() => {});
             }
           });
-        } else {
+        } else if (idx === 2) {
+          // slot 2 = remote screen share
           const rss = remoteShareStreamRef.current;
           rss.getTracks().forEach(t => rss.removeTrack(t));
-          rss.addTrack(event.track);
+          rss.addTrack(track);
           if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
-          setRemoteSharing(true);
-          event.track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(event.track); });
-          event.track.addEventListener('mute', () => setRemoteSharing(false));
-          event.track.addEventListener('unmute', () => setRemoteSharing(true));
+          if (!track.muted) setRemoteSharing(true);
+          track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(track); });
+          track.addEventListener('mute', () => setRemoteSharing(false));
+          track.addEventListener('unmute', () => setRemoteSharing(true));
         }
       };
 
       if (isCaller) {
+        const txAudio = pc.addTransceiver('audio', { direction: 'sendrecv' });
+        const txVideo = pc.addTransceiver('video', { direction: 'sendrecv' });
+        const txScreen = pc.addTransceiver('video', { direction: 'sendrecv' });
+        if (pcAudioTracks[0]) txAudio.sender.replaceTrack(pcAudioTracks[0]).catch(() => {});
+        if (videoTrack && callType === 'video') { activeVideoTrackRef.current = videoTrack; txVideo.sender.replaceTrack(videoTrack).catch(() => {}); }
+        videoSenderRef.current = txVideo.sender;
+        screenSenderRef.current = txScreen.sender;
+
         pc.onicecandidate = (e) => {
           if (e.candidate) addCallerCandidate(callId, e.candidate.toJSON()).catch(() => {});
         };
@@ -719,6 +719,14 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await answerCall(callId, answer);
+        if (!receiverTracksFilledRef.current) {
+          receiverTracksFilledRef.current = true;
+          const txs = pc.getTransceivers();
+          if (pcAudioTracks[0]) txs[0]?.sender.replaceTrack(pcAudioTracks[0]).catch(() => {});
+          if (videoTrack && callType === 'video') { activeVideoTrackRef.current = videoTrack; txs[1]?.sender.replaceTrack(videoTrack).catch(() => {}); }
+          videoSenderRef.current = txs[1]?.sender ?? null;
+          screenSenderRef.current = txs[2]?.sender ?? null;
+        }
         setStatus('active');
         startTimer();
         connectedRef.current = true;
@@ -888,7 +896,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           trackForSender = gainDestRef.current.stream.getAudioTracks()[0] ?? track;
         } catch {}
       }
-      const sender = pcRef.current?.getSenders().find(sndr => sndr.track?.kind === 'audio');
+      const sender = pcRef.current?.getTransceivers()[0]?.sender;
       if (sender) await sender.replaceTrack(trackForSender);
       localStreamRef.current?.getAudioTracks().forEach(t => t.stop());
       if (!micOn) track.enabled = false;
@@ -923,14 +931,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const stopScreenShare = useCallback(() => {
     screenTrackRef.current?.stop();
     screenTrackRef.current = null;
-    screenStreamRef.current?.getAudioTracks().forEach(t => t.stop());
+    screenStreamRef.current?.getTracks().forEach(t => t.stop());
     screenStreamRef.current = null;
-    screenAudioCtxRef.current?.close();
-    screenAudioCtxRef.current = null;
-    if (pcRef.current) {
-      if (screenSenderRef.current) { pcRef.current.removeTrack(screenSenderRef.current); screenSenderRef.current = null; }
-      if (screenAudioSenderRef.current) { pcRef.current.removeTrack(screenAudioSenderRef.current); screenAudioSenderRef.current = null; }
-    }
+    screenAudioSrcRef.current?.disconnect();
+    screenAudioSrcRef.current = null;
+    screenAudioGainRef.current?.disconnect();
+    screenAudioGainRef.current = null;
+    screenSenderRef.current?.replaceTrack(null).catch(() => {});
     if (screenShareVideoRef.current) screenShareVideoRef.current.srcObject = null;
     setSharing(false);
   }, []);
@@ -943,23 +950,18 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       const audioTrack = screenStream.getAudioTracks()[0];
       screenTrackRef.current = videoTrack;
       videoTrack.onended = () => stopScreenShare();
-      if (pcRef.current) {
-        screenSenderRef.current = pcRef.current.addTrack(videoTrack, screenStream);
-        if (audioTrack) {
-          try {
-            const ctx = new AudioContext();
-            screenAudioCtxRef.current = ctx;
-            const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
-            const gain = ctx.createGain();
-            gain.gain.value = 3.5;
-            const dest = ctx.createMediaStreamDestination();
-            src.connect(gain);
-            gain.connect(dest);
-            screenAudioSenderRef.current = pcRef.current.addTrack(dest.stream.getAudioTracks()[0], screenStream);
-          } catch {
-            screenAudioSenderRef.current = pcRef.current.addTrack(audioTrack, screenStream);
-          }
-        }
+      await screenSenderRef.current?.replaceTrack(videoTrack).catch(() => {});
+      if (audioTrack && gainCtxRef.current && gainDestRef.current) {
+        try {
+          if (gainCtxRef.current.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
+          const src = gainCtxRef.current.createMediaStreamSource(new MediaStream([audioTrack]));
+          const gain = gainCtxRef.current.createGain();
+          gain.gain.value = 3.5;
+          src.connect(gain);
+          gain.connect(gainDestRef.current);
+          screenAudioSrcRef.current = src;
+          screenAudioGainRef.current = gain;
+        } catch {}
       }
       screenStreamRef.current = screenStream;
       setSharing(true);
