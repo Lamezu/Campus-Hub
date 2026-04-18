@@ -14,6 +14,7 @@ export interface User {
   createdAt: string;
   lastActive: string;
   fcmToken: string | null;
+  language?: 'es' | 'en';
   settings?: {
     globalMute?: MuteDuration;
     globalTone?: string;
@@ -247,7 +248,7 @@ export interface PinnedMessage {
 
 // ─── DM / Contact types ───────────────────────────────────────────────────────
 
-export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel';
+export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel' | 'group' | 'other';
 
 export interface DMConversation {
   id: string;
@@ -288,7 +289,7 @@ export interface DirectMessage extends Message {}
 
 export type CallType = 'audio' | 'video';
 
-export type CallStatus = 'ringing' | 'active' | 'ended' | 'missed' | 'rejected';
+export type CallStatus = 'ringing' | 'connecting' | 'active' | 'ended' | 'missed' | 'rejected';
 
 export interface ActiveCall {
   id: string;
@@ -311,9 +312,11 @@ export interface NotificationItem {
   category: NotificationCategory;
   title: string;
   body: string;
+  titleKey?: string;
+  bodyKey?: string;
   createdAt: string;
   read: boolean;
-  meta?: Record<string, string>;
+  meta?: Record<string, any>;
 }
 
 export interface FriendRequest {

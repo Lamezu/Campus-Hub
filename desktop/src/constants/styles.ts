@@ -329,3 +329,15 @@ export const typography = {
     bold: 'bold' as const,
   },
 };
+
+export const STATUS_COLORS: Record<string, string> = {
+  'open': '#FF9500',
+  'in_progress': '#007AFF',
+  'resolved': '#34C759'
+};
+
+export const STATUS_LABELS: Record<string, string> = {
+  'open': 'Abierto',
+  'in_progress': 'En curso',
+  'resolved': 'Resuelto'
+};

@@ -13,3 +13,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+interface Window {
+  electronAPI: {
+    platform: string;
+    downloadFile: (url: string, fileName: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+  }
+}
