@@ -690,14 +690,32 @@
     "title": "Amigos",
     "tabs": {
       "all": "Todos",
-      "best": "Mejores"
+      "best": "Mejores",
+      "requests": "Solicitudes",
+      "add": "Añadir"
     },
     "search_placeholder": "Buscar amigos...",
+    "search_global_placeholder": "Buscar por nombre...",
     "empty": {
       "no_friends": "No tienes amigos todavía",
       "no_best": "No tienes mejores amigos",
+      "no_requests": "No tienes solicitudes pendientes",
       "start_connecting": "¡Empieza a conectar con otros estudiantes!",
       "add_best_desc": "Añade a tus conexiones más cercanas como mejores amigos"
+    },
+    "alerts": {
+      "remove_title": "Eliminar Amigo",
+      "remove_msg": "¿Estás seguro de que quieres eliminar a {{name}} de tu lista de amigos?",
+      "remove_success": "Amigo eliminado correctamente",
+      "request_sent": "Solicitud enviada correctamente",
+      "request_accepted": "Solicitud aceptada",
+      "request_rejected": "Solicitud rechazada"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "friends": "Amigos",
+      "none": "Añadir",
+      "received": "Responder"
     }
   },
   "saved": {
@@ -1125,7 +1143,6 @@
   "accounts": {
     "title": "Gestionar cuentas",
     "switch_to": "Cambiar a esta cuenta",
-
     "active": "Activa",
     "remove": "Eliminar",
     "remove_confirm_title": "¿Eliminar cuenta guardada?",
@@ -1349,6 +1366,10 @@
     "mark_all_read": "Leer todo",
     "no_notifications": "No hay notificaciones",
     "new_notifications": "{{count}} notificaciones nuevas",
+    "friend_request_title": "Solicitud de Amistad",
+    "friend_request_body": "{{name}} quiere ser tu amigo",
+    "friend_request_accepted_title": "Solicitud Aceptada",
+    "friend_request_accepted_body": "{{name}} ha aceptado tu solicitud",
     "friend_request": {
       "title": "Solicitud de amistad",
       "body": "{{name}} quiere ser tu amigo/a.",
@@ -1969,6 +1990,9 @@
     }
   },
   "chat_ui": {
+    "conference": "Conferencia",
+    "calling": "Llamando...",
+    "connecting": "Conectando...",
     "loading_messages": "Cargando mensajes...",
     "unknown_sender": "Desconocido",
     "search_placeholder": "Buscar...",
@@ -2229,6 +2253,7 @@
     "your_screen": "Tu pantalla",
     "incoming_call": "Llamada entrante",
     "incoming_call_desc": "Llamada entrante...",
+    "incoming_conference": "Videoconferencia entrante",
     "admit": "Aceptar",
     "reject": "Rechazar",
     "waiting_approval": "Esperando aprobación...",
