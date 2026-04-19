@@ -861,6 +861,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
   const handleTileContextMenu = (e: React.MouseEvent, tileId: 'remote' | 'remoteShare' | 'localShare' | 'local') => {
     e.preventDefault();
+    if (tileId === 'local' || tileId === 'localShare') return;
     setContextMenu({ x: e.clientX, y: e.clientY, tileId });
   };
 
@@ -1254,19 +1255,21 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               </button>
             ) : (
               <>
-                <button
-                  style={itemStyle}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  onClick={() => {
-                    if (tileId === 'remoteShare') { setHiddenRemoteShare(true); if (focusedTile === 'remoteShare') setFocusedTile(null); }
-                    else { setHiddenRemoteCamera(true); if (focusedTile === 'remote') setFocusedTile(null); }
-                    setContextMenu(null);
-                  }}
-                >
-                  <EyeOff size={15} color="#dcddde" />
-                  {t('call.hide_stream')}
-                </button>
+                {tileId === 'remoteShare' && (
+                  <button
+                    style={itemStyle}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    onClick={() => {
+                      setHiddenRemoteShare(true);
+                      if (focusedTile === 'remoteShare') setFocusedTile(null);
+                      setContextMenu(null);
+                    }}
+                  >
+                    <EyeOff size={15} color="#dcddde" />
+                    {t('call.hide_stream')}
+                  </button>
+                )}
                 <button
                   style={itemStyle}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}

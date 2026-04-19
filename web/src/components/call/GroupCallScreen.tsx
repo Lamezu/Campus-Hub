@@ -743,6 +743,7 @@ export default function GroupCallScreen({
 
   const handleTileContextMenu = (e: React.MouseEvent, tileId: string) => {
     e.preventDefault();
+    if (tileId === 'local' || tileId === 'localShare') return;
     setContextMenu({ x: e.clientX, y: e.clientY, tileId });
   };
 
@@ -1428,15 +1429,17 @@ export default function GroupCallScreen({
               </button>
             ) : (
               <>
-                <button
-                  style={itemStyle}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  onClick={() => handleHidePeer(tileId)}
-                >
-                  <EyeOff size={15} color="#dcddde" />
-                  {t('call.hide_stream')}
-                </button>
+                {tileId.endsWith('-share') && (
+                  <button
+                    style={itemStyle}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    onClick={() => handleHidePeer(tileId)}
+                  >
+                    <EyeOff size={15} color="#dcddde" />
+                    {t('call.hide_stream')}
+                  </button>
+                )}
                 <button
                   style={itemStyle}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
