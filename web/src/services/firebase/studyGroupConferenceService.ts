@@ -87,7 +87,8 @@ export async function createConnection(
   callId: string,
   connId: string,
   callerId: string,
-  receiverId: string
+  receiverId: string,
+  callerSharing?: boolean
 ): Promise<void> {
   await setDoc(doc(db, COL, callId, 'connections', connId), {
     callerId,
@@ -99,8 +100,20 @@ export async function createConnection(
     callerVideoSignal: 0,
     receiverVideoSignal: 0,
     receiverOffer: null,
-    callerReanswer: null
+    callerReanswer: null,
+    callerSharing: callerSharing ?? false,
+    receiverSharing: false,
   });
+}
+
+export async function updateConnectionSharingState(
+  callId: string,
+  connId: string,
+  isCaller: boolean,
+  sharing: boolean
+): Promise<void> {
+  const field = isCaller ? 'callerSharing' : 'receiverSharing';
+  await updateDoc(doc(db, COL, callId, 'connections', connId), { [field]: sharing });
 }
 
 export async function updateConnectionOffer(

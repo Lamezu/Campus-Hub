@@ -21,6 +21,7 @@ import {
   updateReceiverOffer,
   updateCallerReanswer,
   updateCamState,
+  updateCallSharingState,
   signalVideo,
   subscribeToCall,
   subscribeToCallerCandidates,
@@ -84,7 +85,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (!otherUserPhoto) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = otherUserPhoto;
+    img.src = `${otherUserPhoto}${otherUserPhoto.includes('?') ? '&' : '?'}t=session`;
     img.onload = () => { avatarImgRef.current = img; };
   }, [otherUserPhoto]);
 
@@ -92,7 +93,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     return () => {
       if (pipRafRef.current) cancelAnimationFrame(pipRafRef.current);
       pipVideoRef.current?.remove();
-      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+      if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => { });
     };
   }, []);
 
@@ -100,10 +101,10 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (!document.pictureInPictureEnabled || document.pictureInPictureElement) return;
 
     if (remoteSharing && remoteShareVideoRef.current) {
-      try { await remoteShareVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch {}
+      try { await remoteShareVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch { }
     }
     if (callType === 'video' && remoteVideoRef.current && remoteVideoReady && !remoteVideoMuted) {
-      try { await remoteVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch {}
+      try { await remoteVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch { }
     }
 
     try {
@@ -176,7 +177,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       docPipWinRef.current = null;
       docPipAreaRef.current = null;
     }
-    if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(() => {});
+    if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(() => { });
     if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
     setInPip(false);
     setMinimized(false);
@@ -202,7 +203,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       av.style.cssText = 'width:72px;height:72px;border-radius:50%;overflow:hidden;background:#36393f;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700;';
       if (otherUserPhoto) {
         const img = pip.document.createElement('img') as HTMLImageElement;
-        img.src = otherUserPhoto; img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        img.crossOrigin = "anonymous";
+        img.src = `${otherUserPhoto}${otherUserPhoto.includes('?') ? '&' : '?'}t=session`;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
         av.appendChild(img);
       } else { av.textContent = otherUserName[0]?.toUpperCase() || '?'; }
       area.appendChild(av);
@@ -226,7 +229,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (!v) return;
     if (!remoteVideoMuted && remoteVideoReady) {
       if (!v.srcObject) v.srcObject = remoteStreamRef.current;
-      if (v.paused) v.play().catch(() => {});
+      if (v.paused) v.play().catch(() => { });
     }
   }, [remoteVideoMuted, remoteVideoReady, callType]);
 
@@ -241,7 +244,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     const stream = screenStreamRef.current;
     if (!video || !stream) return;
     video.srcObject = stream;
-    video.play().catch(() => {});
+    video.play().catch(() => { });
   }, [sharing]);
 
   useEffect(() => {
@@ -251,7 +254,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (!video || !stream) return;
     video.srcObject = null;
     video.srcObject = stream;
-    video.play().catch(() => {});
+    video.play().catch(() => { });
   }, [remoteSharing]);
 
   useEffect(() => {
@@ -259,27 +262,27 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     if (callType === 'video') {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = remoteStreamRef.current;
-        remoteVideoRef.current.play().catch(() => {});
+        remoteVideoRef.current.play().catch(() => { });
       }
       if (localVideoRef.current && activeVideoTrackRef.current) {
         const ms = new MediaStream([activeVideoTrackRef.current]);
         localVideoRef.current.srcObject = ms;
-        localVideoRef.current.play().catch(() => {});
+        localVideoRef.current.play().catch(() => { });
       }
     }
     if (remoteShareVideoRef.current && remoteSharing) {
       remoteShareVideoRef.current.srcObject = remoteShareStreamRef.current;
-      remoteShareVideoRef.current.play().catch(() => {});
+      remoteShareVideoRef.current.play().catch(() => { });
     }
     if (screenShareVideoRef.current && sharing && screenStreamRef.current) {
       screenShareVideoRef.current.srcObject = screenStreamRef.current;
-      screenShareVideoRef.current.play().catch(() => {});
+      screenShareVideoRef.current.play().catch(() => { });
     }
   }, [minimized, inPip]);
 
   const location = useLocation();
   const initialPathRef = useRef(location.pathname);
-  const openDocPipRef = useRef<() => void>(() => {});
+  const openDocPipRef = useRef<() => void>(() => { });
   useEffect(() => {
     if (location.pathname === initialPathRef.current) return;
     openDocPipRef.current();
@@ -305,7 +308,6 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const screenStreamRef = useRef<MediaStream | null>(null);
   const screenShareVideoRef = useRef<HTMLVideoElement>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
-  const receiverTracksFilledRef = useRef(false);
   const screenAudioSrcRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const screenAudioGainRef = useRef<GainNode | null>(null);
   const videoSenderRef = useRef<RTCRtpSender | null>(null);
@@ -350,10 +352,10 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     gainNodeRef.current?.disconnect();
     gainNodeRef.current = null;
     gainDestRef.current = null;
-    gainCtxRef.current?.close().catch(() => {});
+    gainCtxRef.current?.close().catch(() => { });
     gainCtxRef.current = null;
     if (speakingRafRef.current) { cancelAnimationFrame(speakingRafRef.current); speakingRafRef.current = null; }
-    remoteAudioCtxRef.current?.close().catch(() => {});
+    remoteAudioCtxRef.current?.close().catch(() => { });
     remoteAudioCtxRef.current = null;
     localAnalyserRef.current = null;
     remoteAnalyserRef.current = null;
@@ -369,7 +371,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
   const handleHangUp = useCallback(async () => {
     cleanup();
-    try { await endCall(callId); } catch {}
+    try { await endCall(callId); } catch { }
     onClose();
   }, [callId, cleanup, onClose]);
 
@@ -433,7 +435,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         setInPip(false);
         setMinimized(false);
       });
-    } catch {}
+    } catch { }
   }, [callType, otherUserName, otherUserPhoto, remoteVideoReady, remoteVideoMuted, remoteSharing, hiddenRemoteCamera, hiddenRemoteShare, triggerPip, handleHangUp]);
   useEffect(() => { openDocPipRef.current = openDocPip; }, [openDocPip]);
 
@@ -441,13 +443,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     const rs = remoteStreamRef.current;
     if (callType === 'video' && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = rs;
-      remoteVideoRef.current.play().catch(() => {});
+      remoteVideoRef.current.play().catch(() => { });
       if (rs.getVideoTracks().some(t => !t.muted)) {
         setRemoteVideoReady(true);
       }
     } else if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = rs;
-      remoteAudioRef.current.play().catch(() => {});
+      remoteAudioRef.current.play().catch(() => { });
     }
   }, [callType]);
 
@@ -485,7 +487,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
       if (localVideoRef.current && callType === 'video') {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(() => {});
+        localVideoRef.current.play().catch(() => { });
       }
 
       const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -495,6 +497,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       if (audioTracks.length > 0) {
         try {
           const gainCtx = new AudioContext();
+          gainCtx.resume().catch(() => { });
           gainCtxRef.current = gainCtx;
           const gainNode = gainCtx.createGain();
           gainNodeRef.current = gainNode;
@@ -510,7 +513,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           gainNode.connect(localAnalyser);
           localAnalyserRef.current = localAnalyser;
           pcAudioTracks = dest.stream.getAudioTracks();
-        } catch {}
+        } catch { }
       }
       pc.ontrack = (e: RTCTrackEvent) => {
         const idx = pc.getTransceivers().findIndex(tx => tx === e.transceiver);
@@ -520,7 +523,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           // slot 0 = remote audio
           const rs = remoteStreamRef.current;
           if (!rs.getTracks().find(t => t.id === track.id)) rs.addTrack(track);
-          if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = rs; remoteAudioRef.current.play().catch(() => {}); }
+          if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = rs; remoteAudioRef.current.play().catch(() => { }); }
           if (remoteVideoRef.current?.srcObject) { remoteVideoRef.current.srcObject = rs; }
           if (!remoteAudioCtxRef.current) {
             try {
@@ -530,37 +533,37 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               analyser.fftSize = 256;
               ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
               remoteAnalyserRef.current = analyser;
-            } catch {}
+            } catch { }
           }
         } else if (idx === 1) {
           // slot 1 = remote camera
+          // remoteVideoMuted is controlled by Firestore (callerCamOff/receiverCamOff).
+          // Don't read track.muted here — the track arrives muted during ICE setup
+          // regardless of whether the peer actually has their camera on.
           const rs = remoteStreamRef.current;
           if (!rs.getTracks().find(t => t.id === track.id)) rs.addTrack(track);
           if (callType === 'video' && remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = rs;
-            remoteVideoRef.current.play().catch(() => {});
+            remoteVideoRef.current.play().catch(() => { });
           }
-          setRemoteVideoMuted(track.muted);
-          if (!track.muted) setRemoteVideoReady(true);
+          setRemoteVideoReady(true);
           track.addEventListener('mute', () => setRemoteVideoMuted(true));
           track.addEventListener('unmute', () => {
             setRemoteVideoMuted(false);
             setRemoteVideoReady(true);
             if (callType === 'video' && remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = remoteStreamRef.current;
-              remoteVideoRef.current.play().catch(() => {});
+              remoteVideoRef.current.play().catch(() => { });
             }
           });
         } else if (idx === 2) {
-          // slot 2 = remote screen share
           const rss = remoteShareStreamRef.current;
           rss.getTracks().forEach(t => rss.removeTrack(t));
           rss.addTrack(track);
-          if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => {}); }
-          if (!track.muted) setRemoteSharing(true);
-          track.addEventListener('ended', () => { setRemoteSharing(false); rss.removeTrack(track); });
-          track.addEventListener('mute', () => setRemoteSharing(false));
-          track.addEventListener('unmute', () => setRemoteSharing(true));
+          if (remoteShareVideoRef.current) { remoteShareVideoRef.current.srcObject = rss; remoteShareVideoRef.current.play().catch(() => { }); }
+          track.addEventListener('unmute', () => {
+            if (remoteShareVideoRef.current) remoteShareVideoRef.current.play().catch(() => { });
+          });
         }
       };
 
@@ -568,13 +571,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         const txAudio = pc.addTransceiver('audio', { direction: 'sendrecv' });
         const txVideo = pc.addTransceiver('video', { direction: 'sendrecv' });
         const txScreen = pc.addTransceiver('video', { direction: 'sendrecv' });
-        if (pcAudioTracks[0]) txAudio.sender.replaceTrack(pcAudioTracks[0]).catch(() => {});
-        if (videoTrack && callType === 'video') { activeVideoTrackRef.current = videoTrack; txVideo.sender.replaceTrack(videoTrack).catch(() => {}); }
+        if (pcAudioTracks[0]) txAudio.sender.replaceTrack(pcAudioTracks[0]).catch(() => { });
+        if (videoTrack && callType === 'video') { activeVideoTrackRef.current = videoTrack; txVideo.sender.replaceTrack(videoTrack).catch(() => { }); }
         videoSenderRef.current = txVideo.sender;
         screenSenderRef.current = txScreen.sender;
 
         pc.onicecandidate = (e) => {
-          if (e.candidate) addCallerCandidate(callId, e.candidate.toJSON()).catch(() => {});
+          if (e.candidate) addCallerCandidate(callId, e.candidate.toJSON()).catch(() => { });
         };
 
         const offer = await pc.createOffer();
@@ -591,18 +594,19 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           const receiverCamOff = call.receiverCamOff ?? false;
           setRemoteVideoMuted(receiverCamOff);
           if (!receiverCamOff) setRemoteVideoReady(true);
+          setRemoteSharing(call.receiverSharing ?? false);
           const receiverSig = call.receiverVideoSignal ?? 0;
           if (receiverSig !== lastVideoSignalRef.current) {
             lastVideoSignalRef.current = receiverSig;
             if (callType === 'video' && remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = remoteStreamRef.current;
-              remoteVideoRef.current.play().catch(() => {});
+              remoteVideoRef.current.play().catch(() => { });
             }
           }
           if (call.answer && pc.signalingState === 'have-local-offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(call.answer)).catch(() => {});
+            await pc.setRemoteDescription(new RTCSessionDescription(call.answer)).catch(() => { });
             for (const c of pendingCandidates.current) {
-              await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+              await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
             }
             pendingCandidates.current = [];
             setStatus('active');
@@ -614,7 +618,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                   const newOffer = await pc.createOffer();
                   await pc.setLocalDescription(newOffer);
                   await updateCallOffer(callId, newOffer);
-                } catch {}
+                } catch { }
               }
             };
           }
@@ -626,13 +630,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               const reanswer = await pc.createAnswer();
               await pc.setLocalDescription(reanswer);
               await updateCallerReanswer(callId, reanswer);
-            } catch {}
+            } catch { }
           }
         });
 
         const unsubCandidates = subscribeToReceiverCandidates(callId, async (candidate) => {
           if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => { });
           } else {
             pendingCandidates.current.push(candidate);
           }
@@ -642,7 +646,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
       } else {
         pc.onicecandidate = (e) => {
-          if (e.candidate) addReceiverCandidate(callId, e.candidate.toJSON()).catch(() => {});
+          if (e.candidate) addReceiverCandidate(callId, e.candidate.toJSON()).catch(() => { });
         };
 
         const lastOfferRef = { sdp: '' };
@@ -653,12 +657,13 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           const callerCamOff = call.callerCamOff ?? false;
           setRemoteVideoMuted(callerCamOff);
           if (!callerCamOff) setRemoteVideoReady(true);
+          setRemoteSharing(call.callerSharing ?? false);
           const callerSig = call.callerVideoSignal ?? 0;
           if (callerSig !== lastVideoSignalRef.current) {
             lastVideoSignalRef.current = callerSig;
             if (callType === 'video' && remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = remoteStreamRef.current;
-              remoteVideoRef.current.play().catch(() => {});
+              remoteVideoRef.current.play().catch(() => { });
             }
           }
           if (connectedRef.current && call.offer && pc.signalingState === 'stable') {
@@ -670,19 +675,19 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 const reanswer = await pc.createAnswer();
                 await pc.setLocalDescription(reanswer);
                 await answerCall(callId, reanswer);
-              } catch {}
+              } catch { }
             }
           }
           const callerReanswer = call.callerReanswer;
           if (callerReanswer?.sdp && callerReanswer.sdp !== lastCallerReanswerSdpRef.current && pc.signalingState === 'have-local-offer') {
             lastCallerReanswerSdpRef.current = callerReanswer.sdp;
-            await pc.setRemoteDescription(new RTCSessionDescription(callerReanswer)).catch(() => {});
+            await pc.setRemoteDescription(new RTCSessionDescription(callerReanswer)).catch(() => { });
           }
         });
 
         const unsubCandidates = subscribeToCallerCandidates(callId, async (candidate) => {
           if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => { });
           } else {
             pendingCandidates.current.push(candidate);
           }
@@ -712,21 +717,24 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         for (const c of pendingCandidates.current) {
-          await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+          await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
         }
         pendingCandidates.current = [];
 
+        const txs = pc.getTransceivers();
+        if (txs[0]) txs[0].direction = 'sendrecv';
+        if (txs[1]) txs[1].direction = 'sendrecv';
+        if (txs[2]) txs[2].direction = 'sendrecv';
+        videoSenderRef.current = txs[1]?.sender ?? null;
+        screenSenderRef.current = txs[2]?.sender ?? null;
+        if (pcAudioTracks[0] && txs[0]) txs[0].sender.replaceTrack(pcAudioTracks[0]).catch(() => { });
+        if (videoTrack && callType === 'video' && txs[1]) {
+          activeVideoTrackRef.current = videoTrack;
+          txs[1].sender.replaceTrack(videoTrack).catch(() => { });
+        }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         await answerCall(callId, answer);
-        if (!receiverTracksFilledRef.current) {
-          receiverTracksFilledRef.current = true;
-          const txs = pc.getTransceivers();
-          if (pcAudioTracks[0]) txs[0]?.sender.replaceTrack(pcAudioTracks[0]).catch(() => {});
-          if (videoTrack && callType === 'video') { activeVideoTrackRef.current = videoTrack; txs[1]?.sender.replaceTrack(videoTrack).catch(() => {}); }
-          videoSenderRef.current = txs[1]?.sender ?? null;
-          screenSenderRef.current = txs[2]?.sender ?? null;
-        }
         setStatus('active');
         startTimer();
         connectedRef.current = true;
@@ -736,7 +744,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
               const offer = await pc.createOffer();
               await pc.setLocalDescription(offer);
               await updateReceiverOffer(callId, offer);
-            } catch {}
+            } catch { }
           }
         };
       }
@@ -802,21 +810,21 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
         if (!track) return;
         activeVideoTrackRef.current = track;
         const sender = videoSenderRef.current;
-        if (sender) await sender.replaceTrack(track).catch(() => {});
-        if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => {}); }
+        if (sender) await sender.replaceTrack(track).catch(() => { });
+        if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => { }); }
         setSelectedCamId(track.getSettings().deviceId ?? selectedCamId);
         setCamOn(true);
-        updateCamState(callId, isCaller, false).catch(() => {});
-        signalVideo(callId, isCaller).catch(() => {});
-      } catch {}
+        updateCamState(callId, isCaller, false).catch(() => { });
+        signalVideo(callId, isCaller).catch(() => { });
+      } catch { }
     } else {
       activeVideoTrackRef.current?.stop();
       activeVideoTrackRef.current = null;
       const sender = videoSenderRef.current;
-      if (sender) await sender.replaceTrack(null).catch(() => {});
+      if (sender) await sender.replaceTrack(null).catch(() => { });
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setCamOn(false);
-      updateCamState(callId, isCaller, true).catch(() => {});
+      updateCamState(callId, isCaller, true).catch(() => { });
     }
   };
 
@@ -894,19 +902,19 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           gainSourceRef.current = newSrc;
           newSrc.connect(gainNodeRef.current);
           trackForSender = gainDestRef.current.stream.getAudioTracks()[0] ?? track;
-        } catch {}
+        } catch { }
       }
       const sender = pcRef.current?.getTransceivers()[0]?.sender;
       if (sender) await sender.replaceTrack(trackForSender);
       localStreamRef.current?.getAudioTracks().forEach(t => t.stop());
       if (!micOn) track.enabled = false;
-    } catch {}
+    } catch { }
   };
 
   const changeAudioOutput = (deviceId: string) => {
     setSelectedSpeakerId(deviceId);
     const audio = remoteAudioRef.current as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
-    audio?.setSinkId?.(deviceId).catch(() => {});
+    audio?.setSinkId?.(deviceId).catch(() => { });
   };
 
   const changeVideoInput = async (deviceId: string) => {
@@ -923,9 +931,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       if (sender) await sender.replaceTrack(track);
       activeVideoTrackRef.current?.stop();
       activeVideoTrackRef.current = track;
-      if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => {}); }
+      if (localVideoRef.current) { localVideoRef.current.srcObject = s; localVideoRef.current.play().catch(() => { }); }
       if (!camOn) track.enabled = false;
-    } catch {}
+    } catch { }
   };
 
   const stopScreenShare = useCallback(() => {
@@ -937,10 +945,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     screenAudioSrcRef.current = null;
     screenAudioGainRef.current?.disconnect();
     screenAudioGainRef.current = null;
-    screenSenderRef.current?.replaceTrack(null).catch(() => {});
+    if (screenSenderRef.current) screenSenderRef.current.replaceTrack(null).catch(() => { });
     if (screenShareVideoRef.current) screenShareVideoRef.current.srcObject = null;
     setSharing(false);
-  }, []);
+    updateCallSharingState(callId, isCaller, false).catch(() => { });
+  }, [callId, isCaller]);
 
   const toggleScreenShare = async () => {
     if (sharing) { stopScreenShare(); return; }
@@ -950,10 +959,18 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       const audioTrack = screenStream.getAudioTracks()[0];
       screenTrackRef.current = videoTrack;
       videoTrack.onended = () => stopScreenShare();
-      await screenSenderRef.current?.replaceTrack(videoTrack).catch(() => {});
+      if (screenSenderRef.current) {
+        await screenSenderRef.current.replaceTrack(videoTrack).catch(() => { });
+      } else if (pcRef.current) {
+        try {
+          const tx = pcRef.current.addTransceiver('video', { direction: 'sendrecv' });
+          screenSenderRef.current = tx.sender;
+          await tx.sender.replaceTrack(videoTrack).catch(() => { });
+        } catch { }
+      }
       if (audioTrack && gainCtxRef.current && gainDestRef.current) {
         try {
-          if (gainCtxRef.current.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
+          if (gainCtxRef.current.state === 'suspended') gainCtxRef.current.resume().catch(() => { });
           const src = gainCtxRef.current.createMediaStreamSource(new MediaStream([audioTrack]));
           const gain = gainCtxRef.current.createGain();
           gain.gain.value = 3.5;
@@ -961,15 +978,16 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           gain.connect(gainDestRef.current);
           screenAudioSrcRef.current = src;
           screenAudioGainRef.current = gain;
-        } catch {}
+        } catch { }
       }
       screenStreamRef.current = screenStream;
       setSharing(true);
-    } catch {}
+      updateCallSharingState(callId, isCaller, true).catch(() => { });
+    } catch { }
   };
 
   const handleInputVolume = useCallback((v: number) => {
-    if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => {});
+    if (gainCtxRef.current?.state === 'suspended') gainCtxRef.current.resume().catch(() => { });
     userGainRef.current = v / 100;
     if (gainNodeRef.current) gainNodeRef.current.gain.value = micOn ? v / 100 : 0;
   }, [micOn]);
@@ -987,8 +1005,8 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
 
   const statusLabel =
     status === 'ringing' ? 'Llamando...' :
-    status === 'connecting' ? 'Conectando...' :
-    status === 'active' ? formatDuration(duration) : 'Llamada finalizada';
+      status === 'connecting' ? 'Conectando...' :
+        status === 'active' ? formatDuration(duration) : 'Llamada finalizada';
 
 
   const currentUserPhoto = auth.currentUser?.photoURL ?? null;
@@ -1001,12 +1019,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
       onMouseDown={minimized ? onDragStart : undefined}
       onTouchStart={minimized ? onDragStart : undefined}
       style={{
-      position: 'fixed', zIndex: 9999, display: inPip ? 'none' : 'flex', flexDirection: 'column',
-      backgroundColor: '#1e1f22',
-      ...(minimized
-        ? { left: miniPos.x, top: miniPos.y, width: 280, borderRadius: 14, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'grab', userSelect: 'none' }
-        : { inset: 0 })
-    }}>
+        position: 'fixed', zIndex: 9999, display: inPip ? 'none' : 'flex', flexDirection: 'column',
+        backgroundColor: '#1e1f22',
+        ...(minimized
+          ? { left: miniPos.x, top: miniPos.y, width: 280, borderRadius: 14, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'grab', userSelect: 'none' }
+          : { inset: 0 })
+      }}>
       <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
 
       <div style={{
@@ -1022,10 +1040,10 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
           <div style={{ position: 'absolute', inset: 0, zIndex: 5, backgroundColor: '#2b2d31', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
               {otherUserPhoto
-                ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img crossOrigin="anonymous" src={`${otherUserPhoto}${otherUserPhoto.includes('?') ? '&' : '?'}t=session`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, color: '#fff', fontWeight: 700 }}>
-                    {otherUserName[0]?.toUpperCase() || '?'}
-                  </div>
+                  {otherUserName[0]?.toUpperCase() || '?'}
+                </div>
               }
             </div>
           </div>
@@ -1062,7 +1080,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {(callType === 'audio' || !remoteVideoVisible) && !hiddenRemoteCamera && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
-                      {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
+                      {otherUserPhoto ? <img crossOrigin="anonymous" src={`${otherUserPhoto}${otherUserPhoto.includes('?') ? '&' : '?'}t=session`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
                     </div>
                     <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{otherUserName}</p>
                     <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{mediaError ?? (callType === 'audio' ? statusLabel : (!remoteVideoReady ? statusLabel : t('call.camera_disabled')))}</p>
@@ -1075,7 +1093,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {hiddenRemoteCamera && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 8, backgroundColor: '#2b2d31', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                     <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f', opacity: 0.5 }}>
-                      {otherUserPhoto ? <img src={otherUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
+                      {otherUserPhoto ? <img crossOrigin="anonymous" src={`${otherUserPhoto}${otherUserPhoto.includes('?') ? '&' : '?'}t=session`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 700 }}>{otherUserName[0]?.toUpperCase() || '?'}</div>}
                     </div>
                     <span style={{ color: '#72767d', fontSize: 12, fontWeight: 600 }}>{otherUserName}</span>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -1141,7 +1159,7 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
                 {(callType === 'audio' || !camOn) && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', backgroundColor: '#36393f' }}>
-                      {currentUserPhoto ? <img src={currentUserPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{currentUserInitial}</div>}
+                      {currentUserPhoto ? <img crossOrigin="anonymous" src={`${currentUserPhoto}${currentUserPhoto.includes('?') ? '&' : '?'}t=session`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 700 }}>{currentUserInitial}</div>}
                     </div>
                     <p style={{ color: '#fff', fontSize: 14, fontWeight: 600, margin: '10px 0 3px' }}>{t('call.you')}</p>
                     {callType === 'video' && <p style={{ color: '#b9bbbe', fontSize: 12, margin: 0 }}>{t('call.camera_disabled')}</p>}
@@ -1429,7 +1447,7 @@ export function IncomingCallModal({ call, onAccept, onReject }: IncomingCallModa
     }}>
       <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#444', overflow: 'hidden', flexShrink: 0 }}>
         {call.callerPhoto ? (
-          <img src={call.callerPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img crossOrigin="anonymous" src={`${call.callerPhoto}${call.callerPhoto.includes('?') ? '&' : '?'}t=session`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '700', fontSize: '20px' }}>
             {call.callerName[0]?.toUpperCase() || '?'}

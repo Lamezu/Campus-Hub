@@ -34,6 +34,8 @@ export interface Call {
   receiverVideoSignal?: number;
   receiverOffer?: RTCSessionDescriptionInit;
   callerReanswer?: RTCSessionDescriptionInit;
+  callerSharing?: boolean;
+  receiverSharing?: boolean;
 }
 
 export async function createCall(
@@ -91,6 +93,11 @@ export async function missCall(callId: string): Promise<void> {
 export async function updateCamState(callId: string, isCaller: boolean, camOff: boolean): Promise<void> {
   const field = isCaller ? 'callerCamOff' : 'receiverCamOff';
   await updateDoc(doc(db, 'calls', callId), { [field]: camOff });
+}
+
+export async function updateCallSharingState(callId: string, isCaller: boolean, sharing: boolean): Promise<void> {
+  const field = isCaller ? 'callerSharing' : 'receiverSharing';
+  await updateDoc(doc(db, 'calls', callId), { [field]: sharing });
 }
 
 export async function signalVideo(callId: string, isCaller: boolean): Promise<void> {
