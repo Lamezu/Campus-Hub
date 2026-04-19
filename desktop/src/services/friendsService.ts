@@ -48,14 +48,8 @@ export async function sendFriendRequest(
     createdAt: serverTimestamp(),
   });
 
-  notificationService.addNotification(toUserId, {
-    category: 'friend',
-    title: 'Nueva solicitud de amistad',
-    titleKey: 'notifications.friend_request_title',
-    body: `${fromUserName} quiere ser tu amigo/a`,
-    bodyKey: 'notifications.friend_request_body',
-    meta: { name: fromUserName, fromUserId, fromUserName, fromUserPhoto: fromUserPhoto ?? '', isRequest: 'true' },
-  }, requestId).catch(() => { });
+
+
 
   return requestId;
 }
