@@ -933,9 +933,68 @@ export default function ConferenceScreen({
     for (const audioEl of remoteAudioElsRef.current.values()) audioEl.volume = v / 100;
   }, []);
 
+  const triggerPip = useCallback(async () => {
+    if (!document.pictureInPictureEnabled || document.pictureInPictureElement) return;
+    const onLeavePip = () => { setInPip(false); setMinimized(false); };
+    for (const p of peersRef.current) {
+      if (p.sharing) {
+        const el = remoteShareVideoElsRef.current.get(p.uid);
+        if (el && el.srcObject) {
+          try { await el.requestPictureInPicture(); setInPip(true); el.addEventListener('leavepictureinpicture', onLeavePip, { once: true }); return; } catch { }
+        }
+      }
+    }
+    if (callType === 'video') {
+      for (const p of peersRef.current) {
+        if (!p.camOff) {
+          const el = remoteVideoElsRef.current.get(p.uid);
+          if (el && el.srcObject) {
+            try { await el.requestPictureInPicture(); setInPip(true); el.addEventListener('leavepictureinpicture', onLeavePip, { once: true }); return; } catch { }
+          }
+        }
+      }
+    }
+    try {
+      if (!pipVideoRef.current) {
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true;
+        Object.assign(v.style, { position: 'fixed', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none', top: '-9999px' });
+        document.body.appendChild(v);
+        pipVideoRef.current = v;
+      }
+      if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
+      const canvas = document.createElement('canvas');
+      canvas.width = 280; canvas.height = 180;
+      const ctx = canvas.getContext('2d')!;
+      const name = groupName;
+      const initial = name[0]?.toUpperCase() || '?';
+      const draw = () => {
+        ctx.fillStyle = '#2b2d31'; ctx.fillRect(0, 0, 280, 180);
+        const cx = 140, cy = 80, r = 48;
+        ctx.fillStyle = '#5865f2'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 42px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(initial, cx, cy);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = 'bold 15px sans-serif'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(name, 140, 148);
+        pipRafRef.current = requestAnimationFrame(draw);
+      };
+      draw();
+      pipVideoRef.current.srcObject = canvas.captureStream(15);
+      await pipVideoRef.current.play();
+      await pipVideoRef.current.requestPictureInPicture();
+      setInPip(true);
+      pipVideoRef.current.addEventListener('leavepictureinpicture', () => {
+        setInPip(false); setMinimized(false);
+        if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
+      }, { once: true });
+    } catch {
+      if (pipRafRef.current) { cancelAnimationFrame(pipRafRef.current); pipRafRef.current = null; }
+    }
+  }, [callType, groupName]);
+
   const openDocPip = useCallback(async () => {
     const docPip = (window as any).documentPictureInPicture;
-    if (!docPip) { setMinimized(true); return; }
+    if (!docPip) { await triggerPip(); setMinimized(true); return; }
     try {
       const pip: Window = await docPip.requestWindow({ width: 320, height: 280, disallowReturnToOpener: false });
       setMinimized(true);
@@ -1087,6 +1146,12 @@ export default function ConferenceScreen({
     } catch { }
   }, [callType, handleLeave]);
   useEffect(() => { openDocPipRef.current = openDocPip; }, [openDocPip]);
+
+  useEffect(() => {
+    if (!inPip || docPipWinRef.current) return;
+    if (!document.pictureInPictureElement) return;
+    document.exitPictureInPicture().then(() => triggerPip()).catch(() => {});
+  }, [peers, sharing]);
 
   const handleExpand = useCallback(async () => {
     if (docPipWinRef.current && !docPipWinRef.current.closed) {

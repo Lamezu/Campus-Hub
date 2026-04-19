@@ -100,11 +100,22 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   const triggerPip = useCallback(async () => {
     if (!document.pictureInPictureEnabled || document.pictureInPictureElement) return;
 
+    const onLeavePip = () => { setInPip(false); setMinimized(false); };
     if (remoteSharing && remoteShareVideoRef.current) {
-      try { await remoteShareVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch { }
+      try {
+        await remoteShareVideoRef.current.requestPictureInPicture();
+        setInPip(true);
+        remoteShareVideoRef.current.addEventListener('leavepictureinpicture', onLeavePip, { once: true });
+        return;
+      } catch { }
     }
     if (callType === 'video' && remoteVideoRef.current && remoteVideoReady && !remoteVideoMuted) {
-      try { await remoteVideoRef.current.requestPictureInPicture(); setInPip(true); return; } catch { }
+      try {
+        await remoteVideoRef.current.requestPictureInPicture();
+        setInPip(true);
+        remoteVideoRef.current.addEventListener('leavepictureinpicture', onLeavePip, { once: true });
+        return;
+      } catch { }
     }
 
     try {
@@ -222,6 +233,12 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
     video.addEventListener('leavepictureinpicture', onLeave);
     return () => video.removeEventListener('leavepictureinpicture', onLeave);
   }, []);
+
+  useEffect(() => {
+    if (!inPip || docPipWinRef.current) return;
+    if (!document.pictureInPictureElement) return;
+    document.exitPictureInPicture().then(() => triggerPip()).catch(() => {});
+  }, [remoteSharing]);
 
   useEffect(() => {
     if (callType !== 'video') return;
