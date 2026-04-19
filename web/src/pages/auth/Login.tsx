@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAccounts } from '../../contexts/AccountsContext';
 import { useTranslation } from '../../hooks/useTranslation';
+
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -14,6 +16,30 @@ export default function Login() {
   const navigate = useNavigate();
   const { addAccount } = useAccounts();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    getRedirectResult(auth).then(async (result) => {
+      if (!result) return;
+      const user = result.user;
+      const userRef = doc(db, 'users', user.uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || t('common.user'),
+          photoURL: user.photoURL || null,
+          role: 'student',
+          department: null,
+          createdAt: serverTimestamp(),
+          lastActive: serverTimestamp(),
+          fcmToken: null,
+        });
+      }
+      localStorage.setItem('loginTimestamp', Date.now().toString());
+      navigate('/home');
+    }).catch(() => {});
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +67,17 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setError('');
     setLoading(true);
+    const provider = new GoogleAuthProvider();
+    if (isMobile) {
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch {
+        setError(t('auth.google_error'));
+        setLoading(false);
+      }
+      return;
+    }
     try {
-      const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       const userRef = doc(db, 'users', user.uid);
