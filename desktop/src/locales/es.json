@@ -231,7 +231,23 @@
       "melody": "Melodía",
       "pulse": "Pulso"
     },
-    "understood": "Entendido"
+    "understood": "Entendido",
+    "call_ringtones": "Tonos de llamada",
+    "no_tone": "Sin tono",
+    "upload_custom_audio": "Subir archivo de audio",
+    "audio_too_long": "Audio demasiado largo",
+    "audio_limit_desc": "El audio para el tono no puede durar más de 1 minuto.",
+    "rington_updated": "Tono actualizado",
+    "ringtone_custom_success": "Tu tono personalizado ha sido guardado.",
+    "change_custom_audio": "Cambiar audio personalizado",
+    "custom_ringtone_active": "Tono personalizado activo",
+    "call_tones": {
+      "default": "Predeterminado",
+      "Zen": "Zen Harmony",
+      "Dembow": "Dembow",
+      "Navideño": "Dulce Navidad",
+      "Spooky": "Terror"
+    }
   },
   "home": {
     "no_channels": "No te has unido a ningún canal.",
@@ -1094,8 +1110,8 @@
   },
   "accounts": {
     "title": "Gestionar cuentas",
-    "add_account": "Añadir cuenta",
     "switch_to": "Cambiar a esta cuenta",
+
     "active": "Activa",
     "remove": "Eliminar",
     "remove_confirm_title": "¿Eliminar cuenta guardada?",
@@ -1846,7 +1862,7 @@
   "manage_accounts": {
     "title": "Gestionar Cuentas",
     "active": "Activa",
-    "add_account": "Añadir Cuenta",
+    "add_account_btn": "Añadir Cuenta",
     "remove_confirm": "¿Eliminar esta cuenta?",
     "switch_error_title": "No se pudo cambiar",
     "switch_error_generic": "Error desconocido",
@@ -2086,20 +2102,22 @@
     "reply": "Responder"
   },
   "events_channel": {
-    "no_events": "No hay eventos proximos",
-    "no_desc": "Sin descripcion",
-    "status_going": "Asistire",
-    "status_not_going": "No asistire",
-    "confirmed_count": "{{count}} asistiran",
-    "confirmed_count_one": "1 asistira",
+    "title": "Canal de Eventos",
+    "no_events": "No hay eventos filtrados",
+    "description": "Descripción",
+    "no_desc": "Sin descripción adicional",
+    "status_going": "Voy",
+    "status_not_going": "No voy",
+    "confirmed_count_one": "1 confirmado",
+    "confirmed_count": "{{count}} confirmados",
     "view_calendar": "Ver en calendario",
-    "tu_departamento": "Tu departamento",
+    "tu_departamento": "Tu Departamento",
     "filters": {
       "all": "Todos",
-      "event": "Evento",
-      "exam": "Examen",
-      "deadline": "Entrega",
-      "holiday": "Festivo"
+      "event": "Eventos",
+      "exam": "Exámenes",
+      "deadline": "Entregas",
+      "holiday": "Festivos"
     }
   },
   "desktop": {
@@ -2205,6 +2223,27 @@
       "loading": "Cargando fuentes...",
       "no_sources": "No se encontraron fuentes disponibles.",
       "share_btn": "Compartir"
-    }
+    },
+    "hide_members": "Ocultar miembros",
+    "show_members": "Mostrar miembros",
+    "pip": "Picture-in-Picture",
+    "hide_non_video": "Ocultar participantes sin vídeo"
+  },
+  "add_account": {
+    "title": "Añadir cuenta",
+    "subtitle": "Inicia sesión con otra cuenta",
+    "desc": "Introduce las credenciales de la cuenta que quieres añadir",
+    "email_label": "Email",
+    "email_placeholder": "tu@email.com",
+    "password_label": "Contraseña",
+    "password_placeholder": "Contraseña",
+    "submit_btn": "Añadir cuenta",
+    "success_title": "Cuenta añadida",
+    "success_msg": "La cuenta se ha añadido correctamente",
+    "error_already_added": "Esta cuenta ya está añadida",
+    "error_already_active": "Esta es tu cuenta actual",
+    "error_invalid_credentials": "Credenciales inválidas",
+    "error_invalid_email": "Email inválido",
+    "error_generic": "No se pudo añadir la cuenta"
   }
-}
+}
