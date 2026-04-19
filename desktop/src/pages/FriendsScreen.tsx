@@ -12,10 +12,8 @@ import { spacing } from '@/constants/styles';
 import { AlertModal } from '@/components/AlertModal';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { User } from '@/types';
-
 type TabType = 'all' | 'best' | 'add';
 type RoleFilter = 'all' | 'admin' | 'teacher' | 'student';
-
 export default function FriendsScreen() {
   const { colors } = useTheme();
   const { showAlert } = useAlert();
@@ -32,7 +30,6 @@ export default function FriendsScreen() {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<User | null>(null);
   const [removing, setRemoving] = useState(false);
   const currentUser = auth.currentUser;
-
   useEffect(() => {
     if (!currentUser) return;
     const unsubAll = subscribeToFriends(currentUser.uid, (friends) => {
@@ -44,14 +41,12 @@ export default function FriendsScreen() {
     });
     return () => { unsubAll(); unsubBest(); };
   }, [currentUser]);
-
   const handleGlobalSearch = async () => {
     if (!currentUser) return;
     setIsSearchingGlobal(true);
     try {
       const usersRef = collection(db, 'users');
       let q;
-      
       if (search.trim()) {
         const searchTerm = search.toLowerCase();
         q = query(usersRef, limit(100));
@@ -84,19 +79,16 @@ export default function FriendsScreen() {
       setIsSearchingGlobal(false);
     }
   };
-
   useEffect(() => {
     if (activeTab === 'add') {
       const timeout = setTimeout(handleGlobalSearch, 400);
       return () => clearTimeout(timeout);
     }
   }, [search, roleFilter, activeTab]);
-
   const handleToggleBest = async (friendId: string) => {
     if (!currentUser) return;
     try { await toggleBestFriend(currentUser.uid, friendId); } catch { }
   };
-
   const handleAddFriend = async (user: User) => {
     if (!currentUser) return;
     try {
@@ -111,7 +103,6 @@ export default function FriendsScreen() {
       showAlert({ title: t('friends_screen.errors.generic'), message: err.message || t('friends_screen.errors.request_failed'), type: 'error' });
     }
   };
-  
   const handleRemoveFriend = async () => {
     if (!currentUser || !showRemoveConfirm) return;
     setRemoving(true);
@@ -125,14 +116,12 @@ export default function FriendsScreen() {
       setRemoving(false);
     }
   };
-
   const filteredFriends = (activeTab === 'all' ? allFriends : bestFriends).filter(f => {
     const name = f.displayName || '';
     const email = f.email || '';
     const sTerm = (search || '').toLowerCase();
     return name.toLowerCase().includes(sTerm) || email.toLowerCase().includes(sTerm);
   });
-
   return (
     <ThemedView style={{ flex: 1 }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: colors.background }}>
@@ -147,7 +136,6 @@ export default function FriendsScreen() {
           <ThemedText style={{ fontWeight: '700', fontSize: 16 }}>{t('friends_screen.title')}</ThemedText>
           <div style={{ width: 32 }} />
         </div>
-
         <div style={{ padding: `${spacing.md}px ${spacing.lg}px`, flexShrink: 0 }}>
           <div style={{ display: 'flex', backgroundColor: colors.backgroundSecondary, borderRadius: 12, padding: 4, gap: 4, marginBottom: spacing.md }}>
             {[
@@ -178,7 +166,6 @@ export default function FriendsScreen() {
               </button>
             ))}
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', backgroundColor: colors.backgroundSecondary, borderRadius: 12 }}>
             <Search size={18} color={colors.textSecondary} />
             <input
@@ -191,7 +178,6 @@ export default function FriendsScreen() {
               }}
             />
           </div>
-
           {activeTab === 'add' && (
             <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
               {[
@@ -217,7 +203,6 @@ export default function FriendsScreen() {
             </div>
           )}
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: `0 ${spacing.lg}px ${spacing.lg}px` }}>
           {activeTab === 'add' ? (
             <div style={{ marginTop: spacing.sm }}>
@@ -227,13 +212,11 @@ export default function FriendsScreen() {
                   {isSearchingGlobal ? t('friends_screen.status.searching') : t('friends_screen.status.explore')}
                 </ThemedText>
               </div>
-              
               {searchResults.length === 0 && !isSearchingGlobal && (
                 <div style={{ textAlign: 'center', padding: spacing.xl, opacity: 0.5 }}>
                   <ThemedText style={{ fontSize: 14 }}>{t('friends_screen.status.no_results')}</ThemedText>
                 </div>
               )}
-
               {searchResults.map(user => {
                 const isAlreadyFriend = allFriends.some(f => f.uid === user.uid);
                 return (
@@ -308,8 +291,8 @@ export default function FriendsScreen() {
                         {friend.photoURL
                           ? <img src={friend.photoURL} alt="" style={{ width: 50, height: 50, borderRadius: 25, objectFit: 'cover' }} />
                           : <div style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: `${colors.primary}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <span style={{ color: colors.primary, fontWeight: 'bold', fontSize: 20 }}>{friend.displayName?.charAt(0).toUpperCase()}</span>
-                            </div>
+                            <span style={{ color: colors.primary, fontWeight: 'bold', fontSize: 20 }}>{friend.displayName?.charAt(0).toUpperCase()}</span>
+                          </div>
                         }
                         {isBest && (
                           <div style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: '#FF2D55', width: 20, height: 20, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
@@ -317,14 +300,12 @@ export default function FriendsScreen() {
                           </div>
                         )}
                       </div>
-
                       <div style={{ flex: 1 }}>
                         <ThemedText style={{ fontWeight: '800', fontSize: 15, display: 'block' }}>{friend.displayName}</ThemedText>
                         <ThemedText style={{ fontSize: 12, opacity: 0.6, marginTop: 2, display: 'block' }}>
                           {friend.role === 'teacher' ? t('friends_screen.labels.teacher') : friend.role === 'admin' ? t('friends_screen.labels.admin') : t('friends_screen.labels.student')} • {friend.email?.split('@')[0]}
                         </ThemedText>
                       </div>
-
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
                           onClick={() => handleToggleBest(friend.uid)}
@@ -362,7 +343,6 @@ export default function FriendsScreen() {
           )}
         </div>
       </div>
-      
       {showRemoveConfirm && (
         <AlertModal
           isOpen={!!showRemoveConfirm}
@@ -375,7 +355,6 @@ export default function FriendsScreen() {
           onConfirm={handleRemoveFriend}
         />
       )}
-      
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </ThemedView>
   );

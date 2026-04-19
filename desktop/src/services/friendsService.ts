@@ -1,21 +1,19 @@
 import {
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, onSnapshot, writeBatch, Timestamp,
+  limit, arrayUnion, arrayRemove
 } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { notificationService } from './notificationService';
-import type { FriendRequest } from '@/types';
-
+import type { FriendRequest, FriendUser, UserSearchResult, User } from '@/types';
 function tsToISO(val: unknown): string {
   if (val instanceof Timestamp) return val.toDate().toISOString();
   if (typeof val === 'string') return val;
   return new Date().toISOString();
 }
-
 function getRequestId(id1: string, id2: string): string {
   return [id1, id2].sort().join('_');
 }
-
 export async function sendFriendRequest(
   fromUserId: string,
   toUserId: string,
@@ -24,7 +22,6 @@ export async function sendFriendRequest(
 ): Promise<string> {
   const requestId = getRequestId(fromUserId, toUserId);
   const requestRef = doc(db, 'friendRequests', requestId);
-
   try {
     const requestSnap = await getDoc(requestRef);
     if (requestSnap.exists()) {
@@ -38,7 +35,6 @@ export async function sendFriendRequest(
   } catch (e: any) {
     if (e.code !== 'permission-denied') throw e;
   }
-
   await setDoc(requestRef, {
     fromUserId,
     toUserId,
@@ -47,20 +43,14 @@ export async function sendFriendRequest(
     status: 'pending',
     createdAt: serverTimestamp(),
   });
-
-
-
-
   return requestId;
 }
-
 export async function getFriendRequest(
   userId1: string,
   userId2: string
 ): Promise<(FriendRequest & { id: string }) | null> {
   const requestId = getRequestId(userId1, userId2);
   const requestRef = doc(db, 'friendRequests', requestId);
-  
   try {
     const snap = await getDoc(requestRef);
     if (snap.exists() && snap.data().status === 'pending') {
@@ -80,64 +70,36 @@ export async function getFriendRequest(
   }
   return null;
 }
-
 export async function acceptFriendRequest(requestId: string): Promise<void> {
   const requestRef = doc(db, 'friendRequests', requestId);
   const requestSnap = await getDoc(requestRef);
   if (!requestSnap.exists()) throw new Error('Solicitud no encontrada');
-
   const data = requestSnap.data();
   const batch = writeBatch(db);
   batch.update(requestRef, { status: 'accepted', acceptedAt: serverTimestamp() });
-
   const fRoot1 = doc(db, 'friendships', `${data.fromUserId}_${data.toUserId}`);
   batch.set(fRoot1, { userId: data.fromUserId, friendId: data.toUserId, createdAt: serverTimestamp() });
-
   const fRoot2 = doc(db, 'friendships', `${data.toUserId}_${data.fromUserId}`);
   batch.set(fRoot2, { userId: data.toUserId, friendId: data.fromUserId, createdAt: serverTimestamp() });
-
   const fSub1 = doc(db, 'users', data.fromUserId, 'friends', data.toUserId);
   batch.set(fSub1, { createdAt: serverTimestamp(), status: 'accepted' });
-
   const fSub2 = doc(db, 'users', data.toUserId, 'friends', data.fromUserId);
   batch.set(fSub2, { createdAt: serverTimestamp(), status: 'accepted' });
-
   await batch.commit();
-
   const accepterName = auth.currentUser?.displayName ?? 'Alguien';
-  const accepterId = auth.currentUser?.uid;
-
   notificationService.addNotification(data.fromUserId, {
     category: 'friend',
     title: 'Solicitud de amistad aceptada',
-    titleKey: 'notifications.friend_request_accepted_title',
     body: `${accepterName} aceptó tu solicitud de amistad`,
-    bodyKey: 'notifications.friend_request_accepted_body',
-    meta: { name: accepterName, fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
+    meta: { fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
   }).catch(() => { });
-
-  if (accepterId) {
-    try {
-      await deleteDoc(doc(db, 'notifications', accepterId, 'items', requestId));
-    } catch (_) { }
-  }
 }
-
 export async function rejectFriendRequest(requestId: string): Promise<void> {
   await deleteDoc(doc(db, 'friendRequests', requestId));
-
-  const meId = auth.currentUser?.uid;
-  if (meId) {
-    try {
-      await deleteDoc(doc(db, 'notifications', meId, 'items', requestId));
-    } catch (_) { }
-  }
 }
-
 export async function cancelFriendRequest(requestId: string): Promise<void> {
   await deleteDoc(doc(db, 'friendRequests', requestId));
 }
-
 export async function areFriends(userId1: string, userId2: string): Promise<boolean> {
   try {
     const docRef = doc(db, 'users', userId1, 'friends', userId2);
@@ -153,9 +115,7 @@ export async function areFriends(userId1: string, userId2: string): Promise<bool
     }
   }
 }
-
 export async function removeFriend(userId: string, friendId: string): Promise<void> {
-  const batch = writeBatch(db);
   const paths = [
     doc(db, 'friendships', `${userId}_${friendId}`),
     doc(db, 'friendships', `${friendId}_${userId}`),
@@ -163,11 +123,8 @@ export async function removeFriend(userId: string, friendId: string): Promise<vo
     doc(db, 'users', friendId, 'friends', userId),
     doc(db, 'friendRequests', [userId, friendId].sort().join('_'))
   ];
-
-  paths.forEach(ref => batch.delete(ref));
-  await batch.commit();
+  await Promise.allSettled(paths.map(ref => deleteDoc(ref)));
 }
-
 export function subscribeToReceivedRequests(
   userId: string,
   callback: (requests: FriendRequest[]) => void
@@ -193,26 +150,16 @@ export function subscribeToReceivedRequests(
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     callback(sorted);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('ReceivedRequests Snapshot error:', error);
-    }
   });
 }
-
 export function subscribeToFriends(
   userId: string,
   callback: (friends: any[]) => void
 ): () => void {
-  const q = query(
-    collection(db, 'users', userId, 'friends')
-  );
-
+  const q = query(collection(db, 'users', userId, 'friends'));
   return onSnapshot(q, async (snapshot) => {
-    const friendDocs = snapshot.docs;
-    
     const friendsData = await Promise.all(
-      friendDocs.map(async (fDoc) => {
+      snapshot.docs.map(async (fDoc) => {
         try {
           const friendId = fDoc.id;
           const userSnap = await getDoc(doc(db, 'users', friendId));
@@ -221,29 +168,21 @@ export function subscribeToFriends(
             uid: userSnap.id,
             ...userSnap.data(),
             ...fDoc.data(),
-            friendshipCreatedAt: fDoc.data().createdAt
+            friendsSince: fDoc.data().createdAt
           };
         } catch (e) {
-          console.error('Error fetching friend profile:', e);
           return null;
         }
       })
     );
-
     const sorted = friendsData.filter(Boolean).sort((a: any, b: any) => {
-      const t1 = a.friendshipCreatedAt?.toMillis ? a.friendshipCreatedAt.toMillis() : 0;
-      const t2 = b.friendshipCreatedAt?.toMillis ? b.friendshipCreatedAt.toMillis() : 0;
+      const t1 = a.friendsSince?.toMillis ? a.friendsSince.toMillis() : 0;
+      const t2 = b.friendsSince?.toMillis ? b.friendsSince.toMillis() : 0;
       return t2 - t1;
     });
-
     callback(sorted);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('FriendsList Snapshot error:', error);
-    }
   });
 }
-
 export function subscribeToBestFriends(
   userId: string,
   callback: (friends: any[]) => void
@@ -252,12 +191,9 @@ export function subscribeToBestFriends(
     collection(db, 'users', userId, 'friends'),
     where('isBestFriend', '==', true)
   );
-
   return onSnapshot(q, async (snapshot) => {
-    const friendDocs = snapshot.docs;
-    
     const friendsData = await Promise.all(
-      friendDocs.map(async (fDoc) => {
+      snapshot.docs.map(async (fDoc) => {
         try {
           const friendId = fDoc.id;
           const userSnap = await getDoc(doc(db, 'users', friendId));
@@ -266,49 +202,38 @@ export function subscribeToBestFriends(
             uid: userSnap.id,
             ...userSnap.data(),
             ...fDoc.data(),
-            friendshipCreatedAt: fDoc.data().createdAt
+            friendsSince: fDoc.data().createdAt
           };
         } catch (e) {
-          console.error('Error fetching best friend profile:', e);
           return null;
         }
       })
     );
-
     const sorted = friendsData.filter(Boolean).sort((a: any, b: any) => {
-      const t1 = a.friendshipCreatedAt?.toMillis ? a.friendshipCreatedAt.toMillis() : 0;
-      const t2 = b.friendshipCreatedAt?.toMillis ? b.friendshipCreatedAt.toMillis() : 0;
+      const t1 = a.friendsSince?.toMillis ? a.friendsSince.toMillis() : 0;
+      const t2 = b.friendsSince?.toMillis ? b.friendsSince.toMillis() : 0;
       return t2 - t1;
     });
-
     callback(sorted);
-  }, (error) => {
-    if (error.code !== 'permission-denied') {
-      console.error('BestFriends Snapshot error:', error);
-    }
   });
 }
-
-export async function toggleBestFriend(userId: string, friendId: string): Promise<boolean> {
+export async function toggleBestFriend(userId: string, friendId: string, markAs?: boolean): Promise<boolean> {
   const docRef = doc(db, 'users', userId, 'friends', friendId);
   const snap = await getDoc(docRef);
   if (!snap.exists()) return false;
-
-  const isBest = snap.data().isBestFriend ?? false;
-  await updateDoc(docRef, { isBestFriend: !isBest });
-  return !isBest;
+  const newValue = markAs !== undefined ? markAs : !(snap.data().isBestFriend ?? false);
+  await updateDoc(docRef, { isBestFriend: newValue });
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    bestFriends: newValue ? arrayUnion(friendId) : arrayRemove(friendId)
+  });
+  return newValue;
 }
-
-export async function cleanupAllFriendRequests(userId: string): Promise<void> {
-  const q1 = query(collection(db, 'friendRequests'), where('fromUserId', '==', userId));
-  const q2 = query(collection(db, 'friendRequests'), where('toUserId', '==', userId));
-  const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-  const batch = writeBatch(db);
-  s1.docs.forEach(d => batch.delete(d.ref));
-  s2.docs.forEach(d => batch.delete(d.ref));
-  await batch.commit();
+export async function getBestFriendIds(userId: string): Promise<string[]> {
+  const userSnap = await getDoc(doc(db, 'users', userId));
+  if (!userSnap.exists()) return [];
+  return userSnap.data().bestFriends ?? [];
 }
-
 export function subscribeToFriendshipStatus(
   userId1: string,
   userId2: string,
@@ -318,15 +243,12 @@ export function subscribeToFriendshipStatus(
   let isFriend = false;
   let isSent = false;
   let isReceived = false;
-
   const unsubFriend = onSnapshot(friendRef, (snap) => {
     isFriend = snap.exists();
     reportStatus();
-  }, () => {});
-
-  const requestId = [userId1, userId2].sort().join('_');
+  });
+  const requestId = getRequestId(userId1, userId2);
   const requestRef = doc(db, 'friendRequests', requestId);
-  
   const unsubRequest = onSnapshot(requestRef, (snap) => {
     if (snap.exists()) {
       const data = snap.data();
@@ -347,17 +269,70 @@ export function subscribeToFriendshipStatus(
       isReceived = false;
     }
     reportStatus();
-  }, () => {});
-
+  });
   function reportStatus() {
     if (isFriend) callback('friends');
     else if (isReceived) callback('received');
     else if (isSent) callback('sent');
     else callback('none');
   }
-
-  return () => {
-    unsubFriend();
-    unsubRequest();
-  };
+  return () => { unsubFriend(); unsubRequest(); };
+}
+export async function searchUsers(
+  searchQuery: string,
+  currentUserId: string,
+  roleFilter?: string
+): Promise<UserSearchResult[]> {
+  const usersRef = collection(db, 'users');
+  const q = query(
+    usersRef,
+    where('displayName', '>=', searchQuery),
+    where('displayName', '<=', searchQuery + '\uf8ff'),
+    limit(30)
+  );
+  const snap = await getDocs(q);
+  const results = await Promise.all(
+    snap.docs
+      .filter(d => d.id !== currentUserId && !d.data().deleted)
+      .map(async (d) => {
+        const userData = d.data();
+        if (roleFilter && userData.role !== roleFilter) return null;
+        const [isFriend, request] = await Promise.all([
+          areFriends(currentUserId, d.id),
+          getFriendRequest(currentUserId, d.id)
+        ]);
+        let status: 'friend' | 'sent' | 'received' | 'none' = 'none';
+        if (isFriend) status = 'friend';
+        else if (request) {
+          status = request.fromUserId === currentUserId ? 'sent' : 'received';
+        }
+        return {
+          user: { id: d.id, displayName: userData.displayName, photoURL: userData.photoURL, role: userData.role },
+          status,
+          requestId: request?.id
+        } as UserSearchResult;
+      })
+  );
+  return results.filter((r: UserSearchResult | null): r is UserSearchResult => r !== null);
+}
+export async function cleanupAllFriendRequests(userId: string): Promise<void> {
+  const q1 = query(collection(db, 'friendRequests'), where('fromUserId', '==', userId));
+  const q2 = query(collection(db, 'friendRequests'), where('toUserId', '==', userId));
+  const [s1, s2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+  const batch = writeBatch(db);
+  s1.docs.forEach(d => batch.delete(d.ref));
+  s2.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
+export async function toggleBlockUser(currentUserId: string, targetUserId: string, isBlocked: boolean): Promise<void> {
+  const userRef = doc(db, 'users', currentUserId);
+  await updateDoc(userRef, {
+    blockedUsers: isBlocked ? arrayUnion(targetUserId) : arrayRemove(targetUserId)
+  });
+}
+export async function checkIfBlocked(currentUserId: string, targetUserId: string): Promise<boolean> {
+  const userSnap = await getDoc(doc(db, 'users', currentUserId));
+  if (!userSnap.exists()) return false;
+  const blockedUsers = userSnap.data().blockedUsers ?? [];
+  return blockedUsers.includes(targetUserId);
 }

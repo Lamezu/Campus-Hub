@@ -23,7 +23,6 @@ import { createCall } from '@/services/callService';
 import type { DirectMessage, ReplyPreview, User, Message } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { ChatLoadingOverlay } from '@/components/chat/ChatLoadingOverlay';
-
 export default function DMChatScreen() {
   const { t } = useTranslation();
   const { colors, chatSettings, setChatSettings } = useTheme();
@@ -31,7 +30,6 @@ export default function DMChatScreen() {
   const { userId } = useParams<{ userId: string }>();
   const { setActiveCall, setActiveCallId } = useCall();
   const navigate = useNavigate();
-
   const location = useLocation();
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,17 +46,14 @@ export default function DMChatScreen() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<User | null>(null);
-
   const [uploadingBg, setUploadingBg] = useState(false);
   const [editingBgImage, setEditingBgImage] = useState<string | null>(null);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<MessageInputHandle>(null);
   const currentUser = auth.currentUser;
-
   useEffect(() => {
     if (!userId || !currentUser) return;
     const init = async () => {
@@ -76,14 +71,11 @@ export default function DMChatScreen() {
       }
     };
     init();
-
-    const unsubStatus = subscribeToFriendshipStatus(currentUser.uid, userId, (status) => {
+    const unsubStatus = subscribeToFriendshipStatus(currentUser.uid, userId, (status: 'none' | 'sent' | 'received' | 'friends') => {
       setFriendStatus(status);
     });
-
     return () => unsubStatus();
   }, [userId, currentUser]);
-
   useEffect(() => {
     if (!conversationId || !currentUser) return;
     const unsubscribe = dmService.subscribeToMessages(conversationId, currentUser.uid, (newMessages) => {
@@ -91,14 +83,11 @@ export default function DMChatScreen() {
       setLoading(false);
       dmService.markAsRead(conversationId, currentUser.uid);
     }, () => setLoading(false));
-
     starredService.getStarredIdsForConversation(currentUser.uid, conversationId)
       .then(setStarredIds)
       .catch(console.error);
-
     return () => unsubscribe();
   }, [conversationId, currentUser]);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const highlightId = params.get('highlightId');
@@ -109,7 +98,6 @@ export default function DMChatScreen() {
       navigate({ search: newParams.toString() }, { replace: true });
     }
   }, [location.search, messages.length]);
-
   const handleSendMessage = async (text: string) => {
     if (!currentUser || !conversationId || sending) return;
     setSending(true);
@@ -117,81 +105,70 @@ export default function DMChatScreen() {
     setReplyingTo(null);
     try {
       const msgId = await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, text, replyData);
-
-
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_msg'), type: 'error' });
     } finally {
       setSending(false);
     }
   };
-
   const handleSendAudio = async (url: string, duration: number) => {
     if (!currentUser || !conversationId) return;
+    const replyData = replyingTo;
     setReplyingTo(null);
     try {
-      await dmService.sendAudioMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, url, duration);
+      await dmService.sendAudioMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, url, duration, replyData);
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_audio'), type: 'error' });
     }
   };
-
   const handleSendMedia = async (url: string, type: 'image' | 'video' | 'file', fileName?: string, fileSize?: number) => {
     if (!currentUser || !conversationId) return;
+    const replyData = replyingTo;
     setReplyingTo(null);
     try {
       const attachments = [{ url, type, name: fileName || (type === 'video' ? 'video.mp4' : type === 'image' ? 'image.jpg' : 'file'), size: fileSize || 0 }];
-      const msgId = await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, '', null, false, attachments);
-
-
+      await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, '', replyData, false, attachments);
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_file'), type: 'error' });
     }
   };
-
   const handleSendPoll = async (poll: any) => {
     if (!currentUser || !conversationId) return;
+    const replyData = replyingTo;
+    setReplyingTo(null);
     try {
-      const msgId = await dmService.sendPoll(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, poll);
-
-
+      await dmService.sendPoll(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, poll, replyData);
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.create_poll'), type: 'error' });
     }
   };
-
   const handleVotePoll = async (messageId: string, optionId: string) => {
     if (!currentUser || !conversationId) return;
     try { await dmService.votePoll(conversationId, messageId, optionId, currentUser.uid); } catch (error) { console.error(error); }
   };
-
   const handleDelete = async (msgId: string, forAll = false) => {
     if (!currentUser || !conversationId) return;
     if (forAll) await dmService.deleteMessageForAll(conversationId, msgId);
     else await dmService.deleteMessageForMe(conversationId, msgId, currentUser.uid);
   };
-
   const handleReact = async (id: string, emoji: string) => {
     if (!currentUser || !conversationId) return;
     await dmService.toggleReaction(conversationId, id, emoji, currentUser.uid);
   };
-
   const handleReply = (msg: Message) => {
     const firstAttachment = msg.attachments?.[0];
-    setReplyingTo({ 
-      id: msg.id, 
-      text: msg.text || '', 
-      senderName: msg.senderName, 
+    setReplyingTo({
+      id: msg.id,
+      text: msg.poll ? msg.poll.question : (msg.text || ''),
+      senderName: msg.senderName,
       isAudio: firstAttachment?.type === 'audio',
       type: (firstAttachment?.type as any) || (msg.poll ? 'poll' : 'text'),
-      attachmentName: firstAttachment?.name || undefined
+      attachmentName: firstAttachment?.name ?? undefined
     });
   };
-
   const handleForward = (msg: Message) => {
     setForwardingMessage(msg);
   };
-
   const handleUserClick = async (uid: string) => {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
@@ -202,7 +179,6 @@ export default function DMChatScreen() {
       console.error(error);
     }
   };
-
   const handleToggleStar = async (msg: Message) => {
     if (!currentUser || !conversationId) return;
     const isStarred = starredIds.has(msg.id);
@@ -222,20 +198,18 @@ export default function DMChatScreen() {
       console.error(error);
     }
   };
-
   const handleReplyPreviewPress = (messageId: string) => {
     setHighlightedMessageId(messageId);
     const element = document.getElementById(`msg-${messageId}`);
     if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => setHighlightedMessageId(null), 2000);
   };
-
   const handleAudioCall = async () => {
     if (!currentUser || !participant || !conversationId) return;
     const callId = await createCall(
-      currentUser.uid, 
-      participant.uid, 
-      currentUser.displayName || t('profile.username_placeholder'), 
+      currentUser.uid,
+      participant.uid,
+      currentUser.displayName || t('profile.username_placeholder'),
       currentUser.photoURL,
       participant.displayName || t('profile.username_placeholder'),
       participant.photoURL,
@@ -250,13 +224,12 @@ export default function DMChatScreen() {
       otherUserPhoto: participant.photoURL || null,
     });
   };
-
   const handleVideoCall = async () => {
     if (!currentUser || !participant || !conversationId) return;
     const callId = await createCall(
-      currentUser.uid, 
-      participant.uid, 
-      currentUser.displayName || t('profile.username_placeholder'), 
+      currentUser.uid,
+      participant.uid,
+      currentUser.displayName || t('profile.username_placeholder'),
       currentUser.photoURL,
       participant.displayName || t('profile.username_placeholder'),
       participant.photoURL,
@@ -271,17 +244,13 @@ export default function DMChatScreen() {
       otherUserPhoto: participant.photoURL || null,
     });
   };
-
-
   const participantName = participant?.displayName || t('profile.username_placeholder');
   const filteredMessages = searchQuery.trim()
     ? messages.filter(m => m.text?.toLowerCase().includes(searchQuery.toLowerCase()))
     : messages;
-
   const customBackground = chatSettings.customBackground;
   const backgroundActive = !!(customBackground || chatThemes[chatSettings.themeId]?.backgroundImage);
   const backgroundUrl = customBackground?.url || chatThemes[chatSettings.themeId]?.backgroundImage;
-
   const handleBgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -296,13 +265,11 @@ export default function DMChatScreen() {
       if (bgInputRef.current) bgInputRef.current.value = '';
     }
   };
-
   const handleSaveEditedBg = (url: string, x: number, y: number, scale: number) => {
     const newBg = { url, x, y, scale };
     const saved = chatSettings.savedCustomBackgrounds || [];
     const filtered = saved.filter(b => b.url !== url);
     const updatedSaved = [newBg, ...filtered].slice(0, 10);
-
     setChatSettings({
       customBackground: newBg,
       savedCustomBackgrounds: updatedSaved
@@ -310,10 +277,8 @@ export default function DMChatScreen() {
     setEditingBgImage(null);
     setShowSettings(false);
   };
-
   const removeBackground = () => {
     if (!customBackground) return;
-
     showAlert({
       title: t('chat_ui.delete_bg_title'),
       message: t('chat_ui.delete_bg_msg'),
@@ -323,7 +288,6 @@ export default function DMChatScreen() {
       onConfirm: () => {
         const saved = chatSettings.savedCustomBackgrounds || [];
         const updatedSaved = saved.filter(b => b.url !== customBackground.url);
-
         setChatSettings({
           customBackground: null,
           themeId: 'default',
@@ -332,7 +296,6 @@ export default function DMChatScreen() {
       }
     });
   };
-
   const formatLastActive = () => {
     const raw = (participant as any)?.lastActive;
     if (!raw) return t('dm_chat.last_seen.offline');
@@ -348,13 +311,11 @@ export default function DMChatScreen() {
     } else {
       return t('dm_chat.last_seen.offline');
     }
-    
     if (isNaN(ms)) return t('dm_chat.last_seen.offline');
     if (Date.now() - ms < 300000) return t('dm_chat.last_seen.online');
     const lastSeenTime = new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return t('dm_chat.last_seen.at', { time: lastSeenTime });
   };
-
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: colors.background, overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -373,27 +334,24 @@ export default function DMChatScreen() {
             {friendStatus !== 'friends' && <button onClick={async () => { if (friendStatus === 'sent' || !currentUser) return; try { await sendFriendRequest(currentUser.uid, userId!, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL); setFriendStatus('sent'); showAlert({ title: t('dm_chat.friend_request.sent_title'), message: t('dm_chat.friend_request.sent_msg', { name: participantName }), type: 'success' }); } catch { showAlert({ title: t('common.error'), message: t('dm_chat.friend_request.error_msg'), type: 'error' }); } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: friendStatus === 'sent' ? colors.primary : colors.textSecondary, padding: 8, borderRadius: 8, display: 'flex', opacity: friendStatus === 'sent' ? 0.5 : 1 }}>{friendStatus === 'sent' ? <UserCheck size={20} /> : <UserPlus size={20} />}</button>}
             {participantName !== 'Usuario eliminado' && (
               <>
-                <button 
-                  onClick={handleAudioCall} 
+                <button
+                  onClick={handleAudioCall}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}
                 >
                   <Phone size={20} />
                 </button>
-                <button 
-                  onClick={handleVideoCall} 
+                <button
+                  onClick={handleVideoCall}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}
                 >
                   <Video size={20} />
                 </button>
               </>
             )}
-
             <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isSearchOpen ? colors.primary : colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Search size={20} /></button>
             <button onClick={() => setShowSettings(!showSettings)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text, padding: 8, borderRadius: 8, display: 'flex' }}><Settings size={22} /></button>
           </div>
-
         </div>
-
         {isSearchOpen && (
           <div style={{
             padding: `8px ${spacing.md}px`,
@@ -422,7 +380,6 @@ export default function DMChatScreen() {
             )}
           </div>
         )}
-
         <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
           {backgroundUrl && (
             <div style={{
@@ -435,7 +392,6 @@ export default function DMChatScreen() {
               pointerEvents: 'none'
             }} />
           )}
-
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column-reverse', padding: `${spacing.md}px 0`, position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {filteredMessages.length === 0 ? (
@@ -473,7 +429,6 @@ export default function DMChatScreen() {
             </div>
           </div>
         </div>
-
         {showSettings && (
           <div style={{ position: 'absolute', top: 60, right: 20, width: 350, backgroundColor: colors.card, border: `1px solid ${colors.border}`, borderRadius: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1000, padding: spacing.md, maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}><ThemedText style={{ fontWeight: 800, fontSize: 16 }}>{t('chat_ui.customize_title')}</ThemedText><button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}><Plus size={20} style={{ transform: 'rotate(45deg)' }} /></button></div>
@@ -509,7 +464,6 @@ export default function DMChatScreen() {
                 </div>
               </div>
             )}
-
             <div style={{ marginBottom: spacing.lg }}>
               <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.gallery_themes')}</ThemedText>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
@@ -539,7 +493,6 @@ export default function DMChatScreen() {
                 })}
               </div>
             </div>
-
             <div style={{ marginBottom: spacing.lg }}>
               <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.custom_background')}</ThemedText>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -583,7 +536,6 @@ export default function DMChatScreen() {
             </div>
           </div>
         )}
-
         {editingBgImage && (
           <ChatBackgroundEditor
             imageUri={editingBgImage}
@@ -591,46 +543,44 @@ export default function DMChatScreen() {
             onSave={handleSaveEditedBg}
           />
         )}
-
         <div style={{ backgroundColor: colors.background, paddingBottom: 8 }}>
-          <MessageInput 
-            ref={messageInputRef} 
-            onSend={handleSendMessage} 
-            onSendAudio={handleSendAudio} 
-            onSendMedia={handleSendMedia} 
+          <MessageInput
+            ref={messageInputRef}
+            onSend={handleSendMessage}
+            onSendAudio={handleSendAudio}
+            onSendMedia={handleSendMedia}
             onSendFile={(url, name, size) => handleSendMedia(url, 'file', name, size)}
-            onSendPoll={handleSendPoll} 
-            replyTo={replyingTo} 
-            onCancelReply={() => setReplyingTo(null)} 
-            disabled={sending} 
+            onSendPoll={handleSendPoll}
+            replyTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            disabled={sending}
           />
         </div>
         {loading && <ChatLoadingOverlay />}
       </div>
       {participant && (
-        <ContactInfoModal 
-          isOpen={showContactInfo} 
-          onClose={() => setShowContactInfo(false)} 
-          user={participant} 
+        <ContactInfoModal
+          isOpen={showContactInfo}
+          onClose={() => setShowContactInfo(false)}
+          user={participant}
         />
       )}
       {selectedContact && (
-        <ContactInfoModal 
-          isOpen={!!selectedContact} 
-          onClose={() => setSelectedContact(null)} 
-          user={selectedContact} 
+        <ContactInfoModal
+          isOpen={!!selectedContact}
+          onClose={() => setSelectedContact(null)}
+          user={selectedContact}
         />
       )}
-      
       {forwardingMessage && (
-        <ForwardModal 
+        <ForwardModal
           message={forwardingMessage}
           onClose={() => setForwardingMessage(null)}
         />
       )}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes slideDown { 
+        @keyframes slideDown {
           from { transform: translateY(-10px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
         }
@@ -638,7 +588,6 @@ export default function DMChatScreen() {
     </div>
   );
 }
-
 const headerMenuItemStyle = (colors: any): React.CSSProperties => ({
   width: '100%', padding: '10px 14px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: colors.text, fontSize: 14, display: 'flex', alignItems: 'center', gap: 10, borderRadius: 8
 });

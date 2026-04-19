@@ -1,7 +1,5 @@
 export type UserRole = 'student' | 'teacher' | 'admin';
-
 export type UserSubrole = 'delegate' | 'coordinator' | null;
-
 export interface User {
   uid: string;
   email: string;
@@ -19,19 +17,38 @@ export interface User {
     globalMute?: MuteDuration;
     globalTone?: string;
   };
+  bestFriends?: string[];
+  blockedUsers?: string[];
 }
-
+export interface FriendUser extends User {
+  id: string;
+  friendsSince: any;
+  isBestFriend?: boolean;
+}
+export interface UserSearchResult {
+  user: {
+    id: string;
+    displayName: string;
+    photoURL: string | null;
+    role: string;
+  };
+  status: 'friend' | 'sent' | 'received' | 'none';
+  requestId?: string;
+}
+export interface Friendship {
+  userId: string;
+  friendId: string;
+  createdAt: any;
+  isBestFriend?: boolean;
+}
 export type MuteDuration = '8h' | '1w' | 'always' | 'off';
-
 export type SaveToPhotosPreference = 'default' | 'always' | 'never';
-
 export interface ContactSettings {
   mute: MuteDuration;
   mutedUntil: number | null;
   saveToPhotos: SaveToPhotosPreference;
   alertTone?: string;
 }
-
 export interface SharedMedia {
   id: string;
   url: string;
@@ -41,7 +58,6 @@ export interface SharedMedia {
   createdAt: string;
   thumbnail?: string;
 }
-
 export interface Channel {
   id: string;
   name: string;
@@ -60,7 +76,6 @@ export interface Channel {
   lastMessageTime?: string;
   memberIds?: string[];
 }
-
 export interface ReplyPreview {
   id: string;
   text: string;
@@ -68,9 +83,8 @@ export interface ReplyPreview {
   isAudio?: boolean;
   audioDuration?: number;
   type?: 'image' | 'video' | 'file' | 'poll' | 'text' | 'audio';
-  attachmentName?: string;
+  attachmentName?: string | null;
 }
-
 export interface ContactCard {
   userId: string;
   name: string;
@@ -78,13 +92,11 @@ export interface ContactCard {
   role: 'student' | 'teacher' | 'admin';
   bio?: string;
 }
-
 export interface PollOption {
   id: string;
   text: string;
   votes: string[];
 }
-
 export interface Poll {
   question: string;
   options: PollOption[];
@@ -92,7 +104,6 @@ export interface Poll {
   closed: boolean;
   totalVotes: number;
 }
-
 export interface Message {
   id: string;
   text: string;
@@ -112,7 +123,6 @@ export interface Message {
   status?: 'sent' | 'delivered' | 'read';
   starred?: boolean;
 }
-
 export interface StarredMessage extends Message {
   starredAt: string;
   chatType: 'dm' | 'channel' | 'group';
@@ -120,7 +130,6 @@ export interface StarredMessage extends Message {
   channelId?: string;
   groupId?: string;
 }
-
 export interface Attachment {
   url: string;
   type: 'image' | 'video' | 'file' | 'audio' | 'location' | 'contact' | 'post';
@@ -135,7 +144,6 @@ export interface Attachment {
   postAuthorName?: string;
   postAuthorPhoto?: string | null;
 }
-
 export interface JamendoTrack {
   id: string;
   name: string;
@@ -143,7 +151,6 @@ export interface JamendoTrack {
   audioUrl: string;
   coverUrl: string;
 }
-
 export interface Post {
   id: string;
   title: string;
@@ -178,7 +185,6 @@ export interface Post {
   sharesCount?: number;
   isPublished?: boolean;
 }
-
 export interface Comment {
   id: string;
   postId: string;
@@ -192,9 +198,7 @@ export interface Comment {
   parentCommentId?: string | null;
   repliesCount?: number;
 }
-
 export type CalendarEventType = 'exam' | 'holiday' | 'event' | 'deadline' | 'class';
-
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -215,16 +219,15 @@ export interface CalendarEvent {
   attendeesCount?: number;
   isPublished?: boolean;
 }
-
 export interface StudyGroup {
   id: string;
   name: string;
   description: string;
-  subject: string; // Todavía mantenemos esto por compatibilidad o como categoría principal
+  subject: string;
   subjects?: string[];
   departments?: string[];
   cycles?: string[];
-  categoryType?: string; // Para saber qué pestaña estaba activa
+  categoryType?: string;
   createdBy: string;
   createdByName: string;
   memberIds: string[];
@@ -236,7 +239,6 @@ export interface StudyGroup {
   allowedRoles?: string[];
   invitedUserIds?: string[];
 }
-
 export interface PinnedMessage {
   messageId: string;
   channelId: string;
@@ -245,11 +247,7 @@ export interface PinnedMessage {
   pinnedAt: string;
   pinnedBy: string;
 }
-
-// ─── DM / Contact types ───────────────────────────────────────────────────────
-
 export type NotificationCategory = 'social' | 'dm' | 'campus' | 'friend' | 'general' | 'channel' | 'group' | 'other';
-
 export interface DMConversation {
   id: string;
   participantId: string;
@@ -267,7 +265,6 @@ export interface DMConversation {
   friendRequestStatus: 'none' | 'sent' | 'received';
   contactSettings: ContactSettings;
 }
-
 export interface GroupConversation {
   id: string;
   name: string;
@@ -284,13 +281,9 @@ export interface GroupConversation {
   unreadCount: number;
   isGroup: true;
 }
-
-export interface DirectMessage extends Message {}
-
+export interface DirectMessage extends Message { }
 export type CallType = 'audio' | 'video';
-
 export type CallStatus = 'ringing' | 'connecting' | 'active' | 'ended' | 'missed' | 'rejected';
-
 export interface ActiveCall {
   id: string;
   conversationId: string;
@@ -306,7 +299,6 @@ export interface ActiveCall {
   offer?: any | null;
   answer?: any | null;
 }
-
 export interface NotificationItem {
   id: string;
   category: NotificationCategory;
@@ -318,7 +310,6 @@ export interface NotificationItem {
   read: boolean;
   meta?: Record<string, any>;
 }
-
 export interface FriendRequest {
   id: string;
   fromUserId: string;
@@ -328,7 +319,6 @@ export interface FriendRequest {
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
 }
-
 export interface MutualGroup {
   id: string;
   name: string;
