@@ -232,7 +232,23 @@
             "melody": "Melody",
             "pulse": "Pulse"
         },
-        "understood": "Got it"
+        "understood": "Got it",
+        "call_ringtones": "Call Ringtones",
+        "no_tone": "No Tone",
+        "upload_custom_audio": "Upload audio file",
+        "audio_too_long": "Audio too long",
+        "audio_limit_desc": "Ringtone audio cannot exceed 1 minute.",
+        "rington_updated": "Ringtone updated",
+        "ringtone_custom_success": "Your custom ringtone has been saved.",
+        "change_custom_audio": "Change custom audio",
+        "custom_ringtone_active": "Custom ringtone active",
+        "call_tones": {
+            "default": "Default",
+            "Zen": "Zen Harmony",
+            "Dembow": "Dembow",
+            "Navideño": "Jingle Bells",
+            "Spooky": "Terror"
+        }
     },
     "home": {
         "no_channels": "No channels joined yet.",
@@ -2076,20 +2092,22 @@
         "reply": "Reply"
     },
     "events_channel": {
-        "no_events": "No upcoming events",
-        "no_desc": "No description",
+        "title": "Events Channel",
+        "no_events": "No filtered events",
+        "description": "Description",
+        "no_desc": "No additional description",
         "status_going": "Going",
         "status_not_going": "Not going",
-        "confirmed_count": "{{count}} going",
-        "confirmed_count_one": "1 going",
+        "confirmed_count_one": "1 confirmed",
+        "confirmed_count": "{{count}} confirmed",
         "view_calendar": "View in calendar",
-        "tu_departamento": "Your department",
+        "tu_departamento": "Your Department",
         "filters": {
             "all": "All",
-            "event": "Event",
-            "exam": "Exam",
-            "deadline": "Deadline",
-            "holiday": "Holiday"
+            "event": "Events",
+            "exam": "Exams",
+            "deadline": "Deadlines",
+            "holiday": "Holidays"
         }
     },
     "desktop": {
@@ -2169,7 +2187,11 @@
             "loading": "Loading sources...",
             "no_sources": "No available sources found.",
             "share_btn": "Share"
-        }
+        },
+        "hide_members": "Hide members",
+        "show_members": "Show members",
+        "pip": "Picture-in-Picture",
+        "hide_non_video": "Hide participants without video"
     },
 "edit_post": {
     "title": "Edit post",

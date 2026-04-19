@@ -21,6 +21,8 @@ export interface ChatSettings {
   notificationSound: string;
   muteUntil?: number;
   customBackground?: { url: string; x: number; y: number; scale: number } | null;
+  callRingtone: string;
+  customRingtoneUrl?: string | null;
   savedCustomBackgrounds?: { url: string; x: number; y: number; scale: number }[] | null;
 }
 
@@ -32,6 +34,8 @@ export const chatSettingsDefaults: ChatSettings = {
   notificationSound: 'default',
   muteUntil: 0,
   customBackground: null,
+  callRingtone: 'default',
+  customRingtoneUrl: null,
   savedCustomBackgrounds: [],
 };
 

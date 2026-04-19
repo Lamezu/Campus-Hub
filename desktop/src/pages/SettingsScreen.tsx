@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -9,10 +9,11 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import {
   LogOut, Check, Palette, User, Settings as SettingsIcon,
-  ChevronLeft, Bell, Volume2, Globe, Users, Trash2
+  ChevronLeft, Bell, Volume2, Globe, Users, Trash2, Music, Upload, CheckCircle2
 } from 'lucide-react';
+import { uploadChatFile } from '@/config/storage';
 import { AlertModal } from '@/components/AlertModal';
-import { playTone } from '@/utils/toneGenerator';
+import { playTone, playCallTone, stopCallTone } from '@/utils/toneGenerator';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 const PRESET_COLORS = [
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
   const navigate = useNavigate();
   const { theme, colors, setTheme, setCustomPrimary, customPrimary, chatSettings, setChatSettings } = useTheme();
   const { t, language, setLanguage } = useTranslation();
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -247,9 +249,6 @@ export default function SettingsScreen() {
             <Volume2 size={18} color={colors.primary} />
             <ThemedText style={{ fontSize: 16, fontWeight: 'bold' }}>{t('settings.sounds')}</ThemedText>
           </div>
-          <ThemedText style={{ fontSize: 13, opacity: 0.6, display: 'block', marginBottom: spacing.md }}>
-            {t('settings.global_alert_tone')}
-          </ThemedText>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: spacing.sm }}>
             {SOUND_KEYS.map(sound => (
               <button
@@ -274,6 +273,98 @@ export default function SettingsScreen() {
             ))}
           </div>
         </section>
+
+        <section style={{ marginBottom: spacing.xl }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+            <Music size={20} color={colors.primary} />
+            <ThemedText style={{ fontSize: 20, fontWeight: 'bold' }}>{t('settings.call_ringtones', 'Tonos de llamada')}</ThemedText>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+            {['silent', 'default', 'Zen', 'Dembow', 'Navideño', 'Spooky'].map(tone => (
+              <button
+                key={tone}
+                onClick={() => {
+                  setChatSettings({ callRingtone: tone, customRingtoneUrl: null });
+                  if (previewAudioRef.current) previewAudioRef.current.pause();
+                  if (tone !== 'silent') {
+                    playCallTone(tone, 8000);
+                  } else {
+                    stopCallTone();
+                  }
+                }}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '14px 18px', borderRadius: 12,
+                  border: `1px solid ${chatSettings.callRingtone === tone && !chatSettings.customRingtoneUrl ? colors.primary : colors.border}`,
+                  backgroundColor: chatSettings.callRingtone === tone && !chatSettings.customRingtoneUrl ? `${colors.primary}15` : colors.card,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
+              >
+                <ThemedText style={{ fontWeight: '600', color: chatSettings.callRingtone === tone && !chatSettings.customRingtoneUrl ? colors.primary : colors.text }}>
+                  {tone === 'silent' ? t('settings.no_tone') : t(`settings.call_tones.${tone}`, { defaultValue: tone })}
+                </ThemedText>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                   {tone !== 'silent' && <Volume2 size={14} color={colors.textSecondary} style={{ opacity: 0.5 }} />}
+                   {chatSettings.callRingtone === tone && !chatSettings.customRingtoneUrl && <Check size={18} color={colors.primary} />}
+                </div>
+              </button>
+            ))}
+
+            <div style={{ marginTop: spacing.xs }}>
+               <input 
+                 type="file" 
+                 id="custom-ringtone" 
+                 accept="audio/*" 
+                 style={{ display: 'none' }} 
+                 onChange={async (e) => {
+                   const file = e.target.files?.[0];
+                   if (!file) return;
+                   
+                   const audio = new Audio(URL.createObjectURL(file));
+                   audio.onloadedmetadata = async () => {
+                     if (audio.duration > 61) {
+                       showAlert(t('settings.audio_too_long', 'Audio demasiado largo'), t('settings.audio_limit_desc', 'El audio para el tono no puede durar más de 1 minuto.'));
+                       return;
+                     }
+                     
+                     try {
+                      const url = await uploadChatFile(file, `ringtone_${file.name}`);
+                      setChatSettings({ customRingtoneUrl: url, callRingtone: file.name });
+                      
+                      stopCallTone();
+                      if (previewAudioRef.current) previewAudioRef.current.pause();
+                      const previewAudio = new Audio(url);
+                      previewAudioRef.current = previewAudio;
+                      previewAudio.play().catch(() => {});
+                      setTimeout(() => { if (previewAudioRef.current === previewAudio) previewAudio.pause(); }, 5000);
+                      
+                      showAlert(t('settings.rington_updated', 'Tono actualizado'), t('settings.ringtone_custom_success', 'Tu tono personalizado ha sido guardado.'), 'success');
+                    } catch (err) {
+                        showAlert(t('common.error'), t('settings.upload_error', 'Error al subir el archivo.'), 'error');
+                     }
+                   };
+                 }}
+               />
+               <button
+                 onClick={() => document.getElementById('custom-ringtone')?.click()}
+                 style={{
+                   width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                   padding: '14px 18px', borderRadius: 12, border: `1px dashed ${colors.border}`,
+                   backgroundColor: chatSettings.customRingtoneUrl ? `${colors.primary}10` : 'transparent',
+                   cursor: 'pointer', color: colors.text, transition: 'all 0.2s'
+                 }}
+               >
+                 <Upload size={18} color={colors.primary} />
+                 <span style={{ flex: 1, textAlign: 'left', fontWeight: '600' }}>
+                    {chatSettings.customRingtoneUrl ? t('settings.change_custom_audio', 'Cambiar audio personalizado') : t('settings.upload_custom_audio', 'Subir archivo de audio')}
+                 </span>
+                 {chatSettings.customRingtoneUrl && <CheckCircle2 size={18} color={colors.primary} />}
+               </button>
+            </div>
+          </div>
+        </section>
+
 
         <section style={{ marginBottom: spacing.xl }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
