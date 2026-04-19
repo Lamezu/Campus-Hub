@@ -396,6 +396,10 @@ export default function GroupCallScreen({
           const rs = remoteStreamsRef.current.get(peerUid);
           if (el && rs) { el.srcObject = rs; el.play().catch(() => { }); }
         }
+        if (!peerSharing) {
+          const shareEl = remoteShareVideoElsRef.current.get(peerUid);
+          if (shareEl) { shareEl.pause(); shareEl.srcObject = null; }
+        }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: peerCamOff, sharing: peerSharing } : p));
 
         if (conn.answer && pc.signalingState === 'have-local-offer') {
@@ -459,6 +463,10 @@ export default function GroupCallScreen({
           const el = remoteVideoElsRef.current.get(peerUid);
           const rs = remoteStreamsRef.current.get(peerUid);
           if (el && rs) { el.srcObject = rs; el.play().catch(() => { }); }
+        }
+        if (!peerSharing) {
+          const shareEl = remoteShareVideoElsRef.current.get(peerUid);
+          if (shareEl) { shareEl.pause(); shareEl.srcObject = null; }
         }
         setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: peerCamOff, sharing: peerSharing } : p));
 

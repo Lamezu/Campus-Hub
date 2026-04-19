@@ -248,8 +248,11 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   }, [sharing]);
 
   useEffect(() => {
-    if (!remoteSharing) return;
     const video = remoteShareVideoRef.current;
+    if (!remoteSharing) {
+      if (video) { video.pause(); video.srcObject = null; }
+      return;
+    }
     const stream = remoteShareStreamRef.current;
     if (!video || !stream) return;
     video.srcObject = null;
