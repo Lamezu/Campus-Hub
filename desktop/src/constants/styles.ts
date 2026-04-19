@@ -1,5 +1,4 @@
 export type AppTheme = 'light' | 'dark' | 'high-contrast' | 'pastel' | 'monochromatic';
-
 export interface ChatTheme {
   id: string;
   name: string;
@@ -10,9 +9,8 @@ export interface ChatTheme {
   textOwn: string;
   textOther: string;
   nameColor: string;
-  isDark?: boolean; // True if the theme background is dark (forces light text)
+  isDark?: boolean;
 }
-
 export interface ChatSettings {
   themeId: string;
   fontSize: number;
@@ -25,7 +23,6 @@ export interface ChatSettings {
   customRingtoneUrl?: string | null;
   savedCustomBackgrounds?: { url: string; x: number; y: number; scale: number }[] | null;
 }
-
 export const chatSettingsDefaults: ChatSettings = {
   themeId: 'default',
   fontSize: 16,
@@ -38,7 +35,6 @@ export const chatSettingsDefaults: ChatSettings = {
   customRingtoneUrl: null,
   savedCustomBackgrounds: [],
 };
-
 export interface ThemeColors {
   primary: string;
   secondary: string;
@@ -54,7 +50,6 @@ export interface ThemeColors {
   chat: ChatTheme;
   chatSettings: ChatSettings;
 }
-
 const defaultChatTheme: ChatTheme = {
   id: 'default',
   name: 'Default',
@@ -65,7 +60,6 @@ const defaultChatTheme: ChatTheme = {
   textOther: '#000000',
   nameColor: '#8E8E93',
 };
-
 const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
   let r = parseInt(hex.slice(1, 3), 16) / 255;
   let g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -84,7 +78,6 @@ const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
   }
   return { h: h * 360, s: s * 100, l: l * 100 };
 };
-
 const hslToHex = (h: number, s: number, l: number): string => {
   l /= 100;
   const a = s * Math.min(l, 1 - l) / 100;
@@ -96,7 +89,6 @@ const hslToHex = (h: number, s: number, l: number): string => {
   };
   return `#${f(0)}${f(8)}${f(4)}`;
 };
-
 export const themes: Record<Exclude<AppTheme, 'monochromatic'>, Omit<ThemeColors, 'chat' | 'chatSettings'>> = {
   light: {
     primary: '#007AFF',
@@ -151,7 +143,6 @@ export const themes: Record<Exclude<AppTheme, 'monochromatic'>, Omit<ThemeColors
     card: '#F8F5FF',
   },
 };
-
 export const chatThemes: Record<string, ChatTheme> = {
   default: defaultChatTheme,
   love: {
@@ -266,14 +257,12 @@ export const chatThemes: Record<string, ChatTheme> = {
     nameColor: '#FFFFFF',
   },
 };
-
 export const getColors = (
   theme: AppTheme,
   customPrimary?: string,
   userChatSettings: ChatSettings = chatSettingsDefaults
 ): ThemeColors => {
   let baseColors: Omit<ThemeColors, 'chat' | 'chatSettings'>;
-
   if (theme === 'monochromatic' && customPrimary) {
     const { h, s, l } = hexToHsl(customPrimary);
     const isYellowRange = h >= 35 && h <= 85;
@@ -293,9 +282,7 @@ export const getColors = (
   } else {
     baseColors = themes[theme as keyof typeof themes] || themes.light;
   }
-
   let chatTheme = chatThemes[userChatSettings.themeId] || chatThemes.default;
-
   if (userChatSettings.themeId === 'default') {
     chatTheme = {
       ...chatTheme,
@@ -306,10 +293,8 @@ export const getColors = (
       isDark: theme === 'dark' || theme === 'high-contrast'
     };
   }
-
   return { ...baseColors, chat: chatTheme, chatSettings: userChatSettings };
 };
-
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -317,7 +302,6 @@ export const spacing = {
   lg: 24,
   xl: 32,
 };
-
 export const typography = {
   sizes: {
     xs: 12,
@@ -333,13 +317,11 @@ export const typography = {
     bold: 'bold' as const,
   },
 };
-
 export const STATUS_COLORS: Record<string, string> = {
   'open': '#FF9500',
   'in_progress': '#007AFF',
   'resolved': '#34C759'
 };
-
 export const STATUS_LABELS: Record<string, string> = {
   'open': 'Abierto',
   'in_progress': 'En curso',

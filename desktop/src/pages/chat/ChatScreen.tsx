@@ -35,7 +35,6 @@ import * as starredService from '@/services/starredMessagesService';
 import type { Message, ReplyPreview, User } from '@/types';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ChatLoadingOverlay } from '@/components/chat/ChatLoadingOverlay';
-
 const MESSAGES_PER_PAGE = 50;
 export default function ChatScreen() {
   const { t } = useTranslation();
@@ -66,7 +65,6 @@ export default function ChatScreen() {
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [activeGroupConference, setActiveGroupConference] = useState<GroupCall | null>(null);
   const [allUsersCount, setAllUsersCount] = useState<number>(0);
-
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<User | null>(null);
@@ -77,7 +75,6 @@ export default function ChatScreen() {
   const lastDocRef = useRef<any>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const messageInputRef = useRef<MessageInputHandle>(null);
-
   const getDisplayName = (name: string | null) => {
     if (!name) return t('chat_ui.channel_fallback', { id: id ?? '' });
     const systemChannels: Record<string, string> = {
@@ -89,25 +86,20 @@ export default function ChatScreen() {
     const lower = name.toLowerCase();
     return systemChannels[lower] ? t(systemChannels[lower]) : name;
   };
-
   const channelName = getDisplayName(dynamicChannelName);
   const currentUser = auth.currentUser;
-
   useEffect(() => {
     if (!currentUser) return;
     getDoc(doc(db, 'users', currentUser.uid)).then(snap => {
       if (snap.exists()) setUserProfile(snap.data());
     });
   }, [currentUser]);
-
   useEffect(() => {
     if (!cleanId) return;
-
     const mockChannel = MOCK_CHANNELS.find(ch => ch.id === cleanId);
     if (mockChannel) {
       setDynamicChannelName(mockChannel.name);
     }
-
     const tryFetchName = async () => {
       const sgSnap = await getDoc(doc(db, 'studyGroups', cleanId));
       if (sgSnap.exists()) {
@@ -121,7 +113,6 @@ export default function ChatScreen() {
         }
         return;
       }
-
       const chSnap = await getDoc(doc(db, 'channels', cleanId));
       if (chSnap.exists()) {
         const data = chSnap.data();
@@ -130,15 +121,12 @@ export default function ChatScreen() {
         setChannelMembers(data.memberIds || []);
       }
     };
-
     tryFetchName();
   }, [cleanId]);
-
   useEffect(() => {
     if (!cleanId) return;
     const messagesRef = collection(db, collectionName, cleanId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(MESSAGES_PER_PAGE));
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData: Message[] = snapshot.docs
         .map(doc => {
@@ -160,7 +148,6 @@ export default function ChatScreen() {
           };
         })
         .filter(msg => !currentUser || !msg.deletedForUsers?.includes(currentUser.uid));
-
       setMessages(messagesData);
       setLoading(false);
       setHasMore(snapshot.docs.length === MESSAGES_PER_PAGE);
@@ -181,7 +168,6 @@ export default function ChatScreen() {
     }
     return () => unsubscribe();
   }, [cleanId, currentUser, collectionName]);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const highlightId = params.get('highlightId');
@@ -198,7 +184,6 @@ export default function ChatScreen() {
       navigate({ search: newParams.toString() }, { replace: true });
     }
   }, [location.search, messages.length]);
-
   useEffect(() => {
     if (!id || !currentUser) return;
     markChannelRead(id, currentUser.uid);
@@ -207,7 +192,6 @@ export default function ChatScreen() {
       notificationService.setCurrentView(null);
     };
   }, [id, currentUser, isStudyGroup]);
-
   const getChannelInfo = () => {
     const systemChannels: Record<string, { icon: any; verified: boolean; readOnly?: boolean; viewType?: 'events' | 'support'; description?: string }> = {
       'general': { icon: Compass, verified: false },
@@ -224,12 +208,9 @@ export default function ChatScreen() {
     }
     return { icon: null, verified: false, isSystem: false, readOnly: false };
   };
-
   const channelInfo = getChannelInfo();
   const isSystemChannel = channelInfo.isSystem;
   const isReadOnlyChannel = channelInfo.readOnly && !isAdmin;
-
-
   useEffect(() => {
     if (!isStudyGroup || !cleanId || !currentUser) return;
     const unsub = subscribeToActiveConferenceForGroup(cleanId, currentUser.uid, (conf) => {
@@ -237,14 +218,12 @@ export default function ChatScreen() {
     });
     return unsub;
   }, [isStudyGroup, cleanId, currentUser]);
-
   useEffect(() => {
     if (!channelInfo.isSystem) return;
     getDocs(query(collection(db, 'users'))).then(snap => {
       setAllUsersCount(snap.docs.length);
     });
   }, [channelInfo.isSystem]);
-
   const sendChannelNotifications = async (messageId: string, text: string) => {
     if (!currentUser || !cleanId) return;
     let targets = [...channelMembers];
@@ -267,7 +246,7 @@ export default function ChatScreen() {
         category: isStudyGroup ? 'group' : 'channel',
         meta: {
           channelId: cleanId,
-          groupId: isStudyGroup ? cleanId : undefined,
+          groupId: isStudyGroup ? cleanId : null,
           senderName,
           channelName: channelNameDisplay
         }
@@ -275,7 +254,6 @@ export default function ChatScreen() {
     );
     await Promise.all(notifyPromises).catch(() => { });
   };
-
   const handleSendMessage = async (text: string) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
@@ -283,6 +261,14 @@ export default function ChatScreen() {
     setReplyingTo(null);
     try {
       const messagesRef = collection(db, collectionName, cleanId, 'messages');
+      const cleanReplyData = replyData ? {
+        id: replyData.id,
+        text: replyData.text || '',
+        senderName: replyData.senderName || '',
+        isAudio: !!replyData.isAudio,
+        type: replyData.type || 'text',
+        attachmentName: replyData.attachmentName || null
+      } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
         senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
@@ -291,7 +277,7 @@ export default function ChatScreen() {
         createdAt: serverTimestamp(),
         edited: false,
         reactions: {},
-        replyTo: replyData ?? null,
+        replyTo: cleanReplyData,
         deletedForUsers: [],
       });
       await sendChannelNotifications(docRef.id, text);
@@ -302,7 +288,6 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
-
   const handleSendAudio = async (url: string, duration: number) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
@@ -310,6 +295,14 @@ export default function ChatScreen() {
     setReplyingTo(null);
     try {
       const messagesRef = collection(db, collectionName, cleanId, 'messages');
+      const cleanReplyData = replyData ? {
+        id: replyData.id,
+        text: replyData.text || '',
+        senderName: replyData.senderName || '',
+        isAudio: !!replyData.isAudio,
+        type: replyData.type || 'text',
+        attachmentName: replyData.attachmentName || null
+      } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
         senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
@@ -319,7 +312,7 @@ export default function ChatScreen() {
         createdAt: serverTimestamp(),
         edited: false,
         reactions: {},
-        replyTo: replyData ?? null,
+        replyTo: cleanReplyData,
         deletedForUsers: [],
       });
       await sendChannelNotifications(docRef.id, t('chat_ui.voice_message'));
@@ -329,12 +322,21 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
-
   const handleSendMedia = async (url: string, type: 'image' | 'video' | 'file', fileName?: string, fileSize?: number) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
+    const replyData = replyingTo;
+    setReplyingTo(null);
     try {
       const messagesRef = collection(db, collectionName, cleanId, 'messages');
+      const cleanReplyData = replyData ? {
+        id: replyData.id,
+        text: replyData.text || '',
+        senderName: replyData.senderName || '',
+        isAudio: !!replyData.isAudio,
+        type: replyData.type || 'text',
+        attachmentName: replyData.attachmentName || null
+      } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
         senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
@@ -349,14 +351,12 @@ export default function ChatScreen() {
         createdAt: serverTimestamp(),
         edited: false,
         reactions: {},
-        replyTo: null,
+        replyTo: cleanReplyData,
         deletedForUsers: [],
       });
-      
       let notifText = t('chat_ui.image');
       if (type === 'video') notifText = t('chat_ui.video');
       if (type === 'file') notifText = t('chat_ui.file');
-      
       await sendChannelNotifications(docRef.id, notifText);
     } catch (error) {
       console.error(error);
@@ -364,10 +364,11 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
-
   const handleSendPoll = async (poll: any) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
+    const replyData = replyingTo;
+    setReplyingTo(null);
     try {
       const messagesRef = collection(db, collectionName, cleanId, 'messages');
       const pollData = {
@@ -377,6 +378,14 @@ export default function ChatScreen() {
         closed: false,
         totalVotes: 0,
       };
+      const cleanReplyData = replyData ? {
+        id: replyData.id,
+        text: replyData.text || '',
+        senderName: replyData.senderName || '',
+        isAudio: !!replyData.isAudio,
+        type: replyData.type || 'text',
+        attachmentName: replyData.attachmentName || null
+      } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
         senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
@@ -386,7 +395,7 @@ export default function ChatScreen() {
         createdAt: serverTimestamp(),
         edited: false,
         reactions: {},
-        replyTo: null,
+        replyTo: cleanReplyData,
         deletedForUsers: [],
       });
       await sendChannelNotifications(docRef.id, t('chat_ui.poll_notification', { question: poll.question }));
@@ -396,7 +405,6 @@ export default function ChatScreen() {
       setSending(false);
     }
   };
-
   const handleToggleStar = async (msg: Message) => {
     if (!currentUser || !cleanId) return;
     const isStarred = starredIds.has(msg.id);
@@ -420,19 +428,17 @@ export default function ChatScreen() {
       console.error(error);
     }
   };
-
   const handleReply = (message: Message) => {
     const firstAttachment = message.attachments?.[0];
     setReplyingTo({
       id: message.id,
-      text: message.text || '',
+      text: message.poll ? message.poll.question : (message.text || ''),
       senderName: message.senderName,
       isAudio: firstAttachment?.type === 'audio',
       type: (firstAttachment?.type as any) || (message.poll ? 'poll' : 'text'),
       attachmentName: firstAttachment?.name ?? undefined
     });
   };
-
   const handleReaction = async (emoji: string, msg: Message) => {
     if (!currentUser || !id) return;
     const existing = msg.reactions?.[emoji] ?? [];
@@ -441,7 +447,6 @@ export default function ChatScreen() {
       [`reactions.${emoji}`]: hasReacted ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
     });
   };
-
   const deleteMessage = async (messageId: string, forAll = false) => {
     if (!id || !currentUser) return;
     try {
@@ -456,7 +461,6 @@ export default function ChatScreen() {
       console.error(error);
     }
   };
-
   const handleReplyPreviewPress = (messageId: string) => {
     setHighlightedMessageId(messageId);
     const element = document.getElementById(`msg-${messageId}`);
@@ -465,11 +469,9 @@ export default function ChatScreen() {
     }
     setTimeout(() => setHighlightedMessageId(null), 2000);
   };
-
   const handleForward = (msg: Message) => {
     setForwardingMessage(msg);
   };
-
   const handleUserClick = async (uid: string) => {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
@@ -480,7 +482,6 @@ export default function ChatScreen() {
       console.error(error);
     }
   };
-
   const handleVotePoll = async (messageId: string, optionId: string) => {
     if (!currentUser || !cleanId) return;
     try {
@@ -528,15 +529,12 @@ export default function ChatScreen() {
       console.error(error);
     }
   };
-
   const filteredMessages = searchQuery.trim()
     ? messages.filter(m => m.text?.toLowerCase().includes(searchQuery.toLowerCase()))
     : messages;
-
   const customBackground = chatSettings.customBackground;
   const backgroundActive = !!(customBackground || chatThemes[chatSettings.themeId]?.backgroundImage);
   const backgroundUrl = customBackground?.url || chatThemes[chatSettings.themeId]?.backgroundImage;
-
   const handleBgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -551,7 +549,6 @@ export default function ChatScreen() {
       if (bgInputRef.current) bgInputRef.current.value = '';
     }
   };
-
   const handleSaveEditedBg = (url: string, x: number, y: number, scale: number) => {
     const newBg = { url, x, y, scale };
     const saved = chatSettings.savedCustomBackgrounds || [];
@@ -564,7 +561,6 @@ export default function ChatScreen() {
     setEditingBgImage(null);
     setShowSettings(false);
   };
-
   const removeBackground = () => {
     if (!customBackground) return;
     showAlert({
@@ -584,8 +580,6 @@ export default function ChatScreen() {
       }
     });
   };
-
-
   return (
     <ThemedView style={{ flex: 1, display: 'flex', flexDirection: 'row', height: '100%', backgroundColor: colors.background, overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -791,7 +785,6 @@ export default function ChatScreen() {
             </>
           )}
         </div>
-
         {isSearchOpen && (
           <div style={{
             padding: `8px ${spacing.md}px`,
@@ -820,7 +813,6 @@ export default function ChatScreen() {
             )}
           </div>
         )}
-
         <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
           {channelInfo.viewType === 'events' ? (
             <EventChannelView />
@@ -839,7 +831,6 @@ export default function ChatScreen() {
                   pointerEvents: 'none'
                 }} />
               )}
-
               <div
                 ref={scrollRef}
                 style={{
@@ -892,7 +883,6 @@ export default function ChatScreen() {
             </>
           )}
         </div>
-
         {showSettings && (
           <div style={{
             position: 'absolute', top: 60, right: 20, width: 350,
@@ -907,7 +897,6 @@ export default function ChatScreen() {
                 <Plus size={20} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </div>
-
             {chatSettings.savedCustomBackgrounds && chatSettings.savedCustomBackgrounds.length > 0 && (
               <div style={{ marginBottom: spacing.lg }}>
                 <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.your_backgrounds')}</ThemedText>
@@ -940,7 +929,6 @@ export default function ChatScreen() {
                 </div>
               </div>
             )}
-
             <div style={{ marginBottom: spacing.lg }}>
               <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.gallery_themes')}</ThemedText>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
@@ -971,7 +959,6 @@ export default function ChatScreen() {
                 })}
               </div>
             </div>
-
             <div style={{ marginBottom: spacing.lg }}>
               <ThemedText style={{ fontSize: 13, fontWeight: '600', opacity: 0.6, display: 'block', marginBottom: spacing.sm }}>{t('chat_ui.custom_background')}</ThemedText>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -1001,13 +988,11 @@ export default function ChatScreen() {
               </div>
               <input type="file" ref={bgInputRef} onChange={handleBgChange} accept="image/*" style={{ display: 'none' }} />
             </div>
-
             <div style={{ padding: spacing.sm, borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
                 <Type size={18} color={colors.primary} />
                 <ThemedText style={{ fontSize: 14, fontWeight: 'bold' }}>{t('chat_ui.text_settings')}</ThemedText>
               </div>
-
               <div style={{ marginBottom: spacing.md }}>
                 <ThemedText style={{ fontSize: 12, opacity: 0.6, display: 'block', marginBottom: 4 }}>{t('chat_ui.font_size')}</ThemedText>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -1028,7 +1013,6 @@ export default function ChatScreen() {
                   ))}
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={() => setChatSettings({ fontWeight: chatSettings.fontWeight === 'bold' ? '400' : 'bold' })}
@@ -1060,7 +1044,6 @@ export default function ChatScreen() {
             </div>
           </div>
         )}
-
         {editingBgImage && (
           <ChatBackgroundEditor
             imageUri={editingBgImage}
@@ -1068,7 +1051,6 @@ export default function ChatScreen() {
             onSave={handleSaveEditedBg}
           />
         )}
-
         {!channelInfo.viewType && (
           <div style={{ backgroundColor: colors.background, paddingBottom: 8 }}>
             <MessageInput
@@ -1087,7 +1069,6 @@ export default function ChatScreen() {
         )}
         {loading && <ChatLoadingOverlay />}
       </div>
-
       {id && (
         <ChannelInfoModal
           isOpen={showChannelInfo}
@@ -1096,22 +1077,19 @@ export default function ChatScreen() {
           channelName={channelName}
         />
       )}
-
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes slideDown { 
+        @keyframes slideDown {
           from { transform: translateY(-10px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
         }
       `}</style>
-
       {forwardingMessage && (
         <ForwardModal
           message={forwardingMessage}
           onClose={() => setForwardingMessage(null)}
         />
       )}
-
       {selectedContact && (
         <ContactInfoModal
           isOpen={!!selectedContact}

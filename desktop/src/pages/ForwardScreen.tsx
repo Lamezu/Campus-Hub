@@ -16,33 +16,26 @@ import {
 } from '@/services/dmService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { DMConversation, Channel } from '@/types';
-
 type ForwardTab = 'channels' | 'dms';
-
 export default function ForwardScreen() {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
-
   const messageText = searchParams.get('messageText') ?? undefined;
   const audioUrl = searchParams.get('audioUrl') ?? undefined;
   const audioDuration = searchParams.get('audioDuration') ?? undefined;
-
   const [allConversations, setAllConversations] = useState<DMConversation[]>([]);
   const [tab, setTab] = useState<ForwardTab>('channels');
   const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
   const [selectedDMs, setSelectedDMs] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
-
   useEffect(() => {
     const meId = auth.currentUser?.uid;
     if (!meId) return;
     return subscribeToConversations(meId, setAllConversations);
   }, []);
-
   const totalSelected = selectedChannels.size + selectedDMs.size;
-
   const filteredChannels = useMemo((): Channel[] => {
     const q = query.trim().toLowerCase();
     if (!q) return CHANNELS;
@@ -50,13 +43,11 @@ export default function ForwardScreen() {
       c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
     );
   }, [query]);
-
   const filteredDMs = useMemo((): DMConversation[] => {
     const q = query.trim().toLowerCase();
     if (!q) return allConversations;
     return allConversations.filter((c: DMConversation) => c.participantName.toLowerCase().includes(q));
   }, [allConversations, query]);
-
   const toggleChannel = useCallback((id: string) => {
     setSelectedChannels(prev => {
       const next = new Set(prev);
@@ -64,7 +55,6 @@ export default function ForwardScreen() {
       return next;
     });
   }, []);
-
   const toggleDM = useCallback((id: string) => {
     setSelectedDMs(prev => {
       const next = new Set(prev);
@@ -72,24 +62,19 @@ export default function ForwardScreen() {
       return next;
     });
   }, []);
-
   const handleSend = async () => {
     if (totalSelected === 0) return;
     const currentUser = auth.currentUser;
     if (!currentUser) return;
-
     const meId = currentUser.uid;
     const senderName = currentUser.displayName ?? 'Tú';
     const senderPhoto = currentUser.photoURL ?? null;
-
     const tasks: Promise<any>[] = [];
-
     if (selectedChannels.size > 0) {
       selectedChannels.forEach(channelId => {
         const isStudyGroup = channelId.startsWith('sg_');
         const cleanId = channelId.replace(/^(sg_|group_|channel_|group_)/, '');
         const collectionName = isStudyGroup ? 'studyGroups' : 'channels';
-        
         const msgData = {
           text: messageText ?? '',
           senderId: meId, senderName, senderPhoto,
@@ -100,13 +85,12 @@ export default function ForwardScreen() {
         tasks.push(addDoc(collection(db, collectionName, cleanId, 'messages'), msgData));
       });
     }
-
     if (selectedDMs.size > 0) {
       const selectedConvs = allConversations.filter(c => selectedDMs.has(c.id));
       if (audioUrl) {
         const duration = parseFloat(audioDuration ?? '0');
         selectedConvs.forEach(c => {
-          tasks.push(dmSendAudioMessage(getConversationId(meId, c.participantId), meId, senderName, senderPhoto, audioUrl, duration, true));
+          tasks.push(dmSendAudioMessage(getConversationId(meId, c.participantId), meId, senderName, senderPhoto, audioUrl, duration, null, true));
         });
       } else {
         selectedConvs.forEach(c => {
@@ -114,16 +98,13 @@ export default function ForwardScreen() {
         });
       }
     }
-
     await Promise.all(tasks);
     navigate(-1);
   };
-
   const inputStyle: React.CSSProperties = {
     flex: 1, background: 'none', border: 'none', outline: 'none',
     color: colors.text, fontSize: 14,
   };
-
   return (
     <ThemedView style={{ flex: 1 }}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: colors.background }}>
@@ -138,7 +119,6 @@ export default function ForwardScreen() {
             </div>
           )}
         </div>
-
         {(messageText || audioUrl) && (
           <div style={{ padding: `${spacing.sm}px ${spacing.md}px`, backgroundColor: colors.backgroundSecondary }}>
             <ThemedText style={{ fontSize: 11, color: colors.textSecondary, display: 'block' }}>{t('forward.preview_label')}</ThemedText>
@@ -148,7 +128,6 @@ export default function ForwardScreen() {
             }
           </div>
         )}
-
         <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.background, flexShrink: 0 }}>
           {(['channels', 'dms'] as ForwardTab[]).map(tabKey => (
             <button key={tabKey} onClick={() => { setTab(tabKey); setQuery(''); }} style={{
@@ -164,7 +143,6 @@ export default function ForwardScreen() {
             </button>
           ))}
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: spacing.sm, padding: '8px 12px', backgroundColor: colors.backgroundSecondary, borderRadius: 10, border: `1px solid ${colors.border}` }}>
           <Search size={16} color={colors.textSecondary} />
           <input
@@ -175,7 +153,6 @@ export default function ForwardScreen() {
           />
           {query && <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.textSecondary }}><X size={15} /></button>}
         </div>
-
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {tab === 'channels' ? (
             filteredChannels.length === 0
@@ -218,7 +195,6 @@ export default function ForwardScreen() {
               })
           )}
         </div>
-
         <div style={{ padding: `${spacing.sm + 4}px ${spacing.md}px`, borderTop: `1px solid ${colors.border}`, backgroundColor: colors.background, flexShrink: 0 }}>
           <button
             onClick={handleSend}

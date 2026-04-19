@@ -5,17 +5,25 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import type { DirectMessage, DMConversation, ReplyPreview } from '@/types';
-
 function tsToISO(val: unknown): string {
   if (val instanceof Timestamp) return val.toDate().toISOString();
   if (typeof val === 'string') return val;
   return new Date().toISOString();
 }
-
+function cleanReplyTo(reply: ReplyPreview | null | undefined) {
+  if (!reply) return null;
+  return {
+    id: reply.id,
+    text: reply.text || '',
+    senderName: reply.senderName || '',
+    isAudio: !!reply.isAudio,
+    type: reply.type || 'text',
+    attachmentName: reply.attachmentName || null
+  };
+}
 export function getConversationId(uid1: string, uid2: string): string {
   return [uid1, uid2].sort().join('_');
 }
-
 export async function getOrCreateConversation(meId: string, participantId: string): Promise<string> {
   const conversationId = getConversationId(meId, participantId);
   const convRef = doc(db, 'conversations', conversationId);
@@ -31,14 +39,12 @@ export async function getOrCreateConversation(meId: string, participantId: strin
   }
   return conversationId;
 }
-
 export async function markConversationAsRead(convId: string, userId: string): Promise<void> {
   const convRef = doc(db, 'conversations', convId);
   await updateDoc(convRef, {
     [`unreadCount.${userId}`]: 0
   });
 }
-
 export function subscribeToMessages(
   conversationId: string,
   meId: string,
@@ -81,7 +87,6 @@ export function subscribeToMessages(
     }
   });
 }
-
 export async function sendMessage(
   conversationId: string,
   meId: string,
@@ -104,7 +109,7 @@ export async function sendMessage(
     editedAt: null,
     attachments,
     reactions: {},
-    replyTo: replyTo ?? null,
+    replyTo: cleanReplyTo(replyTo),
     deletedForUsers: [],
     forwarded,
     status: 'sent',
@@ -126,7 +131,6 @@ export async function sendMessage(
   await batch.commit();
   return messageRef.id;
 }
-
 export async function sendAudioMessage(
   conversationId: string,
   meId: string,
@@ -134,8 +138,8 @@ export async function sendAudioMessage(
   senderPhoto: string | null,
   audioUrl: string,
   duration: number,
-  forwarded = false,
-  replyTo?: ReplyPreview | null
+  replyTo?: ReplyPreview | null,
+  forwarded = false
 ): Promise<string> {
   const batch = writeBatch(db);
   const messageRef = doc(collection(db, 'conversations', conversationId, 'messages'));
@@ -149,7 +153,7 @@ export async function sendAudioMessage(
     editedAt: null,
     attachments: [{ url: audioUrl, type: 'audio', name: 'audio.webm', size: 0, duration }],
     reactions: {},
-    replyTo: replyTo ?? null,
+    replyTo: cleanReplyTo(replyTo),
     deletedForUsers: [],
     forwarded,
     status: 'sent',
@@ -171,13 +175,13 @@ export async function sendAudioMessage(
   await batch.commit();
   return messageRef.id;
 }
-
 export async function sendPoll(
   conversationId: string,
   meId: string,
   senderName: string,
   senderPhoto: string | null,
-  poll: { question: string; options: string[]; multipleAnswers: boolean }
+  poll: { question: string; options: string[]; multipleAnswers: boolean },
+  replyTo?: ReplyPreview | null
 ): Promise<string> {
   const batch = writeBatch(db);
   const messageRef = doc(collection(db, 'conversations', conversationId, 'messages'));
@@ -199,7 +203,7 @@ export async function sendPoll(
     attachments: null,
     poll: pollData,
     reactions: {},
-    replyTo: null,
+    replyTo: cleanReplyTo(replyTo),
     deletedForUsers: [],
     forwarded: false,
     status: 'sent',
@@ -220,7 +224,6 @@ export async function sendPoll(
   await batch.commit();
   return messageRef.id;
 }
-
 export async function votePoll(
   conversationId: string,
   messageId: string,
@@ -230,15 +233,12 @@ export async function votePoll(
   const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
   const snap = await getDoc(messageRef);
   if (!snap.exists()) return;
-
   const data = snap.data();
   if (!data.poll) return;
-
   const poll = data.poll;
   const newOptions = poll.options.map((opt: any, idx: number) => {
     const isThisOption = opt.id === optionId || idx.toString() === optionId;
     let votes = opt.votes || [];
-
     if (poll.multipleAnswers) {
       if (isThisOption) {
         if (votes.includes(meId)) {
@@ -260,19 +260,15 @@ export async function votePoll(
     }
     return { ...opt, votes };
   });
-
   const totalVotes = newOptions.reduce((sum: number, o: any) => sum + (o.votes?.length ?? 0), 0);
-
   await updateDoc(messageRef, {
     'poll.options': newOptions,
     'poll.totalVotes': totalVotes,
   });
 }
-
 export async function markAsRead(conversationId: string, meId: string): Promise<void> {
   await updateDoc(doc(db, 'conversations', conversationId), { [`unreadCount.${meId}`]: 0 });
 }
-
 export async function deleteConversation(conversationId: string, meId: string): Promise<void> {
   const convRef = doc(db, 'conversations', conversationId);
   const snap = await getDoc(convRef);
@@ -282,7 +278,6 @@ export async function deleteConversation(conversationId: string, meId: string): 
     await updateDoc(convRef, { deletedBy: [...current, meId] });
   }
 }
-
 export async function deleteMessageForMe(
   conversationId: string,
   messageId: string,
@@ -296,11 +291,9 @@ export async function deleteMessageForMe(
     await updateDoc(messageRef, { deletedForUsers: [...current, meId] });
   }
 }
-
 export async function deleteMessageForAll(conversationId: string, messageId: string): Promise<void> {
   await deleteDoc(doc(db, 'conversations', conversationId, 'messages', messageId));
 }
-
 export async function toggleReaction(
   conversationId: string,
   messageId: string,
@@ -321,7 +314,6 @@ export async function toggleReaction(
   }
   await updateDoc(messageRef, { reactions });
 }
-
 export function subscribeToConversations(
   meId: string,
   callback: (conversations: DMConversation[]) => void
@@ -331,21 +323,17 @@ export function subscribeToConversations(
     where('participants', 'array-contains', meId),
     orderBy('lastMessageAt', 'desc')
   );
-
   return onSnapshot(q, async snapshot => {
     const rawConvs = snapshot.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter((c: any) => !(c.deletedBy || []).includes(meId));
-
     const convs: DMConversation[] = await Promise.all(
       rawConvs.map(async (conv: any) => {
         const participants = conv.participants as string[];
         const participantId = participants?.find(id => id !== meId) || '';
-
         let name = 'Usuario';
         let photo: string | null = null;
         let role: any = 'student';
-
         if (participantId) {
           try {
             const uSnap = await getDoc(doc(db, 'users', participantId));
@@ -359,7 +347,6 @@ export function subscribeToConversations(
             }
           } catch { }
         }
-
         return {
           id: conv.id,
           participantId,
@@ -383,7 +370,6 @@ export function subscribeToConversations(
         } as DMConversation;
       })
     );
-
     callback(convs);
   }, (error) => {
     if (error.code !== 'permission-denied') {
