@@ -9,6 +9,9 @@ import { uploadAudio, uploadMessageMedia } from '@/config/cloudinary';
 import { uploadChatFile } from '@/config/storage';
 import { spacing, typography } from '@/constants/styles';
 import { PollModal } from './PollModal';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
+import { ImagePreviewModal } from './ImagePreviewModal';
+
 
 export interface MessageInputHandle {
   focus: () => void;
@@ -49,6 +52,10 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
   const [showMenu, setShowMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPollModal, setShowPollModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ file: File; type: 'image' | 'video' | 'file' } | null>(null);
+  const [showDocPreview, setShowDocPreview] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -200,11 +207,28 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file') => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+    
+    setPendingFile({ file, type });
     setShowMenu(false);
+    
+    if (type === 'file') {
+      setShowDocPreview(true);
+    } else {
+      setShowImagePreview(true);
+    }
+  };
+
+  const confirmSendFile = async () => {
+    if (!pendingFile) return;
+    const { file, type } = pendingFile;
+    
+    setUploading(true);
+    setShowDocPreview(false);
+    setShowImagePreview(false);
+    
     try {
       if (type === 'file') {
         if (onSendFile) {
@@ -215,13 +239,16 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
         const url = await uploadMessageMedia(file);
         onSendMedia(url, type);
       }
+      setPendingFile(null);
     } catch (err) {
       showAlert({ title: t('common.error'), message: t('chat_ui.input.error_file'), type: 'error' });
     } finally {
       setUploading(false);
-      if (e.target) e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (docInputRef.current) docInputRef.current.value = '';
     }
   };
+
 
   return (
     <div style={{ 
@@ -431,6 +458,32 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(({
       )}
 
       <PollModal isOpen={showPollModal} onClose={() => setShowPollModal(false)} onSend={onSendPoll!} />
+      
+      <DocumentPreviewModal 
+        isOpen={showDocPreview} 
+        onClose={() => {
+          setShowDocPreview(false);
+          setPendingFile(null);
+          if (docInputRef.current) docInputRef.current.value = '';
+        }}
+        onSend={confirmSendFile}
+        file={pendingFile?.type === 'file' ? pendingFile.file : null}
+        loading={uploading}
+      />
+
+      <ImagePreviewModal 
+        isOpen={showImagePreview}
+        onClose={() => {
+          setShowImagePreview(false);
+          setPendingFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }}
+        onSend={confirmSendFile}
+        file={pendingFile?.type !== 'file' ? pendingFile?.file || null : null}
+        type={pendingFile?.type !== 'file' ? pendingFile?.type || 'image' : 'image'}
+        loading={uploading}
+      />
+
 
       <style>{`
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
