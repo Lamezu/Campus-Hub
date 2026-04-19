@@ -63,13 +63,19 @@
     "yesterday": "Ayer",
     "group": "Grupo",
     "departments": {
-      "dam": "Desarrollo Multiplataforma",
-      "daw": "Desarrollo Web",
-      "asir": "Adm. Sistemas Informáticos",
-      "smr": "Sistemas y Redes",
-      "tseas": "Deporte y Recreación",
-      "childhood_ed": "Educación Infantil",
-      "social_care": "Integración Social",
+      "admin_mgmt": "Administración y Gestión",
+      "fol": "Formación y Orientación Laboral",
+      "it_comms": "Informática y Comunicaciones",
+      "health": "Sanidad",
+      "hospitality_tourism": "Hostelería y Turismo",
+      "innovation": "Innovación y Calidad",
+      "languages": "Idiomas",
+      "security_env": "Seguridad y Medio Ambiente",
+      "social_services": "Servicios Socioculturales",
+      "sports": "Actividades Físicas y Deportivas",
+      "wood_furniture": "Madera, Mueble y Corcho",
+      "energy_water": "Energía y Agua",
+      "counseling": "Orientación",
       "other": "Otros",
       "todos": "Todos los Departamentos"
     },
@@ -339,12 +345,20 @@
       "design": "Diseno"
     },
     "cycles_list": {
-      "1": "1er curso",
-      "2": "2do curso",
-      "1a": "1A",
-      "1b": "1B",
-      "2a": "2A",
-      "2b": "2B"
+      "asir": "ASIR (Adm. Sistemas en Red)",
+      "dam": "DAM (Desarrollo Multiplataforma)",
+      "daw": "DAW (Desarrollo Web)",
+      "smr": "SMR (Sistemas Microinformáticos)",
+      "tseas": "TSEAS (Deporte)",
+      "tcae": "TCAE (Aux. Enfermería)",
+      "emergencias_sanitarias": "Emergencias Sanitarias",
+      "higiene_bucodental": "Higiene Bucodental",
+      "educacion_infantil": "Educación Infantil",
+      "tapsd": "TAPSD (Dependencia)",
+      "gestion_administrativa": "Gestión Administrativa",
+      "finanzas_y_seguros": "Finanzas y Seguros",
+      "guia,_informacion_y_asistencia": "Guía e Información Turística",
+      "other": "Otro"
     }
   },
   "explore": {
@@ -1862,7 +1876,8 @@
   "manage_accounts": {
     "title": "Gestionar Cuentas",
     "active": "Activa",
-    "add_account_btn": "Añadir Cuenta",
+    "add_account": "Añadir Cuenta",
+    "switching_account": "Cambiando de cuenta...",
     "remove_confirm": "¿Eliminar esta cuenta?",
     "switch_error_title": "No se pudo cambiar",
     "switch_error_generic": "Error desconocido",
@@ -2009,10 +2024,15 @@
       "single": "Opción única",
       "multiple": "Opción múltiple",
       "vote": "Votar",
-      "votes_one": "{{count}} voto",
-      "votes_other": "{{count}} votos",
-      "total_votes_one": "{{count}} voto en total",
-      "total_votes_other": "{{count}} votos en total"
+      "votes": "votos",
+      "votes_one": "voto",
+      "votes_other": "votos",
+      "total_votes": "votos en total",
+      "total_votes_one": "voto en total",
+      "total_votes_other": "votos en total",
+      "total_vote": "voto en total",
+      "total_vote_one": "voto en total",
+      "total_vote_other": "votos en total"
     },
     "poll_modal": {
       "save_msg": "Guardar mensaje",
@@ -2126,6 +2146,7 @@
     "new_ticket": "Nuevo ticket",
     "actions": {
       "resolve": "Marcar como resuelto",
+      "resolved": "Resuelto",
       "reopen": "Reabrir",
       "in_progress": "En progreso",
       "open": "Abierto"
@@ -2227,6 +2248,8 @@
     "hide_members": "Ocultar miembros",
     "show_members": "Mostrar miembros",
     "pip": "Picture-in-Picture",
+    "audio_blocked": "El audio está bloqueado por el navegador",
+    "enable_audio": "Activar Audio",
     "hide_non_video": "Ocultar participantes sin vídeo"
   },
   "add_account": {
@@ -2246,4 +2269,4 @@
     "error_invalid_email": "Email inválido",
     "error_generic": "No se pudo añadir la cuenta"
   }
-}
+}

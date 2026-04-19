@@ -195,32 +195,36 @@ export default function ExploreScreen() {
 
       <div style={{
         display: 'flex',
-        backgroundColor: colors.card,
+        backgroundColor: colors.card + '80',
+        backdropFilter: 'blur(10px)',
         borderBottom: `1px solid ${colors.border}`,
-        padding: '0 16px'
+        padding: '0 24px',
+        gap: 12
       }}>
         <button
           onClick={() => setActiveTab('discover')}
           style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', background: 'none', border: 'none',
-            borderBottom: `2px solid ${activeTab === 'discover' ? colors.primary : 'transparent'}`,
+            display: 'flex', alignItems: 'center', gap: 8, padding: '16px 24px', background: 'none', border: 'none',
+            borderBottom: `3px solid ${activeTab === 'discover' ? colors.primary : 'transparent'}`,
             cursor: 'pointer', color: activeTab === 'discover' ? colors.primary : colors.textSecondary,
-            fontWeight: activeTab === 'discover' ? '700' : '500', fontSize: 14,
+            fontWeight: activeTab === 'discover' ? '800' : '600', fontSize: 15,
+            transition: 'all 0.2s ease'
           }}
         >
-          <Compass size={18} />
+          <Compass size={20} strokeWidth={activeTab === 'discover' ? 2.5 : 2} />
           {t('explore.tabs.discover')}
         </button>
         <button
           onClick={() => setActiveTab('publish')}
           style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', background: 'none', border: 'none',
-            borderBottom: `2px solid ${activeTab === 'publish' ? colors.primary : 'transparent'}`,
+            display: 'flex', alignItems: 'center', gap: 8, padding: '16px 24px', background: 'none', border: 'none',
+            borderBottom: `3px solid ${activeTab === 'publish' ? colors.primary : 'transparent'}`,
             cursor: 'pointer', color: activeTab === 'publish' ? colors.primary : colors.textSecondary,
-            fontWeight: activeTab === 'publish' ? '700' : '500', fontSize: 14,
+            fontWeight: activeTab === 'publish' ? '800' : '600', fontSize: 15,
+            transition: 'all 0.2s ease'
           }}
         >
-          <PlusCircle size={18} />
+          <PlusCircle size={20} strokeWidth={activeTab === 'publish' ? 2.5 : 2} />
           {t('explore.tabs.publish')}
         </button>
       </div>
@@ -252,96 +256,225 @@ export default function ExploreScreen() {
           </div>
         ) : (
           <div style={{
-            padding: `${spacing.lg}px ${spacing.md}px`,
+            padding: '40px 20px',
             width: '100%',
+            maxWidth: 800,
+            margin: '0 auto',
             boxSizing: 'border-box',
-            maxWidth: '100%'
           }}>
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, marginBottom: spacing.md, boxSizing: 'border-box' }}>
-              <input
-                type="text"
-                placeholder={t('explore.publish.title_placeholder')}
-                value={title}
-                onChange={e => setTitle(e.target.value.slice(0, TITLE_MAX))}
-                style={{ width: '100%', border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4, boxSizing: 'border-box' }}
-              />
-              <div style={{ textAlign: 'right', fontSize: 10, color: colors.textSecondary }}>{title.length}/{TITLE_MAX}</div>
-            </div>
+            <div style={{
+              backgroundColor: colors.card,
+              borderRadius: 24,
+              border: `1px solid ${colors.border}`,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{
+                    backgroundColor: colors.backgroundSecondary + '50',
+                    borderRadius: 16,
+                    padding: '20px',
+                    border: `1px solid ${colors.border}`,
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}>
+                    <input
+                      type="text"
+                      placeholder={t('explore.publish.title_placeholder')}
+                      value={title}
+                      onChange={e => setTitle(e.target.value.slice(0, TITLE_MAX))}
+                      style={{ 
+                        width: '100%', border: 'none', outline: 'none', backgroundColor: 'transparent', 
+                        fontSize: 20, fontWeight: '800', color: colors.text, 
+                        boxSizing: 'border-box', padding: 0
+                      }}
+                    />
+                    <div style={{ 
+                      position: 'absolute', right: 16, bottom: 8, 
+                      fontSize: 10, fontWeight: '700', opacity: 0.4, color: colors.text 
+                    }}>
+                      {title.length}/{TITLE_MAX}
+                    </div>
+                  </div>
+                </div>
 
-            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, marginBottom: spacing.md, boxSizing: 'border-box' }}>
-              <textarea
-                placeholder={t('explore.publish.content_placeholder')}
-                value={content}
-                onChange={e => setContent(e.target.value.slice(0, CONTENT_MAX))}
-                style={{ width: '100%', minHeight: 150, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: 14, color: colors.text, resize: 'none', boxSizing: 'border-box' }}
-              />
-              <div style={{ textAlign: 'right', fontSize: 10, color: colors.textSecondary }}>{content.length}/{CONTENT_MAX}</div>
-            </div>
+                <div style={{
+                  backgroundColor: colors.backgroundSecondary + '50',
+                  borderRadius: 16,
+                  padding: '20px',
+                  border: `1px solid ${colors.border}`,
+                  minHeight: 180,
+                  position: 'relative'
+                }}>
+                  <textarea
+                    placeholder={t('explore.publish.content_placeholder')}
+                    value={content}
+                    onChange={e => setContent(e.target.value.slice(0, CONTENT_MAX))}
+                    style={{ 
+                      width: '100%', minHeight: 140, border: 'none', outline: 'none', 
+                      backgroundColor: 'transparent', fontSize: 15, color: colors.text, 
+                      resize: 'none', boxSizing: 'border-box', padding: 0, fontWeight: '500',
+                      lineHeight: '1.6'
+                    }}
+                  />
+                  <div style={{ 
+                    position: 'absolute', right: 16, bottom: 8, 
+                    fontSize: 10, fontWeight: '700', opacity: 0.4, color: colors.text 
+                  }}>
+                    {content.length}/{CONTENT_MAX}
+                  </div>
+                </div>
 
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" style={{ display: 'none' }} />
 
-            <div
-              onClick={() => !media && fileInputRef.current?.click()}
-              style={{ border: `1px solid ${colors.border}`, borderRadius: 12, padding: media ? 0 : spacing.xl, backgroundColor: colors.card, cursor: media ? 'default' : 'pointer', textAlign: 'center', position: 'relative', marginBottom: spacing.md, overflow: 'hidden' }}
-            >
-              {media ? (
-                <div style={{ position: 'relative' }}>
-                  {media.type === 'image' ? (
-                    <img src={media.preview} alt="" style={{ width: '100%', maxHeight: 300, objectFit: 'contain' }} />
-                  ) : (
-                    <div style={{ height: 150, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.backgroundSecondary }}>
-                      <VideoIcon size={32} />
-                      <ThemedText style={{ fontSize: 12 }}>{t('explore.publish.video_selected')}</ThemedText>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setMuteOriginalAudio(!muteOriginalAudio); }}
-                        style={{ padding: '4px 12px', borderRadius: 12, border: 'none', backgroundColor: muteOriginalAudio ? colors.danger : colors.primary, color: '#fff', fontSize: 11, fontWeight: 'bold', cursor: 'pointer' }}
+                <div
+                  onClick={() => !media && fileInputRef.current?.click()}
+                  style={{ 
+                    borderRadius: 20, 
+                    padding: media ? 0 : '40px', 
+                    backgroundColor: colors.backgroundSecondary + '80',
+                    border: media ? 'none' : `2px dashed ${colors.border}`,
+                    cursor: media ? 'default' : 'pointer', 
+                    textAlign: 'center', 
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease',
+                    minHeight: media ? 'auto' : 160,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {media ? (
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      {media.type === 'image' ? (
+                        <div style={{ width: '100%', position: 'relative', paddingTop: '56.25%', backgroundColor: '#000' }}>
+                          <img 
+                            src={media.preview} 
+                            alt="" 
+                            style={{ 
+                              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                              objectFit: 'contain' 
+                            }} 
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backgroundColor: '#000' }}>
+                          <div style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary }}>
+                            <VideoIcon size={32} />
+                          </div>
+                          <ThemedText style={{ fontSize: 14, fontWeight: '700' }}>{t('explore.publish.video_selected')}</ThemedText>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setMuteOriginalAudio(!muteOriginalAudio); }}
+                            style={{ 
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              padding: '8px 16px', borderRadius: 12, border: 'none', 
+                              backgroundColor: muteOriginalAudio ? colors.danger : colors.primary, 
+                              color: '#fff', fontSize: 13, fontWeight: '800', cursor: 'pointer' 
+                            }}
+                          >
+                            {muteOriginalAudio ? <VolumeX size={16} /> : <Volume2 size={16} />} 
+                            {muteOriginalAudio ? t('explore.publish.audio_off') : t('explore.publish.audio_on')}
+                          </button>
+                        </div>
+                      )}
+                      <button 
+                        onClick={removeMedia} 
+                        style={{ 
+                          position: 'absolute', top: 16, right: 16, 
+                          backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)',
+                          border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', color: '#fff',
+                          transition: 'all 0.2s ease', boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}
                       >
-                        {muteOriginalAudio ? <VolumeX size={12} /> : <Volume2 size={12} />} {muteOriginalAudio ? t('explore.publish.audio_off') : t('explore.publish.audio_on')}
+                        <X size={20} />
                       </button>
                     </div>
-                  )}
-                  <button onClick={removeMedia} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,45,85,0.1)', border: 'none', padding: 4, borderRadius: '50%', cursor: 'pointer', color: colors.danger }}>
-                    <X size={20} />
-                  </button>
-                </div>
-              ) : (
-                <div style={{ opacity: 0.5 }}>
-                  <ImageIcon size={32} style={{ marginBottom: 8 }} />
-                  <ThemedText style={{ fontSize: 13, display: 'block' }}>{t('explore.publish.add_media')}</ThemedText>
-                </div>
-              )}
-            </div>
-
-            {media && (
-              <div
-                onClick={() => setShowSongPicker(true)}
-                style={{ border: `1px solid ${song ? colors.primary : colors.border}`, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, cursor: 'pointer', marginBottom: spacing.xl, display: 'flex', alignItems: 'center', gap: 12 }}
-              >
-                {song ? (
-                  <>
-                    <img src={song.coverUrl} style={{ width: 36, height: 36, borderRadius: 4 }} alt="" />
-                    <div style={{ flex: 1 }}>
-                      <ThemedText style={{ fontSize: 13, fontWeight: 'bold', display: 'block' }}>{song.name}</ThemedText>
-                      <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>{song.artistName}</ThemedText>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, opacity: 0.6 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.primary + '10', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary }}>
+                        <ImageIcon size={28} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <ThemedText style={{ fontSize: 15, fontWeight: '800' }}>{t('explore.publish.add_media')}</ThemedText>
+                        <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>{t('explore.gallery_permission_msg')}</ThemedText>
+                      </div>
                     </div>
-                    <X size={18} onClick={(e) => { e.stopPropagation(); setSong(null); }} />
-                  </>
-                ) : (
-                  <>
-                    <Music size={20} style={{ opacity: 0.5 }} />
-                    <ThemedText style={{ fontSize: 13, opacity: 0.5 }}>{t('explore.publish.add_song')}</ThemedText>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
 
-            <button
-              onClick={handlePublish}
-              disabled={!title.trim() || publishLoading}
-              style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', backgroundColor: title.trim() ? colors.primary : `${colors.primary}66`, color: '#fff', fontWeight: 'bold', cursor: title.trim() ? 'pointer' : 'default' }}
-            >
-              {publishLoading ? t('explore.publish.submitting_btn') : t('explore.publish.submit_btn')}
-            </button>
+                {media && (
+                  <div
+                    onClick={() => setShowSongPicker(true)}
+                    style={{ 
+                      borderRadius: 16, 
+                      padding: '16px 20px', 
+                      backgroundColor: song ? colors.primary + '10' : colors.backgroundSecondary + '50',
+                      border: `1px solid ${song ? colors.primary : colors.border}`,
+                      cursor: 'pointer', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 16,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {song ? (
+                      <>
+                        <div style={{ position: 'relative', width: 48, height: 48 }}>
+                          <img src={song.coverUrl} style={{ width: '100%', height: '100%', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} alt="" />
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                            <Music size={16} />
+                          </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <ThemedText style={{ fontSize: 14, fontWeight: '800', display: 'block' }}>{song.name}</ThemedText>
+                          <ThemedText style={{ fontSize: 12, opacity: 0.6, fontWeight: '600' }}>{song.artistName}</ThemedText>
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setSong(null); }}
+                          style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: 8 }}
+                        >
+                          <X size={20} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary }}>
+                          <Music size={20} />
+                        </div>
+                        <ThemedText style={{ fontSize: 14, opacity: 0.6, fontWeight: '700' }}>{t('explore.publish.add_song')}</ThemedText>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={handlePublish}
+                  disabled={!title.trim() || publishLoading}
+                  style={{ 
+                    width: '100%', padding: '18px', borderRadius: 16, border: 'none', 
+                    backgroundColor: title.trim() ? colors.primary : colors.border, 
+                    color: '#fff', fontSize: 16, fontWeight: '900', 
+                    cursor: title.trim() && !publishLoading ? 'pointer' : 'default',
+                    transition: 'all 0.3s ease',
+                    boxShadow: title.trim() ? `0 10px 20px ${colors.primary}40` : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
+                  }}
+                >
+                  {publishLoading ? (
+                    <div style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  ) : (
+                    <>
+                      <PlusCircle size={20} />
+                      {t('explore.publish.submit_btn')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

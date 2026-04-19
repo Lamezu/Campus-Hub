@@ -29,6 +29,14 @@ import DeleteAccountScreen from '@/pages/DeleteAccountScreen';
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { CallProvider } from '@/contexts/CallContext';
 import GlobalCallOverlay from '@/components/call/GlobalCallOverlay';
+import { useAccounts } from '@/contexts/AccountsContext';
+import { SwitchAccountOverlay } from '@/components/auth/SwitchAccountOverlay';
+
+function SwitchAccountController() {
+  const { switching } = useAccounts();
+  if (!switching) return null;
+  return <SwitchAccountOverlay />;
+}
 
 function AuthGuard({ children, isAuthenticated }: { children: React.ReactNode, isAuthenticated: boolean }) {
   if (!isAuthenticated) {
@@ -111,6 +119,7 @@ export default function App() {
           <AlertProvider>
             <CallProvider>
               <AccountsProvider>
+                <SwitchAccountController />
                 <MemoryRouter 
                   initialEntries={[isAuthenticated ? '/tabs/home' : '/auth/login']} 
                   future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
