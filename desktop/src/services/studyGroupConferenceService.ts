@@ -14,16 +14,12 @@ import {
 import { db } from '../config/firebase';
 import { ICE_SERVERS, type CallType } from './callService';
 export { ICE_SERVERS };
-export type { GroupCallStatus, GroupCallConnection } from './groupCallService';
-export type { GroupCall } from './groupCallService';
+export type { GroupCallStatus, GroupCallConnection, GroupCall } from './groupCallService';
 import type { GroupCall } from './groupCallService';
-
 const COL = 'studyGroupConferences';
-
 export function getConnectionId(uid1: string, uid2: string): string {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 }
-
 export async function createConference(
   groupId: string,
   groupName: string,
@@ -33,7 +29,7 @@ export async function createConference(
   initiatorPhoto: string | null,
   type: CallType,
   memberIds: string[],
-  participantData: Record<string, { name: string; photo: string | null }>
+  participantData: Record<string, { name?: string; displayName?: string; photo?: string | null; photoURL?: string | null }>
 ): Promise<string> {
   const callRef = doc(collection(db, COL));
   await setDoc(callRef, {
@@ -54,7 +50,6 @@ export async function createConference(
   });
   return callRef.id;
 }
-
 export async function joinGroupCall(callId: string, uid: string): Promise<void> {
   const callRef = doc(db, COL, callId);
   await runTransaction(db, async (tx) => {
@@ -66,23 +61,6 @@ export async function joinGroupCall(callId: string, uid: string): Promise<void> 
     tx.update(callRef, { activeParticipants: [...current, uid], status: 'active' });
   }).catch(() => {});
 }
-
-export async function updatePresenterStatus(callId: string, uid: string, isPresenting: boolean): Promise<void> {
-  const callRef = doc(db, COL, callId);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(callRef);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    const presenting: Record<string, boolean> = data.presentingParticipants ?? {};
-    if (isPresenting) {
-      presenting[uid] = true;
-    } else {
-      delete presenting[uid];
-    }
-    tx.update(callRef, { presentingParticipants: presenting });
-  });
-}
-
 export async function leaveGroupCall(callId: string, uid: string): Promise<void> {
   const callRef = doc(db, COL, callId);
   await runTransaction(db, async (tx) => {
@@ -98,12 +76,12 @@ export async function leaveGroupCall(callId: string, uid: string): Promise<void>
     }
   });
 }
-
 export async function createConnection(
   callId: string,
   connId: string,
   callerId: string,
-  receiverId: string
+  receiverId: string,
+  callerSharing?: boolean
 ): Promise<void> {
   await setDoc(doc(db, COL, callId, 'connections', connId), {
     callerId,
@@ -115,22 +93,20 @@ export async function createConnection(
     callerVideoSignal: 0,
     receiverVideoSignal: 0,
     receiverOffer: null,
-    callerReanswer: null
+    callerReanswer: null,
+    callerSharing: callerSharing ?? false,
+    receiverSharing: false,
   });
 }
-
-export async function resetConnection(
+export async function updateConnectionSharingState(
   callId: string,
-  connId: string
+  connId: string,
+  isCaller: boolean,
+  sharing: boolean
 ): Promise<void> {
-  await updateDoc(doc(db, COL, callId, 'connections', connId), {
-    offer: null,
-    answer: null,
-    receiverOffer: null,
-    callerReanswer: null
-  });
+  const field = isCaller ? 'callerSharing' : 'receiverSharing';
+  await updateDoc(doc(db, COL, callId, 'connections', connId), { [field]: sharing });
 }
-
 export async function updateConnectionOffer(
   callId: string,
   connId: string,
@@ -138,7 +114,6 @@ export async function updateConnectionOffer(
 ): Promise<void> {
   await updateDoc(doc(db, COL, callId, 'connections', connId), { offer });
 }
-
 export async function answerConnection(
   callId: string,
   connId: string,
@@ -146,7 +121,6 @@ export async function answerConnection(
 ): Promise<void> {
   await updateDoc(doc(db, COL, callId, 'connections', connId), { answer });
 }
-
 export async function updateConnectionCamState(
   callId: string,
   connId: string,
@@ -156,7 +130,6 @@ export async function updateConnectionCamState(
   const field = isCaller ? 'callerCamOff' : 'receiverCamOff';
   await updateDoc(doc(db, COL, callId, 'connections', connId), { [field]: camOff });
 }
-
 export async function signalConnectionVideo(
   callId: string,
   connId: string,
@@ -165,7 +138,6 @@ export async function signalConnectionVideo(
   const field = isCaller ? 'callerVideoSignal' : 'receiverVideoSignal';
   await updateDoc(doc(db, COL, callId, 'connections', connId), { [field]: Date.now() });
 }
-
 export async function updateConnectionReceiverOffer(
   callId: string,
   connId: string,
@@ -173,7 +145,6 @@ export async function updateConnectionReceiverOffer(
 ): Promise<void> {
   await updateDoc(doc(db, COL, callId, 'connections', connId), { receiverOffer: offer });
 }
-
 export async function updateConnectionCallerReanswer(
   callId: string,
   connId: string,
@@ -181,7 +152,6 @@ export async function updateConnectionCallerReanswer(
 ): Promise<void> {
   await updateDoc(doc(db, COL, callId, 'connections', connId), { callerReanswer: answer });
 }
-
 export async function addConnectionCallerCandidate(
   callId: string,
   connId: string,
@@ -189,7 +159,6 @@ export async function addConnectionCallerCandidate(
 ): Promise<void> {
   await addDoc(collection(db, COL, callId, 'connections', connId, 'callerCandidates'), candidate);
 }
-
 export async function addConnectionReceiverCandidate(
   callId: string,
   connId: string,
@@ -197,16 +166,20 @@ export async function addConnectionReceiverCandidate(
 ): Promise<void> {
   await addDoc(collection(db, COL, callId, 'connections', connId, 'receiverCandidates'), candidate);
 }
-
 export function subscribeToGroupCall(
   callId: string,
   callback: (call: GroupCall | null) => void
 ): Unsubscribe {
-  return onSnapshot(doc(db, COL, callId), snap => {
-    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupCall) : null);
+  return onSnapshot(doc(db, COL, callId), {
+    next: snap => {
+      callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupCall) : null);
+    },
+    error: err => {
+      if (err.code !== 'permission-denied') console.error("Conf error:", err);
+      callback(null);
+    }
   });
 }
-
 export function subscribeToConnection(
   callId: string,
   connId: string,
@@ -216,7 +189,6 @@ export function subscribeToConnection(
     callback(snap.exists() ? snap.data() : null);
   });
 }
-
 export function subscribeToConnectionCallerCandidates(
   callId: string,
   connId: string,
@@ -231,7 +203,6 @@ export function subscribeToConnectionCallerCandidates(
     }
   );
 }
-
 export function subscribeToConnectionReceiverCandidates(
   callId: string,
   connId: string,
@@ -246,8 +217,11 @@ export function subscribeToConnectionReceiverCandidates(
     }
   );
 }
-
-export async function requestToJoinConference(callId: string, uid: string): Promise<void> {
+export async function requestToJoinConference(
+  callId: string,
+  uid: string,
+  userData: { name?: string; displayName?: string; photo?: string | null; photoURL?: string | null }
+): Promise<void> {
   const callRef = doc(db, COL, callId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(callRef);
@@ -256,14 +230,14 @@ export async function requestToJoinConference(callId: string, uid: string): Prom
     const pending: string[] = data.pendingParticipants ?? [];
     const active: string[] = data.activeParticipants ?? [];
     if (pending.includes(uid) || active.includes(uid)) return;
-    const rejected: string[] = data.rejectedParticipants ?? [];
+    const pData = data.participantData || {};
     tx.update(callRef, {
       pendingParticipants: [...pending, uid],
-      rejectedParticipants: rejected.filter(u => u !== uid),
+      rejectedParticipants: (data.rejectedParticipants ?? []).filter((u: string) => u !== uid),
+      [`participantData.${uid}`]: userData
     });
   });
 }
-
 export async function approveConferenceParticipant(callId: string, uid: string): Promise<void> {
   const callRef = doc(db, COL, callId);
   await runTransaction(db, async (tx) => {
@@ -279,7 +253,6 @@ export async function approveConferenceParticipant(callId: string, uid: string):
     });
   });
 }
-
 export async function denyConferenceParticipant(callId: string, uid: string): Promise<void> {
   const callRef = doc(db, COL, callId);
   await runTransaction(db, async (tx) => {
@@ -292,16 +265,6 @@ export async function denyConferenceParticipant(callId: string, uid: string): Pr
     });
   });
 }
-
-export async function endGroupCall(callId: string): Promise<void> {
-  await updateDoc(doc(db, COL, callId), { status: 'ended', activeParticipants: [] });
-}
-
-export const approveJoinRequest = approveConferenceParticipant;
-export const rejectJoinRequest = denyConferenceParticipant;
-
-
-
 export function subscribeToActiveConferenceForGroup(
   groupId: string,
   userId: string,
@@ -319,7 +282,6 @@ export function subscribeToActiveConferenceForGroup(
     callback(active);
   });
 }
-
 export function subscribeToIncomingConferences(
   userId: string,
   callback: (call: GroupCall | null) => void

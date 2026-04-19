@@ -14,9 +14,9 @@ import {
 import { db } from '../config/firebase';
 import { ICE_SERVERS, type CallType } from './callService';
 export { ICE_SERVERS };
-
+const GROUP_COL = 'groupCalls';
+const CONF_COL = 'studyGroupConferences';
 export type GroupCallStatus = 'ringing' | 'active' | 'ended';
-
 export interface GroupCall {
   id: string;
   groupId: string;
@@ -31,10 +31,9 @@ export interface GroupCall {
   activeParticipants: string[];
   pendingParticipants?: string[];
   rejectedParticipants?: string[];
-  participantData: Record<string, { name: string; photo: string | null }>;
+  participantData: Record<string, { name?: string; displayName?: string; photo?: string | null; photoURL?: string | null }>;
   createdAt: any;
 }
-
 export interface GroupCallConnection {
   callerId: string;
   receiverId: string;
@@ -46,12 +45,12 @@ export interface GroupCallConnection {
   receiverVideoSignal?: number;
   receiverOffer?: RTCSessionDescriptionInit;
   callerReanswer?: RTCSessionDescriptionInit;
+  callerSharing?: boolean;
+  receiverSharing?: boolean;
 }
-
 export function getConnectionId(uid1: string, uid2: string): string {
   return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 }
-
 export async function createGroupCall(
   groupId: string,
   groupName: string,
@@ -61,9 +60,11 @@ export async function createGroupCall(
   initiatorPhoto: string | null,
   type: CallType,
   memberIds: string[],
-  participantData: Record<string, { name: string; photo: string | null }>
+  participantData: Record<string, any>,
+  isConference: boolean = false
 ): Promise<string> {
-  const callRef = doc(collection(db, 'groupCalls'));
+  const col = isConference ? CONF_COL : GROUP_COL;
+  const callRef = doc(collection(db, col));
   await setDoc(callRef, {
     groupId,
     groupName,
@@ -72,54 +73,62 @@ export async function createGroupCall(
     initiatorName,
     initiatorPhoto,
     type,
-    status: 'ringing',
+    status: isConference ? 'active' : 'ringing',
     memberIds,
     activeParticipants: [initiatorId],
+    pendingParticipants: [],
+    rejectedParticipants: [],
     participantData,
     createdAt: serverTimestamp()
   });
   return callRef.id;
 }
-
-export async function joinGroupCall(callId: string, uid: string): Promise<void> {
-  const callRef = doc(db, 'groupCalls', callId);
+export async function joinGroupCall(callId: string, uid: string, isConference: boolean = false): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  const callRef = doc(db, col, callId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(callRef);
     if (!snap.exists()) return;
     const data = snap.data();
     const current: string[] = data.activeParticipants ?? [];
     if (current.includes(uid)) return;
-    const newParticipants = [...current, uid];
     tx.update(callRef, {
-      activeParticipants: newParticipants,
+      activeParticipants: [...current, uid],
       status: 'active'
     });
   }).catch(() => {});
 }
-
-export async function leaveGroupCall(callId: string, uid: string): Promise<void> {
-  const callRef = doc(db, 'groupCalls', callId);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(callRef);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    const current: string[] = data.activeParticipants ?? [];
-    const next = current.filter(u => u !== uid);
-    if (next.length === 0) {
-      tx.update(callRef, { activeParticipants: [], status: 'ended' });
-    } else {
-      tx.update(callRef, { activeParticipants: next });
+export async function leaveGroupCall(callId: string, uid: string, isConference: boolean = false): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  const callRef = doc(db, col, callId);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(callRef);
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const current: string[] = data.activeParticipants ?? [];
+      const next = current.filter(u => u !== uid);
+      if (next.length === 0 || data.initiatorId === uid) {
+        tx.update(callRef, { activeParticipants: [], status: 'ended' });
+      } else {
+        tx.update(callRef, { activeParticipants: next });
+      }
+    });
+  } catch (err: any) {
+    if (err.code !== 'permission-denied') {
+      console.warn("Silent error leaving group call:", err.message);
     }
-  });
+  }
 }
-
 export async function createConnection(
   callId: string,
   connId: string,
   callerId: string,
-  receiverId: string
+  receiverId: string,
+  isConference: boolean = false
 ): Promise<void> {
-  await setDoc(doc(db, 'groupCalls', callId, 'connections', connId), {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await setDoc(doc(db, col, callId, 'connections', connId), {
     callerId,
     receiverId,
     offer: null,
@@ -129,15 +138,18 @@ export async function createConnection(
     callerVideoSignal: 0,
     receiverVideoSignal: 0,
     receiverOffer: null,
-    callerReanswer: null
+    callerReanswer: null,
+    callerSharing: false,
+    receiverSharing: false,
   });
 }
-
 export async function resetConnection(
   callId: string,
-  connId: string
+  connId: string,
+  isConference: boolean = false
 ): Promise<void> {
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await updateDoc(doc(db, col, callId, 'connections', connId), {
     offer: null,
     answer: null,
     receiverOffer: null,
@@ -146,107 +158,137 @@ export async function resetConnection(
     receiverVideoSignal: 0
   });
 }
-
 export async function updateConnectionOffer(
   callId: string,
   connId: string,
-  offer: RTCSessionDescriptionInit
+  offer: RTCSessionDescriptionInit,
+  isConference: boolean = false
 ): Promise<void> {
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { offer });
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await updateDoc(doc(db, col, callId, 'connections', connId), { offer });
 }
-
 export async function answerConnection(
   callId: string,
   connId: string,
-  answer: RTCSessionDescriptionInit
+  answer: RTCSessionDescriptionInit,
+  isConference: boolean = false
 ): Promise<void> {
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { answer });
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await updateDoc(doc(db, col, callId, 'connections', connId), { answer });
 }
-
 export async function updateConnectionCamState(
   callId: string,
   connId: string,
   isCaller: boolean,
-  camOff: boolean
+  camOff: boolean,
+  isConference: boolean = false
 ): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
   const field = isCaller ? 'callerCamOff' : 'receiverCamOff';
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { [field]: camOff });
+  await updateDoc(doc(db, col, callId, 'connections', connId), { [field]: camOff });
 }
-
+export async function updateConnectionSharingState(
+  callId: string,
+  connId: string,
+  isCaller: boolean,
+  sharing: boolean,
+  isConference: boolean = false
+): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  const field = isCaller ? 'callerSharing' : 'receiverSharing';
+  await updateDoc(doc(db, col, callId, 'connections', connId), { [field]: sharing });
+}
 export async function signalConnectionVideo(
   callId: string,
   connId: string,
-  isCaller: boolean
+  isCaller: boolean,
+  isConference: boolean = false
 ): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
   const field = isCaller ? 'callerVideoSignal' : 'receiverVideoSignal';
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { [field]: Date.now() });
+  await updateDoc(doc(db, col, callId, 'connections', connId), { [field]: Date.now() });
 }
-
 export async function updateConnectionReceiverOffer(
   callId: string,
   connId: string,
-  offer: RTCSessionDescriptionInit
+  offer: RTCSessionDescriptionInit,
+  isConference: boolean = false
 ): Promise<void> {
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { receiverOffer: offer });
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await updateDoc(doc(db, col, callId, 'connections', connId), { receiverOffer: offer });
 }
-
 export async function updateConnectionCallerReanswer(
   callId: string,
   connId: string,
-  answer: RTCSessionDescriptionInit
+  answer: RTCSessionDescriptionInit,
+  isConference: boolean = false
 ): Promise<void> {
-  await updateDoc(doc(db, 'groupCalls', callId, 'connections', connId), { callerReanswer: answer });
+  const col = isConference ? CONF_COL : GROUP_COL;
+  await updateDoc(doc(db, col, callId, 'connections', connId), { callerReanswer: answer });
 }
-
 export async function addConnectionCallerCandidate(
   callId: string,
   connId: string,
-  candidate: RTCIceCandidateInit
+  candidate: RTCIceCandidateInit,
+  isConference: boolean = false
 ): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
   await addDoc(
-    collection(db, 'groupCalls', callId, 'connections', connId, 'callerCandidates'),
+    collection(db, col, callId, 'connections', connId, 'callerCandidates'),
     candidate
   );
 }
-
 export async function addConnectionReceiverCandidate(
   callId: string,
   connId: string,
-  candidate: RTCIceCandidateInit
+  candidate: RTCIceCandidateInit,
+  isConference: boolean = false
 ): Promise<void> {
+  const col = isConference ? CONF_COL : GROUP_COL;
   await addDoc(
-    collection(db, 'groupCalls', callId, 'connections', connId, 'receiverCandidates'),
+    collection(db, col, callId, 'connections', connId, 'receiverCandidates'),
     candidate
   );
 }
-
 export function subscribeToGroupCall(
   callId: string,
-  callback: (call: GroupCall | null) => void
+  callback: (call: GroupCall | null) => void,
+  isConference: boolean = false
 ): Unsubscribe {
-  return onSnapshot(doc(db, 'groupCalls', callId), snap => {
-    const callData = snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupCall) : null;
-    callback(callData);
+  const col = isConference ? CONF_COL : GROUP_COL;
+  return onSnapshot(doc(db, col, callId), {
+    next: snap => {
+      const callData = snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupCall) : null;
+      callback(callData);
+    },
+    error: err => {
+      console.error("Group call subscription error:", err);
+      if (err.code === 'permission-denied') {
+        callback(null);
+      }
+    }
   });
 }
-
 export function subscribeToConnection(
   callId: string,
   connId: string,
-  callback: (conn: GroupCallConnection | null) => void
+  callback: (conn: GroupCallConnection | null) => void,
+  isConference: boolean = false
 ): Unsubscribe {
-  return onSnapshot(doc(db, 'groupCalls', callId, 'connections', connId), snap => {
+  const col = isConference ? CONF_COL : GROUP_COL;
+  return onSnapshot(doc(db, col, callId, 'connections', connId), snap => {
     callback(snap.exists() ? (snap.data() as GroupCallConnection) : null);
   });
 }
-
 export function subscribeToConnectionCallerCandidates(
   callId: string,
   connId: string,
-  callback: (candidate: RTCIceCandidateInit) => void
+  callback: (candidate: RTCIceCandidateInit) => void,
+  isConference: boolean = false
 ): Unsubscribe {
+  const col = isConference ? CONF_COL : GROUP_COL;
   return onSnapshot(
-    collection(db, 'groupCalls', callId, 'connections', connId, 'callerCandidates'),
+    collection(db, col, callId, 'connections', connId, 'callerCandidates'),
     snap => {
       snap.docChanges().forEach(change => {
         if (change.type === 'added') callback(change.doc.data() as RTCIceCandidateInit);
@@ -254,14 +296,15 @@ export function subscribeToConnectionCallerCandidates(
     }
   );
 }
-
 export function subscribeToConnectionReceiverCandidates(
   callId: string,
   connId: string,
-  callback: (candidate: RTCIceCandidateInit) => void
+  callback: (candidate: RTCIceCandidateInit) => void,
+  isConference: boolean = false
 ): Unsubscribe {
+  const col = isConference ? CONF_COL : GROUP_COL;
   return onSnapshot(
-    collection(db, 'groupCalls', callId, 'connections', connId, 'receiverCandidates'),
+    collection(db, col, callId, 'connections', connId, 'receiverCandidates'),
     snap => {
       snap.docChanges().forEach(change => {
         if (change.type === 'added') callback(change.doc.data() as RTCIceCandidateInit);
@@ -269,13 +312,12 @@ export function subscribeToConnectionReceiverCandidates(
     }
   );
 }
-
 export function subscribeToIncomingGroupCalls(
   userId: string,
   callback: (call: GroupCall | null) => void
 ): Unsubscribe {
   const q = query(
-    collection(db, 'groupCalls'),
+    collection(db, GROUP_COL),
     where('memberIds', 'array-contains', userId)
   );
   return onSnapshot(q, snap => {
@@ -289,10 +331,8 @@ export function subscribeToIncomingGroupCalls(
     callback(relevant);
   });
 }
-
-// Conference Waitroom Functions
 export async function requestToJoinConference(callId: string, uid: string): Promise<void> {
-  const callRef = doc(db, 'groupCalls', callId);
+  const callRef = doc(db, CONF_COL, callId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(callRef);
     if (!snap.exists()) return;
@@ -300,54 +340,40 @@ export async function requestToJoinConference(callId: string, uid: string): Prom
     const pending = data.pendingParticipants ?? [];
     const active = data.activeParticipants ?? [];
     const rejected = data.rejectedParticipants ?? [];
-    
     if (active.includes(uid) || pending.includes(uid)) return;
-    
-    const newPending = [...pending, uid];
-    const newRejected = rejected.filter(u => u !== uid);
-    
-    tx.update(callRef, { 
-      pendingParticipants: newPending,
-      rejectedParticipants: newRejected
+    tx.update(callRef, {
+      pendingParticipants: [...pending, uid],
+      rejectedParticipants: rejected.filter(u => u !== uid)
     });
   });
 }
-
 export async function approveConferenceParticipant(callId: string, uid: string): Promise<void> {
-  const callRef = doc(db, 'groupCalls', callId);
+  const callRef = doc(db, CONF_COL, callId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(callRef);
     if (!snap.exists()) return;
     const data = snap.data() as GroupCall;
     const pending = data.pendingParticipants ?? [];
     const active = data.activeParticipants ?? [];
-    
-    const newPending = pending.filter(u => u !== uid);
-    const newActive = [...active, uid];
-    
-    tx.update(callRef, { 
-      pendingParticipants: newPending,
-      activeParticipants: newActive,
+    if (active.includes(uid)) return;
+    tx.update(callRef, {
+      pendingParticipants: pending.filter(u => u !== uid),
+      activeParticipants: [...active, uid],
       status: 'active'
     });
   });
 }
-
 export async function denyConferenceParticipant(callId: string, uid: string): Promise<void> {
-  const callRef = doc(db, 'groupCalls', callId);
+  const callRef = doc(db, CONF_COL, callId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(callRef);
     if (!snap.exists()) return;
     const data = snap.data() as GroupCall;
     const pending = data.pendingParticipants ?? [];
     const rejected = data.rejectedParticipants ?? [];
-    
-    const newPending = pending.filter(u => u !== uid);
-    const newRejected = [...rejected, uid];
-    
-    tx.update(callRef, { 
-      pendingParticipants: newPending,
-      rejectedParticipants: newRejected
+    tx.update(callRef, {
+      pendingParticipants: pending.filter(u => u !== uid),
+      rejectedParticipants: [...rejected, uid]
     });
   });
 }

@@ -29,7 +29,6 @@ import {
 } from '../../services/callService';
 import type { CallType } from '../../services/callService';
 import VideoTile from './VideoTile';
-
 interface CtrlBtnProps {
   icon: ReactNode;
   label: string;
@@ -40,7 +39,6 @@ interface CtrlBtnProps {
   active?: boolean;
   mobile?: boolean;
 }
-
 function CtrlBtn({ icon, label, onClick, muted, green, danger, active, mobile }: CtrlBtnProps) {
   const bg = danger || muted ? '#ed4245' : green ? '#23a55a' : active ? '#5865f2' : 'rgba(79,84,92,0.75)';
   const size = mobile ? 44 : 48;
@@ -52,7 +50,6 @@ function CtrlBtn({ icon, label, onClick, muted, green, danger, active, mobile }:
     </div>
   );
 }
-
 function CompoundBtn({ icon, label, onClick, onChevron, muted, chevronActive, mobile }: { icon: ReactNode; label: string; onClick: () => void; onChevron: () => void; muted?: boolean; chevronActive?: boolean; mobile?: boolean }) {
   const bg = muted ? '#ed4245' : 'rgba(79,84,92,0.75)';
   const size = mobile ? 44 : 48;
@@ -63,7 +60,6 @@ function CompoundBtn({ icon, label, onClick, onChevron, muted, chevronActive, mo
     </div>
   );
 }
-
 interface CallScreenProps {
   callId: string;
   isCaller: boolean;
@@ -72,7 +68,6 @@ interface CallScreenProps {
   otherUserPhoto: string | null;
   onClose: () => void;
 }
-
 export default function CallScreen({
   callId, isCaller, callType, otherUserName, otherUserPhoto, onClose
 }: CallScreenProps) {
@@ -95,14 +90,12 @@ export default function CallScreen({
   const [peerSpeaking, setPeerSpeaking] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [focusedTile, setFocusedTile] = useState<'remote' | 'local' | 'remoteShare' | 'localShare' | null>(null);
-
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const myPhoto = auth.currentUser?.photoURL || null;
   const [showDevices, setShowDevices] = useState(false);
   const [showCamPicker, setShowCamPicker] = useState(false);
   const [selectedMicId, setSelectedMicId] = useState('default');
   const [selectedCamId, setSelectedCamId] = useState('default');
-
   const [peerMuted, setPeerMuted] = useState<boolean>(false);
   const [peerVolume, setPeerVolume] = useState<number>(1);
   const [shareMuted, setShareMuted] = useState<boolean>(false);
@@ -116,7 +109,6 @@ export default function CallScreen({
   const [showParticipants, setShowParticipants] = useState(true);
   const { chatSettings, colors } = useTheme();
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
-
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const makingOfferRef = useRef(false);
   const localStreamRef = useRef<MediaStream>(new MediaStream());
@@ -141,17 +133,14 @@ export default function CallScreen({
   const unsubsRef = useRef<(() => void)[]>([]);
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; });
-
   const formatDuration = (s: number) => {
     const min = Math.floor(s / 60);
     const sec = String(s % 60).padStart(2, '0');
     return `${min}:${sec}`;
   };
-
   const startTimer = useCallback(() => {
     if (!timerRef.current) timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
   }, []);
-
   const cleanup = useCallback(() => {
     unsubsRef.current.forEach(u => u());
     unsubsRef.current = [];
@@ -162,11 +151,9 @@ export default function CallScreen({
     if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => { }); audioCtxRef.current = null; }
     if (ringtoneRef.current) { ringtoneRef.current.pause(); ringtoneRef.current = null; }
   }, []);
-
   const handleLeave = useCallback(() => {
     endCall(callId).catch(() => { }); cleanup(); onClose();
   }, [callId, cleanup, onClose]);
-
   useEffect(() => {
     const audioEl = remoteAudioElRef.current;
     if (audioEl) {
@@ -186,19 +173,15 @@ export default function CallScreen({
       remoteShareGainNodeRef.current.gain.value = (shareMuted || deafened) ? 0 : shareVolume;
     }
   }, [peerVolume, peerMuted, shareVolume, shareMuted, deafened, isAudioBlocked]);
-
   useEffect(() => {
     localStorage.setItem('campushub_call_hide_non_video', hideNonVideo.toString());
   }, [hideNonVideo]);
-
   const resumeAudio = useCallback(() => {
     if (audioCtxRef.current?.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => { });
     }
   }, []);
-
   const remoteAudioSetupDoneRef = useRef<string | null>(null);
-
   const setupRemoteAudio = async (track: MediaStreamTrack, isScreen: boolean) => {
     if (remoteAudioSetupDoneRef.current === track.id) return;
     remoteAudioSetupDoneRef.current = track.id;
@@ -210,7 +193,6 @@ export default function CallScreen({
       }
       const ctx = audioCtxRef.current;
       if (!ctx) return;
-
       if (ctx.state === 'suspended') {
         try {
           await ctx.resume();
@@ -219,19 +201,15 @@ export default function CallScreen({
           setIsAudioBlocked(true);
         }
       }
-
       const audioEl = remoteAudioElRef.current;
       if (!audioEl) return;
-
       const combined = combinedRemoteStreamRef.current;
       if (!combined.getTrackById(track.id)) {
         combined.addTrack(track);
       }
-
       const currentSrc = audioEl.srcObject as MediaStream | null;
-      audioEl.srcObject = null; // Force refresh
+      audioEl.srcObject = null;
       audioEl.srcObject = combined;
-
       audioEl.play().then(() => {
         setIsAudioBlocked(false);
         audioEl.muted = deafened || (ctx.state === 'running');
@@ -240,13 +218,11 @@ export default function CallScreen({
         audioEl.muted = deafened;
         audioEl.play().catch(() => setIsAudioBlocked(true));
       });
-
       const stream = new MediaStream([track]);
       const src = ctx.createMediaStreamSource(stream);
       const an = ctx.createAnalyser();
       an.fftSize = 32;
       const gn = ctx.createGain();
-
       if (isScreen) {
         if (remoteShareGainNodeRef.current) remoteShareGainNodeRef.current.disconnect();
         gn.gain.value = (shareMuted || deafened) ? 0 : shareVolume;
@@ -258,13 +234,11 @@ export default function CallScreen({
         remoteGainNodeRef.current = gn;
         remoteAnalyserRef.current = an;
       }
-
       src.connect(an);
       an.connect(gn);
       gn.connect(ctx.destination);
     } catch (err) { }
   };
-
   useEffect(() => {
     let cancelled = false;
     async function init() {
@@ -283,60 +257,44 @@ export default function CallScreen({
       }
       if (cancelled) return;
       localStreamRef.current = stream; setLocalStream(stream);
-
       const pc = new RTCPeerConnection(ICE_SERVERS); pcRef.current = pc;
-
       const initAudio = stream.getAudioTracks()[0];
       const initVideo = stream.getVideoTracks()[0];
-
       if (initAudio) pc.addTransceiver(initAudio, { streams: [stream], direction: 'sendrecv' });
       else pc.addTransceiver('audio', { direction: 'sendrecv' });
-
       if (initVideo) pc.addTransceiver(initVideo, { streams: [stream], direction: 'sendrecv' });
       else pc.addTransceiver('video', { direction: 'sendrecv' });
-
       pc.addTransceiver('video', { direction: 'recvonly' });
-
       pc.ontrack = ({ track, transceiver }) => {
         track.enabled = true;
         const update = () => setStreamVersion(v => v + 1);
         track.onunmute = update;
         track.onmute = update;
-
         if (track.kind === 'audio') {
-          // If we already have a primary audio track and this is a different one, it's screen audio
           const primaryAudio = remoteStreamRef.current.getAudioTracks()[0];
           const isScreenAudio = primaryAudio && primaryAudio.id !== track.id;
-
           const targetRef = isScreenAudio ? remoteShareStreamRef : remoteStreamRef;
           targetRef.current.getAudioTracks().forEach(t => targetRef.current.removeTrack(t));
           targetRef.current.addTrack(track);
-          
           if (isScreenAudio) setRemoteShareStream(targetRef.current);
           else setRemoteStream(targetRef.current);
-          
           update();
           setupRemoteAudio(track, isScreenAudio);
         } else {
-          // If we already have a primary video track and this is a different one, it's screen video
           const primaryVideo = remoteStreamRef.current.getVideoTracks()[0];
           const isScreenVideo = primaryVideo && primaryVideo.id !== track.id;
-
           const targetRef = isScreenVideo ? remoteShareStreamRef : remoteStreamRef;
           if (!targetRef.current.getTrackById(track.id)) {
             targetRef.current.getVideoTracks().forEach(t => targetRef.current.removeTrack(t));
             targetRef.current.addTrack(track);
           }
-          
           if (isScreenVideo) {
             setRemoteShareStream(targetRef.current);
             setRemoteShareActive(true);
           } else {
             setRemoteStream(targetRef.current);
           }
-          
           update();
-          
           track.onended = () => {
             targetRef.current.removeTrack(track);
             if (isScreenVideo && targetRef.current.getVideoTracks().length === 0) {
@@ -348,10 +306,8 @@ export default function CallScreen({
           };
         }
       };
-
       const txs = pc.getTransceivers();
       screenSenderRef.current = txs[2].sender;
-
       if (isCaller) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -359,13 +315,11 @@ export default function CallScreen({
           await updateCallOffer(callId, pc.localDescription.toJSON() as any);
         }
       }
-
       pc.onicecandidate = (e) => {
         if (!e.candidate) return;
         const add = isCaller ? addCallerCandidate : addReceiverCandidate;
         add(callId, e.candidate.toJSON()).catch(() => { });
       };
-
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
           startTimer();
@@ -378,7 +332,6 @@ export default function CallScreen({
           }
         }
       };
-
       pc.onnegotiationneeded = async () => {
         if (makingOfferRef.current || pc.signalingState !== 'stable') return;
         try {
@@ -393,7 +346,6 @@ export default function CallScreen({
           makingOfferRef.current = false;
         }
       };
-
       if (initAudio) {
         try {
           if (!audioCtxRef.current) {
@@ -406,12 +358,10 @@ export default function CallScreen({
           src.connect(localAnalyserRef.current);
         } catch { }
       }
-
       const isPolite = !isCaller;
       const unsubCall = subscribeToCall(callId, async (call) => {
         if (!call) return;
         if (pc.signalingState === 'closed') return;
-
         const description = isCaller ? call.receiverOffer : call.offer;
         if (description && description.sdp !== lastProcessedOfferRef.current && !signalingLockRef.current) {
           const offerCollision = description.type === 'offer' && (makingOfferRef.current || pc.signalingState !== 'stable');
@@ -430,12 +380,10 @@ export default function CallScreen({
                 txs.forEach((tx) => {
                   if (tx.direction !== 'stopped') tx.direction = 'sendrecv';
                 });
-
                 const localAudio = stream.getAudioTracks()[0];
                 const localVideo = stream.getVideoTracks()[0];
                 if (localAudio) await txs[0].sender.replaceTrack(localAudio).catch(() => { });
                 if (localVideo && camOn) await txs[1].sender.replaceTrack(localVideo).catch(() => { });
-
                 await pc.setLocalDescription();
                 const finalSync = isCaller ? updateCallerReanswer : answerCall;
                 await finalSync(callId, pc.localDescription!.toJSON());
@@ -446,21 +394,18 @@ export default function CallScreen({
             }
           }
         }
-
         const answer = isCaller ? call.answer : call.callerReanswer;
         if (answer && answer.sdp !== lastProcessedAnswerRef.current && (pc.signalingState === 'have-local-offer' || pc.signalingState === 'have-remote-offer') && !signalingLockRef.current) {
           lastProcessedAnswerRef.current = answer.sdp ?? null;
           signalingLockRef.current = true;
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
             const txs = pc.getTransceivers();
             txs.forEach((tx) => {
               if (tx.direction === 'recvonly' || tx.direction === 'inactive') {
                 tx.direction = 'sendrecv';
               }
             });
-
             while (candQueueRef.current.length > 0) {
               const c = candQueueRef.current.shift();
               if (c) await pc.addIceCandidate(c).catch(() => { });
@@ -470,7 +415,6 @@ export default function CallScreen({
             signalingLockRef.current = false;
           }
         }
-
         if (call.status === 'active') {
           setStatus('active');
           startTimer();
@@ -478,12 +422,9 @@ export default function CallScreen({
         } else if (call.status === 'ringing') {
           setStatus(prev => prev === 'active' ? 'active' : (isCaller && !call.receiverOffer ? 'calling' : 'ringing'));
         }
-
         setPeerCamOff(isCaller ? !!call.receiverCamOff : !!call.callerCamOff);
-
         const isSharing = isCaller ? !!call.receiverSharing : !!call.callerSharing;
         setPeerSharing(isSharing);
-        
         if (isSharing && pcRef.current) {
           const txs = pcRef.current.getTransceivers();
           const shareTx = txs.find((t, i) => i >= 2 && t.receiver.track && t.receiver.track.kind === 'video');
@@ -494,7 +435,6 @@ export default function CallScreen({
             }
           }
         }
-
         if (!isSharing && remoteShareActive) {
           setRemoteShareActive(false);
           const stream = remoteShareStreamRef.current;
@@ -505,17 +445,14 @@ export default function CallScreen({
           });
           setRemoteShareStream(null);
         }
-
         if (call.status === 'ended' || call.status === 'rejected') { cleanup(); onCloseRef.current(); }
       });
-
       const candSub = isCaller ? subscribeToReceiverCandidates : subscribeToCallerCandidates;
       const unsubCand = candSub(callId, (c) => {
         if (pc.remoteDescription) pc.addIceCandidate(c).catch(() => { });
         else candQueueRef.current.push(c);
       });
       unsubsRef.current.push(unsubCall, unsubCand);
-
       setTimeout(() => resumeAudio(), 1000);
     }
     init();
@@ -535,10 +472,8 @@ export default function CallScreen({
       remoteAudioSetupDoneRef.current = null;
     };
   }, [callId, isCaller, callType, startTimer, cleanup, resumeAudio]);
-
   useEffect(() => {
     if (status === 'ended' || status === 'ringing') return;
-
     const buf = new Uint8Array(128);
     let lspeak = 0; let rspeak = 0;
     const tick = () => {
@@ -557,53 +492,43 @@ export default function CallScreen({
     };
     const raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
   }, [status, micOn, deafened, peerMuted, peerVolume]);
-
   const onAccept = async () => {
     resumeAudio();
     setStatus('active');
     startTimer();
     try { await acceptCall(callId); } catch { setStatus('ended'); }
   };
-
   const toggleMic = () => {
     resumeAudio();
     const next = !micOn;
     setMicOn(next);
-
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = next;
       });
     }
-
     if (next && deafened) {
       setDeafened(false);
     }
-
     const callDoc = doc(db, 'calls', callId);
     updateDoc(callDoc, isCaller ? { callerMuted: !next } : { receiverMuted: !next }).catch(() => { });
   };
-
   const toggleCam = () => {
     resumeAudio();
     const next = !camOn;
     setCamOn(next);
-
     if (localStreamRef.current) {
       localStreamRef.current.getVideoTracks().forEach(track => {
         track.enabled = next;
       });
     }
-
     const callDoc = doc(db, 'calls', callId);
     updateDoc(callDoc, isCaller ? { callerCamOff: !next } : { receiverCamOff: !next }).catch(() => { });
   };
-
   const toggleDeafen = () => {
     resumeAudio();
     const next = !deafened;
     setDeafened(next);
-
     if (next) {
       setMicOn(false);
       if (localStreamRef.current) {
@@ -613,7 +538,6 @@ export default function CallScreen({
       updateDoc(callDoc, isCaller ? { callerMuted: true } : { receiverMuted: true }).catch(() => { });
     }
   };
-
   const onHandleSourceSelect = async (sid: string) => {
     resumeAudio();
     try {
@@ -622,9 +546,7 @@ export default function CallScreen({
         video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sid, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 } },
         audio: { mandatory: { chromeMediaSource: 'desktop' } }
       };
-
       try {
-        // Modern approach first (if supported)
         try {
           s = await navigator.mediaDevices.getDisplayMedia({ video: { deviceId: sid }, audio: true });
         } catch {
@@ -633,28 +555,22 @@ export default function CallScreen({
       } catch (e) {
         s = await (navigator.mediaDevices as any).getUserMedia({ ...constraints, audio: false });
       }
-
       const t = s.getVideoTracks()[0];
       if (!t) return;
       t.enabled = true;
-
       if (screenTrackRef.current) {
         screenTrackRef.current.onended = null;
         screenTrackRef.current.stop();
       }
-
       screenTrackRef.current = t;
       setLocalSharingStream(s); setSharing(true); setShowShareModal(false);
-
       const pc = pcRef.current;
       if (pc) {
         const txs = pc.getTransceivers();
         let existingTx = txs[2];
-
         if (!existingTx && txs.length < 3) {
           existingTx = pc.addTransceiver('video', { direction: 'sendrecv' });
         }
-
         if (existingTx) {
           existingTx.direction = 'sendrecv';
           screenSenderRef.current = existingTx.sender;
@@ -662,13 +578,11 @@ export default function CallScreen({
         } else {
           screenSenderRef.current = pc.addTrack(t, s);
         }
-
         const at = s.getAudioTracks()[0];
-        if (at) { 
+        if (at) {
           at.enabled = true;
-          pc.addTrack(at, s); 
+          pc.addTrack(at, s);
         }
-        
         setTimeout(() => {
           if (pcRef.current && pcRef.current.signalingState === 'stable') {
             pcRef.current.dispatchEvent(new Event('negotiationneeded'));
@@ -681,7 +595,6 @@ export default function CallScreen({
       stopSharing();
     }
   };
-
   const stopSharing = () => {
     resumeAudio();
     if (localSharingStream) {
@@ -692,15 +605,13 @@ export default function CallScreen({
       screenTrackRef.current.stop();
       screenTrackRef.current = null;
     }
-    
     const pc = pcRef.current;
     if (pc) {
       pc.getSenders().forEach(s => {
         if (s.track && (s.track.label.toLowerCase().includes('screen') || s.track.label.toLowerCase().includes('monitor'))) {
-          s.replaceTrack(null).catch(() => {});
+          s.replaceTrack(null).catch(() => { });
         }
       });
-
       const txs = pc.getTransceivers();
       if (txs[2]) {
         txs[2].direction = 'recvonly';
@@ -709,12 +620,10 @@ export default function CallScreen({
         }
       }
     }
-
     screenSenderRef.current = null;
     updateCallSharingState(callId, isCaller, false);
     setSharing(false);
   };
-
   const openDevicePicker = async () => {
     resumeAudio();
     const list = await navigator.mediaDevices.enumerateDevices();
@@ -725,7 +634,6 @@ export default function CallScreen({
     const list = await navigator.mediaDevices.enumerateDevices();
     setDevices(list); setShowCamPicker(!showCamPicker); setShowDevices(false);
   };
-
   const changeAudioInput = async (deviceId: string) => {
     setSelectedMicId(deviceId);
     try {
@@ -735,7 +643,6 @@ export default function CallScreen({
       await pcRef.current.getSenders()[0]?.replaceTrack(track);
     } catch { }
   };
-
   const changeVideoInput = async (id: string) => {
     setSelectedCamId(id);
     try {
@@ -744,14 +651,12 @@ export default function CallScreen({
       if (t && pcRef.current) await pcRef.current.getSenders()[1]?.replaceTrack(t);
     } catch { }
   };
-
   const handleStartSharing = async () => {
     resumeAudio();
     if (sharing) {
       stopSharing();
       return;
     }
-
     const isElectron = !!(window as any).electronAPI;
     if (isElectron) {
       setShowShareModal(true);
@@ -761,16 +666,13 @@ export default function CallScreen({
         const t = s.getVideoTracks()[0];
         const at = s.getAudioTracks()[0];
         if (!t) return;
-
         if (screenTrackRef.current) {
           screenTrackRef.current.onended = null;
           screenTrackRef.current.stop();
         }
-
         screenTrackRef.current = t;
         setLocalSharingStream(s);
         setSharing(true);
-
         const pc = pcRef.current;
         if (pc) {
           const txs = pc.getTransceivers();
@@ -778,7 +680,6 @@ export default function CallScreen({
           if (!existing && txs.length < 3) {
             existing = pc.addTransceiver('video', { direction: 'sendrecv' });
           }
-
           if (existing) {
             existing.direction = 'sendrecv';
             screenSenderRef.current = existing.sender;
@@ -786,7 +687,6 @@ export default function CallScreen({
           } else {
             screenSenderRef.current = pc.addTrack(t, s);
           }
-
           if (at) {
             pc.addTrack(at, s);
           }
@@ -797,7 +697,6 @@ export default function CallScreen({
       }
     }
   };
-
   const togglePiP = async () => {
     try {
       const videos = document.querySelectorAll('video');
@@ -808,7 +707,6 @@ export default function CallScreen({
         }
       });
       if (!videoToPip) videoToPip = videos[0] as HTMLVideoElement;
-
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
       } else if (videoToPip) {
@@ -817,7 +715,6 @@ export default function CallScreen({
     } catch (err) {
     }
   };
-
   useEffect(() => {
     if (status === 'ringing' || status === 'calling') {
       const tone = chatSettings.callRingtone || 'default';
@@ -839,13 +736,10 @@ export default function CallScreen({
       stopCallTone();
     }
   }, [status, chatSettings.callRingtone, chatSettings.customRingtoneUrl]);
-
   const hasRemoteShare = peerSharing && remoteShareActive;
-
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: '#111214', zIndex: 9999, display: 'flex', flexDirection: 'column' }} onClick={resumeAudio}>
       <audio ref={remoteAudioElRef} playsInline autoPlay style={{ display: 'none' }} />
-
       {isAudioBlocked && (
         <div style={{
           position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)',
@@ -868,9 +762,7 @@ export default function CallScreen({
           </button>
         </div>
       )}
-
       <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-
         {status === 'ringing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', animation: 'scaleUp 0.3s ease-out' }}>
             <style>{`@keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
@@ -894,7 +786,6 @@ export default function CallScreen({
             </div>
           </div>
         )}
-
         {(status === 'active' || status === 'connecting' || status === 'calling' || (status === 'ringing' && isCaller)) && (
           !focusedTile ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', maxWidth: '1400px', justifyContent: 'center', alignContent: 'center' }}>
@@ -930,7 +821,6 @@ export default function CallScreen({
                         onStopViewing={() => setIsViewingPeerShare(!isViewingPeerShare)}
                         style={{ filter: isViewingPeerShare ? 'none' : 'blur(50px)', transition: 'filter 0.3s ease' }}
                       />
-
                       {!isViewingPeerShare && (
                         <div style={{
                           position: 'absolute', inset: 0, zIndex: 100,
@@ -1000,7 +890,6 @@ export default function CallScreen({
                   {focusedTile === 'local' && <VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile(null)} />}
                   {focusedTile === 'localShare' && <VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile(null)} />}
                 </div>
-
                 <div style={{
                   position: 'absolute',
                   bottom: showParticipants ? 12 : -40,
@@ -1067,7 +956,6 @@ export default function CallScreen({
           )
         )}
       </div>
-
       <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(30,31,34,0.85)', backdropFilter: 'blur(20px)', borderRadius: '16px', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '16px', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', padding: '4px 16px', borderRadius: '12px', color: '#dbdee1', fontSize: '13px', fontWeight: 600 }}>
           {(status === 'active' || (status === 'connecting' && duration > 0)) ? formatDuration(duration) : t(`call.${status}`)}
@@ -1095,7 +983,6 @@ export default function CallScreen({
         />
         <CtrlBtn icon={<PhoneOff size={20} />} label={t('call.hang_up')} onClick={handleLeave} danger />
       </div>
-
       {(showDevices || showCamPicker) && (
         <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1E1F22', borderRadius: '12px', padding: '12px', width: '280px', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ fontSize: '11px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>{showDevices ? t('call.audio_devices') : t('call.video_devices')}</div>
@@ -1107,7 +994,6 @@ export default function CallScreen({
           ))}
         </div>
       )}
-
       {contextMenu && (
         <div style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, backgroundColor: '#111214', borderRadius: 12, padding: '16px', width: 220, zIndex: 10005, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -1128,12 +1014,10 @@ export default function CallScreen({
     </div>
   );
 }
-
 export function IncomingCallModal({ call, onAccept, onReject }: { call: any; onAccept: () => void; onReject: () => void }) {
   const { t } = useTranslation();
   const callerName = call?.callerName || t('common.user', 'Usuario');
   const callerPhoto = call?.callerPhoto || null;
-
   return createPortal(
     <div style={{ position: 'fixed', top: '24px', right: '24px', width: '340px', backgroundColor: 'rgba(30,31,34,0.95)', backdropFilter: 'blur(20px)', borderRadius: '16px', padding: '20px', zIndex: 10000, boxShadow: '0 12px 48px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', animation: 'slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)' }}>
       <style>{`@keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } } @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }`}</style>
