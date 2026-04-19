@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { useTranslation } from '../../contexts/LanguageContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   Mic, MicOff, Headphones, HeadphoneOff, Video, VideoOff, PhoneOff, Settings, ChevronUp, MonitorUp, MoreHorizontal, Eye, EyeOff, X,
-  Volume2, VolumeX, Maximize2, Minimize2, ScreenShare, User, Phone, Monitor, MonitorOff, Check, ExternalLink
+  Volume2, VolumeX, Maximize2, Minimize2, ScreenShare, User, Phone, Monitor, MonitorOff, Check, ExternalLink, Users
 } from 'lucide-react';
 import { ScreenShareModal } from './ScreenShareModal';
+import { playCallTone, stopCallTone } from '../../utils/toneGenerator';
 import {
   ICE_SERVERS,
   answerCall,
@@ -104,6 +106,13 @@ export default function CallScreen({
   const [peerVolume, setPeerVolume] = useState<number>(1);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; peerUid: string } | null>(null);
   const [isViewingPeerShare, setIsViewingPeerShare] = useState(true);
+  const [isAudioBlocked, setIsAudioBlocked] = useState(false);
+  const [hideNonVideo, setHideNonVideo] = useState(() => {
+    return localStorage.getItem('campushub_call_hide_non_video') === 'true';
+  });
+  const [showParticipants, setShowParticipants] = useState(true);
+  const { chatSettings } = useTheme();
+  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const makingOfferRef = useRef(false);
@@ -145,6 +154,7 @@ export default function CallScreen({
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenTrackRef.current?.stop();
     if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
+    if (ringtoneRef.current) { ringtoneRef.current.pause(); ringtoneRef.current = null; }
   }, []);
 
   const handleLeave = useCallback(() => { 
@@ -157,6 +167,10 @@ export default function CallScreen({
       remoteGainNodeRef.current.gain.setTargetAtTime(deafened ? 0 : vol, 0, 0.05);
     }
   }, [deafened, peerMuted, peerVolume]);
+
+  useEffect(() => {
+    localStorage.setItem('campushub_call_hide_non_video', hideNonVideo.toString());
+  }, [hideNonVideo]);
 
   const resumeAudio = useCallback(() => {
     if (audioCtxRef.current?.state === 'suspended') {
@@ -179,10 +193,19 @@ export default function CallScreen({
       }
       const ctx = audioCtxRef.current;
       
-      // Ensure the context is running
       if (ctx.state === 'suspended') {
         console.log('[WebRTC] Resuming AudioContext...');
-        await ctx.resume();
+        try {
+          await ctx.resume();
+          if (ctx.state === 'suspended') {
+            setIsAudioBlocked(true);
+          } else {
+            setIsAudioBlocked(false);
+          }
+        } catch (e) {
+          console.warn("[WebRTC] Resume failed", e);
+          setIsAudioBlocked(true);
+        }
       }
       console.log(`[WebRTC] AudioContext state: ${ctx.state}`);
 
@@ -195,8 +218,6 @@ export default function CallScreen({
       const stream = new MediaStream([track]);
       audioEl.srcObject = stream;
       
-      // We always un-mute the element briefly to ensure it can start playing
-      // but if the AudioContext is running, we route through nodes for processing
       if (remoteGainNodeRef.current) {
         try { remoteGainNodeRef.current.disconnect(); } catch { }
       }
@@ -210,14 +231,11 @@ export default function CallScreen({
       src.connect(an);
       an.connect(gn);
       gn.connect(ctx.destination);
-
-      remoteAnalyserRef.current = an;
       remoteGainNodeRef.current = gn;
 
       audioEl.play().then(() => {
         console.log('[WebRTC] Remote audio element playing');
-        // If AudioContext is active, we mute the element to avoid double audio
-        // and rely on the WebAudio destination.
+        setIsAudioBlocked(false);
         if (ctx.state === 'running') {
           audioEl.muted = true;
         } else {
@@ -225,12 +243,15 @@ export default function CallScreen({
         }
       }).catch((err) => {
         console.warn("[WebRTC] audioEl.play() initial fail, retrying unmuted:", err);
+        setIsAudioBlocked(true);
         audioEl.muted = false;
-        audioEl.play().catch(e => console.error("[WebRTC] audioEl.play() definitive fail:", e));
+        audioEl.play().catch(e => {
+            console.error("[WebRTC] audioEl.play() definitive fail:", e);
+            setIsAudioBlocked(true);
+        });
       });
     } catch (err) { 
       console.error("[WebRTC] Audio Setup Error:", err);
-      // Absolute fallback: just use the audio element
       const audioEl = remoteAudioElRef.current;
       if (audioEl) {
         audioEl.muted = false;
@@ -283,12 +304,14 @@ export default function CallScreen({
         const track = e.track;
         const transceiver = e.transceiver;
         const transceiverIdx = pc.getTransceivers().indexOf(transceiver);
-        console.log(`[WebRTC] Track Received: ${track.kind}, id: ${track.id}, transceiverIdx: ${transceiverIdx}, direction: ${transceiver.direction}, currentDirection: ${transceiver.currentDirection}`);
+        console.log(`[WebRTC] Track Received: ${track.kind}, id: ${track.id}, label: ${track.label}, transceiverIdx: ${transceiverIdx}, direction: ${transceiver.direction}, currentDirection: ${transceiver.currentDirection}`);
 
         if (track.kind === 'audio') {
           console.log('[WebRTC] Processing Audio Track');
           const stream = remoteStreamRef.current;
-          stream.getAudioTracks().forEach(t => stream.removeTrack(t));
+          if (stream.getAudioTracks().length > 0 && !track.label.includes('Screen')) {
+             stream.getAudioTracks().filter(t => !t.label.includes('Screen')).forEach(t => stream.removeTrack(t));
+          }
           stream.addTrack(track);
           setRemoteStream(new MediaStream(stream.getTracks()));
           setupRemoteAudio(track);
@@ -296,15 +319,15 @@ export default function CallScreen({
           const txs = pc.getTransceivers();
           const videoTxs = txs.filter(tx => tx.receiver.track?.kind === 'video');
           const videoIdx = videoTxs.findIndex(tx => tx === e.transceiver);
-          const isActuallyScreen = (videoIdx > 0 || transceiverIdx > 2); 
-          console.log(`[WebRTC] Video Track Received. videoIdx: ${videoIdx}, isActuallyScreen: ${isActuallyScreen}`);
+          
+          const isActuallyScreen = (videoIdx > 0 || transceiverIdx > 1 || peerSharing); 
+          console.log(`[WebRTC] Video Track Received classification. videoIdx: ${videoIdx}, isActuallyScreen: ${isActuallyScreen}`);
 
           if (!isActuallyScreen) {
             console.log('[WebRTC] Receiving Remote Camera');
             const stream = remoteStreamRef.current;
             stream.getVideoTracks().forEach(t => stream.removeTrack(t));
             stream.addTrack(track);
-            // Trigger state update for camera video
             setRemoteStream(new MediaStream(stream.getTracks()));
           } else {
             console.log(`[WebRTC] Receiving Remote Screen Share: ${track.id}`);
@@ -314,10 +337,10 @@ export default function CallScreen({
             stream.getVideoTracks().forEach(t => stream.removeTrack(t));
             stream.addTrack(track);
             
-            // Trigger state update for screen share video
             setRemoteShareStream(new MediaStream(stream.getTracks()));
             setRemoteShareActive(true); 
             track.onended = () => { 
+                console.log('[WebRTC] Remote share track ended');
                 stream.removeTrack(track);
                 if (stream.getVideoTracks().length === 0) {
                   setRemoteShareActive(false); 
@@ -339,7 +362,7 @@ export default function CallScreen({
           await sync(callId, pc.localDescription.toJSON());
         } catch (err) {
           console.warn('[WebRTC] onnegotiationneeded error:', err);
-          makingOfferRef.current = false; // Release lock on error
+          makingOfferRef.current = false; 
         } finally {
           makingOfferRef.current = false;
         }
@@ -351,12 +374,11 @@ export default function CallScreen({
       if (isCaller) {
         pc.addTransceiver('audio', { direction: 'sendrecv' });
         pc.addTransceiver('video', { direction: 'sendrecv' });
-        // We don't add the screen share transceiver yet to keep the initial offer simple
         if (audioTrack) pc.getTransceivers()[0].sender.replaceTrack(audioTrack);
         if (videoTrack && camOn) pc.getTransceivers()[1].sender.replaceTrack(videoTrack);
       }
 
-          if (audioTrack) {
+      if (audioTrack) {
         try {
           if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -392,13 +414,11 @@ export default function CallScreen({
                 const txs = pc.getTransceivers();
                 txs.forEach((tx, idx) => {
                   console.log(`[WebRTC] Offer Transceiver ${idx}: ${tx.receiver.track?.kind}, current direction: ${tx.direction}`);
-                  // Force sendrecv on all offered transceivers so we can send back
                   if (tx.direction !== 'sendrecv') {
                     tx.direction = 'sendrecv';
                   }
                 });
 
-                // Always ensure our tracks are attached to transceivers on new offers
                 if (!receiverTracksFilledRef.current) {
                   receiverTracksFilledRef.current = true;
                   const audioTx = txs.find(tx => tx.receiver.track?.kind === 'audio');
@@ -427,7 +447,6 @@ export default function CallScreen({
             console.log('[WebRTC] Processing Answer...');
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
             
-            // After setting answer, ensure transceivers are set to sendrecv to receive tracks
             const txs = pc.getTransceivers();
             txs.forEach((tx, idx) => {
               console.log(`[WebRTC] Answer Transceiver ${idx}: ${tx.receiver.track?.kind}, direction: ${tx.direction}, currentDirection: ${tx.currentDirection}`);
@@ -456,7 +475,44 @@ export default function CallScreen({
         }
 
         setPeerCamOff(isCaller ? !!call.receiverCamOff : !!call.callerCamOff);
-        setPeerSharing(isCaller ? !!call.receiverSharing : !!call.callerSharing);
+        
+        const isPeerSharingNow = isCaller ? !!call.receiverSharing : !!call.callerSharing;
+        setPeerSharing(isPeerSharingNow);
+        
+        if (!isPeerSharingNow && remoteShareActive) {
+          console.log('[WebRTC] Firestore signaling stop sharing - cleaning up');
+          setRemoteShareActive(false);
+          const stream = remoteShareStreamRef.current;
+          stream.getTracks().forEach(t => {
+            t.onended = null;
+            t.stop();
+            stream.removeTrack(t);
+          });
+          setRemoteShareStream(new MediaStream());
+        }
+
+        if (isPeerSharingNow && !remoteShareActive) {
+          const camStream = remoteStreamRef.current;
+          const videoTrack = camStream.getVideoTracks()[0];
+          if (videoTrack) {
+            console.log('[WebRTC] Promotion: Peer is sharing but tile is inactive. Moving track from camera to share stream.');
+            camStream.removeTrack(videoTrack);
+            setRemoteStream(new MediaStream(camStream.getTracks()));
+
+            const shareStream = remoteShareStreamRef.current;
+            shareStream.addTrack(videoTrack);
+            setRemoteShareStream(new MediaStream(shareStream.getTracks()));
+            setRemoteShareActive(true);
+            
+            videoTrack.onended = () => {
+              console.log('[WebRTC] Promoted track ended');
+              shareStream.removeTrack(videoTrack);
+              setRemoteShareActive(false);
+              setRemoteShareStream(new MediaStream());
+            };
+          }
+        }
+
         if (call.status === 'ended' || call.status === 'rejected') { cleanup(); onCloseRef.current(); }
       });
 
@@ -467,7 +523,6 @@ export default function CallScreen({
       });
       unsubsRef.current.push(unsubCall, unsubCand);
       
-      // Auto-resume audio context on init
       setTimeout(() => resumeAudio(), 1000);
     }
     init();
@@ -521,7 +576,16 @@ export default function CallScreen({
     resumeAudio();
     const next = !micOn;
     setMicOn(next);
-    localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = next);
+    localStreamRef.current?.getAudioTracks().forEach(t => {
+      t.enabled = next;
+    });
+    if (!next) {
+      pcRef.current?.getSenders().find(s => s.track?.kind === 'audio')?.replaceTrack(null);
+    } else {
+      const audioTrack = localStreamRef.current?.getAudioTracks()[0];
+      if (audioTrack) pcRef.current?.getSenders().find(s => s.track?.kind === 'audio')?.replaceTrack(audioTrack);
+    }
+
     if (next && deafened) {
       setDeafened(false);
       if (remoteGainNodeRef.current) remoteGainNodeRef.current.gain.value = peerVolume;
@@ -552,11 +616,19 @@ export default function CallScreen({
     setDeafened(next);
     if (next) {
       setMicOn(false);
-      localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = false);
+      localStreamRef.current?.getAudioTracks().forEach(t => {
+        t.enabled = false;
+      });
+      pcRef.current?.getSenders().find(s => s.track?.kind === 'audio')?.replaceTrack(null);
+      
       updateDoc(doc(db, 'calls', callId), isCaller ? { callerMuted: true } : { receiverMuted: true });
+    } else {
+      if (remoteGainNodeRef.current) {
+        remoteGainNodeRef.current.gain.value = peerMuted ? 0 : peerVolume;
+      }
     }
-    if (remoteGainNodeRef.current) {
-      remoteGainNodeRef.current.gain.value = next ? 0 : (peerMuted ? 0 : peerVolume);
+    if (remoteGainNodeRef.current && next) {
+      remoteGainNodeRef.current.gain.value = 0;
     }
   };
 
@@ -578,10 +650,8 @@ export default function CallScreen({
       const pc = pcRef.current;
       if (pc) {
         const txs = pc.getTransceivers();
-        // Audio is index 0, Camera is index 1. Screen share should be index 2.
         let existingTx = txs[2];
         
-        // If no 3rd transceiver, add one
         if (!existingTx && txs.length < 3) {
           console.log('[WebRTC] Adding dynamic screen share transceiver');
           existingTx = pc.addTransceiver('video', { direction: 'sendrecv' });
@@ -596,7 +666,10 @@ export default function CallScreen({
       }
       await updateCallSharingState(callId, isCaller, true);
       t.onended = () => stopSharing();
-    } catch { }
+    } catch (err) { 
+      console.warn("[WebRTC] Screen share error:", err);
+      stopSharing();
+    }
   };
 
   const stopSharing = () => {
@@ -658,8 +731,9 @@ export default function CallScreen({
       setShowShareModal(true);
     } else {
       try {
-        const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const s = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         const t = s.getVideoTracks()[0];
+        const at = s.getAudioTracks()[0];
         if (!t) return;
 
         if (screenTrackRef.current) {
@@ -680,6 +754,10 @@ export default function CallScreen({
           } else {
             screenSenderRef.current = pc.addTrack(t, s);
           }
+          
+          if (at) {
+             pc.addTrack(at, s);
+          }
         }
         await updateCallSharingState(callId, isCaller, true);
         t.onended = () => stopSharing();
@@ -689,11 +767,56 @@ export default function CallScreen({
     }
   };
 
+  useEffect(() => {
+     if (status === 'ringing' || status === 'calling') {
+        const tone = chatSettings.callRingtone || 'default';
+        if (chatSettings.customRingtoneUrl) {
+           if (!ringtoneRef.current) {
+              const audio = new Audio(chatSettings.customRingtoneUrl);
+              audio.loop = true;
+              audio.play().catch(() => {});
+              ringtoneRef.current = audio;
+           }
+        } else if (tone !== 'silent') {
+           playCallTone(tone);
+        }
+     } else {
+        if (ringtoneRef.current) {
+           ringtoneRef.current.pause();
+           ringtoneRef.current = null;
+        }
+        stopCallTone();
+     }
+  }, [status, chatSettings.callRingtone, chatSettings.customRingtoneUrl]);
+
   const hasRemoteShare = peerSharing && remoteShareActive;
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: '#111214', zIndex: 9999, display: 'flex', flexDirection: 'column' }} onClick={resumeAudio}>
       <audio ref={remoteAudioElRef} playsInline autoPlay style={{ display: 'none' }} />
+      
+      {isAudioBlocked && (
+        <div style={{ 
+          position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', 
+          zIndex: 10002, backgroundColor: '#ed4245', color: '#fff', 
+          padding: '12px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', 
+          gap: '12px', boxShadow: '0 8px 16px rgba(0,0,0,0.4)', animation: 'slideDown 0.3s ease' 
+        }}>
+          <style>{`@keyframes slideDown { from { transform: translate(-50%, -100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }`}</style>
+          <VolumeX size={20} />
+          <span style={{ fontWeight: 600 }}>{t('call.audio_blocked', 'El audio está bloqueado por el navegador')}</span>
+          <button 
+            onClick={() => { resumeAudio(); setIsAudioBlocked(false); }}
+            style={{ 
+              backgroundColor: '#fff', color: '#ed4245', border: 'none', 
+              padding: '6px 12px', borderRadius: '6px', fontWeight: 700, 
+              cursor: 'pointer', fontSize: '12px' 
+            }}
+          >
+            {t('call.enable_audio', 'Activar Audio')}
+          </button>
+        </div>
+      )}
       
       <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
 
@@ -724,12 +847,16 @@ export default function CallScreen({
         {(status === 'active' || status === 'connecting' || status === 'calling' || (status === 'ringing' && isCaller)) && (
           !focusedTile ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', maxWidth: '1400px', justifyContent: 'center', alignContent: 'center' }}>
-              <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
-                <VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} speaking={peerSpeaking} camOff={peerCamOff} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remote')} />
-              </div>
-              <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
-                <VideoTile uid="local" name={t('call.you', 'Tú')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile('local')} />
-              </div>
+              {(!hideNonVideo || !peerCamOff || peerSharing) && (
+                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
+                  <VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} speaking={peerSpeaking} camOff={peerCamOff} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remote')} />
+                </div>
+              )}
+              {(!hideNonVideo || camOn || sharing) && (
+                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
+                  <VideoTile uid="local" name={t('call.you', 'Tú')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile('local')} />
+                </div>
+              )}
               <div style={{ width: '100%', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 {hasRemoteShare && (
                   <div style={{ width: '640px', maxWidth: '100%', position: 'relative', borderRadius: '12px', overflow: 'hidden' }}>
@@ -745,12 +872,8 @@ export default function CallScreen({
                         stream={remoteShareStream}
                         sharing
                         onClick={() => setFocusedTile('remoteShare')}
-                        onStopViewing={() => { setPeerSharing(false); setRemoteShareActive(false); }}
-                        style={{
-                          filter: isViewingPeerShare ? 'none' : 'blur(50px)',
-                          transition: 'filter 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                          transform: isViewingPeerShare ? 'scale(1)' : 'scale(1.05)'
-                        } as any}
+                        onStopViewing={() => setIsViewingPeerShare(!isViewingPeerShare)}
+                        style={{ filter: isViewingPeerShare ? 'none' : 'blur(50px)', transition: 'filter 0.3s ease' }} 
                       />
 
                       {!isViewingPeerShare && (
@@ -782,21 +905,6 @@ export default function CallScreen({
                           </button>
                         </div>
                       )}
-
-                      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 110, display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setIsViewingPeerShare(!isViewingPeerShare); }}
-                          style={{
-                            backgroundColor: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff',
-                            width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            borderRadius: '4px', cursor: 'pointer', transition: 'background 0.2s',
-                            backdropFilter: 'blur(4px)'
-                          }}
-                          title={isViewingPeerShare ? t('call.stop_viewing') : t('call.view_stream')}
-                        >
-                          {isViewingPeerShare ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -804,21 +912,44 @@ export default function CallScreen({
               </div>
             </div>
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '110px' }}>
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: '100%', maxWidth: '1200px', height: '100%' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: showParticipants ? '110px' : '32px' }}>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <div style={{ width: '100%', maxWidth: showParticipants ? '1200px' : '100%', height: '100%', transition: 'max-width 0.3s' }}>
                   {focusedTile === 'remote' && <VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} speaking={peerSpeaking} camOff={peerCamOff} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile(null)} />}
-                  {focusedTile === 'remoteShare' && hasRemoteShare && <VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing onStopViewing={() => { setPeerSharing(false); setRemoteShareActive(false); setRemoteShareStream(null); }} onClick={() => setFocusedTile(null)} />}
+                  {focusedTile === 'remoteShare' && hasRemoteShare && <VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing isViewing={isViewingPeerShare} onStopViewing={() => setIsViewingPeerShare(!isViewingPeerShare)} onClick={() => setFocusedTile(null)} style={{ filter: isViewingPeerShare ? 'none' : 'blur(50px)', transition: 'filter 0.3s ease' }} />}
                   {focusedTile === 'local' && <VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile(null)} />}
                   {focusedTile === 'localShare' && <VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile(null)} />}
                 </div>
+
+                <div style={{ position: 'absolute', bottom: showParticipants ? 104 : 86, left: '50%', transform: 'translateX(-50%)', zIndex: 110, transition: 'bottom 0.3s ease' }}>
+                   <button 
+                     onClick={() => setShowParticipants(!showParticipants)}
+                     style={{
+                       backgroundColor: 'rgba(30,31,34,0.85)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: '20px',
+                       padding: '6px 14px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                       display: 'flex', alignItems: 'center', gap: 6, opacity: 0.8, transition: 'opacity 0.2s',
+                       boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                     }}
+                     onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                     onMouseLeave={e => e.currentTarget.style.opacity = '0.8'}
+                   >
+                     {showParticipants ? <Users size={14} /> : <ScreenShare size={14} />}
+                     {showParticipants ? t('call.hide_members') : t('call.show_members')}
+                   </button>
+                </div>
               </div>
-              <div style={{ height: '90px', display: 'flex', gap: '12px', overflowX: 'auto', padding: '0 10px', justifyContent: 'center' }}>
-                <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remote')} /></div>
-                {hasRemoteShare && <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing onStopViewing={() => { setPeerSharing(false); setRemoteShareActive(false); setRemoteShareStream(null); }} onClick={() => setFocusedTile('remoteShare')} /></div>}
-                <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile('local')} /></div>
-                {sharing && <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile('localShare')} /></div>}
-              </div>
+              {showParticipants && (
+                <div style={{ height: '90px', display: 'flex', gap: '12px', overflowX: 'auto', padding: '0 10px', justifyContent: 'center' }}>
+                  {(!hideNonVideo || !peerCamOff || peerSharing) && (
+                    <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} muted={peerMuted} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remote')} /></div>
+                  )}
+                  {hasRemoteShare && <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="remoteShare" name={otherUserName} stream={remoteShareStream} sharing isViewing={isViewingPeerShare} onStopViewing={() => setIsViewingPeerShare(!isViewingPeerShare)} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remoteShare')} /></div>}
+                  {(!hideNonVideo || camOn || sharing) && (
+                    <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile('local')} /></div>
+                  )}
+                  {sharing && <div style={{ width: '140px', flexShrink: 0 }}><VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile('localShare')} /></div>}
+                </div>
+              )}
             </div>
           )
         )}
@@ -832,6 +963,25 @@ export default function CallScreen({
         <CtrlBtn icon={deafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />} label={t('call.deafen')} onClick={toggleDeafen} active={deafened} />
         {callType === 'video' && <CompoundBtn icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={t('call.video')} onClick={toggleCam} onChevron={openCamPicker} muted={!camOn} chevronActive={showCamPicker} />}
         <CtrlBtn icon={sharing ? <MonitorOff size={20} /> : <Monitor size={20} />} label={t('call.share_screen')} onClick={handleStartSharing} active={sharing} />
+        <CtrlBtn 
+          icon={<Maximize2 size={20} />} 
+          label={t('call.pip')} 
+          onClick={() => {
+            // Pick a video element to PiP. Remote share has priority, then remote camera.
+            const videos = document.querySelectorAll('video');
+            let target: HTMLVideoElement | null = null;
+            // Search for remote share first
+            videos.forEach(v => {
+               if (v.srcObject === remoteShareStream && remoteShareActive) target = v;
+            });
+            if (!target) {
+               videos.forEach(v => {
+                  if (v.srcObject === remoteStream) target = v;
+               });
+            }
+            if (target) (target as any).requestPictureInPicture().catch(() => {});
+          }} 
+        />
         <CtrlBtn icon={<PhoneOff size={20} />} label={t('call.hang_up')} onClick={handleLeave} danger />
       </div>
 
@@ -857,7 +1007,7 @@ export default function CallScreen({
             <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: 8 }}>{t('call.user_volume', 'Volumen del usuario')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <input type="range" min="0" max="1" step="0.01" value={peerVolume} onChange={(e) => setPeerVolume(parseFloat(e.target.value))} style={{ flex: 1, cursor: 'pointer' }} />
-              <span style={{ color: '#fff', fontSize: '11px', width: '32px' }}>{Math.round(peerVolume * 100)}%</span>
+              <span style={{ color: '#dbdee1', fontSize: '11px', width: '32px', textAlign: 'right' }}>{Math.round(peerVolume * 100)}%</span>
             </div>
           </div>
         </div>

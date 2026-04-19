@@ -15,7 +15,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // Disabling sandbox can help with certain media captures
+      sandbox: false,
     },
     titleBarStyle: 'default',
     title: 'CampusHub',
@@ -35,19 +35,16 @@ function createWindow() {
     win.focus();
   });
 
-  // Ensure focus is regained when window is clicked
   win.on('focus', () => {
     win.webContents.focus();
   });
 
-  // More aggressive focus management for "stuck" input issues
   win.webContents.on('before-input-event', () => {
     if (!win.isFocused()) {
       win.focus();
     }
   });
 
-  // We disable the native request handler to ensure our custom source picker modal is always used for a better UX.
   win.webContents.session.setDisplayMediaRequestHandler(null);
 
   win.on('close', (event) => {
@@ -71,16 +68,12 @@ const FIREBASE_AUTH_DOMAIN = 'campushub-52343.firebaseapp.com';
 
 ipcMain.handle('get-screen-sources', async () => {
   try {
-    console.log('[ScreenShare] IPC Invoke: get-screen-sources');
-    
-    // Try both separately to debug which one fails
     let screenSources: any[] = [];
     try {
       screenSources = await desktopCapturer.getSources({ 
         types: ['screen'],
         thumbnailSize: { width: 400, height: 225 }
       });
-      console.log(`[ScreenShare] Screens found: ${screenSources.length}`);
     } catch (err) {
       console.error('[ScreenShare] Error fetching screens:', err);
     }
@@ -91,7 +84,6 @@ ipcMain.handle('get-screen-sources', async () => {
         types: ['window'],
         thumbnailSize: { width: 400, height: 225 }
       });
-      console.log(`[ScreenShare] Windows found: ${windowSources.length}`);
     } catch (err) {
       console.error('[ScreenShare] Error fetching windows:', err);
     }
@@ -110,9 +102,8 @@ ipcMain.handle('get-screen-sources', async () => {
         console.error(`[ScreenShare] Error mapping source ${source.name}:`, e);
         return null;
       }
-    }).filter(s => s !== null);
+    }).filter(s => s !== null && s.name && s.name.trim() !== '' && s.name !== 'Media playback');
 
-    console.log(`[ScreenShare] Returning ${mapped.length} mapped sources`);
     return mapped;
   } catch (err) {
     console.error('[ScreenShare] Critical error in get-screen-sources:', err);
@@ -120,7 +111,6 @@ ipcMain.handle('get-screen-sources', async () => {
   }
 });
 
-// For native getDisplayMedia support (if used directly)
 let selectedSourceId: string | null = null;
 ipcMain.on('set-selected-source', (_event, id) => {
   selectedSourceId = id;
@@ -178,7 +168,6 @@ ipcMain.handle('google-auth', () => {
   });
 });
 
-// Handle native downloads
 ipcMain.handle('download-file', async (_event: any, { url, fileName }: { url: string; fileName: string }) => {
   const win = BrowserWindow.getFocusedWindow();
   if (!win) return { success: false, error: 'No active window' };
@@ -228,4 +217,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

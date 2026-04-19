@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, MicOff, Volume2, VolumeX, X, MonitorOff, Repeat, EyeOff } from 'lucide-react';
+import { MoreHorizontal, MicOff, Volume2, VolumeX, X, MonitorOff, Repeat, EyeOff, Maximize2 } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface VideoTileProps {
@@ -19,6 +19,7 @@ interface VideoTileProps {
   onStopSharing?: () => void;
   onChangeSource?: () => void;
   onStopViewing?: () => void;
+  isViewing?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
   onClick?: () => void;
@@ -26,7 +27,7 @@ interface VideoTileProps {
 
 const VideoTile = memo(function VideoTile({
   uid, name, nameFallback, photo, stream, sharing, speaking, camOff, muted, isLocal,
-  onMuteToggle, onVolumeChange, onStopSharing, onChangeSource, onStopViewing, onContextMenu, style, onClick
+  onMuteToggle, onVolumeChange, onStopSharing, onChangeSource, onStopViewing, isViewing = true, onContextMenu, style, onClick
 }: VideoTileProps) {
   const { t } = useTranslation();
   const [showOptions, setShowOptions] = useState(false);
@@ -122,14 +123,15 @@ const VideoTile = memo(function VideoTile({
                       onClick={() => { onStopViewing?.(); setShowOptions(false); }}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: 'none', backgroundColor: 'transparent', color: '#dbdee1', fontSize: '14px', fontWeight: 500, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                     >
-                      {t('call.stop_viewing', 'Dejar de ver')} <EyeOff size={16} />
+                      {isViewing ? t('call.stop_viewing', 'Dejar de ver') : t('call.start_viewing', 'Ver transmisión')} 
+                      <EyeOff size={16} />
                     </button>
                     <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px' }}>
                       <span style={{ color: '#dbdee1', fontSize: '14px', fontWeight: 500 }}>{t('call.mute', 'Silenciar')}</span>
                       <div 
                         onClick={(e) => { e.stopPropagation(); onMuteToggle?.(!muted); }}
-                        style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#ed4245' : '#4e5058', position: 'relative', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                        style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#5865f2' : '#4e5058', position: 'relative', cursor: 'pointer', transition: 'background-color 0.2s' }}
                       >
                         <div style={{ position: 'absolute', top: '2px', left: muted ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' }} />
                       </div>
