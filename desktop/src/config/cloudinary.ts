@@ -8,7 +8,7 @@ const MEDIA_PRESET = 'campushub-profiles';
 
 async function upload(
   file: File,
-  resourceType: 'image' | 'video',
+  resourceType: 'image' | 'video' | 'raw',
   folder: string,
   filename: string,
   preset: string = MEDIA_PRESET,
@@ -73,4 +73,9 @@ export async function uploadMessageMedia(file: File): Promise<string> {
   const resourceType = file.type.startsWith('video/') ? 'video' : 'image';
   // Use 'campushub/posts' folder for now as user confirms it works there
   return upload(file, resourceType, 'campushub/posts', `msg_${Date.now()}`);
+}
+
+export async function uploadChatFile(file: File, filename: string): Promise<string> {
+  // Use 'raw' resource type for PDF, Word, etc.
+  return upload(file, 'raw', 'campushub/files', `${Date.now()}_${filename}`);
 }
