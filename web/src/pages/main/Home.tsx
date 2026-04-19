@@ -1,0 +1,643 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc, limit, Timestamp } from 'firebase/firestore';
+import { auth, db } from '../../config/firebase';
+import { useCall } from '../../contexts/CallContext';
+import { createConference } from '../../services/firebase/studyGroupConferenceService';
+import Layout from '../../components/Layout';
+import { useEvents } from '../../hooks/useEvents';
+import { useSystemChannels } from '../../hooks/useSystemChannels';
+import { seedSystemChannels } from '../../utils/seedChannels';
+
+const SUPPORT_CHANNEL_ID = '4';
+const EVENTS_CHANNEL_ID = '3';
+import { ChannelCard } from '../../components/ChannelCard';
+import type { Channel, StudyGroup, CalendarEventType } from '../../types';
+import { Settings, MessagesSquare, CodeXml, Folders, CalendarFold, MessageCircleQuestion, Users, BookOpen, Clock, PartyPopper, GraduationCap, AlertCircle, ChevronRight, Presentation, type LucideIcon } from 'lucide-react';
+import NotificationBell from '../../components/NotificationBell';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTranslation } from '../../hooks/useTranslation';
+
+const EVENT_COLORS: Record<CalendarEventType, string> = {
+  exam: '#FF3B30',
+  deadline: '#FF9500',
+  holiday: '#34C759',
+  event: '#007AFF',
+  class: '#AF52DE',
+};
+
+function EventIcon({ type, size = 13, color }: { type: CalendarEventType; size?: number; color: string }) {
+  if (type === 'exam') return <BookOpen size={size} color={color} strokeWidth={2} />;
+  if (type === 'deadline') return <Clock size={size} color={color} strokeWidth={2} />;
+  if (type === 'holiday') return <PartyPopper size={size} color={color} strokeWidth={2} />;
+  if (type === 'class') return <GraduationCap size={size} color={color} strokeWidth={2} />;
+  return <AlertCircle size={size} color={color} strokeWidth={2} />;
+}
+
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  'messages-square': MessagesSquare,
+  'code-xml': CodeXml,
+  'folders': Folders,
+  'calendar-fold': CalendarFold,
+  'message-circle-question': MessageCircleQuestion,
+};
+
+function getGreetingKey(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'home.greeting_morning';
+  if (h < 20) return 'home.greeting_afternoon';
+  return 'home.greeting_evening';
+}
+
+const detectCategory = (subject: string): 'subjects' | 'departments' | 'cycles' => {
+  const subjectsKeys = ['math', 'physics', 'chemistry', 'history', 'english', 'french', 'philosophy', 'economics', 'technology', 'programming', 'other'];
+  const departmentsKeys = ['hospitality_tourism', 'health', 'informatics_comms', 'sports', 'admin_management', 'sociocultural', 'energy_water', 'wood_furniture', 'safety_environment', 'languages', 'fol', 'guidance', 'innovation_quality'];
+  
+  if (subjectsKeys.includes(subject)) return 'subjects';
+  if (departmentsKeys.includes(subject)) return 'departments';
+  return 'cycles';
+};
+
+const getTranslatedSubject = (subject: string, t: (key: string) => string): string => {
+  const category = detectCategory(subject);
+  const translation = t(`campus.groups_tab.${category}.${subject}`);
+  if (translation !== `campus.groups_tab.${category}.${subject}`) {
+    return translation;
+  }
+  return subject;
+};
+
+function studyGroupToChannel(g: StudyGroup, memberSingular: string, memberPlural: string, t: (key: string) => string): Channel {
+  return {
+    id: `sg_${g.id}`,
+    name: g.name,
+    description: `${getTranslatedSubject(g.subject, t)} · ${g.memberCount} ${g.memberCount !== 1 ? memberPlural : memberSingular}`,
+    type: g.isPrivate ? 'private' : 'public',
+    createdBy: g.createdBy,
+    createdAt: g.createdAt,
+    memberCount: g.memberCount,
+    lastMessageAt: null,
+    departmentRestricted: false,
+    allowedDepartments: [],
+    photoURL: g.photoURL ?? null,
+  };
+}
+
+export default function Home() {
+  const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const channels = useSystemChannels();
+  const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>({});
+  const [channelLastMessages, setChannelLastMessages] = useState<Record<string, string>>({});
+  const [sgUnreads, setSgUnreads] = useState<Record<string, number>>({});
+  const [showAllGroups, setShowAllGroups] = useState(false);
+  const [department, setDepartment] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { colors } = useTheme();
+  const { setActiveConference, setActiveConferenceId } = useCall();
+  const isDesktop = useWindowSize();
+  const { events: allEvents } = useEvents(department);
+  const { t } = useTranslation();
+
+  const EVENT_CONFIG: Record<CalendarEventType, { label: string; color: string }> = {
+    exam: { label: t('home.event_types.exam'), color: EVENT_COLORS.exam },
+    deadline: { label: t('home.event_types.deadline'), color: EVENT_COLORS.deadline },
+    holiday: { label: t('home.event_types.holiday'), color: EVENT_COLORS.holiday },
+    event: { label: t('home.event_types.event'), color: EVENT_COLORS.event },
+    class: { label: t('home.event_types.class'), color: EVENT_COLORS.class },
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        navigate('/login');
+        setLoading(false);
+        return;
+      }
+      setUser(currentUser);
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData(data);
+          setDepartment(data.department ?? null);
+          if (data.role === 'admin') seedSystemChannels().catch(() => {});
+        }
+      } catch { }
+      finally { setLoading(false); }
+    });
+    return unsubscribe;
+  }, [navigate]);
+
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'studyGroups'),
+      where('memberIds', 'array-contains', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+    );
+    return onSnapshot(q, snap => {
+      setMyGroups(snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name ?? '',
+          description: data.description ?? '',
+          subject: data.subject ?? '',
+          createdBy: data.createdBy ?? '',
+          createdByName: data.createdByName ?? '',
+          memberIds: data.memberIds ?? [],
+          memberCount: data.memberCount ?? 0,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+          color: data.color ?? '#007AFF',
+          isPrivate: data.isPrivate ?? false,
+          photoURL: data.photoURL ?? null,
+        } as StudyGroup;
+      }));
+    }, (error) => {
+    });
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    let active = true;
+    const unsubs: (() => void)[] = [];
+    const CHANNEL_IDS = ['1', '2', '3', '4'];
+
+    (async () => {
+      for (const channelId of CHANNEL_IDS) {
+        const memberSnap = await getDoc(doc(db, 'channels', channelId, 'members', currentUser.uid));
+        if (!active) return;
+        const lastRead: Timestamp | null = memberSnap.exists() ? memberSnap.data().lastRead ?? null : null;
+
+        const msgsQuery = query(
+          collection(db, 'channels', channelId, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const unsub = onSnapshot(msgsQuery, snap => {
+          const count = snap.docs.filter(d => {
+            const data = d.data();
+            if (data.senderId === currentUser.uid) return false;
+            if (!lastRead) return false;
+            const createdAt = data.createdAt as Timestamp;
+            return createdAt && createdAt.seconds > lastRead.seconds;
+          }).length;
+          setChannelUnreads(prev => ({ ...prev, [channelId]: count }));
+
+          if (snap.docs.length > 0) {
+            const last = snap.docs[0].data();
+            const text = last.attachments?.length ? '📎 Media' : last.text || '';
+            setChannelLastMessages(prev => ({ ...prev, [channelId]: text }));
+          }
+        });
+        unsubs.push(unsub);
+      }
+    })();
+
+    return () => { active = false; unsubs.forEach(u => u()); };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || myGroups.length === 0) return;
+    let active = true;
+    const unsubs: (() => void)[] = [];
+
+    (async () => {
+      for (const group of myGroups) {
+        const channelId = `sg_${group.id}`;
+        const memberSnap = await getDoc(doc(db, 'channels', channelId, 'members', currentUser.uid));
+        if (!active) return;
+        const lastRead: Timestamp | null = memberSnap.exists() ? memberSnap.data().lastRead ?? null : null;
+
+        const msgsQuery = query(
+          collection(db, 'channels', channelId, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+        const unsub = onSnapshot(msgsQuery, snap => {
+          const count = snap.docs.filter(d => {
+            const data = d.data();
+            if (data.senderId === currentUser.uid) return false;
+            if (!lastRead) return false;
+            const createdAt = data.createdAt as Timestamp;
+            return createdAt && createdAt.seconds > lastRead.seconds;
+          }).length;
+          setSgUnreads(prev => ({ ...prev, [group.id]: count }));
+        });
+        unsubs.push(unsub);
+      }
+    })();
+
+    return () => { active = false; unsubs.forEach(u => u()); };
+  }, [user?.uid, myGroups.length]);
+
+  const handleStartConference = async (group: StudyGroup) => {
+    if (!user || !userData) return;
+    const participantData: Record<string, { name: string; photo: string | null }> = {};
+    await Promise.all(
+      group.memberIds.map(async (uid) => {
+        if (uid === user.uid) {
+          participantData[uid] = {
+            name: userData.displayName || user.displayName || 'Usuario',
+            photo: userData.photoURL || user.photoURL || null,
+          };
+        } else {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            if (snap.exists()) {
+              const d = snap.data();
+              participantData[uid] = { name: d.displayName || 'Usuario', photo: d.photoURL || null };
+            } else {
+              participantData[uid] = { name: 'Usuario', photo: null };
+            }
+          } catch {
+            participantData[uid] = { name: 'Usuario', photo: null };
+          }
+        }
+      })
+    );
+    try {
+      const conferenceId = await createConference(
+        group.id,
+        group.name,
+        group.photoURL ?? null,
+        user.uid,
+        userData.displayName || user.displayName || 'Usuario',
+        userData.photoURL || user.photoURL || null,
+        'video',
+        group.memberIds,
+        participantData
+      );
+      setActiveConference({
+        callId: conferenceId,
+        isInitiator: true,
+        type: 'video',
+        groupName: group.name,
+        groupPhoto: group.photoURL ?? null,
+        myUid: user.uid,
+        myName: userData.displayName || user.displayName || 'Usuario',
+        myPhoto: userData.photoURL || user.photoURL || null,
+        myRole: userData.role ?? 'teacher',
+      });
+      setActiveConferenceId(conferenceId);
+    } catch { }
+  };
+
+  const canStartConference = userData?.role === 'teacher' || userData?.role === 'admin';
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const displayName = userData?.displayName || user.displayName || 'User';
+  const totalUnread = channels.reduce((sum, ch) => sum + (channelUnreads[ch.id] ?? 0), 0);
+  const now = new Date();
+  const upcomingEvents = allEvents
+    .filter(ev => new Date(ev.date) >= now)
+    .slice(0, 3);
+
+  const sortedGroups = [...myGroups].sort((a, b) => (sgUnreads[b.id] ?? 0) - (sgUnreads[a.id] ?? 0));
+  const visibleGroups = showAllGroups ? sortedGroups : sortedGroups.slice(0, 4);
+
+  if (!isDesktop) {
+    return (
+      <Layout
+        title={`${t(getGreetingKey())}, ${displayName.split(' ')[0]}!`}
+        rightAction={
+          <>
+            <NotificationBell categories={['channel', 'campus']} />
+            <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
+              <Settings />
+            </button>
+          </>
+        }
+      >
+        <div style={{ padding: '0 16px' }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary, padding: '12px 0 4px' }}>{t('home.channels')}</div>
+            {channels.map((channel) => (
+              <ChannelCard key={channel.id} channel={channel} onPress={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : channel.id === EVENTS_CHANNEL_ID ? navigate('/events') : navigate(`/chat/${channel.id}`)} />
+            ))}
+          </div>
+          {myGroups.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 4px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('home.my_groups')}</div>
+                {myGroups.length > 4 && (
+                  <button onClick={() => setShowAllGroups(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{showAllGroups ? t('home.see_less') : t('home.see_all_count', { count: myGroups.length })}</span>
+                    <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                  </button>
+                )}
+              </div>
+              {visibleGroups.map((group) => (
+                <div key={group.id} style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 4, height: 36, borderRadius: '0 4px 4px 0', backgroundColor: group.color, zIndex: 1 }} />
+                  <ChannelCard channel={studyGroupToChannel(group, t('home.member_singular'), t('home.member_plural'), t)} onPress={() => navigate(`/chat/sg_${group.id}`)} />
+                  {(sgUnreads[group.id] ?? 0) > 0 && (
+                    <div style={{ position: 'absolute', right: canStartConference ? 68 : 40, top: '50%', transform: 'translateY(-50%)', backgroundColor: colors.primary, borderRadius: 10, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
+                    </div>
+                  )}
+                  {canStartConference && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleStartConference(group); }}
+                      title={t('home.start_conference')}
+                      style={{ position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Presentation size={14} color={group.color} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ paddingBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 8px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.textSecondary }}>{t('home.upcoming_events')}</div>
+              <button onClick={() => navigate('/events')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{t('home.see_all')}</span>
+                <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} />
+              </button>
+            </div>
+            {upcomingEvents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 13, color: colors.textSecondary }}>{t('home.no_upcoming_events')}</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {upcomingEvents.map(ev => {
+                  const cfg = EVENT_CONFIG[ev.type];
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={() => navigate('/events')}
+                      style={{ display: 'flex', overflow: 'hidden', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.background, cursor: 'pointer' }}
+                    >
+                      <div style={{ width: 4, flexShrink: 0, backgroundColor: cfg.color }} />
+                      <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 6, backgroundColor: cfg.color + '22' }}>
+                            <EventIcon type={ev.type} color={cfg.color} />
+                            <span style={{ fontSize: 10, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>{ev.title}</span>
+                        <span style={{ fontSize: 12, color: colors.textSecondary }}>
+                          {new Date(ev.date).toLocaleDateString(t('common.locale_code'), { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {ev.time ? ` · ${ev.time}` : ''}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout
+      title={t('home.title')}
+      rightAction={
+        <>
+          <NotificationBell categories={['channel', 'campus']} />
+          <button className="settings-button" onClick={() => navigate('/settings')} style={{ fontSize: '24px' }}>
+            <Settings />
+          </button>
+        </>
+      }
+    >
+      <div style={{ padding: '32px 32px 40px', display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+        <div style={{
+          borderRadius: 20,
+          padding: '28px 32px',
+          background: `linear-gradient(135deg, ${colors.primary}18 0%, ${colors.primary}08 100%)`,
+          border: `1px solid ${colors.primary}22`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: colors.text }}>
+              {t(getGreetingKey())}, {displayName.split(' ')[0]}!
+            </div>
+            <div style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>
+              {totalUnread > 0
+                ? t(totalUnread !== 1 ? 'home.unread_count_plural' : 'home.unread_count', { count: totalUnread })
+                : t('home.up_to_date')}
+            </div>
+          </div>
+          {(userData?.photoURL || user?.photoURL) ? (
+            <img
+              src={userData?.photoURL || user?.photoURL}
+              alt=""
+              style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${colors.primary}44` }}
+            />
+          ) : (
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              backgroundColor: colors.primary,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26, fontWeight: 800, color: '#fff',
+            }}>
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+
+          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary, marginBottom: 14 }}>
+              {t('home.channels')}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              {channels.map((channel) => {
+                const Icon = CHANNEL_ICONS[channel.icon ?? ''] ?? MessagesSquare;
+                return (
+                  <div
+                    key={channel.id}
+                    className="card-interactive"
+                    onClick={() => channel.id === SUPPORT_CHANNEL_ID ? navigate('/support') : channel.id === EVENTS_CHANNEL_ID ? navigate('/events') : navigate(`/chat/${channel.id}`)}
+                    style={{
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: 16,
+                      padding: '18px 20px',
+                      cursor: 'pointer',
+                      backgroundColor: colors.background,
+                      display: 'flex', flexDirection: 'column', gap: 12,
+                      transition: 'background-color 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s',
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = colors.backgroundSecondary; e.currentTarget.style.borderColor = colors.primary + '66'; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = colors.background; e.currentTarget.style.borderColor = colors.border; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {channel.photoURL
+                          ? <img src={channel.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <Icon size={20} color={colors.primary} strokeWidth={1.8} />
+                        }
+                      </div>
+                      {(channelUnreads[channel.id] ?? 0) > 0 && (
+                        <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{channelUnreads[channel.id]}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, marginBottom: 3 }}>{channel.name}</div>
+                      <div style={{ fontSize: 13, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{channel.description}</div>
+                    </div>
+                    {channelLastMessages[channel.id] && channel.id !== '3' && channel.id !== '4' && (
+                      <div style={{ fontSize: 12, color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingTop: 8, borderTop: `1px solid ${colors.border}` }}>
+                        {channelLastMessages[channel.id]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 28 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary }}>
+                  {t('home.my_groups')}
+                </div>
+              </div>
+              {myGroups.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 24px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 14 }}>
+                  <Users size={32} strokeWidth={1.2} color={colors.border} style={{ marginBottom: 8, display: 'block', margin: '0 auto 12px' }} />
+                  {t('home.no_groups')}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {visibleGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      onClick={() => navigate(`/chat/sg_${group.id}`)}
+                      style={{
+                        border: `1px solid ${colors.border}`,
+                        borderLeft: `4px solid ${group.color}`,
+                        borderRadius: 14,
+                        padding: '14px 18px',
+                        cursor: 'pointer',
+                        backgroundColor: colors.background,
+                        display: 'flex', alignItems: 'center', gap: 14,
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = colors.background)}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: group.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                        {group.photoURL
+                          ? <img src={group.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <Users size={18} color={group.color} strokeWidth={2} />
+                        }
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
+                        <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{getTranslatedSubject(group.subject, t)} · {group.memberCount} {group.memberCount !== 1 ? t('home.member_plural') : t('home.member_singular')}</div>
+                      </div>
+                      {(sgUnreads[group.id] ?? 0) > 0 && (
+                        <div style={{ backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', flexShrink: 0 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{sgUnreads[group.id] > 99 ? '99+' : sgUnreads[group.id]}</span>
+                        </div>
+                      )}
+                      {canStartConference && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleStartConference(group); }}
+                          title={t('home.start_conference')}
+                          style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: group.color + '22', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = group.color + '44')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = group.color + '22')}
+                        >
+                          <Presentation size={15} color={group.color} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {myGroups.length > 4 && (
+                    <button
+                      onClick={() => setShowAllGroups(v => !v)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px', borderRadius: 12, border: `1px solid ${colors.border}`, background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: colors.primary }}
+                    >
+                      {showAllGroups ? t('home.see_less') : t('home.see_count_more', { count: myGroups.length - 4 })}
+                      <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} style={{ transform: showAllGroups ? 'rotate(270deg)' : 'rotate(90deg)', transition: 'transform 0.2s' }} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: colors.textSecondary }}>
+                  {t('home.upcoming_events')}
+                </div>
+                <button
+                  onClick={() => navigate('/events')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2, padding: 0 }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 600, color: colors.primary }}>{t('home.see_all')}</span>
+                  <ChevronRight size={14} color={colors.primary} strokeWidth={2.5} />
+                </button>
+              </div>
+              {upcomingEvents.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '28px 16px', border: `1px dashed ${colors.border}`, borderRadius: 16, color: colors.textSecondary, fontSize: 13 }}>
+                  {t('home.no_upcoming_events')}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {upcomingEvents.map(ev => {
+                    const cfg = EVENT_CONFIG[ev.type];
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => navigate('/events')}
+                        style={{ display: 'flex', overflow: 'hidden', borderRadius: 14, border: `1px solid ${colors.border}`, backgroundColor: colors.background, cursor: 'pointer', transition: 'background-color 0.12s' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = colors.backgroundSecondary)}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = colors.background)}
+                      >
+                        <div style={{ width: 4, flexShrink: 0, backgroundColor: cfg.color }} />
+                        <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 6, backgroundColor: cfg.color + '22', alignSelf: 'flex-start' }}>
+                            <EventIcon type={ev.type} color={cfg.color} />
+                            <span style={{ fontSize: 10, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                          </div>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>{ev.title}</span>
+                          <span style={{ fontSize: 12, color: colors.textSecondary }}>
+                            {new Date(ev.date).toLocaleDateString(t('common.locale_code'), { weekday: 'short', day: 'numeric', month: 'short' })}
+                            {ev.time ? ` · ${ev.time}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </Layout>
+  );
+}

@@ -39,7 +39,7 @@ export default function Index() {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">CampusHub</ThemedText>
-      <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+      <ActivityIndicator size="large" color="#007bffff" style={styles.loader} />
       <ThemedText style={styles.loadingText}>Cargando...</ThemedText>
     </ThemedView>
   );

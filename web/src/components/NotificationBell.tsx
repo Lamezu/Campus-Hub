@@ -1,0 +1,483 @@
+import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Bell, MessageSquare, Heart, Users, Megaphone } from 'lucide-react';
+import { useNotifications } from '../contexts/NotificationsContext';
+import { useTheme } from '../contexts/ThemeContext';
+import type { NotificationItem, NotificationCategory } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
+
+function timeAgo(iso: string, t: (key: string) => string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return t('time_ago.now');
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function CategoryIcon({ category, color }: { category: NotificationCategory; color: string }) {
+  const props = { size: 18, color, strokeWidth: 1.8 };
+  if (category === 'dm') return <MessageSquare {...props} />;
+  if (category === 'social') return <Heart {...props} />;
+  if (category === 'friend') return <Users {...props} />;
+  if (category === 'campus') return <Megaphone {...props} />;
+  return <Bell {...props} />;
+}
+
+interface NotificationBellProps {
+  categories?: NotificationCategory[];
+}
+
+export default function NotificationBell({ categories }: NotificationBellProps = {}) {
+  const { notifications, pendingRequests, acceptRequest, rejectRequest, markRead, markAllRead } = useNotifications();
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [panelRect, setPanelRect] = useState<{ top: number; right: number; vw: number } | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [friendRequestItem, setFriendRequestItem] = useState<NotificationItem | null>(null);
+  const [processedRequestIds, setProcessedRequestIds] = useState<Set<string>>(new Set());
+
+  const filteredByCurrentChat = useMemo(() => {
+    const currentPath = location.pathname;
+    return notifications.filter(notif => {
+      if (notif.category === 'dm' && notif.meta?.conversationId) {
+        if (currentPath === `/messages/${notif.meta.conversationId}`) {
+          return false;
+        }
+        if (currentPath === `/messages/group/${notif.meta.conversationId}`) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [notifications, location.pathname]);
+
+  const filtered = categories
+    ? filteredByCurrentChat.filter(n => categories.includes(n.category))
+    : filteredByCurrentChat;
+  const unreadCount = filtered.filter(n => !n.read).length;
+
+  const handleBellClick = () => {
+    if (!open && bellRef.current) {
+      const r = bellRef.current.getBoundingClientRect();
+      setPanelRect({ top: r.bottom + 8, right: window.innerWidth - r.right, vw: window.innerWidth });
+    }
+    setOpen(o => !o);
+  };
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, NotificationItem[]> = {};
+    filtered.forEach(n => {
+      let key = n.id;
+      if (n.category === 'dm' && n.meta?.conversationId) key = `dm_${n.meta.conversationId}`;
+      else if (n.category === 'social' && n.meta?.postId) key = `social_${n.meta.postId}`;
+      else if (n.category === 'channel' && n.meta?.channelId) key = `channel_${n.meta.channelId}`;
+      else if (n.category === 'campus') key = 'campus_all';
+      else if (n.category === 'friend' && n.meta?.fromUserId) key = `friend_${n.meta.fromUserId}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(n);
+    });
+
+    return Object.values(groups)
+      .map(items => {
+        const latest = items[0];
+        const unreadItems = items.filter(i => !i.read);
+        const unread = unreadItems.length;
+        let body = latest.body;
+        if (items.length > 1) {
+          if (latest.category === 'channel') body = t('home.new_messages', { count: unread > 0 ? unread : items.length });
+          else if (latest.category === 'social') body = t('notifications.new_interactions', { count: items.length });
+          else if (latest.category === 'campus') body = t('explore.new_announcement', { count: items.length });
+          else body = t('notifications.new_notifications', { count: items.length });
+        }
+        return {
+          ...latest,
+          allIds: items.map(i => i.id),
+          read: unread === 0,
+          count: items.length,
+          body,
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [filtered]);
+
+  const handlePress = async (item: NotificationItem & { allIds: string[] }) => {
+    if (item.category === 'friend' && item.meta?.isRequest === 'true' && item.meta?.fromUserId) {
+      const requestKey = `friend_${item.meta.fromUserId}`;
+      if (processedRequestIds.has(requestKey)) return;
+      setFriendRequestItem(item);
+      return;
+    }
+
+    await Promise.all(item.allIds.map(id => markRead(id)));
+
+    if (item.category === 'social' && item.meta?.postId) {
+      setOpen(false);
+      navigate(`/post/${item.meta.postId}`);
+      return;
+    }
+
+    if (item.category === 'dm') {
+      if (item.meta?.isGroup === 'true' || item.id?.startsWith('group_conv_')) {
+        const dest = item.meta?.conversationId
+          ? `/messages/group/${item.meta.conversationId}`
+          : null;
+        if (dest) { setOpen(false); navigate(dest); }
+      } else {
+        const dest = item.meta?.conversationId
+          ? `/messages/${item.meta.conversationId}`
+          : item.meta?.participantId
+            ? `/messages/${item.meta.participantId}`
+            : null;
+        if (dest) { setOpen(false); navigate(dest); }
+      }
+      return;
+    }
+
+    if (item.category === 'channel' && item.meta?.channelId) {
+      setOpen(false);
+      navigate(`/chat/${item.meta.channelId}`);
+      return;
+    }
+
+    if (item.category === 'campus') {
+      setOpen(false);
+      navigate('/campus');
+      return;
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!friendRequestItem?.meta?.fromUserId) return;
+    const requestKey = `friend_${friendRequestItem.meta.fromUserId}`;
+    if (processedRequestIds.has(requestKey)) return;
+    
+    const req = pendingRequests.find(r => r.fromUserId === friendRequestItem.meta!.fromUserId);
+    if (req) {
+      setActionLoading(req.id);
+      try {
+        await acceptRequest(req);
+        processedRequestIds.add(requestKey);
+        await markRead(friendRequestItem.id);
+      } catch { }
+      setActionLoading(null);
+    }
+    setFriendRequestItem(null);
+  };
+
+  const handleReject = async () => {
+    if (!friendRequestItem?.meta?.fromUserId) return;
+    const requestKey = `friend_${friendRequestItem.meta.fromUserId}`;
+    if (processedRequestIds.has(requestKey)) return;
+    
+    const req = pendingRequests.find(r => r.fromUserId === friendRequestItem.meta!.fromUserId);
+    if (req) {
+      setActionLoading(req.id);
+      try {
+        await rejectRequest(req);
+        processedRequestIds.add(requestKey);
+        await markRead(friendRequestItem.id);
+      } catch { }
+      setActionLoading(null);
+    }
+    setFriendRequestItem(null);
+  };
+
+  const isMobilePanel = panelRect ? panelRect.vw < 500 : false;
+
+  const panel = open && panelRect ? createPortal(
+    <>
+      <div
+        style={{ position: 'fixed', inset: 0, zIndex: 1050 }}
+        onClick={() => setOpen(false)}
+      />
+      <div className="animate-slide-down" style={{
+        position: 'fixed',
+        top: panelRect.top,
+        ...(isMobilePanel
+          ? { left: 12, right: 12, width: 'auto' }
+          : { right: panelRect.right, width: '340px' }
+        ),
+        backgroundColor: 'var(--background)',
+        border: '1px solid var(--border)',
+        borderRadius: '18px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+        zIndex: 1051,
+        overflow: 'hidden',
+        maxHeight: 'calc(100vh - 80px)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '13px 16px 12px',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text)' }}>
+            {t('notifications.title')}
+          </span>
+          {unreadCount > 0 && (
+            <button
+              onClick={() => categories
+                ? Promise.all(categories.map(c => markAllRead(c)))
+                : markAllRead()
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: colors.primary,
+                padding: '2px 0',
+              }}
+            >
+              {t('notifications.mark_all_read')}
+            </button>
+          )}
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {grouped.length === 0 ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '44px 16px',
+              gap: '8px',
+            }}>
+              <Bell size={36} color="var(--text-secondary)" strokeWidth={1.4} />
+              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                {t('notifications.no_notifications')}
+              </span>
+            </div>
+          ) : (
+            grouped.map((item, idx) => {
+              const isFriendRequest = item.category === 'friend' && item.meta?.isRequest === 'true';
+              const requestKey = isFriendRequest ? `friend_${item.meta?.fromUserId}` : null;
+              const isProcessed = requestKey ? processedRequestIds.has(requestKey) : false;
+              
+              if (isProcessed) return null;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handlePress(item)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    padding: '11px 16px',
+                    borderBottom: idx < grouped.length - 1 ? '1px solid var(--border)' : 'none',
+                    width: '100%',
+                    backgroundColor: item.read ? 'transparent' : `${colors.primary}0D`,
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background-color 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${colors.primary}14`; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = item.read ? 'transparent' : `${colors.primary}0D`; }}
+                >
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '18px',
+                    backgroundColor: 'var(--background-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '1px',
+                  }}>
+                    <CategoryIcon category={item.category} color={colors.primary} />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: item.read ? '500' : '700',
+                      color: 'var(--text)',
+                      lineHeight: '18px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      marginBottom: '2px',
+                    }}>
+                      {item.title}
+                    </span>
+                    <span style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '17px',
+                    }}>
+                      {item.body}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    gap: '6px',
+                    flexShrink: 0,
+                    paddingTop: '1px',
+                  }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '16px', whiteSpace: 'nowrap' }}>
+                      {timeAgo(item.createdAt, t)}
+                    </span>
+                    {!item.read && (
+                      <div style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: colors.primary,
+                      }} />
+                    )}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={bellRef}
+        onClick={handleBellClick}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          color: 'var(--text)',
+          borderRadius: '8px',
+        }}
+        aria-label="Notificaciones"
+      >
+        <Bell size={22} strokeWidth={1.8} />
+        {unreadCount > 0 && (
+          <span style={{
+            position: 'absolute',
+            top: '0px',
+            right: '0px',
+            backgroundColor: '#FF3B30',
+            color: '#fff',
+            borderRadius: '10px',
+            minWidth: '16px',
+            height: '16px',
+            fontSize: '9px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 3px',
+            lineHeight: 1,
+          }}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {panel}
+
+      {friendRequestItem && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1200,
+            padding: '24px',
+          }}
+          onClick={() => setFriendRequestItem(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--background)',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '360px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <span style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text)' }}>
+              {t('notifications.friend_request')}
+            </span>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '22px' }}>
+              <strong>{friendRequestItem.meta?.fromUserName ?? t('common.someone')}</strong> {t('notifications.wants_to_be_friend')}
+            </span>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading !== null}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background-secondary)',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading !== null ? 0.6 : 1,
+                }}
+              >
+                {t('common.reject')}
+              </button>
+              <button
+                onClick={handleAccept}
+                disabled={actionLoading !== null}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: colors.primary,
+                  color: '#fff',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading !== null ? 0.6 : 1,
+                }}
+              >
+                {t('common.accept')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}

@@ -1,9 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View } from 'react-native';
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
+import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { colors, spacing, typography } from '@/constants/styles';
-import type { Channel } from '@/constants/mockData';
+import type { Channel } from '@/types';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -13,34 +11,20 @@ interface ChannelCardProps {
 export function ChannelCard({ channel, onPress }: ChannelCardProps) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <ThemedView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.iconContainer}>
-          <ThemedText style={styles.icon}>{channel.icon}</ThemedText>
+          <Text style={styles.icon}>{channel.icon}</Text>
         </View>
         
         <View style={styles.content}>
-          <View style={styles.header}>
-            <ThemedText style={styles.name}>{channel.name}</ThemedText>
-            {channel.unreadCount > 0 && (
-              <View style={styles.badge}>
-                <ThemedText style={styles.badgeText}>
-                  {channel.unreadCount}
-                </ThemedText>
-              </View>
-            )}
-          </View>
-          
-          <ThemedText style={styles.description} numberOfLines={1}>
-            {channel.lastMessage || channel.description}
-          </ThemedText>
+          <Text style={styles.name}>{channel.name}</Text>
+          <Text style={styles.description} numberOfLines={1}>
+            {channel.description}
+          </Text>
         </View>
         
-        {channel.lastMessageTime && (
-          <ThemedText style={styles.time}>
-            {channel.lastMessageTime}
-          </ThemedText>
-        )}
-      </ThemedView>
+        <Text style={styles.chevron}>›</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -68,35 +52,20 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
   name: {
     fontSize: typography.sizes.md,
     fontWeight: typography.weights.semibold,
-    flex: 1,
+    color: colors.background,
+    marginBottom: spacing.xs,
   },
   description: {
     fontSize: typography.sizes.sm,
+    color: colors.background,
     opacity: 0.6,
   },
-  badge: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+  chevron: {
+    fontSize: 24,
+    color: colors.textSecondary,
     marginLeft: spacing.sm,
   },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-  },
-  time: {
-    fontSize: typography.sizes.xs,
-    opacity: 0.5,
-    marginLeft: spacing.sm,
-  },
-});
+}); 
