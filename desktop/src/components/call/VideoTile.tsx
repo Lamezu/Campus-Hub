@@ -23,15 +23,20 @@ interface VideoTileProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
   onClick?: () => void;
+  volume?: number;
 }
 
 const VideoTile = memo(function VideoTile({
   uid, name, nameFallback, photo, stream, sharing, speaking, camOff, muted, isLocal,
-  onMuteToggle, onVolumeChange, onStopSharing, onChangeSource, onStopViewing, isViewing = true, onContextMenu, style, onClick
+  onMuteToggle, onVolumeChange, onStopSharing, onChangeSource, onStopViewing, isViewing = true, onContextMenu, style, onClick, volume = 1
 }: VideoTileProps) {
   const { t } = useTranslation();
   const [showOptions, setShowOptions] = useState(false);
-  const [volValue, setVolValue] = useState(100);
+  const [volValue, setVolValue] = useState(volume * 100);
+  
+  useEffect(() => {
+    setVolValue(Math.round(volume * 100));
+  }, [volume]);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -61,10 +66,11 @@ const VideoTile = memo(function VideoTile({
     setShowOptions(true);
   };
 
-  const showVideo = !camOff && stream && stream.getVideoTracks().length > 0;
+  const showVideo = (!camOff || sharing) && !!stream && stream.getVideoTracks().length > 0 && isViewing;
 
   return (
     <div
+      key={`tile-${uid}`}
       onClick={onClick}
       onContextMenu={onContextMenu}
       style={{
@@ -77,8 +83,8 @@ const VideoTile = memo(function VideoTile({
       }}
     >
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2B2D31', zIndex: 1 }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#1E1F22', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {photo ? <img src={photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#dbdee1', fontSize: '32px', fontWeight: 600 }}>{displayName[0]}</span>}
+        <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#1E1F22', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '3px solid rgba(255,255,255,0.05)', boxShadow: '0 8px 16px rgba(0,0,0,0.3)' }}>
+          {photo ? <img src={photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#dbdee1', fontSize: '42px', fontWeight: 600 }}>{displayName[0]}</span>}
         </div>
       </div>
 
@@ -127,12 +133,12 @@ const VideoTile = memo(function VideoTile({
                       <EyeOff size={16} />
                     </button>
                     <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px' }}>
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); onMuteToggle?.(!muted); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', cursor: 'pointer' }}
+                    >
                       <span style={{ color: '#dbdee1', fontSize: '14px', fontWeight: 500 }}>{t('call.mute', 'Silenciar')}</span>
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); onMuteToggle?.(!muted); }}
-                        style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#5865f2' : '#4e5058', position: 'relative', cursor: 'pointer', transition: 'background-color 0.2s' }}
-                      >
+                      <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#ed4245' : '#4e5058', position: 'relative', transition: 'background-color 0.2s' }}>
                         <div style={{ position: 'absolute', top: '2px', left: muted ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' }} />
                       </div>
                     </div>
@@ -169,12 +175,12 @@ const VideoTile = memo(function VideoTile({
 
                 {!sharing && !isLocal && (
                   <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px' }}>
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); onMuteToggle?.(!muted); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', cursor: 'pointer' }}
+                    >
                       <span style={{ color: '#dbdee1', fontSize: '14px', fontWeight: 500 }}>{t('call.mute', 'Silenciar')}</span>
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); onMuteToggle?.(!muted); }}
-                        style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#ed4245' : '#4e5058', position: 'relative', cursor: 'pointer', transition: 'background-color 0.2s' }}
-                      >
+                      <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: muted ? '#ed4245' : '#4e5058', position: 'relative', transition: 'background-color 0.2s' }}>
                         <div style={{ position: 'absolute', top: '2px', left: muted ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' }} />
                       </div>
                     </div>

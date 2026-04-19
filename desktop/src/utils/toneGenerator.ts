@@ -18,12 +18,12 @@ const SAMPLE_RATE = 44100;
 const E5 = 659.25;
 const G5 = 783.99;
 const A5 = 880.00;
+const B5 = 987.77;
 
 const MESSAGE_TONES: Record<string, ToneSegment[]> = {
   default: [
-    { freq: E5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
-    { freq: G5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
-    { freq: A5, duration: 0.22, amplitude: 0.22, fadeIn: 0.04, fadeOut: 0.22, expDecay: 3.5 },
+    { freq: G5, duration: 0.12, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: E5, duration: 0.35, amplitude: 0.20, fadeIn: 0.04, fadeOut: 0.35, expDecay: 3.5 },
   ],
   classic: [
     { freq: G5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
@@ -94,10 +94,11 @@ const CALL_TONE_DEFINITIONS: Record<string, ToneSegment[]> = {
   ],
 
   default: [
-    { startTime: 0.0, freq: 659.25, waveType: 'sine', duration: 0.5, amplitude: 0.25, fadeIn: 0.05, expDecay: 8 },
-    { startTime: 0.2, freq: 783.99, waveType: 'sine', duration: 0.5, amplitude: 0.25, fadeIn: 0.05, expDecay: 8 },
-    { startTime: 0.4, freq: 880.00, waveType: 'sine', duration: 0.8, amplitude: 0.28, fadeIn: 0.05, expDecay: 4 },
-    { startTime: 2.5, freq: 0, duration: 0.5 },
+    { startTime: 0.0, freq: 440.00, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.2, freq: 554.37, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.4, freq: 659.25, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.6, freq: 880.00, waveType: 'sine', duration: 0.8, amplitude: 0.25, fadeIn: 0.1, expDecay: 4 },
+    { startTime: 3.5, freq: 0, duration: 0.5 },
   ],
 
   Dembow: [
