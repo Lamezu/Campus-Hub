@@ -219,7 +219,7 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
             {isSpecialView ? <X size={24} /> : <ChevronLeft size={24} />}
           </button>
           <ThemedText style={{ fontWeight: 800, fontSize: 16 }}>
-            {isSpecialView ? t('chat_ui.channel_info.title') : t('chat.group.info_title')}
+            {(isSpecialView || ['1','2','3','4'].includes(channelId)) ? t('chat_ui.channel_info.title') : t('chat.group.info_title')}
           </ThemedText>
           <div style={{ width: 32 }} />
         </div>
