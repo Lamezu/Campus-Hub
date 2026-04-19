@@ -330,7 +330,7 @@ export default function ChatScreen() {
     }
   };
 
-  const handleSendMedia = async (url: string, type: 'image' | 'video') => {
+  const handleSendMedia = async (url: string, type: 'image' | 'video' | 'file', fileName?: string, fileSize?: number) => {
     if (!currentUser || !id || sending) return;
     setSending(true);
     try {
@@ -340,14 +340,24 @@ export default function ChatScreen() {
         senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
         senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
         text: '',
-        attachments: [{ url, type, name: type === 'video' ? 'video.mp4' : 'image.jpg', size: 0 }],
+        attachments: [{
+          url,
+          type,
+          name: fileName || (type === 'video' ? 'video.mp4' : type === 'image' ? 'image.jpg' : 'file'),
+          size: fileSize || 0
+        }],
         createdAt: serverTimestamp(),
         edited: false,
         reactions: {},
         replyTo: null,
         deletedForUsers: [],
       });
-      await sendChannelNotifications(docRef.id, type === 'video' ? t('chat_ui.video') : t('chat_ui.image'));
+      
+      let notifText = t('chat_ui.image');
+      if (type === 'video') notifText = t('chat_ui.video');
+      if (type === 'file') notifText = t('chat_ui.file');
+      
+      await sendChannelNotifications(docRef.id, notifText);
     } catch (error) {
       console.error(error);
     } finally {
@@ -1066,6 +1076,7 @@ export default function ChatScreen() {
               onSend={handleSendMessage}
               onSendAudio={handleSendAudio}
               onSendMedia={handleSendMedia}
+              onSendFile={(url, name, size) => handleSendMedia(url, 'file', name, size)}
               onSendPoll={handleSendPoll}
               replyTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
