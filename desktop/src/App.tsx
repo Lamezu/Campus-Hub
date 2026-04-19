@@ -6,7 +6,6 @@ import { AlertProvider } from '@/contexts/AlertContext';
 import { AccountsProvider } from '@/contexts/AccountsContext';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/config/firebase';
-
 import LoginScreen from '@/pages/auth/LoginScreen';
 import RegisterScreen from '@/pages/auth/RegisterScreen';
 import TabsLayout from '@/pages/tabs/TabsLayout';
@@ -25,26 +24,22 @@ import ForwardScreen from '@/pages/ForwardScreen';
 import ManageAccountsScreen from '@/pages/ManageAccountsScreen';
 import AddAccountScreen from '@/pages/AddAccountScreen';
 import DeleteAccountScreen from '@/pages/DeleteAccountScreen';
-
 import { LanguageProvider, useTranslation } from '@/contexts/LanguageContext';
 import { CallProvider } from '@/contexts/CallContext';
 import GlobalCallOverlay from '@/components/call/GlobalCallOverlay';
 import { useAccounts } from '@/contexts/AccountsContext';
 import { SwitchAccountOverlay } from '@/components/auth/SwitchAccountOverlay';
-
 function SwitchAccountController() {
   const { switching } = useAccounts();
   if (!switching) return null;
   return <SwitchAccountOverlay />;
 }
-
 function AuthGuard({ children, isAuthenticated }: { children: React.ReactNode, isAuthenticated: boolean }) {
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" replace />;
   }
   return <>{children}</>;
 }
-
 function AppRoutes({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <Routes>
@@ -70,11 +65,9 @@ function AppRoutes({ isAuthenticated }: { isAuthenticated: boolean }) {
     </Routes>
   );
 }
-
 export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthenticated(!!user);
@@ -82,7 +75,6 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
-
   if (isInitializing) {
     return (
       <div style={{
@@ -111,7 +103,6 @@ export default function App() {
       </div>
     );
   }
-
   return (
     <ThemeProvider>
       <UserProvider>
@@ -120,8 +111,8 @@ export default function App() {
             <CallProvider>
               <AccountsProvider>
                 <SwitchAccountController />
-                <MemoryRouter 
-                  initialEntries={[isAuthenticated ? '/tabs/home' : '/auth/login']} 
+                <MemoryRouter
+                  initialEntries={[isAuthenticated ? '/tabs/home' : '/auth/login']}
                   future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
                 >
                   <AppRoutes isAuthenticated={isAuthenticated} />

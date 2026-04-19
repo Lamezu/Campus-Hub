@@ -2,9 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, desktopCapturer } from 'electron';
 import path from 'path';
 import axios from 'axios';
 import fs from 'fs';
-
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -22,74 +20,61 @@ function createWindow() {
     show: false,
     icon: path.join(__dirname, '../assets/icon.png'),
   });
-
   if (isDev) {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
-
   win.once('ready-to-show', () => {
     win.show();
     win.focus();
   });
-
   win.on('focus', () => {
     win.webContents.focus();
   });
-
   win.webContents.on('before-input-event', () => {
     if (!win.isFocused()) {
       win.focus();
     }
   });
-
   win.webContents.session.setDisplayMediaRequestHandler(null);
-
   win.on('close', (event) => {
     if ((app as any).isQuitting) return;
     event.preventDefault();
     win.webContents.send('app-closing');
   });
 }
-
 (app as any).isQuitting = false;
 app.on('before-quit', () => {
   (app as any).isQuitting = true;
 });
-
 ipcMain.on('close-confirmed', () => {
   app.quit();
 });
-
 const FIREBASE_API_KEY = 'AIzaSyA2Bvno8r2bi7Uv_2SuTiQ2HsmO3fGPLjs';
 const FIREBASE_AUTH_DOMAIN = 'campushub-52343.firebaseapp.com';
-
 ipcMain.handle('get-screen-sources', async () => {
   try {
     let screenSources: any[] = [];
     try {
-      screenSources = await desktopCapturer.getSources({ 
+      screenSources = await desktopCapturer.getSources({
         types: ['screen'],
         thumbnailSize: { width: 400, height: 225 }
       });
     } catch (err) {
       console.error('[ScreenShare] Error fetching screens:', err);
     }
-
     let windowSources: any[] = [];
     try {
-      windowSources = await desktopCapturer.getSources({ 
+      windowSources = await desktopCapturer.getSources({
         types: ['window'],
         thumbnailSize: { width: 400, height: 225 }
       });
     } catch (err) {
       console.error('[ScreenShare] Error fetching windows:', err);
     }
-
     const allSources = [...screenSources, ...windowSources];
-    
     const mapped = allSources.map(source => {
       try {
         return {
@@ -103,19 +88,16 @@ ipcMain.handle('get-screen-sources', async () => {
         return null;
       }
     }).filter(s => s !== null && s.name && s.name.trim() !== '' && s.name !== 'Media playback');
-
     return mapped;
   } catch (err) {
     console.error('[ScreenShare] Critical error in get-screen-sources:', err);
     return [];
   }
 });
-
 let selectedSourceId: string | null = null;
 ipcMain.on('set-selected-source', (_event, id) => {
   selectedSourceId = id;
 });
-
 ipcMain.handle('google-auth', () => {
   return new Promise(async (resolve) => {
     let settled = false;
@@ -124,7 +106,6 @@ ipcMain.handle('google-auth', () => {
       settled = true;
       resolve(value);
     };
-
     let authUri: string;
     try {
       const resp = await axios.post(
@@ -136,17 +117,14 @@ ipcMain.handle('google-auth', () => {
       done(null);
       return;
     }
-
     const authWin = new BrowserWindow({
       width: 520,
       height: 680,
       title: 'Sign in with Google',
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
-
     authWin.setMenu(null);
     authWin.loadURL(authUri);
-
     const tryExtract = async (url: string) => {
       if (!url.includes(`${FIREBASE_AUTH_DOMAIN}/__/auth/handler`)) return;
       try {
@@ -158,38 +136,31 @@ ipcMain.handle('google-auth', () => {
           done({ idToken, accessToken });
           authWin.destroy();
         }
-      } catch {}
+      } catch { }
     };
-
     authWin.webContents.on('will-redirect', (_, url) => tryExtract(url));
     authWin.webContents.on('did-navigate', (_, url) => tryExtract(url));
     authWin.webContents.on('did-navigate-in-page', (_, url) => tryExtract(url));
     authWin.on('closed', () => done(null));
   });
 });
-
 ipcMain.handle('download-file', async (_event: any, { url, fileName }: { url: string; fileName: string }) => {
   const win = BrowserWindow.getFocusedWindow();
   if (!win) return { success: false, error: 'No active window' };
-
   try {
     const { filePath } = await dialog.showSaveDialog(win, {
       defaultPath: fileName,
       title: 'Guardar archivo',
       buttonLabel: 'Guardar',
     });
-
     if (!filePath) return { success: false, error: 'Download cancelled' };
-
     const response = await axios({
       url,
       method: 'GET',
       responseType: 'stream',
     });
-
     const writer = fs.createWriteStream(filePath);
     response.data.pipe(writer);
-
     return new Promise((resolve, reject) => {
       writer.on('finish', () => resolve({ success: true, filePath }));
       writer.on('error', (err) => resolve({ success: false, error: err.message }));
@@ -198,10 +169,8 @@ ipcMain.handle('download-file', async (_event: any, { url, fileName }: { url: st
     return { success: false, error: error.message };
   }
 });
-
 app.whenReady().then(() => {
   createWindow();
-
   app.on('activate', () => {
     const allWindows = BrowserWindow.getAllWindows();
     if (allWindows.length === 0) {
@@ -211,7 +180,6 @@ app.whenReady().then(() => {
     }
   });
 });
-
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
