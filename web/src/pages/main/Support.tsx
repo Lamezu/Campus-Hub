@@ -598,7 +598,7 @@ export default function Support() {
   if (isDesktop) {
     return (
       <Layout title={t('support.title')} showBackButton titleAlignLeft>
-        <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: isDesktop ? 'calc(100vh - 121px)' : 'calc(100vh - 56px)', overflow: 'hidden' }}>
           <div style={{
             width: 460, flexShrink: 0, borderRight: `1px solid ${colors.border}`,
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
