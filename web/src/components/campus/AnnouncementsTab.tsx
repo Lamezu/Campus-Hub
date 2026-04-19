@@ -107,9 +107,9 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
   const canSave = form.title.trim().length > 0 && form.content.trim().length > 0 && !uploadingImage;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: isDesktop ? '100%' : undefined }}>
       {isDesktop ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '16px 32px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '20px 32px 12px' }}>
           {canCreateAnnouncement && (
             <button
               onClick={() => { resetForm(); setEditingPostId(null); setShowCreate(true); }}
@@ -141,14 +141,16 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
       )}
 
       <div style={{
-        padding: isDesktop ? '8px 32px 32px' : 16,
-        display: isDesktop ? 'grid' : 'flex',
-        gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : undefined,
-        flexDirection: isDesktop ? undefined : 'column',
-        gap: isDesktop ? 16 : 10,
+        padding: isDesktop ? '32px 32px 100px' : '24px 16px 60px',
+        display: 'flex',
+        flexWrap: isDesktop ? 'wrap' : 'nowrap',
+        flexDirection: isDesktop ? 'row' : 'column',
+        columnGap: isDesktop ? 24 : undefined,
+        rowGap: isDesktop ? 10 : 42,
         overflowY: 'auto',
         flex: 1,
-        alignItems: isDesktop ? 'start' : undefined,
+        minHeight: 0,
+        alignItems: isDesktop ? 'flex-start' : undefined,
       }}>
         {loading && <div style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 40, gridColumn: '1 / -1' }}>{t('common.loading')}</div>}
         {!loading && announcements.length === 0 && (
@@ -166,6 +168,7 @@ export function AnnouncementsTab({ canCreateAnnouncement, highlightId }: Announc
             onPin={currentUser?.uid === item.authorId ? () => togglePin(item.id, !!item.pinned) : undefined}
             onDelete={currentUser?.uid === item.authorId ? () => deleteAnnouncement(item.id) : undefined}
             onPublishSocial={currentUser?.uid === item.authorId ? () => publishAsSocialPost(item) : undefined}
+            isDesktop={isDesktop}
           />
         ))}
       </div>

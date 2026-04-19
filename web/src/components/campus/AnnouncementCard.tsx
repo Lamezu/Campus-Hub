@@ -13,13 +13,14 @@ interface AnnouncementCardProps {
   onDelete?: () => void;
   onPublishSocial?: () => void;
   highlighted?: boolean;
+  isDesktop?: boolean;
 }
 
 function getDateLabel(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPublishSocial, highlighted }: AnnouncementCardProps) {
+export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPublishSocial, highlighted, isDesktop }: AnnouncementCardProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,15 +34,17 @@ export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPub
         borderRadius: 16,
         border: `${highlighted ? 2 : 1}px solid ${highlighted ? colors.primary : colors.border}`,
         overflow: 'hidden',
-        marginBottom: 10,
         backgroundColor: colors.card,
         cursor: 'pointer',
         boxShadow: highlighted ? `0 0 10px ${colors.primary}66` : undefined,
         position: 'relative',
+        flexShrink: 0,
+        width: isDesktop ? 'calc(50% - 12px)' : '100%',
+        marginBottom: isDesktop ? 20 : 0,
       }}
     >
       {post.imageUrl ? (
-        <div style={{ width: '100%', height: 160, overflow: 'hidden' }}>
+        <div style={{ width: '100%', height: isDesktop ? 160 : 220, overflow: 'hidden' }}>
           <img
             src={post.imageUrl}
             alt=""
@@ -60,7 +63,7 @@ export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPub
         </div>
       )}
 
-      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ padding: isDesktop ? 20 : 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
           <div style={{ padding: '3px 8px', borderRadius: 6, backgroundColor: category.color + '18' }}>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: category.color }}>
@@ -119,10 +122,10 @@ export function AnnouncementCard({ post, onPress, onEdit, onPin, onDelete, onPub
           </div>
         </div>
 
-        <div style={{ fontSize: 15, fontWeight: 700, color: colors.text, lineHeight: '22px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        <div style={{ fontSize: isDesktop ? 19 : 18, fontWeight: 700, color: colors.text, lineHeight: '26px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
           {post.title}
         </div>
-        <div style={{ fontSize: 13, color: colors.textSecondary, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+        <div style={{ fontSize: 14, color: colors.textSecondary, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
           {post.content}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
