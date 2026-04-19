@@ -151,11 +151,16 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
   }, [channelData, channelName]);
 
   const viewType = useMemo(() => {
+    const id = (channelId || '').toLowerCase();
     const name = (channelData?.name || channelName || '').toLowerCase();
-    if (name.includes('ayuda') || name.includes('soporte')) return 'support';
-    if (name.includes('eventos')) return 'events';
+    
+    if (id.includes('ayuda') || id.includes('soporte') || id.includes('help') || id.includes('support') || 
+        name.includes('ayuda') || name.includes('soporte')) return 'support';
+        
+    if (id.includes('eventos') || id.includes('events') || name.includes('eventos')) return 'events';
+    
     return 'default';
-  }, [channelData, channelName]);
+  }, [channelData, channelName, channelId]);
 
   const isSpecialView = useMemo(() => {
     return viewType === 'support' || viewType === 'events';
