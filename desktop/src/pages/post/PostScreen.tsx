@@ -22,7 +22,9 @@ import { spacing } from '@/constants/styles';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Post, Comment } from '@/types';
+import { PostLoadingScreen } from '@/components/post/PostLoadingScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
+
 
 export default function PostScreen() {
   const { t } = useTranslation();
@@ -231,11 +233,7 @@ export default function PostScreen() {
   };
 
   if (loadingPost) {
-    return (
-      <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: `3px solid ${colors.border}`, borderTop: `3px solid ${colors.primary}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      </ThemedView>
-    );
+    return <PostLoadingScreen />;
   }
 
   if (!post) {
