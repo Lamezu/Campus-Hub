@@ -202,7 +202,9 @@ export async function sendGroupMedia(
   senderName: string,
   senderPhoto: string | null,
   url: string,
-  type: 'image' | 'video'
+  type: 'image' | 'video' | 'file',
+  fileName?: string,
+  fileSize?: number
 ): Promise<string> {
   const groupRef = doc(db, 'groupConversations', groupId);
   const groupSnap = await getDoc(groupRef);
@@ -210,19 +212,27 @@ export async function sendGroupMedia(
 
   const batch = writeBatch(db);
   const msgRef = doc(collection(db, 'groupConversations', groupId, 'messages'));
+  const attachment = { 
+    type, 
+    url, 
+    name: fileName || (type === 'image' ? 'image.jpg' : type === 'video' ? 'video.mp4' : 'file'),
+    size: fileSize || 0
+  };
+
   batch.set(msgRef, {
     text: '',
     senderId,
     senderName,
     senderPhoto,
     createdAt: serverTimestamp(),
-    attachments: [{ type, url }],
+    attachments: [attachment],
     reactions: {},
     type: type,
     deletedForUsers: [],
   });
 
-  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, type === 'image' ? '📷 Foto' : '🎥 Vídeo', members);
+  const preview = type === 'image' ? '📷 Foto' : type === 'video' ? '🎥 Vídeo' : `📎 ${fileName || 'Archivo'}`;
+  await updateGroupAfterMessage(batch, groupRef, senderId, senderName, preview, members);
   await batch.commit();
   return msgRef.id;
 }

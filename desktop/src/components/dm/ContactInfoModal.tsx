@@ -163,10 +163,12 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
     );
     setActiveCallId(callId);
     setActiveCall({
-      callId, participantId: user.uid, participantName: user.displayName || 'Usuario', participantPhoto: user.photoURL || null,
-      myUid: meId, myName: auth.currentUser?.displayName || 'Usuario', myPhoto: auth.currentUser?.photoURL || null,
-      isInitiator: true, type: 'audio'
-    } as any);
+      callId, 
+      isCaller: true,
+      type: 'audio',
+      otherUserName: user.displayName || 'Usuario',
+      otherUserPhoto: user.photoURL || null,
+    });
     onClose();
   };
 
@@ -180,10 +182,12 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
     );
     setActiveCallId(callId);
     setActiveCall({
-      callId, participantId: user.uid, participantName: user.displayName || 'Usuario', participantPhoto: user.photoURL || null,
-      myUid: meId, myName: auth.currentUser?.displayName || 'Usuario', myPhoto: auth.currentUser?.photoURL || null,
-      isInitiator: true, type: 'video'
-    } as any);
+      callId, 
+      isCaller: true,
+      type: 'video',
+      otherUserName: user.displayName || 'Usuario',
+      otherUserPhoto: user.photoURL || null,
+    });
     onClose();
   };
 

@@ -118,18 +118,7 @@ export default function DMChatScreen() {
     try {
       const msgId = await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, text, replyData);
 
-      if (userId) {
-        notificationService.addNotification(userId, {
-          title: t('notifications.dm_message_title'),
-          titleKey: 'notifications.dm_message_title',
-          body: text,
-          category: 'dm',
-          meta: { 
-            name: currentUser.displayName || t('profile.username_placeholder'),
-            conversationId 
-          },
-        }, msgId);
-      }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_msg'), type: 'error' });
     } finally {
@@ -141,43 +130,20 @@ export default function DMChatScreen() {
     if (!currentUser || !conversationId) return;
     setReplyingTo(null);
     try {
-      const msgId = await dmService.sendAudioMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, url, duration);
-
-      if (userId) {
-        notificationService.addNotification(userId, {
-          title: t('notifications.dm_message_title'),
-          titleKey: 'notifications.dm_message_title',
-          body: t('chat_ui.voice_message'),
-          category: 'dm',
-          meta: { 
-            name: currentUser.displayName || t('profile.username_placeholder'),
-            conversationId 
-          },
-        }, msgId);
-      }
+      await dmService.sendAudioMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, url, duration);
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_audio'), type: 'error' });
     }
   };
 
-  const handleSendMedia = async (url: string, type: 'image' | 'video') => {
+  const handleSendMedia = async (url: string, type: 'image' | 'video' | 'file', fileName?: string, fileSize?: number) => {
     if (!currentUser || !conversationId) return;
     setReplyingTo(null);
     try {
-      const msgId = await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, '', null, false, [{ url, type, name: type === 'video' ? 'video.mp4' : 'image.jpg', size: 0 }]);
+      const attachments = [{ url, type, name: fileName || (type === 'video' ? 'video.mp4' : type === 'image' ? 'image.jpg' : 'file'), size: fileSize || 0 }];
+      const msgId = await dmService.sendMessage(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, '', null, false, attachments);
 
-      if (userId) {
-        notificationService.addNotification(userId, {
-          title: t('notifications.dm_message_title'),
-          titleKey: 'notifications.dm_message_title',
-          body: type === 'video' ? t('chat_ui.video') : t('chat_ui.image'),
-          category: 'dm',
-          meta: { 
-            name: currentUser.displayName || t('profile.username_placeholder'),
-            conversationId 
-          },
-        }, msgId);
-      }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.send_file'), type: 'error' });
     }
@@ -188,18 +154,7 @@ export default function DMChatScreen() {
     try {
       const msgId = await dmService.sendPoll(conversationId, currentUser.uid, currentUser.displayName || t('profile.username_placeholder'), currentUser.photoURL, poll);
 
-      if (userId) {
-        notificationService.addNotification(userId, {
-          title: t('notifications.dm_message_title'),
-          titleKey: 'notifications.dm_message_title',
-          body: t('chat_ui.poll_notification', { question: poll.question }),
-          category: 'dm',
-          meta: { 
-            name: currentUser.displayName || t('profile.username_placeholder'),
-            conversationId 
-          },
-        }, msgId);
-      }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('dm_chat.error.create_poll'), type: 'error' });
     }
@@ -638,7 +593,17 @@ export default function DMChatScreen() {
         )}
 
         <div style={{ backgroundColor: colors.background, paddingBottom: 8 }}>
-          <MessageInput ref={messageInputRef} onSend={handleSendMessage} onSendAudio={handleSendAudio} onSendMedia={handleSendMedia} onSendPoll={handleSendPoll} replyTo={replyingTo} onCancelReply={() => setReplyingTo(null)} disabled={sending} />
+          <MessageInput 
+            ref={messageInputRef} 
+            onSend={handleSendMessage} 
+            onSendAudio={handleSendAudio} 
+            onSendMedia={handleSendMedia} 
+            onSendFile={(url, name, size) => handleSendMedia(url, 'file', name, size)}
+            onSendPoll={handleSendPoll} 
+            replyTo={replyingTo} 
+            onCancelReply={() => setReplyingTo(null)} 
+            disabled={sending} 
+          />
         </div>
         {loading && <ChatLoadingOverlay />}
       </div>

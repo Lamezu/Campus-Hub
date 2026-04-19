@@ -165,17 +165,7 @@ export default function GroupChatScreen() {
         replyData
       );
 
-        if (group) {
-          const targets = group.members.filter(uid => uid !== currentUser.uid);
-          if (targets.length > 0) {
-            notificationService.addNotificationsBatch(targets, {
-              title: group.name || t('group_chat.notification_title'),
-              body: text,
-              category: 'group',
-              meta: { groupId, groupName: group.name || t('group_chat.group_placeholder') },
-            });
-          }
-        }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('group_chat.error.send_msg'), type: 'error' });
     } finally {
@@ -195,17 +185,7 @@ export default function GroupChatScreen() {
         url, 
         duration
       );
-        if (group) {
-          const targets = group.members.filter(uid => uid !== currentUser.uid);
-          if (targets.length > 0) {
-            notificationService.addNotificationsBatch(targets, {
-              title: group.name || t('group_chat.notification_title'),
-              body: t('group_chat.voice_message_from', { name: currentUser.displayName || t('profile.username_placeholder') }),
-              category: 'group',
-              meta: { groupId, groupName: group.name || t('group_chat.group_placeholder') },
-            });
-          }
-        }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('group_chat.error.send_audio'), type: 'error' });
     } finally {
@@ -213,7 +193,7 @@ export default function GroupChatScreen() {
     }
   };
 
-  const handleSendMedia = async (url: string, type: 'image' | 'video') => {
+  const handleSendMedia = async (url: string, type: 'image' | 'video' | 'file', fileName?: string, fileSize?: number) => {
     if (!currentUser || !groupId || sending) return;
     setSending(true);
     try {
@@ -223,19 +203,11 @@ export default function GroupChatScreen() {
         currentUser.displayName || t('profile.username_placeholder'), 
         currentUser.photoURL, 
         url, 
-        type
+        type,
+        fileName,
+        fileSize
       );
-        if (group) {
-          const targets = group.members.filter(uid => uid !== currentUser.uid);
-          if (targets.length > 0) {
-            notificationService.addNotificationsBatch(targets, {
-              title: group.name || t('group_chat.notification_title'),
-              body: t('group_chat.file_from', { type: type === 'image' ? t('chat_ui.image') : t('chat_ui.video'), name: currentUser.displayName || t('profile.username_placeholder') }),
-              category: 'group',
-              meta: { groupId, groupName: group.name || t('group_chat.group_placeholder') },
-            });
-          }
-        }
+
     } catch {
       showAlert({ title: t('common.error'), message: t('group_chat.error.send_file'), type: 'error' });
     } finally {
@@ -490,6 +462,7 @@ export default function GroupChatScreen() {
             onSend={handleSendMessage} 
             onSendAudio={handleSendAudio}
             onSendMedia={handleSendMedia}
+            onSendFile={(url, name, size) => handleSendMedia(url, 'file', name, size)}
             onSendPoll={handleSendPoll}
             replyTo={replyingTo} 
             onCancelReply={() => setReplyingTo(null)} 
