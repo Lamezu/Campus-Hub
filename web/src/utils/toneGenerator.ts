@@ -1,8 +1,10 @@
 interface ToneSegment {
   freq: number;
   harmonics?: Array<{ freq: number; amp: number }>;
-  waveType?: 'sine' | 'sawtooth' | 'square';
+  waveType?: 'sine' | 'sawtooth' | 'square' | 'noise';
+  startTime?: number;
   duration: number;
+  pitchDrop?: number;
   amplitude?: number;
   fadeIn?: number;
   expDecay?: number;
@@ -14,162 +16,136 @@ interface ToneSegment {
 const SAMPLE_RATE = 44100;
 
 const E5 = 659.25;
-const G5 = 783.99;  const A5 = 880.00;
+const G5 = 783.99;
+const A5 = 880.00;
 
 const MESSAGE_TONES: Record<string, ToneSegment[]> = {
-  Predeterminado: [
-    { freq: E5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
-    { freq: G5, duration: 0.11, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
-    { freq: A5, duration: 0.22, amplitude: 0.22, fadeIn: 0.04, fadeOut: 0.22, expDecay: 3.5 },
+  default: [
+    { freq: G5, duration: 0.12, amplitude: 0.24, fadeIn: 0.04, fadeOut: 0.18, expDecay: 6.0 },
+    { freq: E5, duration: 0.35, amplitude: 0.20, fadeIn: 0.04, fadeOut: 0.35, expDecay: 3.5 },
   ],
-  Clásico: [
+  classic: [
     { freq: G5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
     { freq: E5, duration: 0.14, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 5.0 },
     { freq: G5, duration: 0.28, amplitude: 0.20, fadeIn: 0.05, fadeOut: 0.25, expDecay: 3.0 },
   ],
-  Suave: [
-    { freq: E5, duration: 0.18, amplitude: 0.16, fadeIn: 0.12, fadeOut: 0.25, expDecay: 2.5 },
-    { freq: G5, duration: 0.18, amplitude: 0.15, fadeIn: 0.10, fadeOut: 0.25, expDecay: 2.5 },
-    { freq: A5, duration: 0.30, amplitude: 0.14, fadeIn: 0.10, fadeOut: 0.28, expDecay: 2.0 },
+  soft: [
+    { freq: E5, duration: 0.22, amplitude: 0.10, fadeIn: 0.18, fadeOut: 0.30, expDecay: 1.8 },
+    { freq: G5, duration: 0.22, amplitude: 0.09, fadeIn: 0.16, fadeOut: 0.30, expDecay: 1.8 },
+    { freq: A5, duration: 0.38, amplitude: 0.08, fadeIn: 0.16, fadeOut: 0.36, expDecay: 1.4 },
   ],
-  Melodía: [
+  melody: [
     { freq: E5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
     { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
     { freq: A5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
     { freq: G5, duration: 0.10, amplitude: 0.22, fadeIn: 0.05, fadeOut: 0.20, expDecay: 9.0 },
     { freq: E5, duration: 0.24, amplitude: 0.20, fadeIn: 0.04, fadeOut: 0.25, expDecay: 3.5 },
   ],
-  Campana: [
+  bell: [
     { freq: A5, harmonics: [{ freq: 1108.73, amp: 0.18 }, { freq: 2093.00, amp: 0.06 }], duration: 0.90, amplitude: 0.16, fadeIn: 0.008, fadeOut: 0.15, expDecay: 2.5 },
   ],
-  Pulso: [
+  pulse: [
     { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
     { freq: 0, duration: 0.04 },
     { freq: G5, duration: 0.07, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.20, expDecay: 14 },
     { freq: 0, duration: 0.04 },
     { freq: A5, duration: 0.18, amplitude: 0.22, fadeIn: 0.03, fadeOut: 0.22, expDecay: 7.0 },
   ],
-  'Sin tono': [],
+  silent: [],
 };
 
 const CALL_TONE_DEFINITIONS: Record<string, ToneSegment[]> = {
-  'Trompeta': [
-    { freq: 392, waveType: 'sawtooth', duration: 0.08, amplitude: 0.28, fadeIn: 0.010, expDecay: 9 },
-    { freq: 0, duration: 0.012 },
-    { freq: 392, waveType: 'sawtooth', duration: 0.08, amplitude: 0.28, fadeIn: 0.010, expDecay: 9 },
-    { freq: 0, duration: 0.012 },
-    { freq: 392, waveType: 'sawtooth', duration: 0.08, amplitude: 0.28, fadeIn: 0.010, expDecay: 9 },
-    { freq: 0, duration: 0.012 },
-    { freq: 392, waveType: 'sawtooth', duration: 0.08, amplitude: 0.28, fadeIn: 0.010, expDecay: 9 },
-    { freq: 0, duration: 0.012 },
-    { freq: 440, waveType: 'sawtooth', duration: 0.10, amplitude: 0.29, fadeIn: 0.010, expDecay: 8 },
-    { freq: 0, duration: 0.012 },
-    { freq: 494, waveType: 'sawtooth', duration: 0.10, amplitude: 0.29, fadeIn: 0.010, expDecay: 8 },
-    { freq: 0, duration: 0.012 },
-    { freq: 523, waveType: 'sawtooth', duration: 0.25, amplitude: 0.30, fadeIn: 0.014, expDecay: 3.2 },
-    { freq: 0, duration: 0.15 },
-    { freq: 156, waveType: 'square', duration: 0.12, amplitude: 0.24, fadeIn: 0.010, expDecay: 7 },
-    { freq: 0, duration: 0.010 },
-    { freq: 208, waveType: 'square', duration: 0.12, amplitude: 0.24, fadeIn: 0.010, expDecay: 7 },
-    { freq: 0, duration: 0.010 },
-    { freq: 156, waveType: 'square', duration: 0.12, amplitude: 0.24, fadeIn: 0.010, expDecay: 7 },
-    { freq: 0, duration: 0.010 },
-    { freq: 208, waveType: 'square', duration: 0.12, amplitude: 0.24, fadeIn: 0.010, expDecay: 7 },
-    { freq: 0, duration: 0.010 },
-    { freq: 156, waveType: 'square', duration: 0.30, amplitude: 0.25, fadeIn: 0.014, expDecay: 2.5 },
-    { freq: 0, duration: 2.5 },
+  default: [
+    { startTime: 0.0, freq: 440.00, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.2, freq: 554.37, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.4, freq: 659.25, waveType: 'sine', duration: 0.6, amplitude: 0.22, fadeIn: 0.1, expDecay: 6 },
+    { startTime: 0.6, freq: 880.00, waveType: 'sine', duration: 0.8, amplitude: 0.25, fadeIn: 0.1, expDecay: 4 },
+    { startTime: 3.5, freq: 0, duration: 0.5 },
   ],
 
-  Dembow: [
-    { freq: 440, harmonics: [{ freq: 880, amp: 0.38 }, { freq: 1320, amp: 0.18 }], duration: 0.14, amplitude: 0.28, fadeIn: 0.06, expDecay: 8, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 523, harmonics: [{ freq: 1046, amp: 0.38 }, { freq: 1569, amp: 0.18 }], duration: 0.14, amplitude: 0.27, fadeIn: 0.06, expDecay: 8, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 659, harmonics: [{ freq: 1318, amp: 0.35 }, { freq: 1977, amp: 0.16 }], duration: 0.28, amplitude: 0.29, fadeIn: 0.07, expDecay: 6, vibrato: { rate: 6.5, depth: 0.005, delay: 0.05 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 392, harmonics: [{ freq: 784, amp: 0.36 }, { freq: 1176, amp: 0.17 }], duration: 0.14, amplitude: 0.27, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 440, harmonics: [{ freq: 880, amp: 0.36 }, { freq: 1320, amp: 0.17 }], duration: 0.14, amplitude: 0.27, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 392, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1176, amp: 0.16 }], duration: 0.14, amplitude: 0.26, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.36 }, { freq: 990, amp: 0.17 }], duration: 0.34, amplitude: 0.28, fadeIn: 0.08, expDecay: 5, vibrato: { rate: 6.5, depth: 0.005, delay: 0.07 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.35 }, { freq: 990, amp: 0.16 }], duration: 0.14, amplitude: 0.26, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 392, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1176, amp: 0.16 }], duration: 0.14, amplitude: 0.27, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 440, harmonics: [{ freq: 880, amp: 0.38 }, { freq: 1320, amp: 0.18 }], duration: 0.28, amplitude: 0.28, fadeIn: 0.07, expDecay: 6, vibrato: { rate: 6.5, depth: 0.005, delay: 0.05 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 392, harmonics: [{ freq: 784, amp: 0.35 }, { freq: 1176, amp: 0.16 }], duration: 0.14, amplitude: 0.26, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.35 }, { freq: 990, amp: 0.16 }], duration: 0.14, amplitude: 0.26, fadeIn: 0.05, expDecay: 9, vibrato: { rate: 6.5, depth: 0.005, delay: 0.04 } },
-    { freq: 0, duration: 0.018 },
-    { freq: 262, harmonics: [{ freq: 524, amp: 0.36 }, { freq: 786, amp: 0.17 }], duration: 0.42, amplitude: 0.26, fadeIn: 0.10, expDecay: 4, vibrato: { rate: 6.2, depth: 0.005, delay: 0.09 } },
-    { freq: 0, duration: 2.2 },
+  Zen: [
+    { startTime: 0.0, freq: 440, waveType: 'sine', harmonics: [{ freq: 880, amp: 0.15 }, { freq: 1320, amp: 0.05 }], duration: 2.0, amplitude: 0.14, fadeIn: 0.4, expDecay: 1.5, chorus: 0.3 },
+    { startTime: 0.8, freq: 554.37, waveType: 'sine', harmonics: [{ freq: 1108, amp: 0.15 }], duration: 2.0, amplitude: 0.12, fadeIn: 0.4, expDecay: 1.5 },
+    { startTime: 1.6, freq: 659.25, waveType: 'sine', harmonics: [{ freq: 1318, amp: 0.15 }], duration: 2.0, amplitude: 0.10, fadeIn: 0.4, expDecay: 1.5 },
+    { startTime: 2.4, freq: 830.61, waveType: 'sine', harmonics: [{ freq: 1661, amp: 0.10 }], duration: 2.0, amplitude: 0.08, fadeIn: 0.4, expDecay: 1.5 },
+    { startTime: 4.5, freq: 0, duration: 0.5 },
   ],
 
   Navideño: [
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }, { freq: 1320, amp: 0.08 }], duration: 0.26, amplitude: 0.24, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.26, amplitude: 0.23, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.50, amplitude: 0.25, fadeIn: 0.07, expDecay: 2.8, vibrato: { rate: 7.0, depth: 0.004, delay: 0.08 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.26, amplitude: 0.23, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.26, amplitude: 0.23, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.50, amplitude: 0.25, fadeIn: 0.07, expDecay: 2.8, vibrato: { rate: 7.0, depth: 0.004, delay: 0.08 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.38 }, { freq: 990, amp: 0.17 }], duration: 0.26, amplitude: 0.22, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 392, harmonics: [{ freq: 784, amp: 0.38 }, { freq: 1176, amp: 0.17 }], duration: 0.26, amplitude: 0.23, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 262, harmonics: [{ freq: 524, amp: 0.38 }, { freq: 786, amp: 0.17 }], duration: 0.38, amplitude: 0.22, fadeIn: 0.07, expDecay: 3.2, vibrato: { rate: 7.0, depth: 0.004, delay: 0.08 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.36 }, { freq: 882, amp: 0.16 }], duration: 0.17, amplitude: 0.21, fadeIn: 0.05, expDecay: 5.5, vibrato: { rate: 7.0, depth: 0.004, delay: 0.05 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.40 }, { freq: 990, amp: 0.18 }], duration: 0.74, amplitude: 0.25, fadeIn: 0.09, expDecay: 2.2, vibrato: { rate: 7.0, depth: 0.004, delay: 0.10 }, chorus: 0.20 },
-    { freq: 0, duration: 0.10 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.38 }, { freq: 882, amp: 0.17 }], duration: 0.26, amplitude: 0.22, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.38 }, { freq: 882, amp: 0.17 }], duration: 0.26, amplitude: 0.22, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.38 }, { freq: 882, amp: 0.17 }], duration: 0.50, amplitude: 0.24, fadeIn: 0.07, expDecay: 2.8, vibrato: { rate: 7.0, depth: 0.004, delay: 0.08 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.36 }, { freq: 882, amp: 0.16 }], duration: 0.26, amplitude: 0.21, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 330, harmonics: [{ freq: 660, amp: 0.38 }, { freq: 990, amp: 0.17 }], duration: 0.26, amplitude: 0.22, fadeIn: 0.06, expDecay: 4.0, vibrato: { rate: 7.0, depth: 0.004, delay: 0.07 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 262, harmonics: [{ freq: 524, amp: 0.36 }, { freq: 786, amp: 0.16 }], duration: 0.38, amplitude: 0.21, fadeIn: 0.08, expDecay: 3.2, vibrato: { rate: 7.0, depth: 0.004, delay: 0.08 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 220, harmonics: [{ freq: 440, amp: 0.34 }, { freq: 660, amp: 0.15 }], duration: 0.17, amplitude: 0.20, fadeIn: 0.05, expDecay: 5.5, vibrato: { rate: 7.0, depth: 0.004, delay: 0.05 }, chorus: 0.20 },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.38 }, { freq: 882, amp: 0.17 }], duration: 0.88, amplitude: 0.24, fadeIn: 0.11, expDecay: 1.8, vibrato: { rate: 7.0, depth: 0.004, delay: 0.12 }, chorus: 0.20 },
-    { freq: 0, duration: 3.2 },
+    { startTime: 0.0, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 0.28, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 0.56, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.50, amplitude: 0.25, expDecay: 6 },
+    { startTime: 1.12, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 1.40, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 1.68, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.50, amplitude: 0.25, expDecay: 6 },
+    { startTime: 2.24, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 2.52, freq: 587.33, waveType: 'sine', harmonics: [{ freq: 1174, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 2.80, freq: 392.00, waveType: 'sine', harmonics: [{ freq: 784, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 3.08, freq: 440.00, waveType: 'sine', harmonics: [{ freq: 880, amp: 0.2 }], duration: 0.25, amplitude: 0.22, expDecay: 12 },
+    { startTime: 3.36, freq: 493.88, waveType: 'sine', harmonics: [{ freq: 987, amp: 0.2 }], duration: 0.80, amplitude: 0.28, expDecay: 4 },
+    { startTime: 0.0, freq: 8000, waveType: 'noise', duration: 0.03, amplitude: 0.06, expDecay: 60 },
+    { startTime: 0.56, freq: 8000, waveType: 'noise', duration: 0.03, amplitude: 0.06, expDecay: 60 },
+    { startTime: 1.12, freq: 8000, waveType: 'noise', duration: 0.03, amplitude: 0.06, expDecay: 60 },
+    { startTime: 1.68, freq: 8000, waveType: 'noise', duration: 0.03, amplitude: 0.06, expDecay: 60 },
+    { startTime: 2.24, freq: 8000, waveType: 'noise', duration: 0.03, amplitude: 0.06, expDecay: 60 },
+    { startTime: 4.8, freq: 0, duration: 0.5 },
   ],
 
   Spooky: [
-    { freq: 494, harmonics: [{ freq: 988, amp: 0.52 }, { freq: 1482, amp: 0.34 }, { freq: 1976, amp: 0.17 }, { freq: 247, amp: 0.40 }], duration: 1.30, amplitude: 0.22, fadeIn: 0.52, expDecay: 0.55, vibrato: { rate: 3.4, depth: 0.013, delay: 0.24 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 415, harmonics: [{ freq: 830, amp: 0.52 }, { freq: 1245, amp: 0.34 }, { freq: 1660, amp: 0.17 }, { freq: 207, amp: 0.40 }], duration: 1.20, amplitude: 0.21, fadeIn: 0.50, expDecay: 0.55, vibrato: { rate: 3.4, depth: 0.013, delay: 0.22 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 349, harmonics: [{ freq: 698, amp: 0.52 }, { freq: 1047, amp: 0.34 }, { freq: 1396, amp: 0.17 }, { freq: 174, amp: 0.40 }], duration: 1.20, amplitude: 0.21, fadeIn: 0.48, expDecay: 0.55, vibrato: { rate: 3.4, depth: 0.013, delay: 0.22 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 294, harmonics: [{ freq: 588, amp: 0.52 }, { freq: 882, amp: 0.34 }, { freq: 1176, amp: 0.17 }, { freq: 147, amp: 0.40 }], duration: 1.30, amplitude: 0.20, fadeIn: 0.52, expDecay: 0.50, vibrato: { rate: 3.4, depth: 0.013, delay: 0.24 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 247, harmonics: [{ freq: 494, amp: 0.52 }, { freq: 741, amp: 0.34 }, { freq: 988, amp: 0.17 }, { freq: 123, amp: 0.40 }], duration: 1.50, amplitude: 0.20, fadeIn: 0.56, expDecay: 0.45, vibrato: { rate: 3.3, depth: 0.014, delay: 0.26 } },
-    { freq: 0, duration: 0.24 },
-    { freq: 277, harmonics: [{ freq: 554, amp: 0.46 }, { freq: 831, amp: 0.30 }, { freq: 138, amp: 0.37 }], duration: 0.72, amplitude: 0.17, fadeIn: 0.40, expDecay: 0.78, vibrato: { rate: 3.4, depth: 0.012, delay: 0.18 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 349, harmonics: [{ freq: 698, amp: 0.46 }, { freq: 1047, amp: 0.30 }, { freq: 174, amp: 0.37 }], duration: 0.72, amplitude: 0.18, fadeIn: 0.38, expDecay: 0.78, vibrato: { rate: 3.4, depth: 0.012, delay: 0.17 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 415, harmonics: [{ freq: 830, amp: 0.46 }, { freq: 1245, amp: 0.30 }, { freq: 207, amp: 0.37 }], duration: 0.72, amplitude: 0.19, fadeIn: 0.36, expDecay: 0.78, vibrato: { rate: 3.4, depth: 0.012, delay: 0.16 } },
-    { freq: 0, duration: 0.015 },
-    { freq: 494, harmonics: [{ freq: 988, amp: 0.48 }, { freq: 1482, amp: 0.32 }, { freq: 247, amp: 0.38 }], duration: 1.04, amplitude: 0.20, fadeIn: 0.46, expDecay: 0.55, vibrato: { rate: 3.3, depth: 0.013, delay: 0.22 } },
-    { freq: 0, duration: 2.8 },
+    { startTime: 0.0, freq: 220, waveType: 'sine', harmonics: [{ freq: 440, amp: 0.1 }], duration: 0.8, amplitude: 0.20, expDecay: 3 },
+    { startTime: 0.8, freq: 233.08, waveType: 'sine', harmonics: [{ freq: 466, amp: 0.1 }], duration: 0.8, amplitude: 0.18, expDecay: 3 },
+    { startTime: 1.6, freq: 164.81, waveType: 'sine', harmonics: [{ freq: 329, amp: 0.1 }], duration: 1.2, amplitude: 0.22, expDecay: 1.5 },
+    { startTime: 2.8, freq: 155.56, waveType: 'sine', harmonics: [{ freq: 311, amp: 0.1 }], duration: 1.2, amplitude: 0.22, expDecay: 1.5 },
+    { startTime: 0.0, freq: 110, waveType: 'sine', duration: 4.0, amplitude: 0.05, fadeIn: 1.0 },
+    { startTime: 4.5, freq: 0, duration: 0.5 },
   ],
+
+  Dembow: [
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.06, expDecay: 90 },
+    { freq: 130, pitchDrop: 1.0, waveType: 'sine', harmonics: [{ freq: 260, amp: 0.1 }], duration: 0.10, amplitude: 0.45, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.08, expDecay: 90 },
+    { freq: 220, waveType: 'sine', harmonics: [{ freq: 440, amp: 0.2 }], duration: 0.10, amplitude: 0.30, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.06, expDecay: 90 },
+    { freq: 130, pitchDrop: 1.0, waveType: 'sine', harmonics: [{ freq: 260, amp: 0.1 }], duration: 0.10, amplitude: 0.42, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 0, duration: 0.012 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.07, expDecay: 90 },
+    { freq: 220, waveType: 'sine', harmonics: [{ freq: 440, amp: 0.1 }], duration: 0.08, amplitude: 0.25, expDecay: 20 },
+    { freq: 0, duration: 0.015 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.06, expDecay: 90 },
+    { freq: 130, pitchDrop: 1.0, waveType: 'sine', harmonics: [{ freq: 260, amp: 0.1 }], duration: 0.10, amplitude: 0.42, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.08, expDecay: 90 },
+    { freq: 220, waveType: 'sine', harmonics: [{ freq: 440, amp: 0.2 }], duration: 0.10, amplitude: 0.30, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.06, expDecay: 90 },
+    { freq: 130, pitchDrop: 1.0, waveType: 'sine', harmonics: [{ freq: 260, amp: 0.1 }], duration: 0.10, amplitude: 0.42, expDecay: 20 },
+    { freq: 0, duration: 0.007 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+    { freq: 0, duration: 0.010 },
+    { freq: 4000, waveType: 'square', duration: 0.02, amplitude: 0.07, expDecay: 90 },
+    { freq: 220, waveType: 'sine', harmonics: [{ freq: 440, amp: 0.1 }], duration: 0.08, amplitude: 0.25, expDecay: 20 },
+    { freq: 0, duration: 0.017 },
+    { freq: 5000, waveType: 'sine', duration: 0.015, amplitude: 0.03, expDecay: 100 },
+    { freq: 0, duration: 0.112 },
+  ],
+
+  'Sin tono': [],
 };
 
 export const MESSAGE_TONE_NAMES = Object.keys(MESSAGE_TONES);
@@ -178,18 +154,29 @@ export const CALL_TONE_NAMES = Object.keys(CALL_TONE_DEFINITIONS);
 const FADE_OUT_SAMPLES = Math.floor(0.022 * SAMPLE_RATE);
 
 function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuffer {
-  const totalSamples = segments.reduce((acc, s) => acc + Math.floor(s.duration * SAMPLE_RATE), 0);
+  let currentPos = 0;
+  const segmentsWithTimes = segments.map(s => {
+    const start = s.startTime !== undefined ? s.startTime : currentPos;
+    currentPos = start + s.duration;
+    return { ...s, start };
+  });
+
+  const maxDuration = segmentsWithTimes.reduce((acc, s) => Math.max(acc, s.start + s.duration), 0);
+  const totalSamples = Math.floor(maxDuration * SAMPLE_RATE);
   const buffer = ctx.createBuffer(1, Math.max(totalSamples, 1), SAMPLE_RATE);
   const data = buffer.getChannelData(0);
 
-  let offset = 0;
-  for (const seg of segments) {
+  for (const seg of segmentsWithTimes) {
+    const startOffset = Math.floor(seg.start * SAMPLE_RATE);
     const n = Math.floor(seg.duration * SAMPLE_RATE);
+
     if (seg.freq !== 0) {
       const amp = seg.amplitude ?? 0.55;
       const harmonics = seg.harmonics ?? [];
       const fadeInSamples = Math.floor((seg.fadeIn ?? 0) * n);
-      const fadeOutStart = Math.max(fadeInSamples, n - FADE_OUT_SAMPLES);
+      const fadeOutStart = seg.fadeOut !== undefined
+        ? Math.max(fadeInSamples, n - Math.floor(seg.fadeOut * n))
+        : Math.max(fadeInSamples, n - FADE_OUT_SAMPLES);
       const normFactor = 1 + harmonics.reduce((s, h) => s + h.amp, 0);
 
       const vRate = seg.vibrato?.rate ?? 0;
@@ -218,50 +205,40 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
           env = Math.min(env, 1 - (i - fadeOutStart) / Math.max(1, n - fadeOutStart));
         }
 
-        const vibratoMod = (vRate > 0 && t > vDelay)
-          ? 1 + vDepth * Math.sin(2 * Math.PI * vRate * (t - vDelay))
-          : 1;
+        const dt = ((vRate > 0 && t > vDelay) ? 1 + vDepth * Math.sin(2 * Math.PI * vRate * (t - vDelay)) : 1) / SAMPLE_RATE;
 
-        const dt = vibratoMod / SAMPLE_RATE;
-        mainPhase += 2 * Math.PI * seg.freq * dt;
-        if (chorusAmt > 0) chorusPhase += 2 * Math.PI * seg.freq * 1.0028 * dt;
+        let currentFreq = seg.freq;
+        if (seg.pitchDrop && seg.pitchDrop !== 0) {
+          currentFreq = seg.freq * Math.exp(-seg.pitchDrop * (i / n));
+        }
+
+        mainPhase += 2 * Math.PI * currentFreq * dt;
+        if (chorusAmt > 0) chorusPhase += 2 * Math.PI * currentFreq * 1.0028 * dt;
         for (let h = 0; h < harmonics.length; h++) {
-          hPhases[h] += 2 * Math.PI * harmonics[h].freq * dt;
+          const hFreq = harmonics[h].freq * (currentFreq / seg.freq);
+          hPhases[h] += 2 * Math.PI * hFreq * dt;
         }
 
         const waveType = seg.waveType ?? 'sine';
-        let wave: number;
-        if (waveType === 'sawtooth') {
-          wave = (2 / Math.PI) * (
-            Math.sin(mainPhase) -
-            Math.sin(2 * mainPhase) / 2 +
-            Math.sin(3 * mainPhase) / 3 -
-            Math.sin(4 * mainPhase) / 4 +
-            Math.sin(5 * mainPhase) / 5 -
-            Math.sin(6 * mainPhase) / 6
-          );
+        let sample = 0;
+        if (waveType === 'sine') {
+          sample = Math.sin(mainPhase);
+          if (chorusAmt > 0) sample = (sample + Math.sin(chorusPhase) * chorusAmt) / (1 + chorusAmt);
+        } else if (waveType === 'sawtooth') {
+          sample = 2 * (mainPhase / (2 * Math.PI) - Math.floor(mainPhase / (2 * Math.PI) + 0.5));
         } else if (waveType === 'square') {
-          wave = (4 / Math.PI) * (
-            Math.sin(mainPhase) +
-            Math.sin(3 * mainPhase) / 3 +
-            Math.sin(5 * mainPhase) / 5 +
-            Math.sin(7 * mainPhase) / 7
-          );
-        } else {
-          wave = Math.sin(mainPhase);
-          if (chorusAmt > 0) {
-            wave = (wave + chorusAmt * Math.sin(chorusPhase)) / (1 + chorusAmt);
-          }
-          for (let h = 0; h < harmonics.length; h++) {
-            wave += harmonics[h].amp * Math.sin(hPhases[h]);
-          }
-          wave /= normFactor;
+          sample = Math.sin(mainPhase) > 0 ? 1 : -1;
+        } else if (waveType === 'noise') {
+          sample = Math.random() * 2 - 1;
         }
 
-        data[offset + i] = amp * env * wave;
+        for (let h = 0; h < harmonics.length; h++) {
+          sample += harmonics[h].amp * Math.sin(hPhases[h]);
+        }
+
+        data[startOffset + i] += (sample / normFactor) * amp * env;
       }
     }
-    offset += n;
   }
 
   return buffer;
@@ -269,23 +246,24 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
 
 let audioCtx: AudioContext | null = null;
 
-function getCtx(): AudioContext {
-  if (!audioCtx) audioCtx = new AudioContext();
+async function getCtx(): Promise<AudioContext> {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+  }
   return audioCtx;
 }
 
 let activeMessageSource: AudioBufferSourceNode | null = null;
 
-export function previewTone(name: string): void {
-  const segments = MESSAGE_TONES[name];
+export async function playMessageTone(name: string): Promise<void> {
+  const segments = MESSAGE_TONES[name] ?? MESSAGE_TONES['default'];
   if (!segments || segments.length === 0) return;
-
   try {
-    const ctx = getCtx();
-    if (activeMessageSource) {
-      try { activeMessageSource.stop(); } catch {}
-      activeMessageSource = null;
-    }
+    const ctx = await getCtx();
+    if (activeMessageSource) { try { activeMessageSource.stop(); } catch {} activeMessageSource = null; }
     const source = ctx.createBufferSource();
     source.buffer = buildAudioBuffer(ctx, segments);
     source.connect(ctx.destination);
@@ -295,33 +273,39 @@ export function previewTone(name: string): void {
   } catch {}
 }
 
-export function playMessageTone(name: string): void {
-  previewTone(name);
-}
+export const playTone = playMessageTone;
 
 let callSource: AudioBufferSourceNode | null = null;
+let activeRequestId = 0;
+let stopTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export function playCallTone(name: string): void {
-  const segments = CALL_TONE_DEFINITIONS[name] ?? CALL_TONE_DEFINITIONS['Trompeta'];
+export function stopCallTone(): void {
+  if (stopTimeout) { clearTimeout(stopTimeout); stopTimeout = null; }
+  if (callSource) {
+    try { callSource.stop(); callSource.disconnect(); } catch {}
+    callSource = null;
+  }
+}
+
+export async function playCallTone(name: string, durationMs?: number): Promise<void> {
+  const requestId = ++activeRequestId;
+  const segments = CALL_TONE_DEFINITIONS[name] ?? CALL_TONE_DEFINITIONS['Zen'];
   if (!segments || segments.length === 0) return;
-
   try {
-    const ctx = getCtx();
+    const ctx = await getCtx();
+    if (requestId !== activeRequestId) return;
     stopCallTone();
     const source = ctx.createBufferSource();
     source.buffer = buildAudioBuffer(ctx, segments);
-    source.loop = true;
+    source.loop = !durationMs;
     source.connect(ctx.destination);
     source.start();
     callSource = source;
+    if (durationMs) {
+      const ms = Math.min(durationMs, 10000);
+      stopTimeout = setTimeout(() => { if (requestId === activeRequestId) stopCallTone(); }, ms);
+    }
   } catch {}
-}
-
-export function stopCallTone(): void {
-  if (callSource) {
-    try { callSource.stop(); } catch {}
-    callSource = null;
-  }
 }
 
 let ringbackIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -344,10 +328,10 @@ function buildRingbackBuffer(ctx: AudioContext): AudioBuffer {
   return buffer;
 }
 
-export function playRingback(): void {
+export async function playRingback(): Promise<void> {
   stopRingback();
   try {
-    const ctx = getCtx();
+    const ctx = await getCtx();
     const buffer = buildRingbackBuffer(ctx);
     const beep = () => {
       try {
@@ -364,12 +348,6 @@ export function playRingback(): void {
 }
 
 export function stopRingback(): void {
-  if (ringbackIntervalId) {
-    clearInterval(ringbackIntervalId);
-    ringbackIntervalId = null;
-  }
-  if (ringbackSource) {
-    try { ringbackSource.stop(); } catch {}
-    ringbackSource = null;
-  }
+  if (ringbackIntervalId) { clearInterval(ringbackIntervalId); ringbackIntervalId = null; }
+  if (ringbackSource) { try { ringbackSource.stop(); } catch {} ringbackSource = null; }
 }

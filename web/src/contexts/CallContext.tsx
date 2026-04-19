@@ -124,18 +124,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [activeConferenceId, setActiveConferenceId] = useState<string | null>(null);
   const [awaitingConference, setAwaitingConference] = useState<AwaitingConference | null>(null);
 
-  // Stable refs that mirror state — used inside subscription callbacks to avoid re-subscribing
   const activeCallIdRef = useRef<string | null>(null);
   const activeGroupCallIdRef = useRef<string | null>(null);
   const activeConferenceIdRef = useRef<string | null>(null);
   const incomingCallRef = useRef<Call | null>(null);
   const userIdRef = useRef<string | null>(null);
 
-  // Dismissed call id sets — prevents re-showing after user dismisses
   const dismissedGroupCallIdsRef = useRef<Set<string>>(new Set());
   const dismissedConferenceIdsRef = useRef<Set<string>>(new Set());
 
-  const callToneRef = useRef<string>('Trompeta');
+  const callToneRef = useRef<string>('Zen');
   const callToneUrlRef = useRef<string | null>(null);
   const userNameRef = useRef<string>('Usuario');
   const userPhotoRef = useRef<string | null>(null);
@@ -145,7 +143,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const groupDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conferenceDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep refs in sync with state
   useEffect(() => { activeCallIdRef.current = activeCallId; }, [activeCallId]);
   useEffect(() => { activeGroupCallIdRef.current = activeGroupCallId; }, [activeGroupCallId]);
   useEffect(() => { activeConferenceIdRef.current = activeConferenceId; }, [activeConferenceId]);
@@ -172,7 +169,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [userId]);
 
-  // Auto-leave on tab/browser close
   useEffect(() => {
     function handleUnload() {
       const uid = userIdRef.current;
@@ -192,7 +188,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Incoming 1-to-1 calls — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingCalls(userId, (call) => {
@@ -210,7 +205,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           audio.play().catch(() => {});
           customAudioRef.current = audio;
         } else {
-          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          const preset = callToneRef.current === 'Personalizado' ? 'Zen' : callToneRef.current;
           playCallTone(preset);
         }
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
@@ -228,7 +223,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [userId]);
 
-  // Incoming group DM calls — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingGroupCalls(userId, (call) => {
@@ -251,7 +245,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           audio.play().catch(() => {});
           customAudioRef.current = audio;
         } else {
-          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          const preset = callToneRef.current === 'Personalizado' ? 'Zen' : callToneRef.current;
           playCallTone(preset);
         }
         if (groupDismissTimerRef.current) clearTimeout(groupDismissTimerRef.current);
@@ -268,7 +262,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [userId]);
 
-  // Incoming conferences — only re-subscribe when userId changes
   useEffect(() => {
     if (!userId) return;
     const unsub = subscribeToIncomingConferences(userId, (call) => {
@@ -292,7 +285,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           audio.play().catch(() => {});
           customAudioRef.current = audio;
         } else {
-          const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
+          const preset = callToneRef.current === 'Personalizado' ? 'Zen' : callToneRef.current;
           playCallTone(preset);
         }
         if (conferenceDismissTimerRef.current) clearTimeout(conferenceDismissTimerRef.current);

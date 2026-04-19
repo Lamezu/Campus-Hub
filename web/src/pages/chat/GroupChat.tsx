@@ -33,7 +33,7 @@ import {
 } from '../../services/firebase/groupDMService';
 import { getFriends } from '../../services/firebase/friendsService';
 import { saveMessage, unsaveMessage, subscribeToSavedMessages, type SavedMessage } from '../../services/firebase/savedItemsService';
-import { MESSAGE_TONE_NAMES, previewTone } from '../../utils/toneGenerator';
+import { MESSAGE_TONE_NAMES, playMessageTone as previewTone } from '../../utils/toneGenerator';
 import SharePostModal from '../../components/SharePostModal';
 import ContactPickerModal, { type ContactData } from '../../components/ContactPickerModal';
 import { useTranslation } from '../../hooks/useTranslation';

@@ -5,7 +5,7 @@ import { X, Bell, BellOff, Trash2, Phone, Video, MessageSquare, Shield, AlertTri
 import { getFriendRequest, areFriends, sendFriendRequest, acceptFriendRequest, toggleBlockUser, checkIfBlocked } from '../../services/firebase/friendsService';
 import { auth } from '../../config/firebase';
 import { subscribeToSavedMessages, type SavedMessage } from '../../services/firebase/savedItemsService';
-import { MESSAGE_TONE_NAMES, previewTone } from '../../utils/toneGenerator';
+import { MESSAGE_TONE_NAMES, playMessageTone as previewTone } from '../../utils/toneGenerator';
 import { useTranslation } from '../../hooks/useTranslation';
 
 type MuteDuration = 'off' | '8h' | '1w' | 'always';

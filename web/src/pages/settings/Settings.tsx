@@ -7,7 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAccounts } from '../../contexts/AccountsContext';
 import Layout from '../../components/Layout';
 import { LogOut, Check, Upload, Play, Music, Trash2, Users, ChevronRight, UserMinus, Globe } from 'lucide-react';
-import { previewTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
+import { playMessageTone, playCallTone, MESSAGE_TONE_NAMES, CALL_TONE_NAMES } from '../../utils/toneGenerator';
 import { uploadCallTone } from '../../config/cloudinary';
 import { useTranslation } from '../../hooks/useTranslation';
 import ReactCountryFlag from 'react-country-flag';
@@ -38,8 +38,8 @@ export default function Settings() {
   const [userData, setUserData] = useState<any>(null);
   const [showFullEmail, setShowFullEmail] = useState(false);
   const [globalMute, setGlobalMute] = useState<MuteDuration>('off');
-  const [globalTone, setGlobalTone] = useState('Melodía');
-  const [callTone, setCallTone] = useState('Trompeta');
+  const [globalTone, setGlobalTone] = useState('melody');
+  const [callTone, setCallTone] = useState('Zen');
   const [callToneUrl, setCallToneUrl] = useState<string | null>(null);
   const [uploadingTone, setUploadingTone] = useState(false);
   const callToneInputRef = useRef<HTMLInputElement>(null);
@@ -77,7 +77,7 @@ export default function Settings() {
 
   const handleToneChange = async (tone: string) => {
     setGlobalTone(tone);
-    previewTone(tone);
+    playMessageTone(tone);
     if (currentUser) {
       await updateDoc(doc(db, 'users', currentUser.uid), { 'settings.globalTone': tone });
     }
@@ -108,10 +108,10 @@ export default function Settings() {
   const handleDeleteCustomTone = async () => {
     if (!currentUser) return;
     setCallToneUrl(null);
-    if (callTone === 'Personalizado') setCallTone('Trompeta');
+    if (callTone === 'Personalizado') setCallTone('Zen');
     await updateDoc(doc(db, 'users', currentUser.uid), {
       'settings.callToneUrl': deleteField(),
-      ...(callTone === 'Personalizado' ? { 'settings.callTone': 'Trompeta' } : {}),
+      ...(callTone === 'Personalizado' ? { 'settings.callTone': 'Zen' } : {}),
     });
   };
 
@@ -389,13 +389,13 @@ export default function Settings() {
                 <span style={{ fontSize: '15px', fontWeight: globalTone === tone ? '600' : '400' }}>
                   {(() => {
                     const messageToneKeys: Record<string, string> = {
-                      'Predeterminado': 'default',
-                      'Clásico': 'classic',
-                      'Suave': 'soft',
-                      'Melodía': 'melody',
-                      'Campana': 'bell',
-                      'Pulso': 'pulse',
-                      'Sin tono': 'none'
+                      'default': 'default',
+                      'classic': 'classic',
+                      'soft': 'soft',
+                      'melody': 'melody',
+                      'bell': 'bell',
+                      'pulse': 'pulse',
+                      'silent': 'none',
                     };
                     const key = messageToneKeys[tone];
                     return key ? t(`settings.alert_tones.${key}`) : tone;
@@ -424,10 +424,12 @@ export default function Settings() {
                 <span style={{ fontSize: '15px', fontWeight: callTone === tone ? '600' : '400' }}>
                   {(() => {
                     const callToneKeys: Record<string, string> = {
-                      'Trompeta': 'trumpet',
-                      'Dembow': 'dembow',
+                      'Zen': 'zen',
                       'Navideño': 'christmas',
-                      'Spooky': 'spooky'
+                      'Spooky': 'spooky',
+                      'default': 'default',
+                      'Dembow': 'dembow',
+                      'Sin tono': 'none',
                     };
                     const key = callToneKeys[tone];
                     return key ? t(`settings.call_tones.${key}`) : tone;

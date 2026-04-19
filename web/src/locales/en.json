@@ -567,10 +567,12 @@
       "none": "No tone"
     },
     "call_tones": {
-      "trumpet": "Trumpet",
-      "dembow": "Dembow",
+      "zen": "Zen",
       "christmas": "Christmas",
-      "spooky": "Spooky"
+      "spooky": "Spooky",
+      "default": "Default",
+      "dembow": "Dembow",
+      "none": "No tone"
     }
   },
   "theme": {
