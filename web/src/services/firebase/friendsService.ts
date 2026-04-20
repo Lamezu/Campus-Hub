@@ -279,7 +279,7 @@ export const searchUsers = async (
     constraints.push(where('displayName', '<=', searchQuery + '\uf8ff'));
   }
 
-  if (roleFilter) constraints.push(where('role', '==', roleFilter));
+  if (roleFilter && roleFilter !== 'all') constraints.push(where('role', '==', roleFilter));
 
   const q = query(collection(db, 'users'), ...constraints);
 
