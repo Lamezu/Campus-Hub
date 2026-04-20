@@ -70,7 +70,7 @@ export default function Accounts() {
         <div style={{ border: `1px solid ${colors.border}`, borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
           {visible.length === 0 ? (
             <div style={{ padding: '40px 24px', textAlign: 'center', color: colors.textSecondary, fontSize: 14 }}>
-              No hay cuentas guardadas
+              {t('accounts.no_accounts')}
             </div>
           ) : (
             visible.map((account, idx) => {

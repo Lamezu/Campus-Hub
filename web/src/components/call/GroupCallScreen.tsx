@@ -613,7 +613,7 @@ export default function GroupCallScreen({
             await joinGroupCall(callId, myUid);
             const existingPeers = currentParticipants.filter(uid => uid !== myUid);
             for (const uid of existingPeers) {
-              const data = call.participantData[uid] ?? { name: 'Usuario', photo: null };
+              const data = call.participantData[uid] ?? { name: t('common.user'), photo: null };
               await setupConnectionWithPeer(uid, data, call);
             }
             prevParticipantsRef.current = [...currentParticipants, myUid];
@@ -627,7 +627,7 @@ export default function GroupCallScreen({
         const removedPeers = prevParticipantsRef.current.filter(uid => uid !== myUid && !currentParticipants.includes(uid));
 
         for (const uid of newPeers) {
-          const data = call.participantData[uid] ?? { name: 'Usuario', photo: null };
+          const data = call.participantData[uid] ?? { name: t('common.user'), photo: null };
           await setupConnectionWithPeer(uid, data, call);
         }
         for (const uid of removedPeers) cleanupPeer(uid);
@@ -1043,11 +1043,11 @@ export default function GroupCallScreen({
           if (peer?.sharing && !hiddenShare.has(uid)) {
             const rs = remoteShareStreamsRef.current.get(uid);
             if (rs && rs.getVideoTracks().some(t => !t.muted)) {
-              targetStream = rs; label = `Pantalla de ${peer.name}`; showVideo = true;
+              targetStream = rs; label = t('call.screen_of', { name: peer.name }); showVideo = true;
             }
           }
         } else if (focused === 'localShare' && currentSharing && screenStreamRef.current) {
-          targetStream = screenStreamRef.current; label = 'Tu pantalla'; showVideo = true;
+          targetStream = screenStreamRef.current; label = t('call.your_screen'); showVideo = true;
         }
 
         if (!targetStream) {
@@ -1055,12 +1055,12 @@ export default function GroupCallScreen({
             if (p.sharing && !hiddenShare.has(p.uid)) {
               const rs = remoteShareStreamsRef.current.get(p.uid);
               if (rs && rs.getVideoTracks().some(t => !t.muted)) {
-                targetStream = rs; label = `Pantalla de ${p.name}`; showVideo = true; break;
+                targetStream = rs; label = t('call.screen_of', { name: p.name }); showVideo = true; break;
               }
             }
           }
           if (!targetStream && currentSharing && screenStreamRef.current) {
-            targetStream = screenStreamRef.current; label = 'Tu pantalla'; showVideo = true;
+            targetStream = screenStreamRef.current; label = t('call.your_screen'); showVideo = true;
           }
         }
 
@@ -1147,9 +1147,9 @@ export default function GroupCallScreen({
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const statusLabel =
-    status === 'waiting' ? 'Esperando participantes...' :
-      status === 'connecting' ? 'Conectando...' :
-        status === 'active' ? formatDuration(duration) : 'Llamada finalizada';
+    status === 'waiting' ? t('call.waiting_participants') :
+      status === 'connecting' ? t('call.connecting') :
+        status === 'active' ? formatDuration(duration) : t('call.call_ended');
 
 
   const localPhoto = myPhoto;
@@ -1612,6 +1612,7 @@ interface IncomingGroupCallModalProps {
 }
 
 export function IncomingGroupCallModal({ call, onJoin, onDismiss }: IncomingGroupCallModalProps) {
+  const { t } = useTranslation();
   return (
     <div style={{
       position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
@@ -1631,7 +1632,7 @@ export function IncomingGroupCallModal({ call, onJoin, onDismiss }: IncomingGrou
         </p>
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
           <PhoneIncoming size={12} />
-          {call.initiatorName} · {call.type === 'video' ? 'Videollamada de grupo' : 'Llamada de grupo'}
+          {call.initiatorName} · {call.type === 'video' ? t('call.group_video_call') : t('call.group_call')}
         </p>
       </div>
       <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>

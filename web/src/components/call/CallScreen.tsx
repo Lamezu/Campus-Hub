@@ -1025,9 +1025,9 @@ export default function CallScreen({ callId, isCaller, callType, otherUserName, 
   };
 
   const statusLabel =
-    status === 'ringing' ? 'Llamando...' :
-      status === 'connecting' ? 'Conectando...' :
-        status === 'active' ? formatDuration(duration) : 'Llamada finalizada';
+    status === 'ringing' ? t('call.calling') :
+      status === 'connecting' ? t('call.connecting') :
+        status === 'active' ? formatDuration(duration) : t('call.call_ended');
 
 
   const currentUserPhoto = auth.currentUser?.photoURL ?? null;
@@ -1451,6 +1451,7 @@ interface IncomingCallModalProps {
 }
 
 export function IncomingCallModal({ call, onAccept, onReject }: IncomingCallModalProps) {
+  const { t } = useTranslation();
   return (
     <div style={{
       position: 'fixed',
@@ -1484,7 +1485,7 @@ export function IncomingCallModal({ call, onAccept, onReject }: IncomingCallModa
         </p>
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
           <PhoneIncoming size={12} />
-          {call.type === 'video' ? 'Videollamada entrante' : 'Llamada entrante'}
+          {call.type === 'video' ? t('call.incoming_video') : t('call.incoming')}
         </p>
       </div>
 

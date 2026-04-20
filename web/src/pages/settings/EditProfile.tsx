@@ -61,7 +61,7 @@ export default function EditProfile() {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      alert('Error al cargar el perfil');
+      alert(t('profile.loading_error'));
     } finally {
       setLoading(false);
     }
@@ -72,12 +72,12 @@ export default function EditProfile() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona una imagen');
+      alert(t('profile.select_image_error'));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no puede superar los 5MB');
+      alert(t('profile.image_too_large'));
       return;
     }
 
@@ -109,11 +109,11 @@ export default function EditProfile() {
         updatedAt: serverTimestamp()
       });
 
-      alert('Perfil actualizado correctamente');
+      alert(t('profile.save_success'));
       navigate(-1);
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      alert('Error al guardar los cambios');
+      alert(t('profile.save_error'));
     } finally {
       setSaving(false);
     }
@@ -191,19 +191,19 @@ export default function EditProfile() {
               fontSize: '14px'
             }}
           >
-            Cambiar foto
+            {t('profile.change_photo')}
           </button>
         </div>
 
         <div className="settings-section" style={{ borderBottom: 'none' }}>
           <div className="form-group">
-            <label className="form-label">Nombre de usuario</label>
+            <label className="form-label">{t('profile.username_label')}</label>
             <input
               type="text"
               className="form-input"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Tu nombre"
+              placeholder={t('profile.bio_placeholder')}
             />
           </div>
 
@@ -269,7 +269,7 @@ export default function EditProfile() {
               ✓
             </div>
             <div style={{ flex: 1 }}>
-              <span style={{ color: colors.text, fontSize: '16px' }}>Datos de la cuenta</span>
+              <span style={{ color: colors.text, fontSize: '16px' }}>{t('profile.account_data')}</span>
             </div>
             <div style={{ fontSize: '20px', color: colors.textSecondary }}>›</div>
           </div>
@@ -291,7 +291,7 @@ export default function EditProfile() {
               maxWidth: '300px'
             }}
           >
-            Descartar Cambios
+            {t('profile.discard_changes')}
           </button>
         </div>
 

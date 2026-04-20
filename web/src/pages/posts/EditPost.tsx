@@ -48,7 +48,7 @@ export default function EditPostScreen() {
       }
       const d = snap.data();
       if (d.authorId !== auth.currentUser?.uid) {
-        alert('No tienes permiso para editar este post.');
+        alert(t('post.no_permission'));
         navigate(-1);
         return;
       }
@@ -269,7 +269,7 @@ export default function EditPostScreen() {
                     fontWeight: '600', fontSize: 14, cursor: 'pointer',
                   }}
                 >
-                  Cambiar
+                  {t('common.change')}
                 </button>
                 <button
                   onClick={removeMedia}
