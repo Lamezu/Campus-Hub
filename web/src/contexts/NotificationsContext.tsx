@@ -88,7 +88,34 @@ export function NotificationsProvider({ children, t }: { children: React.ReactNo
 
       knownNotifIdsRef.current = new Set(all.map(n => n.id));
       isInitialLoadRef.current = false;
-      setFirestoreNotifs([...all]);
+
+      const needsChannelLookup = all.filter(
+        n => typeof n.title === 'string' && n.title.includes('{{channel}}') && n.meta?.channelId
+      );
+
+      if (needsChannelLookup.length === 0) {
+        setFirestoreNotifs([...all]);
+        return;
+      }
+
+      const channelIds = [...new Set(needsChannelLookup.map(n => n.meta!.channelId!))];
+      Promise.all(
+        channelIds.map(id =>
+          getDoc(doc(db, 'channels', id)).then(snap => ({ id, name: snap.data()?.name as string | undefined }))
+        )
+      ).then(results => {
+        const nameMap = new Map(results.filter(r => r.name).map(r => [r.id, r.name!]));
+        setFirestoreNotifs(all.map(n => {
+          if (typeof n.title === 'string' && n.title.includes('{{channel}}') && n.meta?.channelId) {
+            const name = nameMap.get(n.meta.channelId);
+            if (name) {
+              const title = n.title.replace(/ in \{\{channel\}\}/g, ` en ${name}`).replace(/\{\{channel\}\}/g, name);
+              return { ...n, title };
+            }
+          }
+          return n;
+        }));
+      }).catch(() => setFirestoreNotifs([...all]));
     });
     return unsub;
   }, []);

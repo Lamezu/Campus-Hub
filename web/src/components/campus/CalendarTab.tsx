@@ -269,23 +269,23 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
       )}
 
       {showCreate && (
-        <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div className="animate-sheet" style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}` }}>
-              <button onClick={() => { setShowCreate(false); setEditingEventId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+        <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div className="animate-sheet" style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: '100%', maxWidth: 560, maxHeight: isDesktop ? '85vh' : '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isDesktop ? '16px 20px' : '12px 16px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
+              <button onClick={() => { setShowCreate(false); setEditingEventId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 }}>
                 <X size={20} color={colors.textSecondary} strokeWidth={2} />
               </button>
-              <span style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>{editingEventId ? t('events.edit_event') : t('events.new_event')}</span>
+              <span style={{ fontSize: isDesktop ? 18 : 16, fontWeight: 700, color: colors.text }}>{editingEventId ? t('events.edit_event') : t('events.new_event')}</span>
               <button
                 onClick={handleSave}
                 disabled={!form.title.trim()}
-                style={{ padding: '8px 16px', borderRadius: 20, border: 'none', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: 16, fontWeight: 700, color: colors.primary, background: 'none', opacity: form.title.trim() ? 1 : 0.5 }}
+                style={{ padding: isDesktop ? '8px 16px' : '6px 12px', borderRadius: 20, border: 'none', cursor: form.title.trim() ? 'pointer' : 'not-allowed', fontSize: isDesktop ? 16 : 14, fontWeight: 700, color: colors.primary, background: 'none', opacity: form.title.trim() ? 1 : 0.5 }}
               >
                 {editingEventId ? t('common.save') : t('common.create')}
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 40px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isDesktop ? '20px 20px 40px' : `16px 16px calc(24px + env(safe-area-inset-bottom, 0px))` }}>
               <div style={{ backgroundColor: colors.backgroundSecondary, borderRadius: 16, padding: '12px 16px', marginBottom: 16 }}>
                 <input
                   autoFocus
@@ -293,31 +293,48 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                   placeholder={t('events.placeholders.title')}
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  style={{ fontSize: 20, fontWeight: 700, border: 'none', outline: 'none', background: 'transparent', color: colors.text, width: '100%', fontFamily: 'inherit', padding: '8px 0' }}
+                  style={{ fontSize: isDesktop ? 20 : 17, fontWeight: 700, border: 'none', outline: 'none', background: 'transparent', color: colors.text, width: '100%', fontFamily: 'inherit', padding: '8px 0' }}
                 />
                 <div style={{ height: 1, backgroundColor: colors.border, marginBottom: 4 }} />
                 <textarea
                   placeholder={t('events.placeholders.desc')}
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3}
-                  style={{ fontSize: 16, border: 'none', outline: 'none', background: 'transparent', color: colors.text, width: '100%', resize: 'none', fontFamily: 'inherit', padding: '8px 0' }}
+                  rows={isDesktop ? 3 : 2}
+                  style={{ fontSize: 15, border: 'none', outline: 'none', background: 'transparent', color: colors.text, width: '100%', resize: 'none', fontFamily: 'inherit', padding: '8px 0' }}
                 />
               </div>
 
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {eventTypes.map(evtType => {
+                  const cfg = EVENT_TYPE_CONFIG[evtType];
+                  const active = form.type === evtType;
+                  return (
+                    <button
+                      key={evtType}
+                      onClick={() => setForm(f => ({ ...f, type: evtType }))}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 12, border: `1px solid ${active ? cfg.color : colors.border}`, backgroundColor: active ? cfg.color : colors.backgroundSecondary, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: active ? '#fff' : colors.text }}
+                    >
+                      <EventTypeIcon type={evtType} size={14} color={active ? '#fff' : cfg.color} />
+                      {t('events.types.' + evtType)}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: colors.textSecondary, opacity: 0.6, marginBottom: 10 }}>{t('events.date_time')}</div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: isDesktop ? 'nowrap' : 'wrap' }}>
                 <input
                   type="date"
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, fontFamily: 'inherit', outline: 'none' }}
+                  style={{ flex: 1, minWidth: isDesktop ? 'auto' : '100%', padding: '10px 12px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
                 />
                 <input
                   type="time"
                   value={formTime}
                   onChange={e => setFormTime(e.target.value)}
-                  style={{ padding: '10px 12px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, fontFamily: 'inherit', outline: 'none' }}
+                  style={{ flex: isDesktop ? 'none' : 1, padding: '10px 12px', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, color: colors.text, fontSize: 15, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
 
@@ -349,7 +366,7 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                       />
                     </div>
 
-                    <div style={{ maxHeight: 220, overflowY: 'auto', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
+                    <div style={{ maxHeight: isDesktop ? 220 : 150, overflowY: 'auto', borderRadius: 12, border: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary }}>
                       {!search && (
                         <button
                           type="button"
@@ -411,22 +428,6 @@ export function CalendarTab({ eventTypes, role, subrole, department, currentUser
                 );
               })()}
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {eventTypes.map(evtType => {
-                  const cfg = EVENT_TYPE_CONFIG[evtType];
-                  const active = form.type === evtType;
-                  return (
-                    <button
-                      key={evtType}
-                      onClick={() => setForm(f => ({ ...f, type: evtType }))}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 12, border: `1px solid ${active ? cfg.color : colors.border}`, backgroundColor: active ? cfg.color : colors.backgroundSecondary, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: active ? '#fff' : colors.text }}
-                    >
-                      <EventTypeIcon type={evtType} size={14} color={active ? '#fff' : cfg.color} />
-                      {t('events.types.' + evtType)}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>
