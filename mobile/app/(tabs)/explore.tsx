@@ -1,37 +1,158 @@
-import { StyleSheet } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Animated, StatusBar } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pin, CalendarDays, Users } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 
-export default function ExploreScreen() {
+import { useTheme } from '@/contexts/ThemeContext';
+import { useCurrentUser } from '@/contexts/UserContext';
+import { ThemedText } from '@/components/themed-text';
+import { NotificationBell } from '@/components/NotificationBell';
+import { spacing, typography } from '@/constants/styles';
+import { allowedEventTypes } from '@/utils/permissions';
+import { useTranslation } from '@/hooks/useTranslation';
+
+import { AnnouncementsTab } from '@/components/explore/AnnouncementsTab';
+import { CalendarTab } from '@/components/explore/CalendarTab';
+import { GroupsTab } from '@/components/explore/GroupsTab';
+
+export default function CampusScreen() {
+  const { colors, theme } = useTheme();
+  const { t } = useTranslation();
+  const { can, role, subrole } = useCurrentUser();
+  const { revealHighlight, tab, highlightDay, eventId } = useLocalSearchParams<{ revealHighlight: string; tab: string; highlightDay: string; eventId: string }>();
+
+  const SUBTABS = [
+    { id: 'bulletin', label: t('common.bulletin_board') || 'Bulletin Board' },
+    { id: 'calendar', label: t('common.calendar') || 'Calendar' },
+    { id: 'groups', label: t('common.groups') || 'Groups' }
+  ] as const;
+
+  const [activeTab, setActiveTab] = useState<typeof SUBTABS[number]['id']>('bulletin');
+
+  useEffect(() => {
+    if (revealHighlight) setActiveTab('bulletin');
+  }, [revealHighlight]);
+
+  useEffect(() => {
+    if (tab === 'Calendario' || tab === 'calendar') setActiveTab('calendar');
+  }, [tab]);
+
+  const eventTypes = allowedEventTypes(role, subrole);
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Buscar</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Busca usuarios, grupos y eventos en tu campus
-      </ThemedText>
-      <ThemedText style={styles.comingSoon}>
-        Coming in Sprint 3 🔍
-      </ThemedText>
-    </ThemedView>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={styles.glowContainer} pointerEvents="none">
+        <Svg height="100%" width="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="grad" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.1" />
+              <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx="50" cy="50" r="50" fill="url(#grad)" />
+        </Svg>
+      </View>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
+      <View style={styles.header}>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('common.campus') || 'Campus'}</ThemedText>
+        <NotificationBell categories={['campus']} />
+      </View>
+
+      <View style={styles.subtabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollTabs}>
+          {SUBTABS.map(item => {
+            const isActive = activeTab === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.pill,
+                  { 
+                    backgroundColor: isActive ? colors.primary : colors.card,
+                    borderColor: isActive ? colors.primary : colors.border + '40'
+                  }
+                ]}
+                onPress={() => setActiveTab(item.id)}
+                activeOpacity={0.8}
+              >
+                {item.id === 'bulletin' && <Pin size={16} color={isActive ? '#fff' : colors.textSecondary} strokeWidth={2} />}
+                {item.id === 'calendar' && <CalendarDays size={16} color={isActive ? '#fff' : colors.textSecondary} strokeWidth={2} />}
+                {item.id === 'groups' && <Users size={16} color={isActive ? '#fff' : colors.textSecondary} strokeWidth={2} />}
+                <ThemedText style={[
+                  styles.pillText,
+                  { color: isActive ? '#fff' : colors.textSecondary }
+                ]}>
+                  {item.label}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <View style={{ flex: 1, display: activeTab === 'bulletin' ? 'flex' : 'none' }}>
+        <AnnouncementsTab canCreateAnnouncement={can('createAnnouncement')} highlightId={revealHighlight} />
+      </View>
+      <View style={{ flex: 1, display: activeTab === 'calendar' ? 'flex' : 'none' }}>
+        <CalendarTab eventTypes={eventTypes} highlightDay={highlightDay} highlightEventId={eventId} />
+      </View>
+      <View style={{ flex: 1, display: activeTab === 'groups' ? 'flex' : 'none' }}>
+        <GroupsTab canCreate={can('createStudyGroup')} />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
+  safe: { flex: 1 },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: spacing.md, 
+    paddingTop: spacing.md, 
+    paddingBottom: spacing.sm,
+  },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  subtabBar: { 
+    paddingVertical: spacing.md,
+  },
+  scrollTabs: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    flexDirection: 'row',
+  },
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 16,
-    opacity: 0.6,
-    textAlign: 'center',
+  pillText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  comingSoon: {
-    marginTop: 20,
-    fontSize: 18,
-    opacity: 0.5,
+  glowContainer: {
+    position: 'absolute',
+    top: -150,
+    right: -150,
+    width: 600,
+    height: 600,
   },
 });

@@ -1,0 +1,274 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  View, FlatList, StyleSheet, TouchableOpacity, StatusBar, Platform,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, Image as ImageIcon, Film, File, Mic, Link as LinkIcon, PlayCircle } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { EmptyState } from '@/components/EmptyState';
+
+type TabKey = 'image' | 'video' | 'file' | 'audio' | 'link';
+const TAB_ICONS: Record<TabKey, React.ComponentType<{ size: number; color: string; strokeWidth: number }>> = {
+  image: ImageIcon,
+  video: Film,
+  file: File,
+  audio: Mic,
+  link: LinkIcon,
+};
+import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, typography } from '@/constants/styles';
+import { useTranslation } from '@/hooks/useTranslation';
+import { getSharedMedia } from '@/services/contactSettingsService';
+import { getConversationId } from '@/services/dmService';
+import { auth } from '@/config/firebase';
+import type { SharedMedia } from '@/types';
+
+type Tab = 'image' | 'video' | 'file' | 'audio' | 'link';
+
+const getTabs = (t: any): { key: Tab; label: string; icon: React.ReactNode }[] => [
+  { key: 'image', label: t('dm.profile.media_tabs.image') || 'Image', icon: null },
+  { key: 'video', label: t('dm.profile.media_tabs.video') || 'Video', icon: null },
+  { key: 'file', label: t('dm.profile.media_tabs.file') || 'File', icon: null },
+  { key: 'audio', label: t('dm.profile.media_tabs.audio') || 'Audio', icon: null },
+  { key: 'link', label: t('dm.profile.media_tabs.link') || 'Link', icon: null },
+];
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_ITEM_SIZE = (SCREEN_WIDTH - spacing.md * 2 - spacing.xs * 2) / 3;
+
+function formatSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+function formatDate(iso: string, locale: string = 'es-ES'): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function GridItem({ item, colors, userId }: { item: SharedMedia; colors: any; userId: string }) {
+  const isVideo = item.type === 'video';
+  const sourceUrl = item.thumbnail || item.url;
+  return (
+    <TouchableOpacity
+      style={[styles.gridItem, { backgroundColor: colors.backgroundSecondary, width: GRID_ITEM_SIZE, height: GRID_ITEM_SIZE, padding: 0 }]}
+      activeOpacity={0.7}
+      onPress={() => router.push({ pathname: `/dm/${userId}`, params: { highlightId: item.id } } as any)}
+    >
+      <Image 
+        source={{ uri: sourceUrl }} 
+        style={{ width: '100%', height: '100%', borderRadius: 8 }} 
+        contentFit="cover" 
+        transition={200}
+      />
+      {isVideo && (
+        <View style={{ position: 'absolute', backgroundColor: 'rgba(0,0,0,0.3)', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
+          <PlayCircle size={28} color="#fff" strokeWidth={2} />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function ListItem({ item, colors, icon, userId, language }: { item: SharedMedia; colors: any; icon: React.ReactNode; userId: string; language?: string }) {
+  return (
+    <TouchableOpacity
+      style={[styles.listItem, { borderBottomColor: colors.border }]}
+      activeOpacity={0.7}
+      onPress={() => router.push({ pathname: `/dm/${userId}`, params: { highlightId: item.id } } as any)}
+    >
+      <View style={[styles.listIcon, { backgroundColor: colors.backgroundSecondary }]}>
+        {icon}
+      </View>
+      <View style={styles.listInfo}>
+        <ThemedText style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
+          {item.name}
+        </ThemedText>
+        <ThemedText style={[styles.listMeta, { color: colors.textSecondary }]}>
+          {formatSize(item.size)}{item.size ? ' • ' : ''}{formatDate(item.createdAt, language)}
+        </ThemedText>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function DMMediaScreen() {
+  const { userId, tab: initialTab } = useLocalSearchParams<{ userId: string; tab?: string }>();
+  const { colors, theme } = useTheme();
+  const { t, language } = useTranslation();
+
+  const meId = auth.currentUser?.uid ?? '';
+  const conversationId = useMemo(() => (meId && userId) ? getConversationId(meId, userId) : '', [meId, userId]);
+  const [allMedia, setAllMedia] = useState<SharedMedia[]>([]);
+
+  const TABS = getTabs(t);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    getSharedMedia(conversationId).then(setAllMedia).catch(() => { });
+  }, [conversationId]);
+
+  const [activeTab, setActiveTab] = useState<Tab>(
+    initialTab === 'starred' ? 'image' : ((initialTab as Tab) ?? 'image')
+  );
+
+  const filtered = useMemo(() => allMedia.filter(m => m.type === activeTab), [allMedia, activeTab]);
+
+  const counts = useMemo(() => {
+    const map: Record<Tab, number> = { image: 0, video: 0, file: 0, audio: 0, link: 0 };
+    allMedia.forEach(m => { if (m.type in map) map[m.type as Tab]++; });
+    return map;
+  }, [allMedia]);
+
+  const isGrid = activeTab === 'image' || activeTab === 'video';
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <StatusBar
+        barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+        </TouchableOpacity>
+        <ThemedText style={[styles.headerTitle, { color: colors.text }]}>{t('dm.profile.media_links') || 'Media Links'}</ThemedText>
+        <View style={{ width: 32 }} />
+      </View>
+
+      <View style={[styles.tabBar, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={TABS}
+          keyExtractor={t => t.key}
+          contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.xs }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === item.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+              ]}
+              onPress={() => setActiveTab(item.key)}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={[
+                styles.tabLabel,
+                { color: activeTab === item.key ? colors.primary : colors.textSecondary },
+              ]}>
+                {item.label} {counts[item.key] > 0 ? `(${counts[item.key]})` : ''}
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
+      <FlatList
+          key={isGrid ? 'grid' : 'list'}
+          data={filtered}
+          keyExtractor={item => item.id}
+          numColumns={isGrid ? 3 : 1}
+          contentContainerStyle={isGrid ? styles.gridContainer : { paddingTop: spacing.sm, flexGrow: 1 }}
+          columnWrapperStyle={isGrid ? { gap: spacing.xs } : undefined}
+          ItemSeparatorComponent={isGrid ? () => <View style={{ height: spacing.xs }} /> : undefined}
+          ListEmptyComponent={
+            <EmptyState
+              icon={TAB_ICONS[activeTab as TabKey] ?? File}
+              title={t('dm.profile.empty_media', { type: TABS.find(tab => tab.key === activeTab)?.label.toLowerCase() ?? '' })}
+              fill
+            />
+          }
+          renderItem={({ item }) => {
+            if (isGrid) return <GridItem item={item} colors={colors} userId={userId} />;
+            let icon: React.ReactNode = <File size={20} color={colors.primary} strokeWidth={1.8} />;
+            if (item.type === 'audio') icon = <Mic size={20} color={colors.primary} strokeWidth={1.8} />;
+            if (item.type === 'link') icon = <LinkIcon size={20} color={colors.primary} strokeWidth={1.8} />;
+            return <ListItem item={item} colors={colors} icon={icon} userId={userId} language={language} />;
+          }}
+        />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'space-between',
+  },
+  backBtn: { padding: 4, width: 32 },
+  headerTitle: {
+    fontSize: typography.sizes.md,
+    fontWeight: '700',
+    lineHeight: 20,
+    flex: 1,
+    textAlign: 'center',
+  },
+  tabBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.xs,
+  },
+  tab: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs + 2,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabLabel: {
+    fontSize: typography.sizes.sm,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  gridContainer: {
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  gridItem: {
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    overflow: 'hidden',
+  },
+  gridLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+    paddingHorizontal: 4,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
+  },
+  listIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listInfo: { flex: 1 },
+  listName: {
+    fontSize: typography.sizes.md,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  listMeta: {
+    fontSize: typography.sizes.xs,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+});

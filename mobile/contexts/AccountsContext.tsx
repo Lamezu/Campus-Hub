@@ -1,0 +1,121 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/config/firebase';
+
+const STORAGE_KEY = 'campushub_saved_accounts';
+
+export interface StoredAccount {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  refreshToken: string;
+  _pw?: string;
+}
+
+interface AccountsContextType {
+  accounts: StoredAccount[];
+  activeUid: string | null;
+  switching: boolean;
+  switchAccount: (account: StoredAccount) => Promise<void>;
+  addAccount: (entry: StoredAccount) => void;
+  removeAccount: (uid: string) => Promise<void>;
+}
+
+const AccountsContext = createContext<AccountsContextType>({
+  accounts: [],
+  activeUid: null,
+  switching: false,
+  switchAccount: async () => { },
+  addAccount: () => { },
+  removeAccount: async () => { },
+});
+
+export function AccountsProvider({ children }: { children: React.ReactNode }) {
+  const [accounts, setAccounts] = useState<StoredAccount[]>([]);
+  const [activeUid, setActiveUid] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setActiveUid(user?.uid ?? null);
+
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      let stored: StoredAccount[] = [];
+      if (raw) { try { stored = JSON.parse(raw); } catch { } }
+
+      if (!user) {
+        setAccounts(stored);
+        return;
+      }
+
+      const entry: StoredAccount = {
+        uid: user.uid,
+        email: user.email ?? '',
+        displayName: user.displayName ?? user.email ?? user.uid,
+        photoURL: user.photoURL ?? null,
+        refreshToken: user.refreshToken,
+      };
+
+      const exists = stored.find(a => a.uid === user.uid);
+
+      if (exists && exists.refreshToken === user.refreshToken) {
+        setAccounts(stored);
+        return;
+      }
+
+      const updated = exists
+        ? stored.map(a => a.uid === user.uid
+          ? { ...a, refreshToken: user.refreshToken, _pw: a._pw ?? entry._pw }
+          : a)
+        : [...stored, entry];
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setAccounts(updated);
+    });
+    return unsub;
+  }, []);
+
+  const addAccount = useCallback((entry: StoredAccount) => {
+    setAccounts(prev => {
+      const updated = [...prev.filter(a => a.uid !== entry.uid), entry];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const removeAccount = useCallback(async (uid: string) => {
+    setAccounts(prev => {
+      const updated = prev.filter(a => a.uid !== uid);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const switchAccount = useCallback(async (account: StoredAccount) => {
+    if (account.uid === activeUid) return;
+    if (!account._pw) throw new Error('no_credentials');
+    setSwitching(true);
+    try {
+      const password = atob(account._pw);
+      await signOut(auth);
+      await signInWithEmailAndPassword(auth, account.email, password);
+    } catch (err) {
+      console.error('[switch] error:', err);
+      throw err;
+    } finally {
+      setSwitching(false);
+    }
+  }, [activeUid]);
+
+  return (
+    <AccountsContext.Provider value={{ accounts, activeUid, switching, switchAccount, addAccount, removeAccount }}>
+      {children}
+    </AccountsContext.Provider>
+  );
+}
+
+export function useAccounts() {
+  return useContext(AccountsContext);
+}

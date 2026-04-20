@@ -18,10 +18,9 @@ export default function App() {
         ))}
       </div>
       <div style={{
-        position: 'absolute', bottom: '1.2rem', right: '5rem',
-        fontSize: '0.65rem', color: 'rgba(255,255,255,0.12)',
-        letterSpacing: '0.05em', pointerEvents: 'none', zIndex: 100,
-        textAlign: 'right'
+        position: 'absolute', bottom: '1.2rem', left: '1.2rem',
+        fontSize: '0.65rem', color: 'rgba(255,255,255,0.15)',
+        letterSpacing: '0.05em', pointerEvents: 'none', zIndex: 100
       }}>
         © 2025-2026 CAMPUSHUB TEAM · TODOS LOS DERECHOS RESERVADOS
       </div>

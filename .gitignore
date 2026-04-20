@@ -1,3 +1,6 @@
+# Claude Code local settings
+.claude/
+
 # ========================================
 # SENSITIVE DATA - NEVER COMMIT
 # ========================================
@@ -15,6 +18,9 @@
 firebase-adminsdk-*.json
 **/firebase-config.json
 mobile/scripts/serviceAccountKey.json
+
+# Scripts folder (service accounts, automation scripts)
+scripts/
 
 # Firebase configuration (real keys)
 shared/firebase/config.js

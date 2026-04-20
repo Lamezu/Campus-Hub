@@ -5,15 +5,16 @@ import { ThemedText } from '@/components/themed-text';
 import { router } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/config/firebase';
+import { useAccounts } from '@/contexts/AccountsContext';
 
 export default function Index() {
   const hasRedirected = useRef(false);
+  const { switching } = useAccounts();
 
-  useEffect(() => {
-    if (hasRedirected.current) return;
+  useEffect(() => {    if (hasRedirected.current || switching) return;
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (hasRedirected.current) return;
+      if (hasRedirected.current || switching) return;
       hasRedirected.current = true;
 
       if (user) {
@@ -24,7 +25,7 @@ export default function Index() {
     });
 
     const timeout = setTimeout(() => {
-      if (!hasRedirected.current) {
+      if (!hasRedirected.current && !switching) {
         hasRedirected.current = true;
         router.replace('/auth/login');
       }
@@ -34,7 +35,7 @@ export default function Index() {
       unsubscribe();
       clearTimeout(timeout);
     };
-  }, []);
+  }, [switching]);
 
   return (
     <ThemedView style={styles.container}>

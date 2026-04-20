@@ -1,11 +1,16 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "baseUrl": ".",
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     },
     "allowImportingTsExtensions": false,
+    "allowJs": true,
+    "checkJs": false,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true

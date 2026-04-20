@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+//import { getAnalytics } from "firebase/analytics";
 
+//Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyA2Bvno8r2bi7Uv_2SuTiQ2HsmO3fGPLjs",
   authDomain: "campushub-52343.firebaseapp.com",
@@ -13,10 +14,12 @@ const firebaseConfig = {
   measurementId: "G-EP45ZLG6GC"
 };
 
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
+//const analytics = getAnalytics(app);
 
+// Inicializar servicios
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
 export default app;
