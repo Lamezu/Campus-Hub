@@ -51,7 +51,7 @@ export default function CampusScreen() {
           <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: colors.text }}>{t('campus.title')}</h1>
           <p style={{ margin: '8px 0 0', color: colors.textSecondary, fontSize: 16 }}>{t('campus.description')}</p>
         </div>
-        <NotificationBell category="campus" size={28} />
+        <NotificationBell section="campus" category="campus" size={28} />
       </div>
 
       <div style={{

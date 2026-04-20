@@ -155,7 +155,7 @@ export default function HomeScreen() {
             </ThemedText>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <NotificationBell category="channel" />
+            <NotificationBell section="inicio" categories={['channel', 'general', 'group']} />
             <button
               onClick={() => navigate('/settings')}
               style={{

@@ -115,7 +115,7 @@ export default function MessagesScreen() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px 20px`, borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
           <ThemedText style={{ fontSize: 22, fontWeight: '800' }}>{t('messages.title')}</ThemedText>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <NotificationBell category="dm" />
+            <NotificationBell section="mensajes" category="dm" />
             <div style={{ display: 'flex', gap: 8 }}>
               <button 
                 onClick={() => setShowNewGroupModal(true)} 

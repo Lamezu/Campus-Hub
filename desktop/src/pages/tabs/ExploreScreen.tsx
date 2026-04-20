@@ -190,7 +190,7 @@ export default function ExploreScreen() {
         justifyContent: 'space-between'
       }}>
         <ThemedText style={{ fontSize: 32, fontWeight: '900', margin: 0 }}>{t('explore.title')}</ThemedText>
-        <NotificationBell category="social" size={28} />
+        <NotificationBell section="explorar" category="social" size={28} />
       </div>
 
       <div style={{
