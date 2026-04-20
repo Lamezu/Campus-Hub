@@ -83,7 +83,6 @@ export default function GlobalCallOverlay() {
           myUid={activeConference.myUid}
           myName={activeConference.myName}
           myPhoto={activeConference.myPhoto}
-          myRole={activeConference.myRole}
           onClose={() => {
             setActiveConference(null);
             setActiveConferenceId(null);
@@ -101,10 +100,10 @@ export default function GlobalCallOverlay() {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
             minWidth: 300, boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
           }}>
-            <Avatar 
-              src={awaitingConference.groupPhoto} 
-              name={awaitingConference.groupName} 
-              size={64} 
+            <Avatar
+              src={awaitingConference.groupPhoto}
+              name={awaitingConference.groupName}
+              size={64}
               fallbackIcon={Users}
             />
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>

@@ -77,29 +77,29 @@ interface CallContextValue {
 const CallContext = createContext<CallContextValue>({
   incomingCall: null,
   activeCall: null,
-  setActiveCall: () => {},
+  setActiveCall: () => { },
   activeCallId: null,
-  setActiveCallId: () => {},
-  dismissIncoming: () => {},
-  acceptIncoming: () => {},
-  rejectIncoming: () => {},
+  setActiveCallId: () => { },
+  dismissIncoming: () => { },
+  acceptIncoming: () => { },
+  rejectIncoming: () => { },
   incomingGroupCall: null,
   activeGroupCall: null,
-  setActiveGroupCall: () => {},
+  setActiveGroupCall: () => { },
   activeGroupCallId: null,
-  setActiveGroupCallId: () => {},
-  dismissGroupIncoming: () => {},
-  joinGroupIncoming: () => {},
+  setActiveGroupCallId: () => { },
+  dismissGroupIncoming: () => { },
+  joinGroupIncoming: () => { },
   incomingConference: null,
   activeConference: null,
-  setActiveConference: () => {},
+  setActiveConference: () => { },
   activeConferenceId: null,
-  setActiveConferenceId: () => {},
-  dismissConferenceIncoming: () => {},
-  joinConferenceIncoming: () => {},
+  setActiveConferenceId: () => { },
+  dismissConferenceIncoming: () => { },
+  joinConferenceIncoming: () => { },
   awaitingConference: null,
-  setAwaitingConference: () => {},
-  requestConferenceJoin: () => {},
+  setAwaitingConference: () => { },
+  requestConferenceJoin: () => { },
 });
 export function useCall() {
   return useContext(CallContext);
@@ -162,9 +162,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const callId = activeCallIdRef.current;
       const groupCallId = activeGroupCallIdRef.current;
       const conferenceId = activeConferenceIdRef.current;
-      if (callId) endCall(callId).catch(() => {});
-      if (groupCallId) leaveGroupCallDM(groupCallId, uid).catch(() => {});
-      if (conferenceId) leaveConferenceCall(conferenceId, uid).catch(() => {});
+      if (callId) endCall(callId).catch(() => { });
+      if (groupCallId) leaveGroupCallDM(groupCallId, uid).catch(() => { });
+      if (conferenceId) leaveConferenceCall(conferenceId, uid).catch(() => { });
     }
     window.addEventListener('beforeunload', handleUnload);
     window.addEventListener('pagehide', handleUnload);
@@ -187,7 +187,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
           const audio = new Audio(callToneUrlRef.current);
           audio.loop = true;
-          audio.play().catch(() => {});
+          audio.play().catch(() => { });
           customAudioRef.current = audio;
         } else {
           const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
@@ -195,7 +195,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
         if (missTimerRef.current) clearTimeout(missTimerRef.current);
         missTimerRef.current = setTimeout(() => {
-          missCall(call.id).catch(() => {});
+          missCall(call.id).catch(() => { });
           setIncomingCall(null);
           stopRinging();
         }, 45000);
@@ -226,7 +226,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
           const audio = new Audio(callToneUrlRef.current);
           audio.loop = true;
-          audio.play().catch(() => {});
+          audio.play().catch(() => { });
           customAudioRef.current = audio;
         } else {
           const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
@@ -265,7 +265,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (callToneRef.current === 'Personalizado' && callToneUrlRef.current) {
           const audio = new Audio(callToneUrlRef.current);
           audio.loop = true;
-          audio.play().catch(() => {});
+          audio.play().catch(() => { });
           customAudioRef.current = audio;
         } else {
           const preset = callToneRef.current === 'Personalizado' ? 'Trompeta' : callToneRef.current;
@@ -310,7 +310,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     dismissIncoming();
   }
   function rejectIncoming() {
-    if (incomingCall) endCall(incomingCall.id).catch(() => {});
+    if (incomingCall) endCall(incomingCall.id).catch(() => { });
     dismissIncoming();
   }
   function dismissGroupIncoming() {
@@ -365,7 +365,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     requestToJoinConference(call.id, userId, {
       name: userNameRef.current,
       photo: userPhotoRef.current
-    }).catch(() => {});
+    }).catch(() => { });
   }
   useEffect(() => {
     if (!awaitingConference || !userId) return;

@@ -59,7 +59,7 @@ export async function joinGroupCall(callId: string, uid: string): Promise<void> 
     const current: string[] = data.activeParticipants ?? [];
     if (current.includes(uid)) return;
     tx.update(callRef, { activeParticipants: [...current, uid], status: 'active' });
-  }).catch(() => {});
+  }).catch(() => { });
 }
 export async function leaveGroupCall(callId: string, uid: string): Promise<void> {
   const callRef = doc(db, COL, callId);
