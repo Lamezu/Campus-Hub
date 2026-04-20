@@ -1,0 +1,257 @@
+import React from 'react';
+import { View, TouchableOpacity, Modal, Pressable, StyleSheet } from 'react-native';
+import { imageOffsetStyle } from '../ImagePanPicker';
+import { MoreVertical, Pin, CalendarDays } from 'lucide-react-native';
+import { LazyImage } from '../LazyImage';
+import { ThemedText } from '../themed-text';
+import { useTheme } from '../../contexts/ThemeContext';
+import { spacing, typography } from '../../constants/styles';
+import { getCategoryConfig } from '../../constants/announcementCategories';
+import { useTranslation } from '../../hooks/useTranslation';
+import type { Post } from '../../types';
+
+interface AnnouncementCardProps {
+  post: Post;
+  onPress: () => void;
+  onEdit?: () => void;
+  onPin?: () => void;
+  onDelete?: () => void;
+  onPublishSocial?: () => void;
+  highlighted?: boolean;
+}
+
+function getDateLabel(iso: string) {
+  const date = new Date(iso);
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export const AnnouncementCard = React.memo(({
+  post, onPress, onEdit, onPin, onDelete, onPublishSocial, highlighted,
+}: AnnouncementCardProps) => {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const hasOptions = !!(onEdit || onPin || onDelete);
+  const [showOptions, setShowOptions] = React.useState(false);
+
+  const category = React.useMemo(() => getCategoryConfig(post.category), [post.category]);
+  const dateLabel = React.useMemo(() => getDateLabel(post.createdAt), [post.createdAt]);
+
+  const handleOptions = (e: any) => {
+    e.stopPropagation();
+    setShowOptions(true);
+  };
+
+  const optionItems = React.useMemo(() => {
+    const items: { label: string; onPress: () => void; destructive?: boolean }[] = [];
+    if (onEdit) items.push({ label: t('explore.calendar.options.edit') || 'Edit', onPress: onEdit });
+    if (onPin) items.push({ label: post.pinned ? (t('explore.calendar.options.unpin') || 'Unpin') : (t('explore.calendar.options.pin') || 'Pin'), onPress: onPin });
+    if (onPublishSocial && !post.socialId) items.push({ label: t('explore.publish_social') || 'Publish Social', onPress: onPublishSocial });
+    if (onDelete) items.push({ label: t('explore.calendar.options.delete') || 'Delete', onPress: onDelete, destructive: true });
+    return items;
+  }, [onEdit, onPin, onDelete, onPublishSocial, post.pinned, post.socialId, t]);
+
+  return (
+    <>
+    <Modal visible={showOptions} transparent animationType="fade" onRequestClose={() => setShowOptions(false)}>
+      <Pressable style={styles.modalBackdrop} onPress={() => setShowOptions(false)}>
+        <Pressable style={[styles.optionsSheet, { backgroundColor: colors.card }]} onPress={() => {}}>
+          {optionItems.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.optionRow, i < optionItems.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+              onPress={() => { setShowOptions(false); item.onPress(); }}
+            >
+              <ThemedText style={[styles.optionText, item.destructive && { color: '#ef4444' }]}>{item.label}</ThemedText>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.optionRow, styles.cancelRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+            onPress={() => setShowOptions(false)}
+          >
+            <ThemedText style={[styles.optionText, { color: colors.textSecondary }]}>{t('common.cancel') || 'Cancel'}</ThemedText>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+    <TouchableOpacity
+      style={[
+        styles.card,
+        { 
+          backgroundColor: colors.card + '90', 
+          borderColor: highlighted ? colors.primary : colors.border + '15' 
+        },
+        highlighted && { 
+          borderWidth: 2, 
+          shadowColor: colors.primary, 
+          shadowOffset: { width: 0, height: 0 }, 
+          shadowOpacity: 0.4, 
+          shadowRadius: 10, 
+          elevation: 5 
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {post.imageUrl ? (
+        <View style={styles.headerImage}>
+          <LazyImage
+            source={{ uri: post.imageUrl }}
+            containerStyle={styles.headerImage}
+            style={imageOffsetStyle(post.imageOffsetY, 160)}
+            resizeMode="cover"
+          />
+        </View>
+      ) : (
+        <View style={[styles.headerPlaceholder, { backgroundColor: category.color + '18' }]}>
+          <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
+        </View>
+      )}
+
+      <View style={styles.body}>
+        <View style={styles.topRow}>
+          <View style={[styles.categoryChip, { backgroundColor: category.color + '18' }]}>
+            <ThemedText style={[styles.categoryChipText, { color: category.color }]}>
+              {(t(`explore.categories.${category.id}`) || category.label).toUpperCase()}
+            </ThemedText>
+          </View>
+          <View style={styles.topRowRight}>
+            {post.pinned && (
+              <Pin size={13} color={colors.primary} strokeWidth={2} />
+            )}
+            {post.linkedEventId && (
+              <CalendarDays size={13} color={colors.textSecondary} strokeWidth={2} />
+            )}
+            {hasOptions && (
+              <TouchableOpacity onPress={handleOptions} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <MoreVertical size={17} color={colors.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <ThemedText style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+          {post.title}
+        </ThemedText>
+
+        <ThemedText style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={2}>
+          {post.content}
+        </ThemedText>
+
+        <View style={styles.footer}>
+          <ThemedText style={[styles.date, { color: colors.textSecondary }]}>
+            {dateLabel}
+          </ThemedText>
+          <ThemedText style={[styles.author, { color: colors.textSecondary }]}>
+            {post.authorName}
+          </ThemedText>
+        </View>
+      </View>
+    </TouchableOpacity>
+    </>
+  );
+}, (prev, next) => {
+  return prev.highlighted === next.highlighted &&
+    prev.post.id === next.post.id &&
+    prev.post.pinned === next.post.pinned &&
+    prev.post.socialId === next.post.socialId &&
+    prev.post.title === next.post.title &&
+    prev.post.content === next.post.content &&
+    prev.post.imageUrl === next.post.imageUrl;
+});
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  headerImage: {
+    width: '100%',
+    height: 160,
+    overflow: 'hidden',
+  },
+  headerPlaceholder: {
+    width: '100%',
+    height: 6,
+  },
+  categoryDot: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+  },
+  body: {
+    padding: spacing.md + 4,
+    gap: 6,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  categoryChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  categoryChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 24,
+    letterSpacing: -0.2,
+  },
+  preview: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.7,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  date: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.5,
+  },
+  author: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.5,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  optionsSheet: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  optionRow: {
+    paddingVertical: 15,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  cancelRow: {},
+  optionText: {
+    fontSize: typography.sizes.md,
+    fontWeight: '500',
+  },
+});

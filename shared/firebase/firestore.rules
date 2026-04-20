@@ -57,10 +57,6 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && (isOwner(userId) || isOwner(friendId));
       }
-
-      match /notificationMeta/{docId} {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
     }
 
     match /roles/{roleId} {
@@ -117,7 +113,7 @@ service cloud.firestore {
         allow create: if isSignedIn() && isConvParticipant(conversationId);
         allow update: if isSignedIn() && (
           request.auth.uid == resource.data.senderId ||
-          (isConvParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'read', 'readAt', 'status', 'poll']))
+          (isConvParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'read', 'readAt', 'status']))
         );
         allow delete: if isSignedIn() && (
           request.auth.uid == resource.data.senderId || isAdmin()
@@ -167,8 +163,7 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll', 'votes', 'voters', 'attendeesCount']));
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff());
+      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.creatorId || isStaff());
     }
 
     match /rsvps/{rsvpId} {
@@ -273,90 +268,14 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if isSignedIn() && (
-          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
+          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid)) ||
           isStaff()
         );
-        allow create: if isSignedIn() && (
-          request.auth.uid in get(/databases/$(database)/documents/studyGroups/$(groupId)).data.memberIds ||
-          isStaff()
-        );
+        allow create: if isSignedIn() &&
+          exists(/databases/$(database)/documents/studyGroups/$(groupId)/members/$(request.auth.uid));
         allow update: if request.auth.uid == resource.data.senderId ||
                       (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForUsers', 'reactions', 'poll']));
         allow delete: if request.auth.uid == resource.data.senderId || isStaff();
-      }
-    }
-
-    match /groupCalls/{callId} {
-      function isGroupCallMember() {
-        return request.auth.uid in resource.data.memberIds;
-      }
-
-      allow read: if isSignedIn() && isGroupCallMember();
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.initiatorId
-                    && request.auth.uid in request.resource.data.memberIds;
-      allow update: if isSignedIn() && isGroupCallMember();
-      allow delete: if false;
-
-      match /connections/{connectionId} {
-        allow read: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-        allow create: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-        allow update: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-
-        match /callerCandidates/{candidateId} {
-          allow read: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-          allow create: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-        }
-
-        match /receiverCandidates/{candidateId} {
-          allow read: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-          allow create: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/groupCalls/$(callId)).data.memberIds;
-        }
-      }
-    }
-
-    match /studyGroupConferences/{callId} {
-      function isConferenceMember() {
-        return request.auth.uid in resource.data.memberIds;
-      }
-      function isTeacherOrAdmin() {
-        return hasRole('teacher') || isAdmin();
-      }
-
-      allow read: if isSignedIn() && isConferenceMember();
-      allow create: if isSignedIn() && isTeacherOrAdmin()
-                    && request.auth.uid == request.resource.data.initiatorId
-                    && request.auth.uid in request.resource.data.memberIds;
-      allow update: if isSignedIn() && isConferenceMember();
-      allow delete: if false;
-
-      match /connections/{connectionId} {
-        allow read: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-        allow create: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-        allow update: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-
-        match /callerCandidates/{candidateId} {
-          allow read: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-          allow create: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-        }
-
-        match /receiverCandidates/{candidateId} {
-          allow read: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-          allow create: if isSignedIn() &&
-            request.auth.uid in get(/databases/$(database)/documents/studyGroupConferences/$(callId)).data.memberIds;
-        }
       }
     }
 
@@ -364,7 +283,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource == null || request.auth.uid in resource.data.members);
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.members;
       allow update: if isSignedIn() && request.auth.uid in resource.data.members;
-      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      allow delete: if false;
 
       match /messages/{messageId} {
         allow read: if isSignedIn() &&
