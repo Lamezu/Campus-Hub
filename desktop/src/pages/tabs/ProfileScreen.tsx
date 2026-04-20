@@ -97,7 +97,7 @@ export default function ProfileScreen() {
           backgroundColor: colors.card, position: 'relative',
         }}>
           <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <NotificationBell category="friend" />
+            <NotificationBell section="perfil" category="friend" />
             <button
               onClick={() => navigate('/settings')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex' }}
