@@ -28,7 +28,7 @@ export default function Messages() {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [requestStates, setRequestStates] = useState<Record<string, 'sending' | 'sent' | 'cancelling'>>({});
   const [starting, setStarting] = useState(false);
   const [groups, setGroups] = useState<GroupConversation[]>([]);
@@ -892,7 +892,7 @@ export default function Messages() {
           alignItems: 'center',
           justifyContent: 'center'
         }}
-          onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter(undefined); }}
+          onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter('all'); }}
         >
           <div
             style={{
@@ -918,7 +918,7 @@ export default function Messages() {
                 {modalTab === 'friends' ? t('messages.new_chat_friends_title') : t('messages.new_chat_search_title')}
               </span>
               <button
-                onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter(undefined); }}
+                onClick={() => { setShowNewChat(false); setSearch(''); setSearchResults([]); setModalTab('friends'); setRoleFilter('all'); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}
               >
                 <X size={22} />
@@ -929,7 +929,7 @@ export default function Messages() {
               {(['friends', 'search'] as const).map(tab => (
                 <button
                   key={tab}
-                  onClick={() => { setModalTab(tab); setSearch(''); setSearchResults([]); setRoleFilter(undefined); }}
+                  onClick={() => { setModalTab(tab); setSearch(''); setSearchResults([]); setRoleFilter('all'); }}
                   style={{
                     flex: 1,
                     background: 'none',
@@ -977,7 +977,7 @@ export default function Messages() {
               {modalTab === 'search' && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                   {([
-                    { label: t('messages.role_all'), value: undefined },
+                    { label: t('messages.role_all'), value: 'all' },
                     { label: t('messages.role_students'), value: 'student' },
                     { label: t('messages.role_teachers'), value: 'teacher' },
                     { label: t('messages.role_admins'), value: 'admin' },

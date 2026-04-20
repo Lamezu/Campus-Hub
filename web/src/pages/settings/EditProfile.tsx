@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, signOut } from 'firebase/auth';
 import { auth, db } from '../../config/firebase';
 import { uploadProfilePhoto } from '../../config/cloudinary';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAccounts } from '../../contexts/AccountsContext';
+import { Check, Users, UserMinus, LogOut, ChevronRight } from 'lucide-react';
+import ReactCountryFlag from 'react-country-flag';
 
 export default function EditProfile() {
   const [loading, setLoading] = useState(true);
@@ -20,7 +23,21 @@ export default function EditProfile() {
   const { colors } = useTheme();
 
   const currentUser = auth.currentUser;
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
+  const { accounts, activeUid } = useAccounts();
+
+  const LANG_OPTIONS = [
+    { id: 'es' as const, label: t('common.spanish'), countryCode: 'ES' },
+    { id: 'en' as const, label: t('common.english'), countryCode: 'GB' },
+  ];
+
+  const handleLogout = async () => {
+    if (!window.confirm(t('common.logout_confirm'))) return;
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch {}
+  };
 
   useEffect(() => {
     loadUserProfile();
@@ -275,6 +292,100 @@ export default function EditProfile() {
             }}
           >
             Descartar Cambios
+          </button>
+        </div>
+
+        <div className="settings-section">
+          <h2 className="settings-section-title">{t('common.language')}</h2>
+          <p style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '4px', marginBottom: '14px' }}>
+            {t('settings.language_subtitle')}
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {LANG_OPTIONS.map(opt => {
+              const isSelected = language === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => setLanguage(opt.id)}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    padding: '14px 12px', borderRadius: '14px', cursor: 'pointer',
+                    border: isSelected ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                    backgroundColor: isSelected ? colors.primary + '14' : 'transparent',
+                    color: isSelected ? colors.primary : colors.text,
+                    fontWeight: isSelected ? '700' : '400', fontSize: 15,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <ReactCountryFlag
+                    countryCode={opt.countryCode}
+                    svg
+                    style={{ width: '1.5em', height: '1.5em', borderRadius: '2px', objectFit: 'cover' }}
+                  />
+                  <span>{opt.label}</span>
+                  {isSelected && <Check size={16} color={colors.primary} strokeWidth={2.5} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          {[
+            {
+              icon: <Users size={18} color={colors.primary} strokeWidth={1.8} />,
+              label: t('settings.manage_accounts'),
+              sublabel: t('settings.saved_accounts_count', { count: accounts.filter(a => a.uid === activeUid || !!a._pw).length }),
+              onClick: () => navigate('/settings/accounts'),
+              danger: false,
+            },
+            {
+              icon: <UserMinus size={18} color="#FF3B30" strokeWidth={1.8} />,
+              label: t('settings.delete_account'),
+              sublabel: t('settings.delete_account_desc'),
+              onClick: () => navigate('/settings/delete-account'),
+              danger: true,
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              onClick={item.onClick}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '13px 0',
+                borderBottom: `1px solid ${colors.border}`,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 9,
+                backgroundColor: item.danger ? '#FF3B3015' : `${colors.primary}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                {item.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: '600', color: item.danger ? '#FF3B30' : colors.text }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{item.sublabel}</div>
+              </div>
+              <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
+            </div>
+          ))}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', padding: '14px', borderRadius: '12px',
+              backgroundColor: colors.danger, border: 'none',
+              color: '#FFFFFF', fontSize: '15px', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '8px',
+              marginTop: 8,
+            }}
+          >
+            <LogOut size={18} color="#FFFFFF" />
+            {t('common.logout')}
           </button>
         </div>
       </div>
