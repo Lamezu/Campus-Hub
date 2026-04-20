@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg-color-dark: #020205;
+  --color-navy: #1A3A6B;
+  --color-accent: #E87C1E;
+  --blob-active: rgba(26, 58, 107, 0.4);
+  --blob-accent: rgba(232, 124, 30, 0.35);
+  --text-color-pure: #ffffff;
+  --text-color-primary: rgba(255, 255, 255, 0.9);
+  --text-color-secondary: rgba(255, 255, 255, 0.7);
+  --accent-light: #3b82f6;
+  --border-color-glass: rgba(255, 255, 255, 0.15);
+  --border-accent: rgba(232, 124, 30, 0.3);
+  --bg-color-glass: rgba(255, 255, 255, 0.05);
+}

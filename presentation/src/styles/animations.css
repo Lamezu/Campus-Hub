@@ -1,0 +1,12 @@
+@keyframes blob-float {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(15%, 15%) scale(1.1); }
+  66%  { transform: translate(-10%, 10%) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes pulse-orange {
+  0%   { opacity: 0.4; border-color: rgba(232, 124, 30, 1); }
+  50%  { opacity: 0.8; border-color: rgba(232, 124, 30, 1); }
+  100% { opacity: 0.4; border-color: rgba(232, 124, 30, 1); }
+}
