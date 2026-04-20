@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { getStarredMessagesForGroup, unstarMessage } from '@/services/starredMessagesService';
 import { playTone } from '@/utils/toneGenerator';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '../common/Avatar';
 
 interface GroupInfoSidebarProps {
   isOpen: boolean;
@@ -179,17 +180,17 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
           {/* Profile Section */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
             <div style={{ position: 'relative', marginBottom: 16, cursor: isAdmin ? 'pointer' : 'default' }} onClick={() => isAdmin && fileInputRef.current?.click()}>
-              <div style={{ width: 110, height: 110, borderRadius: 36, overflow: 'hidden', border: `4px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, position: 'relative' }}>
-                {updating ? (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2 }}>
+              <div style={{ width: 110, height: 110, borderRadius: 36, position: 'relative' }}>
+                <Avatar 
+                  src={group.photoURL} 
+                  name={group.name} 
+                  size={110} 
+                  style={{ border: `4px solid ${colors.border}`, borderRadius: 36 }}
+                  fallbackIcon={Shield}
+                />
+                {updating && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2, borderRadius: 36 }}>
                     <Loader2 size={32} className="animate-spin" color="#fff" />
-                  </div>
-                ) : null}
-                {group.photoURL ? (
-                  <img src={group.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Shield size={40} color="#fff" />
                   </div>
                 )}
               </div>
@@ -315,9 +316,12 @@ export function GroupInfoSidebar({ isOpen, onClose, group }: GroupInfoSidebarPro
                           if (userId !== currentUser?.uid) navigate(`/dm/${userId}`);
                         }}
                       >
-                        <div style={{ width: 40, height: 40, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.backgroundSecondary }}>
-                          {photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '15' }}><ThemedText style={{ fontWeight: 800, color: colors.primary }}>{name[0]}</ThemedText></div>}
-                        </div>
+                        <Avatar 
+                          src={photo} 
+                          name={name} 
+                          size={40} 
+                          style={{ borderRadius: 14 }} 
+                        />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                              <ThemedText style={{ fontWeight: 700, fontSize: 14 }}>{name} {userId === currentUser?.uid && '(Tú)'}</ThemedText>

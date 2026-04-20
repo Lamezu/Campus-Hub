@@ -6,14 +6,17 @@ import {
 import { auth, db } from '@/config/firebase';
 import { notificationService } from './notificationService';
 import type { FriendRequest, FriendUser, UserSearchResult, User } from '@/types';
+
 function tsToISO(val: unknown): string {
   if (val instanceof Timestamp) return val.toDate().toISOString();
   if (typeof val === 'string') return val;
   return new Date().toISOString();
 }
+
 function getRequestId(id1: string, id2: string): string {
   return [id1, id2].sort().join('_');
 }
+
 export async function sendFriendRequest(
   fromUserId: string,
   toUserId: string,
@@ -23,17 +26,11 @@ export async function sendFriendRequest(
   const requestId = getRequestId(fromUserId, toUserId);
   const requestRef = doc(db, 'friendRequests', requestId);
   try {
-    const requestSnap = await getDoc(requestRef);
-    if (requestSnap.exists()) {
-      const data = requestSnap.data();
-      if (data.status === 'pending') {
-        if (data.fromUserId === fromUserId) throw new Error('Ya has enviado una solicitud a este usuario');
-        else throw new Error('Ya tienes una solicitud pendiente de este usuario');
-      }
-      if (data.status === 'accepted') throw new Error('Ya sois amigos');
-    }
+    const isFriend = await areFriends(fromUserId, toUserId);
+    if (isFriend) throw new Error('Ya sois amigos');
   } catch (e: any) {
-    if (e.code !== 'permission-denied') throw e;
+    if (e.code !== 'permission-denied' && !e.message.includes('Ya sois amigos')) throw e;
+    if (e.message.includes('Ya sois amigos')) throw e;
   }
   await setDoc(requestRef, {
     fromUserId,
@@ -45,6 +42,7 @@ export async function sendFriendRequest(
   });
   return requestId;
 }
+
 export async function getFriendRequest(
   userId1: string,
   userId2: string
@@ -70,6 +68,7 @@ export async function getFriendRequest(
   }
   return null;
 }
+
 export async function acceptFriendRequest(requestId: string): Promise<void> {
   const requestRef = doc(db, 'friendRequests', requestId);
   const requestSnap = await getDoc(requestRef);
@@ -77,14 +76,10 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
   const data = requestSnap.data();
   const batch = writeBatch(db);
   batch.update(requestRef, { status: 'accepted', acceptedAt: serverTimestamp() });
-  const fRoot1 = doc(db, 'friendships', `${data.fromUserId}_${data.toUserId}`);
-  batch.set(fRoot1, { userId: data.fromUserId, friendId: data.toUserId, createdAt: serverTimestamp() });
-  const fRoot2 = doc(db, 'friendships', `${data.toUserId}_${data.fromUserId}`);
-  batch.set(fRoot2, { userId: data.toUserId, friendId: data.fromUserId, createdAt: serverTimestamp() });
-  const fSub1 = doc(db, 'users', data.fromUserId, 'friends', data.toUserId);
-  batch.set(fSub1, { createdAt: serverTimestamp(), status: 'accepted' });
-  const fSub2 = doc(db, 'users', data.toUserId, 'friends', data.fromUserId);
-  batch.set(fSub2, { createdAt: serverTimestamp(), status: 'accepted' });
+  
+  // Each user's local syncFriendships listener will handle creating the friendship docs 
+  // in their own subcollections, avoiding permission errors.
+  
   await batch.commit();
   const accepterName = auth.currentUser?.displayName ?? 'Alguien';
   notificationService.addNotification(data.fromUserId, {
@@ -94,12 +89,15 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
     meta: { fromUserId: data.toUserId, fromUserName: accepterName, type: 'accepted' },
   }).catch(() => { });
 }
+
 export async function rejectFriendRequest(requestId: string): Promise<void> {
   await deleteDoc(doc(db, 'friendRequests', requestId));
 }
+
 export async function cancelFriendRequest(requestId: string): Promise<void> {
   await deleteDoc(doc(db, 'friendRequests', requestId));
 }
+
 export async function areFriends(userId1: string, userId2: string): Promise<boolean> {
   try {
     const docRef = doc(db, 'users', userId1, 'friends', userId2);
@@ -115,6 +113,7 @@ export async function areFriends(userId1: string, userId2: string): Promise<bool
     }
   }
 }
+
 export async function removeFriend(userId: string, friendId: string): Promise<void> {
   const paths = [
     doc(db, 'friendships', `${userId}_${friendId}`),
@@ -125,6 +124,7 @@ export async function removeFriend(userId: string, friendId: string): Promise<vo
   ];
   await Promise.allSettled(paths.map(ref => deleteDoc(ref)));
 }
+
 export function subscribeToReceivedRequests(
   userId: string,
   callback: (requests: FriendRequest[]) => void
@@ -152,6 +152,7 @@ export function subscribeToReceivedRequests(
     callback(sorted);
   });
 }
+
 export function subscribeToFriends(
   userId: string,
   callback: (friends: any[]) => void
@@ -183,6 +184,7 @@ export function subscribeToFriends(
     callback(sorted);
   });
 }
+
 export function subscribeToBestFriends(
   userId: string,
   callback: (friends: any[]) => void
@@ -217,6 +219,7 @@ export function subscribeToBestFriends(
     callback(sorted);
   });
 }
+
 export async function toggleBestFriend(userId: string, friendId: string, markAs?: boolean): Promise<boolean> {
   const docRef = doc(db, 'users', userId, 'friends', friendId);
   const snap = await getDoc(docRef);
@@ -229,11 +232,13 @@ export async function toggleBestFriend(userId: string, friendId: string, markAs?
   });
   return newValue;
 }
+
 export async function getBestFriendIds(userId: string): Promise<string[]> {
   const userSnap = await getDoc(doc(db, 'users', userId));
   if (!userSnap.exists()) return [];
   return userSnap.data().bestFriends ?? [];
 }
+
 export function subscribeToFriendshipStatus(
   userId1: string,
   userId2: string,
@@ -278,6 +283,7 @@ export function subscribeToFriendshipStatus(
   }
   return () => { unsubFriend(); unsubRequest(); };
 }
+
 export async function searchUsers(
   searchQuery: string,
   currentUserId: string,
@@ -315,6 +321,7 @@ export async function searchUsers(
   );
   return results.filter((r: UserSearchResult | null): r is UserSearchResult => r !== null);
 }
+
 export async function cleanupAllFriendRequests(userId: string): Promise<void> {
   const q1 = query(collection(db, 'friendRequests'), where('fromUserId', '==', userId));
   const q2 = query(collection(db, 'friendRequests'), where('toUserId', '==', userId));
@@ -324,15 +331,65 @@ export async function cleanupAllFriendRequests(userId: string): Promise<void> {
   s2.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
 }
+
 export async function toggleBlockUser(currentUserId: string, targetUserId: string, isBlocked: boolean): Promise<void> {
   const userRef = doc(db, 'users', currentUserId);
   await updateDoc(userRef, {
     blockedUsers: isBlocked ? arrayUnion(targetUserId) : arrayRemove(targetUserId)
   });
 }
+
 export async function checkIfBlocked(currentUserId: string, targetUserId: string): Promise<boolean> {
   const userSnap = await getDoc(doc(db, 'users', currentUserId));
   if (!userSnap.exists()) return false;
   const blockedUsers = userSnap.data().blockedUsers ?? [];
   return blockedUsers.includes(targetUserId);
+}
+
+export function syncFriendships(userId: string): () => void {
+  const qSent = query(
+    collection(db, 'friendRequests'),
+    where('fromUserId', '==', userId),
+    where('status', '==', 'accepted')
+  );
+
+  const qReceived = query(
+    collection(db, 'friendRequests'),
+    where('toUserId', '==', userId),
+    where('status', '==', 'accepted')
+  );
+
+  const processRequests = async (snap: any) => {
+    const batch = writeBatch(db);
+    let needsCommit = false;
+
+    for (const d of snap.docs) {
+      const data = d.data();
+      const friendId = data.fromUserId === userId ? data.toUserId : data.fromUserId;
+      
+      const friendRef = doc(db, 'users', userId, 'friends', friendId);
+      const friendSnap = await getDoc(friendRef);
+      
+      if (!friendSnap.exists()) {
+        batch.set(friendRef, { 
+          createdAt: data.acceptedAt || serverTimestamp(), 
+          status: 'accepted',
+          friendId: friendId // Aseguramos que el ID esté en el documento
+        });
+        needsCommit = true;
+      }
+    }
+
+    if (needsCommit) {
+      await batch.commit().catch(err => console.error('Error syncing friendship:', err));
+    }
+  };
+
+  const unsubSent = onSnapshot(qSent, processRequests);
+  const unsubReceived = onSnapshot(qReceived, processRequests);
+
+  return () => {
+    unsubSent();
+    unsubReceived();
+  };
 }

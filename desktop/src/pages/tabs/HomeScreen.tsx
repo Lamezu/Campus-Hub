@@ -16,6 +16,7 @@ import type { Channel, UserRole } from '@/types';
 import { subscribeToIncomingConferences, createConference } from '@/services/studyGroupConferenceService';
 import { useCall } from '@/contexts/CallContext';
 import { Video, Phone, Users as UsersIcon } from 'lucide-react';
+import { Avatar } from '@/components/common/Avatar';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -213,18 +214,18 @@ export default function HomeScreen() {
                   boxShadow: '0 8px 20px rgba(0,0,0,0.05)'
                 }}>
                   <div style={{ position: 'relative' }}>
-                    {conf.groupPhoto ? (
-                      <img src={conf.groupPhoto} alt="" style={{ width: 56, height: 56, borderRadius: 18, objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <UsersIcon size={24} color={colors.textSecondary} />
-                      </div>
-                    )}
+                    <Avatar 
+                      src={conf.groupPhoto} 
+                      name={conf.groupName} 
+                      size={56} 
+                      style={{ borderRadius: 18 }} 
+                    />
                     <div style={{ position: 'absolute', bottom: -4, right: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#22c55e', border: `3px solid ${colors.card}`, animation: 'livePulse 1.5s infinite' }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <ThemedText style={{ fontSize: 17, fontWeight: 800, display: 'block' }}>{conf.groupName}</ThemedText>
-                    <ThemedText style={{ fontSize: 13, color: colors.textSecondary, opacity: 0.8 }}>Conferencia de {conf.type === 'video' ? 'video' : 'voz'} activa</ThemedText>
+                    <ThemedText style={{ fontSize: 17, fontWeight: 800, display: 'block' }}>{conf.groupName}</ThemedText>
+                    <ThemedText style={{ fontSize: 13, color: colors.textSecondary, opacity: 0.8 }}>{t('call.active_session', { type: conf.type === 'video' ? t('call.video') : t('call.audio') })}</ThemedText>
                   </div>
                   <button 
                     onClick={() => navigate(`/chat/sg_${conf.groupId}`)}
@@ -234,7 +235,7 @@ export default function HomeScreen() {
                       boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)'
                     }}
                   >
-                    Unirse ahora
+                    {t('conference.join_btn')}
                   </button>
                 </div>
               ))}

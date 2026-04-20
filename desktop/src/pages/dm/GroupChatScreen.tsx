@@ -24,6 +24,7 @@ import { useCall } from '@/contexts/CallContext';
 import { createGroupCall } from '@/services/groupCallService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { ChatLoadingOverlay } from '@/components/chat/ChatLoadingOverlay';
+import { Avatar } from '@/components/common/Avatar';
 
 export default function GroupChatScreen() {
   const { t } = useTranslation();
@@ -351,13 +352,13 @@ export default function GroupChatScreen() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer' }} onClick={() => setShowGroupInfo(true)}>
             <div style={{ position: 'relative' }}>
-              {group?.photoURL ? (
-                <img src={group.photoURL} alt="" style={{ width: 40, height: 40, borderRadius: 12, objectFit: 'cover' }} />
-              ) : (
-                <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Users size={20} color={colors.primary} />
-                </div>
-              )}
+              <Avatar 
+                src={group?.photoURL} 
+                name={groupName} 
+                size={40} 
+                style={{ borderRadius: 12 }} 
+                fallbackIcon={Users}
+              />
             </div>
             <div style={{ minWidth: 0 }}>
               <ThemedText style={{ fontWeight: '700', fontSize: 16, display: 'block', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{groupName}</ThemedText>

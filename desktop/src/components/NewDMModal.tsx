@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, User as UserIcon, Filter, MessageSquare, Users, UserCheck } from 'lucide-react';
+import { Avatar } from './common/Avatar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { auth, db } from '@/config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -30,7 +31,6 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
   
   const currentUser = auth.currentUser;
 
-  // Subscribe to friends
   useEffect(() => {
     if (!currentUser || !isOpen) return;
     const unsubscribe = subscribeToFriends(currentUser.uid, (data) => {
@@ -39,7 +39,6 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
     return unsubscribe;
   }, [currentUser, isOpen]);
 
-  // Subscribe to all users
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
@@ -183,13 +182,11 @@ export function NewDMModal({ isOpen, onClose, onSelectUser }: NewDMModalProps) {
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
               >
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="" style={{ width: 44, height: 44, borderRadius: 22, objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary + '20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{user.displayName?.[0]?.toUpperCase()}</ThemedText>
-                  </div>
-                )}
+                <Avatar 
+                  src={user.photoURL} 
+                  name={user.displayName} 
+                  size={44} 
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <ThemedText style={{ fontWeight: '600', fontSize: 15, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {user.displayName}

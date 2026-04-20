@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Check, Hash, MessageCircle, Users, Send } from 'lucide-react';
 import { ThemedText } from './themed-text';
 import { spacing, typography } from '@/constants/styles';
+import { Avatar } from './common/Avatar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { auth, db } from '@/config/firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore';
@@ -123,19 +124,13 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
         onMouseLeave={e => !isSelected && (e.currentTarget.style.backgroundColor = 'transparent')}
       >
         <div style={{ position: 'relative', marginRight: 12 }}>
-          {photo ? (
-            <img src={photo} style={{ width: 44, height: 44, borderRadius: 22, objectFit: 'cover' }} />
-          ) : (
-            <div style={{ 
-              width: 44, height: 44, borderRadius: 22, 
-              backgroundColor: type === 'channel' ? colors.primary + '20' : colors.primary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <ThemedText style={{ color: type === 'channel' ? colors.primary : '#fff', fontWeight: 'bold' }}>
-                {name[0].toUpperCase()}
-              </ThemedText>
-            </div>
-          )}
+          <Avatar 
+            src={photo} 
+            name={name} 
+            size={44} 
+            style={{ borderRadius: type === 'dm' ? 22 : 12 }} 
+            fallbackIcon={type === 'channel' ? Hash : type === 'studyGroup' ? Users : undefined}
+          />
         </div>
         <div style={{ flex: 1 }}>
           <ThemedText style={{ fontWeight: '600', fontSize: 15, display: 'block' }}>{name}</ThemedText>

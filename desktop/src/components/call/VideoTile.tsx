@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, MicOff, Volume2, VolumeX, X, MonitorOff, Repeat, EyeOff, Maximize2 } from 'lucide-react';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '../common/Avatar';
 
 interface VideoTileProps {
   uid: string;
@@ -84,7 +85,11 @@ const VideoTile = memo(function VideoTile({
     >
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2B2D31', zIndex: 1 }}>
         <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#1E1F22', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '3px solid rgba(255,255,255,0.05)', boxShadow: '0 8px 16px rgba(0,0,0,0.3)' }}>
-          {photo ? <img src={photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#dbdee1', fontSize: '42px', fontWeight: 600 }}>{displayName[0]}</span>}
+          <Avatar 
+            src={photo} 
+            name={displayName} 
+            size={100} 
+          />
         </div>
       </div>
 

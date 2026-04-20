@@ -59,14 +59,19 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
 
       const exists = stored.find(a => a.uid === user.uid);
 
-      if (exists && exists.refreshToken === user.refreshToken) {
+      const needsUpdate = !exists || 
+                         exists.photoURL !== entry.photoURL || 
+                         exists.displayName !== entry.displayName || 
+                         exists.refreshToken !== entry.refreshToken;
+
+      if (!needsUpdate) {
         setAccounts(stored);
         return;
       }
 
       const updated = exists
         ? stored.map(a => a.uid === user.uid
-          ? { ...a, refreshToken: user.refreshToken, _pw: a._pw ?? entry._pw }
+          ? { ...a, ...entry, _pw: a._pw ?? (entry as any)._pw }
           : a)
         : [...stored, entry];
 

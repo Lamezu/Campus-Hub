@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Heart, MessageCircle, Music2, Video, BarChart2, Bookmark, ExternalLink, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ThemedText } from './themed-text';
+import { Avatar } from './common/Avatar';
 import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -109,30 +110,11 @@ export function PostCard({ post, onPress, onDoubleTap, currentUserId, onSave, on
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-            {post.authorPhoto ? (
-              <img
-                src={post.authorPhoto}
-                alt={post.authorName}
-                style={{ width: 36, height: 36, borderRadius: 18, objectFit: 'cover' }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: colors.primary,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ color: '#FFFFFF', fontSize: typography.sizes.sm, fontWeight: 'bold' }}>
-                  {post.authorName.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
+            <Avatar 
+              src={post.authorPhoto} 
+              name={post.authorName} 
+              size={36} 
+            />
             <div style={{ marginLeft: spacing.sm }}>
               <ThemedText style={{ fontSize: typography.sizes.sm, fontWeight: '600', color: colors.text, display: 'block' }}>
                 {post.authorName}

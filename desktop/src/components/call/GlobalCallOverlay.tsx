@@ -6,6 +6,8 @@ import ConferenceScreen from './ConferenceScreen';
 import { IncomingConferenceModal } from './ConferenceScreen';
 
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '../common/Avatar';
+import { Users } from 'lucide-react';
 
 export default function GlobalCallOverlay() {
   const { t } = useTranslation();
@@ -99,12 +101,12 @@ export default function GlobalCallOverlay() {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
             minWidth: 300, boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
           }}>
-            {awaitingConference.groupPhoto
-              ? <img src={awaitingConference.groupPhoto} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
-              : <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#fff' }}>
-                {awaitingConference.groupName.charAt(0).toUpperCase()}
-              </div>
-            }
+            <Avatar 
+              src={awaitingConference.groupPhoto} 
+              name={awaitingConference.groupName} 
+              size={64} 
+              fallbackIcon={Users}
+            />
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>
               {awaitingConference.groupName}
             </div>

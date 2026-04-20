@@ -10,6 +10,7 @@ import { useCurrentUser } from '@/contexts/UserContext';
 import { ThemedText } from '@/components/themed-text';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { STATUS_COLORS } from '@/constants/styles';
+import { Avatar } from '@/components/common/Avatar';
 
 export function SoporteChannelView({ initialTicketId }: { initialTicketId?: string | null }) {
   const { colors } = useTheme();
@@ -131,9 +132,12 @@ export function SoporteChannelView({ initialTicketId }: { initialTicketId?: stri
                   <ThemedText style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12, display: 'block', opacity: 0.8, lineHeight: 1.5 }} numberOfLines={2}>{ticket.description}</ThemedText>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 8, overflow: 'hidden', backgroundColor: colors.backgroundSecondary }}>
-                      {ticket.userPhoto ? <img src={ticket.userPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{(ticket.userName || 'U')[0]}</div>}
-                    </div>
+                    <Avatar 
+                      src={ticket.userPhoto} 
+                      name={ticket.userName} 
+                      size={24} 
+                      style={{ borderRadius: 8 }} 
+                    />
                     <ThemedText style={{ fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>{ticket.userName} • {new Date(ticket.createdAt).toLocaleDateString()}</ThemedText>
                   </div>
                 </div>
@@ -291,9 +295,12 @@ function TicketDetailView({ ticket, onBack, updateStatus, sendMessage, useChat }
           
           <div style={{ backgroundColor: colors.card, borderRadius: 20, padding: 24, border: `1px solid ${colors.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-               <div style={{ width: 44, height: 44, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.backgroundSecondary }}>
-                  {ticket.userPhoto ? <img src={ticket.userPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600 }}>{(ticket.userName || 'U')[0]}</div>}
-               </div>
+               <Avatar 
+                 src={ticket.userPhoto} 
+                 name={ticket.userName} 
+                 size={44} 
+                 style={{ borderRadius: 14 }} 
+               />
                <div style={{ display: 'flex', flexDirection: 'column' }}>
                  <ThemedText style={{ fontSize: 14, fontWeight: 700 }}>{ticket.userName}</ThemedText>
                  <ThemedText style={{ fontSize: 11, opacity: 0.5, fontWeight: 500 }}>{new Date(ticket.createdAt).toLocaleDateString()} • {new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>

@@ -3,6 +3,7 @@ import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { notificationService } from '@/services/notificationService';
+import { syncFriendships } from '@/services/friendsService';
 import { checkPermission, type Permission } from '@/utils/permissions';
 import type { User, UserRole, UserSubrole } from '@/types';
 
@@ -67,9 +68,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setUserData(data);
         notificationService.init(firebaseUser.uid);
 
-        if (!data.role) {
+        const updates: any = {};
+        if (!data.role) updates.role = 'student';
+        
+        const isDefaultName = !data.displayName || data.displayName === 'Usuario' || data.displayName === firebaseUser.email?.split('@')[0];
+        
+        if (!data.photoURL && firebaseUser.photoURL) updates.photoURL = firebaseUser.photoURL;
+        if (isDefaultName && firebaseUser.displayName && data.displayName !== firebaseUser.displayName) updates.displayName = firebaseUser.displayName;
+
+        if (Object.keys(updates).length > 0) {
           updateDoc(doc(db, 'users', firebaseUser.uid), {
-            role: 'student',
+            ...updates,
             updatedAt: serverTimestamp()
           }).catch(() => { });
         }
@@ -83,7 +92,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     });
-    return unsubDoc;
+    const unsubSync = syncFriendships(firebaseUser.uid);
+    return () => {
+      unsubDoc();
+      unsubSync();
+    };
   }, [firebaseUser?.uid]);
 
   const role: UserRole = userData?.role || 'student';

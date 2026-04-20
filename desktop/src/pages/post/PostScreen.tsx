@@ -24,6 +24,7 @@ import { ThemedView } from '@/components/themed-view';
 import type { Post, Comment } from '@/types';
 import { PostLoadingScreen } from '@/components/post/PostLoadingScreen';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '@/components/common/Avatar';
 
 
 export default function PostScreen() {
@@ -275,9 +276,7 @@ export default function PostScreen() {
       <div style={{ flex: 1, overflowY: 'auto', padding: spacing.md }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.md }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-               {post.authorPhoto ? <img src={post.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', fontWeight: 'bold' }}>{post.authorName[0]}</span>}
-            </div>
+            <Avatar src={post.authorPhoto} name={post.authorName} size={48} />
             <div style={{ marginLeft: spacing.sm }}>
               <ThemedText style={{ fontWeight: '600', display: 'block' }}>{post.authorName}</ThemedText>
               <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{getTimeAgo(post.createdAt)}</ThemedText>
@@ -388,9 +387,7 @@ export default function PostScreen() {
               .map((comment) => (
                 <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', gap: spacing.md }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', flexShrink: 0 }}>
-                       {comment.authorPhoto ? <img src={comment.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 'bold' }}>{comment.authorName[0]}</span>}
-                    </div>
+                    <Avatar src={comment.authorPhoto} name={comment.authorName} size={40} />
                     <div style={{ flex: 1 }}>
                       <div style={{ backgroundColor: colors.backgroundSecondary, padding: '12px 16px', borderRadius: '0 16px 16px 16px', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -430,9 +427,7 @@ export default function PostScreen() {
                         <div style={{ position: 'absolute', left: -30, top: -20, bottom: 16, width: 2, backgroundColor: colors.border, borderRadius: 1, opacity: 0.5 }} />
                         <div style={{ position: 'absolute', left: -30, bottom: 16, width: 14, height: 2, backgroundColor: colors.border, borderRadius: 1, opacity: 0.5 }} />
 
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: colors.primary, overflow: 'hidden', flexShrink: 0 }}>
-                           {reply.authorPhoto ? <img src={reply.authorPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontWeight: 'bold' }}>{reply.authorName[0]}</span>}
-                        </div>
+                        <Avatar src={reply.authorPhoto} name={reply.authorName} size={32} />
                         <div style={{ flex: 1 }}>
                           <div style={{ backgroundColor: colors.backgroundSecondary, padding: '10px 14px', borderRadius: '0 14px 14px 14px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Shield, User as UserIcon, Check, MoreVertical } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedText } from '../themed-text';
+import { Avatar } from '../common/Avatar';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { collection, getDocs, query, orderBy, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/config/firebase';
@@ -94,9 +95,12 @@ export function ManageUsersModal({ isOpen, onClose }: ManageUsersModalProps) {
           ) : filteredUsers.map(user => (
             <div key={user.uid} style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 16, backgroundColor: editingUser?.uid === user.uid ? colors.backgroundSecondary : 'transparent' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundSecondary, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={20} opacity={0.5} />}
-                </div>
+                <Avatar 
+                  src={user.photoURL} 
+                  name={user.displayName} 
+                  size={44} 
+                  fallbackIcon={UserIcon}
+                />
                 <div style={{ flex: 1 }}>
                   <ThemedText style={{ fontWeight: '700', fontSize: 15 }}>{user.displayName}</ThemedText>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

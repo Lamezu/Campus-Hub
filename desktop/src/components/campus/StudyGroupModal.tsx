@@ -6,6 +6,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { ThemedText } from '../themed-text';
+import { Avatar } from '../common/Avatar';
 
 interface StudyGroupModalProps {
   isOpen: boolean;
@@ -341,9 +342,11 @@ export function StudyGroupModal({ isOpen, onClose, onSave, initialData }: StudyG
                       transition: 'all 0.2s'
                     }}
                   >
-                    <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundSecondary, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {user.photoURL ? <img src={user.photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <ThemedText style={{ fontWeight: 'bold' }}>{user.displayName[0]}</ThemedText>}
-                    </div>
+                    <Avatar 
+                      src={user.photoURL} 
+                      name={user.displayName} 
+                      size={44} 
+                    />
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <ThemedText style={{ fontSize: 15, fontWeight: '700', lineHeight: '1.2' }}>{user.displayName}</ThemedText>
                       <ThemedText style={{ fontSize: 12, opacity: 0.6, fontWeight: '600' }}>{roleLabel}</ThemedText>

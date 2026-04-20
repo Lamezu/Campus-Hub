@@ -1078,7 +1078,9 @@
         "language_label": "Language",
         "saving": "Saving...",
         "save_success_desc": "Your profile has been updated",
-        "username_placeholder": "Your display name"
+        "username_placeholder": "Your display name",
+        "sync_google": "Sync with Google",
+        "sync_google_success": "Data synced with Google. Don't forget to save changes."
     },
     "account_details": {
         "header_title": "Account Data",
@@ -1674,6 +1676,8 @@
         "new_dm_tooltip": "New direct message",
         "new_group_tooltip": "New group",
         "no_chats": "No conversations yet",
+        "no_chats_desc": "It seems you don't have any conversations yet. Start a new one now!",
+        "start_conv": "Start conversation",
         "friends": {
             "start_chat": "Start a conversation"
         },
@@ -2141,6 +2145,7 @@
         "error_generic": "Could not add account"
     },
     "call": {
+        "active_session": "Active {{type}} session",
         "talking": "Talking...",
         "stream_volume": "Stream Volume",
         "you": "You",
@@ -2175,7 +2180,9 @@
         "incoming_call_desc": "Incoming call...",
         "admit": "Accept",
         "reject": "Reject",
+        "waiting_admission": "Waiting for admission...",
         "waiting_approval": "Waiting for host approval...",
+        "waiting": "Waiting...",
         "admission_request": "Admission Request",
         "group_name": "Group Name",
         "quick_access": "Quick Access",
@@ -2193,43 +2200,43 @@
         "pip": "Picture-in-Picture",
         "hide_non_video": "Hide participants without video"
     },
-"edit_post": {
-    "title": "Edit post",
-    "placeholders": {
-        "title": "Post title...",
-        "content": "Post content..."
+    "edit_post": {
+        "title": "Edit post",
+        "placeholders": {
+            "title": "Post title...",
+            "content": "Post content..."
+        },
+        "buttons": {
+            "save": "Save",
+            "add_media": "Add media",
+            "add_music": "Add music",
+            "change": "Change",
+            "remove": "Remove"
+        },
+        "labels": {
+            "yes": "Yes",
+            "understood": "Understood"
+        },
+        "alerts": {
+            "no_permission_title": "No permission",
+            "no_permission_msg": "You cannot edit this post",
+            "not_found_title": "Not found",
+            "not_found_msg": "Post not found",
+            "save_error_title": "Save error",
+            "save_error_msg": "Could not save the post",
+            "video_audio_title": "Video + Audio",
+            "video_audio_msg": "You cannot add both video and audio"
+        }
     },
-    "buttons": {
-        "save": "Save",
-        "add_media": "Add media",
-        "add_music": "Add music",
-        "change": "Change",
-        "remove": "Remove"
+    "admin_panel": {
+        "filter_all": "All"
     },
-    "labels": {
-        "yes": "Yes",
-        "understood": "Understood"
-    },
-    "alerts": {
-        "no_permission_title": "No permission",
-        "no_permission_msg": "You cannot edit this post",
-        "not_found_title": "Not found",
-        "not_found_msg": "Post not found",
-        "save_error_title": "Save error",
-        "save_error_msg": "Could not save the post",
-        "video_audio_title": "Video + Audio",
-        "video_audio_msg": "You cannot add both video and audio"
+    "conference": {
+        "live_label": "LIVE",
+        "join_btn": "Join Conference",
+        "join_video_btn": "Join Video Conference",
+        "start_audio_btn": "Start Audio Conference",
+        "start_video_btn": "Start Video Conference",
+        "group_fallback": "Study Group"
     }
-},
-"admin_panel": {
-    "filter_all": "All"
-},
-"conference": {
-    "live_label": "LIVE",
-    "join_btn": "Join Conference",
-    "join_video_btn": "Join Video Conference",
-    "start_audio_btn": "Start Audio Conference",
-    "start_video_btn": "Start Video Conference",
-    "group_fallback": "Study Group"
-}
 }

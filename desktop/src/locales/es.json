@@ -2222,8 +2222,13 @@
     "start_video_btn": "Iniciar Conferencia de Vídeo",
     "group_fallback": "Grupo de Estudio"
   },
-  "call": {
-    "talking": "Hablando...",
+    "call": {
+        "waiting_admission": "Esperando admisión...",
+        "waiting": "Esperando...",
+        "active_session": "Sesión de {{type}} activa",
+        "video": "vídeo",
+        "audio": "audio",
+        "talking": "Hablando...",
     "stream_volume": "Volumen de la transmisión",
     "you": "Tú",
     "duration": "Duración",

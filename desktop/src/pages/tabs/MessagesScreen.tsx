@@ -14,6 +14,7 @@ import { DMConversation, GroupConversation, User } from '@/types';
 import { NotificationBell } from '@/components/NotificationBell';
 import { NewGroupModal } from '@/components/dm/NewGroupModal';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '@/components/common/Avatar';
 
 function timeLabel(iso: string, t: any): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -178,9 +179,42 @@ export default function MessagesScreen() {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 60 }}><div style={{ width: 32, height: 32, border: `3px solid ${colors.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>
-          ) : filtered.length === 0 && filteredFriends.length === 0 ? (
-            <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, opacity: 0.5, marginTop: 40 }}>
-              <MessageSquare size={48} strokeWidth={1.5} /><ThemedText style={{ fontSize: 16, fontWeight: 'bold' }}>{t('messages.no_chats')}</ThemedText>
+          ) : filtered.length === 0 && !search ? (
+            <div style={{ padding: spacing.lg, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, marginTop: 80 }}>
+              <div style={{ 
+                width: 100, height: 100, borderRadius: 30, backgroundColor: `${colors.primary}10`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary,
+                marginBottom: 8
+              }}>
+                <MessageSquare size={48} strokeWidth={1.5} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <ThemedText style={{ fontSize: 20, fontWeight: '800', display: 'block', marginBottom: 8 }}>{t('messages.no_chats')}</ThemedText>
+                <ThemedText style={{ fontSize: 14, opacity: 0.6, display: 'block', maxWidth: 280, margin: '0 auto' }}>
+                  {t('messages.no_chats_desc') || 'Parece que aún no tienes conversaciones. ¡Empieza una nueva ahora!'}
+                </ThemedText>
+              </div>
+              <button 
+                onClick={() => setShowNewDMModal(true)}
+                style={{ 
+                  padding: '14px 32px', borderRadius: 16, backgroundColor: colors.primary,
+                  color: '#fff', border: 'none', fontSize: 16, fontWeight: '700',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                  boxShadow: `0 8px 20px ${colors.primary}40`, transition: 'all 0.2s',
+                  marginTop: 8
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = `0 12px 24px ${colors.primary}60`;
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = `0 8px 20px ${colors.primary}40`;
+                }}
+              >
+                <Plus size={20} strokeWidth={3} />
+                <span>{t('messages.start_conv') || 'Iniciar conversación'}</span>
+              </button>
             </div>
           ) : (
             <>
@@ -199,16 +233,21 @@ export default function MessagesScreen() {
                     onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <div style={{ position: 'relative', flexShrink: 0 }}>
-                      {conv.participantPhoto ? (
-                        <img src={conv.participantPhoto} alt="" style={{ width: 52, height: 52, borderRadius: isGroup ? 16 : 26, objectFit: 'cover' }} />
+                      {conv.participantPhoto || !isGroup ? (
+                        <Avatar 
+                          src={conv.participantPhoto} 
+                          name={conv.participantName} 
+                          size={52} 
+                          style={{ borderRadius: isGroup ? 16 : 26 }}
+                        />
                       ) : (
                         <div style={{ 
-                          width: 52, height: 52, borderRadius: isGroup ? 16 : 26, 
-                          backgroundColor: isGroup ? `${colors.primary}12` : `${colors.primary}22`, 
+                          width: 52, height: 52, borderRadius: 16, 
+                          backgroundColor: `${colors.primary}12`, 
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: isGroup ? `1px dashed ${colors.primary}40` : 'none'
+                          border: `1px dashed ${colors.primary}40`
                         }}>
-                          {isGroup ? <UsersIcon size={24} color={colors.primary} opacity={0.6} /> : <span style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18 }}>{initials}</span>}
+                          <UsersIcon size={24} color={colors.primary} opacity={0.6} />
                         </div>
                       )}
                       {conv.isBestFriend && <div style={{ position: 'absolute', bottom: -2, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF2D55', border: `2px solid ${colors.background}`, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</div>}
@@ -285,7 +324,7 @@ export default function MessagesScreen() {
               })}
               {search && filteredFriends.map(f => (
                 <div key={f.uid} onClick={() => navigate(`/dm/${f.uid}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer', opacity: 0.8 }} onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.backgroundSecondary} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                  <div style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: `${colors.primary}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18 }}>{f.displayName[0]}</span></div>
+                  <Avatar src={f.photoURL} name={f.displayName} size={52} />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <ThemedText style={{ fontWeight: '700', fontSize: 15 }}>{f.displayName}</ThemedText>

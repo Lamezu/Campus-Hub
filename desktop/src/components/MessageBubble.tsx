@@ -7,6 +7,7 @@ import { useTranslation } from '@/contexts/LanguageContext';
 import { downloadAndOpenFile } from '@/utils/fileDownload';
 import { ThemedText } from './themed-text';
 import { toggleSaveMessage, isMessageSaved } from '@/services/savedItemsService';
+import { Avatar } from './common/Avatar';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
@@ -310,23 +311,7 @@ function AudioBubble({ url, duration, textColor, senderPhoto, senderName, t }: a
         </div>
 
         {/* Sender Mini-Avatar (Telegram style) */}
-        <div style={{ 
-          width: 34, 
-          height: 34, 
-          borderRadius: 12, 
-          backgroundColor: `${textColor}10`, 
-          overflow: 'hidden',
-          border: `1px solid ${textColor}22`,
-          flexShrink: 0
-        }}>
-          {senderPhoto ? (
-            <img src={senderPhoto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-          ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: textColor, fontSize: 11, fontWeight: 'bold' }}>
-              {senderName?.[0]}
-            </div>
-          )}
-        </div>
+          <Avatar src={senderPhoto} name={senderName} size={34} style={{ borderRadius: 12 }} />
       </div>
 
       {/* Time and Stats */}
@@ -397,13 +382,7 @@ function PostAttachmentBubble({ attachment, isOwnMessage, textColor, t }: { atta
       )}
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          {attachment.postAuthorPhoto ? (
-            <img src={attachment.postAuthorPhoto} style={{ width: 24, height: 24, borderRadius: 12 }} />
-          ) : (
-            <div style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>
-              {attachment.postAuthorName?.[0]?.toUpperCase()}
-            </div>
-          )}
+          <Avatar src={attachment.postAuthorPhoto} name={attachment.postAuthorName} size={24} />
           <ThemedText style={{ fontSize: 12, fontWeight: '700', color: textColor }}>{attachment.postAuthorName}</ThemedText>
         </div>
         <ThemedText style={{ fontSize: 14, fontWeight: '800', display: 'block', marginBottom: 4, color: textColor }} numberOfLines={1}>
@@ -456,15 +435,7 @@ const ContactCardBubble = ({ card, colors, textColor, onClick, t }: { card: any;
       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}20`}
       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.primary}10`}
     >
-      <div style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: colors.backgroundSecondary, flexShrink: 0 }}>
-        {card?.photo ? (
-          <img src={card.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{(card?.name?.[0] || '?').toUpperCase()}</span>
-          </div>
-        )}
-      </div>
+        <Avatar src={card?.photo} name={card?.name || 'Usuario'} size={44} />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <ThemedText style={{ fontWeight: 800, fontSize: 15, display: 'block', color: textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card?.name || 'Usuario'}</ThemedText>
         <div style={{ padding: '2px 6px', borderRadius: 6, backgroundColor: `${roleBadgeColor(card?.role)}22`, color: roleBadgeColor(card?.role), fontSize: 10, fontWeight: 700, display: 'inline-block', marginTop: 2 }}>
@@ -546,13 +517,7 @@ export function MessageBubble({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '85%', flexDirection: isOwnMessage ? 'row-reverse' : 'row' }}>
         {!isOwnMessage && isGroup && (
           <div style={{ flexShrink: 0, marginBottom: 2 }}>
-            {message.senderPhoto ? (
-              <img src={message.senderPhoto} alt="" style={{ width: 28, height: 28, borderRadius: 10, objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: `${colors.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: colors.primary, fontSize: 12, fontWeight: 'bold' }}>{message.senderName[0]}</span>
-              </div>
-            )}
+            <Avatar src={message.senderPhoto} name={message.senderName} size={28} style={{ borderRadius: 10 }} />
           </div>
         )}
         <div

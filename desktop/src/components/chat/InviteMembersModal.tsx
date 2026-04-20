@@ -6,6 +6,7 @@ import { collection, getDocs, query, orderBy, doc, updateDoc, arrayUnion, where 
 import { db, auth } from '@/config/firebase';
 import type { User } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '../common/Avatar';
 
 interface InviteMembersModalProps {
   isOpen: boolean;
@@ -108,9 +109,11 @@ export function InviteMembersModal({ isOpen, onClose, channelId, currentMemberId
             const isSelected = invitedUsers.includes(user.uid);
             return (
               <div key={user.uid} onClick={() => toggleInvite(user.uid)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 12px', borderRadius: 16, cursor: 'pointer', backgroundColor: isSelected ? colors.primary + '10' : 'transparent', transition: 'all 0.2s' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundSecondary, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {user.photoURL ? <img src={user.photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <ThemedText style={{ fontWeight: 'bold' }}>{user.displayName[0]}</ThemedText>}
-                </div>
+                <Avatar 
+                  src={user.photoURL} 
+                  name={user.displayName} 
+                  size={44} 
+                />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <ThemedText style={{ fontSize: 15, fontWeight: '700' }}>{user.displayName}</ThemedText>
                   <ThemedText style={{ fontSize: 12, opacity: 0.6 }}>{user.bio || t('chat.no_bio')}</ThemedText>

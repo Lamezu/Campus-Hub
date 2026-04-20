@@ -14,6 +14,7 @@ import { spacing } from '@/constants/styles';
 import { auth, db } from '@/config/firebase';
 import { collection, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import type { User, MutualGroup, MuteDuration, SaveToPhotosPreference, SharedMedia, DMConversation } from '@/types';
+import { Avatar } from '@/components/common/Avatar';
 import * as contactService from '@/services/contactSettingsService';
 import { subscribeToConversations, getOrCreateConversation } from '@/services/dmService';
 import { MOCK_CHANNELS as CHANNELS } from '@/constants/mockData';
@@ -217,14 +218,13 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }} className="custom-scrollbar">
               {viewType === 'support' || user.displayName?.toLowerCase().includes('ayuda') ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16 }}>
-                  <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: `4px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, marginBottom: 20 }}>
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{user.displayName[0]}</ThemedText>
-                      </div>
-                    )}
+                  <div style={{ width: 110, height: 110, borderRadius: '50%', marginBottom: 20 }}>
+                    <Avatar 
+                      src={user.photoURL} 
+                      name={user.displayName} 
+                      size={110} 
+                      style={{ border: `4px solid ${colors.border}` }} 
+                    />
                   </div>
                   <ThemedText style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, textAlign: 'center' }}>{user.displayName}</ThemedText>
                   <ThemedText style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: '1.5', padding: '0 8px' }}>{user.bio || t('contact_info.bio_default')}</ThemedText>
@@ -232,8 +232,13 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
               ) : (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
-                    <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', marginBottom: 16, border: `4px solid ${colors.border}` }}>
-                      {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{user.displayName[0]}</ThemedText></div>}
+                    <div style={{ width: 110, height: 110, borderRadius: '50%', marginBottom: 16 }}>
+                      <Avatar 
+                        src={user.photoURL} 
+                        name={user.displayName} 
+                        size={110} 
+                        style={{ border: `4px solid ${colors.border}` }} 
+                      />
                     </div>
                     <ThemedText style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{user.displayName}</ThemedText>
                     <div style={{ padding: '4px 12px', borderRadius: 20, backgroundColor: `${roleBadgeColor(user.role)}22`, color: roleBadgeColor(user.role), fontSize: 12, fontWeight: 700, marginBottom: 12 }}>{roleLabel(user.role, t)}</div>
@@ -285,7 +290,12 @@ export function ContactInfoModal({ isOpen, onClose, user, viewType }: ContactInf
                             const prefix = group.type === 'studyGroup' ? 'sg_' : '';
                             navigate(`/chat/${prefix}${group.id}`);
                           }}>
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ThemedText style={{ fontWeight: 800, color: colors.textSecondary }}>{group.name[0].toUpperCase()}</ThemedText></div>
+                            <Avatar 
+                              src={null} 
+                              name={group.name} 
+                              size={36} 
+                              style={{ borderRadius: '50%' }} 
+                            />
                             <div style={{ flex: 1 }}>
                               <ThemedText style={{ fontWeight: 700, fontSize: 15 }}>{group.name}</ThemedText>
                               <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block' }}>{t('chat_ui.members_count', { count: group.memberCount })} • {group.memberPreview}</ThemedText>
@@ -775,9 +785,11 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
       <div style={{ padding: '12px 20px', borderBottom: `1px solid ${colors.border}` }}>
         <ThemedText style={{ fontSize: 12, color: colors.textSecondary, display: 'block', marginBottom: 4 }}>{t('forward.preview_label')}</ThemedText>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>{user.displayName[0]}</ThemedText>}
-          </div>
+          <Avatar 
+            src={user.photoURL} 
+            name={user.displayName} 
+            size={32} 
+          />
           <ThemedText style={{ fontSize: 16, fontWeight: 800 }}>{user.displayName}</ThemedText>
         </div>
       </div>
@@ -808,8 +820,18 @@ function ShareContactModal({ user, onBack }: { user: User, onBack: () => void })
           const desc = activeTab === 'channels' ? item.description : (item.participantRole === 'teacher' ? t('forward.roles.teacher') : t('forward.roles.student'));
           return (
             <div key={id} onClick={() => toggleSelect(id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}>
-              <div style={{ width: 44, height: 44, borderRadius: activeTab === 'channels' ? 12 : 22, backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {activeTab === 'channels' ? <Hash size={20} color={colors.primary} /> : (photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ThemedText style={{ fontWeight: 'bold' }}>{name[0]}</ThemedText>)}
+              <div style={{ width: 44, height: 44, borderRadius: activeTab === 'channels' ? 12 : 22, overflow: 'hidden' }}>
+                {activeTab === 'channels' ? (
+                  <div style={{ width: '100%', height: '100%', backgroundColor: colors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Hash size={20} color={colors.primary} />
+                  </div>
+                ) : (
+                  <Avatar 
+                    src={photo} 
+                    name={name} 
+                    size={44} 
+                  />
+                )}
               </div>
               <div style={{ flex: 1 }}>
                 <ThemedText style={{ fontWeight: 700 }}>{name}</ThemedText>

@@ -74,19 +74,30 @@ export default function LoginScreen() {
       }
       const userRef = doc(db, 'users', user.uid);
       const existing = await getDoc(userRef);
+      
+      const nameFromEmail = user.email ? user.email.split('@')[0] : '';
+      const displayName = user.displayName || nameFromEmail || t('common.user');
+      const photoURL = user.photoURL || null;
+
       if (!existing.exists()) {
         await setDoc(userRef, {
-          uid: user.uid, email: user.email,
-          displayName: user.displayName || t('common.user'),
-          photoURL: user.photoURL || null,
-          role: 'alumno', provider: 'Google',
+          uid: user.uid, 
+          email: user.email,
+          displayName,
+          photoURL,
+          role: 'student', 
+          provider: 'Google',
           emailVerified: user.emailVerified,
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
       } else {
-        await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+        await setDoc(userRef, { 
+          lastLogin: serverTimestamp(),
+          photoURL: photoURL || existing.data()?.photoURL || null,
+          displayName: user.displayName || existing.data()?.displayName || displayName
+        }, { merge: true });
       }
       navigate('/tabs/home', { replace: true });
     } catch (err: any) {

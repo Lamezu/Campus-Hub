@@ -11,6 +11,7 @@ import { ChevronLeft, Camera, Globe, Users, LogOut, Check, Trash2 } from 'lucide
 import { AlertModal } from '@/components/AlertModal';
 import { uploadProfilePhoto } from '@/config/cloudinary';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '@/components/common/Avatar';
 
 export default function EditProfileScreen() {
     const { colors } = useTheme();
@@ -103,6 +104,7 @@ export default function EditProfileScreen() {
         }
     };
 
+
     if (loading) {
         return (
             <ThemedView style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -158,11 +160,11 @@ export default function EditProfileScreen() {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)', position: 'relative'
                         }}
                     >
-                        {photoURL ? (
-                            <img src={photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={t('common.avatar')} />
-                        ) : (
-                            <Camera size={32} color={colors.primary} />
-                        )}
+                        <Avatar 
+                            src={photoURL} 
+                            name={displayName} 
+                            size={120} 
+                        />
                         <div
                             style={{
                                 position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)',
@@ -179,6 +181,7 @@ export default function EditProfileScreen() {
                     <ThemedText style={{ fontSize: 14, fontWeight: '600', marginTop: spacing.sm, opacity: 0.7 }}>
                         {t('profile.change_photo')}
                     </ThemedText>
+                    
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginBottom: spacing.xl }}>

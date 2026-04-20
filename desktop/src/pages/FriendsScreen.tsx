@@ -7,12 +7,22 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { auth, db } from '@/config/firebase';
 import { collection, query, getDocs, limit } from 'firebase/firestore';
-import { subscribeToFriends, subscribeToBestFriends, toggleBestFriend, sendFriendRequest, removeFriend, cleanupAllFriendRequests } from '@/services/friendsService';
+import { 
+  subscribeToFriends, 
+  subscribeToBestFriends, 
+  toggleBestFriend, 
+  sendFriendRequest, 
+  removeFriend, 
+  cleanupAllFriendRequests,
+  subscribeToReceivedRequests,
+  acceptFriendRequest,
+  rejectFriendRequest
+} from '@/services/friendsService';
 import { spacing } from '@/constants/styles';
 import { AlertModal } from '@/components/AlertModal';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { User } from '@/types';
-type TabType = 'all' | 'best' | 'add';
+type TabType = 'all' | 'best' | 'add' | 'requests';
 type RoleFilter = 'all' | 'admin' | 'teacher' | 'student';
 export default function FriendsScreen() {
   const { colors } = useTheme();
@@ -30,6 +40,8 @@ export default function FriendsScreen() {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<User | null>(null);
   const [removing, setRemoving] = useState(false);
   const currentUser = auth.currentUser;
+  const [receivedRequests, setReceivedRequests] = useState<any[]>([]);
+
   useEffect(() => {
     if (!currentUser) return;
     const unsubAll = subscribeToFriends(currentUser.uid, (friends) => {
@@ -39,7 +51,10 @@ export default function FriendsScreen() {
     const unsubBest = subscribeToBestFriends(currentUser.uid, (friends) => {
       setBestFriends(friends);
     });
-    return () => { unsubAll(); unsubBest(); };
+    const unsubReqs = subscribeToReceivedRequests(currentUser.uid, (reqs: any[]) => {
+      setReceivedRequests(reqs);
+    });
+    return () => { unsubAll(); unsubBest(); unsubReqs(); };
   }, [currentUser]);
   const handleGlobalSearch = async () => {
     if (!currentUser) return;
@@ -141,12 +156,13 @@ export default function FriendsScreen() {
             {[
               { id: 'all', label: t('friends_screen.tabs.all'), icon: <Users size={18} /> },
               { id: 'best', label: t('friends_screen.tabs.best'), icon: <Star size={18} /> },
-              { id: 'add', label: t('friends_screen.tabs.add'), icon: <UserPlus size={18} /> }
+              { id: 'requests', label: t('friends_screen.tabs.requests', 'Solicitudes'), icon: <UserPlus size={18} />, badge: true },
+              { id: 'add', label: t('friends_screen.tabs.add'), icon: <Search size={18} /> }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => {
-                  setActiveTab(tab.id as TabType);
+                  setActiveTab(tab.id as any);
                   setSearch('');
                   setSearchResults([]);
                 }}
@@ -156,13 +172,19 @@ export default function FriendsScreen() {
                   backgroundColor: activeTab === tab.id ? colors.card : 'transparent',
                   boxShadow: activeTab === tab.id ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                   transition: 'all 0.2s',
-                  color: activeTab === tab.id ? (tab.id === 'best' ? colors.warning : colors.primary) : colors.textSecondary
+                  color: activeTab === tab.id ? (tab.id === 'best' ? colors.warning : colors.primary) : colors.textSecondary,
+                  position: 'relative'
                 }}
               >
                 {React.cloneElement(tab.icon as React.ReactElement, { color: 'currentColor' })}
                 <span style={{ fontSize: 13, fontWeight: '700', color: activeTab === tab.id ? colors.text : 'inherit' }}>
                   {tab.label}
                 </span>
+                {tab.badge && receivedRequests.filter(req => !allFriends.some(f => f.uid === req.fromUserId)).length > 0 && (
+                  <div style={{ position: 'absolute', top: -4, right: -4, backgroundColor: colors.danger, color: '#fff', fontSize: 10, fontWeight: 800, minWidth: 18, height: 18, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: `2px solid ${colors.background}` }}>
+                    {receivedRequests.filter(req => !allFriends.some(f => f.uid === req.fromUserId)).length}
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -204,7 +226,59 @@ export default function FriendsScreen() {
           )}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: `0 ${spacing.lg}px ${spacing.lg}px` }}>
-          {activeTab === 'add' ? (
+          {activeTab === 'requests' ? (
+            <div style={{ marginTop: spacing.sm }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
+                <UserPlus size={14} color={colors.primary} />
+                <ThemedText style={{ fontSize: 13, fontWeight: 'bold', color: colors.primary }}>
+                  {t('friends_screen.status.pending_requests', 'Solicitudes pendientes')}
+                </ThemedText>
+              </div>
+              {receivedRequests
+                .filter(req => !allFriends.some(f => f.uid === req.fromUserId))
+                .length === 0 && (
+                <div style={{ textAlign: 'center', padding: spacing.xl, opacity: 0.5 }}>
+                  <ThemedText style={{ fontSize: 14 }}>{t('friends_screen.status.no_requests', 'No tienes solicitudes pendientes')}</ThemedText>
+                </div>
+              )}
+              {receivedRequests
+                .filter(req => !allFriends.some(f => f.uid === req.fromUserId))
+                .map(req => (
+                <div key={req.id} style={{
+                  display: 'flex', alignItems: 'center', padding: spacing.md, borderRadius: 20,
+                  backgroundColor: colors.card, marginBottom: 12, border: `1px solid ${colors.border}`,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: `${colors.primary}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: spacing.md, flexShrink: 0 }}>
+                    {req.fromUserPhoto ? <img src={req.fromUserPhoto} alt="" style={{ width: 44, height: 44, borderRadius: 22, objectFit: 'cover' }} /> : <span style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>{req.fromUserName?.[0]}</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <ThemedText style={{ fontSize: 15, fontWeight: '700', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.fromUserName}</ThemedText>
+                    <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>{t('friends_screen.labels.sent_request', 'Te envió una solicitud')}</ThemedText>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={async () => {
+                        await rejectFriendRequest(req.id);
+                      }}
+                      style={{ padding: '8px 16px', borderRadius: 10, backgroundColor: colors.backgroundSecondary, color: colors.text, border: 'none', fontSize: 13, fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      {t('common.reject', 'Rechazar')}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await acceptFriendRequest(req.id);
+                        showAlert({ title: t('friends_screen.alerts.accepted_title', 'Amistad aceptada'), message: t('friends_screen.alerts.accepted_msg', { name: req.fromUserName }), type: 'success' });
+                      }}
+                      style={{ padding: '8px 16px', borderRadius: 10, backgroundColor: colors.primary, color: '#fff', border: 'none', fontSize: 13, fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      {t('common.accept', 'Aceptar')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : activeTab === 'add' ? (
             <div style={{ marginTop: spacing.sm }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
                 <Filter size={14} color={colors.primary} />

@@ -11,6 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { ManageUsersModal } from '@/components/admin/ManageUsersModal';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '@/components/common/Avatar';
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
@@ -110,10 +111,11 @@ export default function ProfileScreen() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             marginBottom: spacing.lg, overflow: 'hidden',
           }}>
-            {userData?.photoURL
-              ? <img src={userData.photoURL} alt={t('common.avatar')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <ThemedText style={{ fontSize: 40, fontWeight: 'bold' }}>{initial}</ThemedText>
-            }
+            <Avatar 
+              src={userData?.photoURL} 
+              name={displayName} 
+              size={120} 
+            />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
             <ThemedText style={{ fontSize: typography.sizes.xl, fontWeight: 'bold' }}>{displayName}</ThemedText>

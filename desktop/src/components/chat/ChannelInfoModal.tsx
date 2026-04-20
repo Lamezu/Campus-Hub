@@ -227,17 +227,16 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }} className="custom-scrollbar">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
             <div style={{ position: 'relative', marginBottom: 16, cursor: 'pointer' }} onClick={handlePhotoClick}>
-              <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: `4px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary, position: 'relative' }}>
-                {uploadingPhoto ? (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2 }}>
+              <div style={{ width: 110, height: 110, borderRadius: '50%', position: 'relative' }}>
+                <Avatar 
+                  src={channelData?.photoURL} 
+                  name={channelName} 
+                  size={110} 
+                  style={{ border: `4px solid ${colors.border}` }} 
+                />
+                {uploadingPhoto && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2, borderRadius: '50%' }}>
                     <Loader2 size={32} className="animate-spin" color="#fff" />
-                  </div>
-                ) : null}
-                {channelData?.photoURL ? (
-                  <img src={channelData.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <ThemedText style={{ fontSize: 40, fontWeight: 'bold', color: '#fff' }}>{channelName[0]}</ThemedText>
                   </div>
                 )}
               </div>
@@ -324,9 +323,11 @@ export function ChannelInfoModal({ isOpen, onClose, channelId, channelName }: Ch
                   {filteredMembers.map((member, i) => (
                     <div key={member.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.backgroundSecondary, overflow: 'hidden' }}>
-                          {member.photoURL ? <img src={member.photoURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10' }}><ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{member.displayName[0]}</ThemedText></div>}
-                        </div>
+                        <Avatar 
+                          src={member.photoURL} 
+                          name={member.displayName} 
+                          size={40} 
+                        />
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <ThemedText style={{ fontSize: 14, fontWeight: 700, display: 'block' }}>{member.displayName}{member.uid === auth.currentUser?.uid && ` (${t('chat.info.you')})`}</ThemedText>
                           <ThemedText style={{ fontSize: 12, opacity: 0.6, marginTop: 2, display: 'block' }}>{member.bio || t('chat.no_bio')}</ThemedText>

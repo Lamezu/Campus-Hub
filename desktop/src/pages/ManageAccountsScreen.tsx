@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAccounts, type StoredAccount } from '@/contexts/AccountsContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '@/components/common/Avatar';
 
 export default function ManageAccountsScreen() {
   const { colors } = useTheme();
@@ -98,17 +99,12 @@ export default function ManageAccountsScreen() {
                   }
                 }}
               >
-                <div style={{
-                  width: 60, height: 60, borderRadius: 20,
-                  backgroundColor: colors.backgroundSecondary, overflow: 'hidden',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  {account.photoURL ? (
-                    <img src={account.photoURL} alt={account.displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <UserIcon size={32} color={colors.textSecondary} />
-                  )}
-                </div>
+                  <Avatar 
+                    src={account.photoURL} 
+                    name={account.displayName} 
+                    size={60} 
+                    style={{ borderRadius: 20 }}
+                  />
 
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{account.displayName}</div>

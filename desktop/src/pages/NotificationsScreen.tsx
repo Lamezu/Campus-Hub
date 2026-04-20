@@ -355,7 +355,9 @@ export default function NotificationsScreen() {
       const { getFriendRequest } = await import('@/services/friendsService');
       const req = await getFriendRequest(fromUserId, meId);
       if (req) await acceptFriendRequest(req.id);
-    } catch (e) { }
+    } catch (e) {
+      console.error('Error accepting friend request:', e);
+    }
   }, [friendRequestItem]);
 
   const handleRejectRequest = useCallback(async () => {

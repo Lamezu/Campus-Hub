@@ -10,6 +10,7 @@ import { ThemedText } from '../themed-text';
 import { spacing } from '@/constants/styles';
 import type { User, UserRole } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { Avatar } from '../common/Avatar';
 
 interface NewGroupModalProps {
   isOpen: boolean;
@@ -166,25 +167,20 @@ export function NewGroupModal({
           {/* Group Info Section */}
           {mode === 'create' && (
             <div style={{ padding: '24px 28px', display: 'flex', gap: 20, borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.backgroundSecondary + '40' }}>
-              <div style={{ position: 'relative' }}>
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{ 
-                    width: 80, height: 80, borderRadius: 24, backgroundColor: colors.backgroundSecondary,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                    overflow: 'hidden', border: `2px dashed ${colors.border}`, transition: 'all 0.2s'
-                  }}
-                >
-                  {uploadingPhoto ? (
-                    <Loader2 size={24} className="animate-spin" color={colors.primary} />
-                  ) : groupPhoto ? (
-                    <img src={groupPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <Camera size={28} color={colors.textSecondary} />
+                <div style={{ width: 80, height: 80, borderRadius: 24, position: 'relative', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
+                  <Avatar 
+                    src={groupPhoto} 
+                    name={groupName} 
+                    size={80} 
+                    style={{ borderRadius: 24, border: `2px dashed ${colors.border}` }}
+                    fallbackIcon={Camera}
+                  />
+                  {uploadingPhoto && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2, borderRadius: 24 }}>
+                      <Loader2 size={24} className="animate-spin" color="#fff" />
+                    </div>
                   )}
                 </div>
-                <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
-              </div>
               <div style={{ flex: 1 }}>
                 <input 
                   value={groupName}
@@ -269,15 +265,12 @@ export function NewGroupModal({
                       backgroundColor: isSelected ? `${colors.primary}08` : 'transparent'
                     }}
                   >
-                    <div style={{ width: 44, height: 44, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.backgroundSecondary, flexShrink: 0 }}>
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '20' }}>
-                          <ThemedText style={{ color: colors.primary, fontWeight: 'bold' }}>{user.displayName?.[0]}</ThemedText>
-                        </div>
-                      )}
-                    </div>
+                    <Avatar 
+                      src={user.photoURL} 
+                      name={user.displayName} 
+                      size={44} 
+                      style={{ borderRadius: 16 }} 
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <ThemedText style={{ fontWeight: '700', fontSize: 15, display: 'block' }}>{user.displayName}</ThemedText>
                       <ThemedText style={{ fontSize: 12, opacity: 0.6, textTransform: 'capitalize' }}>

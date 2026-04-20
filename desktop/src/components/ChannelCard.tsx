@@ -13,6 +13,7 @@ import { spacing, typography } from '@/constants/styles';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { Channel } from '@/types';
+import { Avatar } from './common/Avatar';
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
   'messages-square': MessagesSquare,
@@ -82,11 +83,14 @@ export function ChannelCard({ channel, onPress, accentColor }: ChannelCardProps)
           overflow: 'hidden'
         }}
       >
-        {channel.photoURL ? (
-          <img src={channel.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <Icon size={24} color={accentColor || colors.primary} strokeWidth={1.8} />
-        )}
+        <Avatar 
+          src={channel.photoURL} 
+          name={name} 
+          size={56} 
+          style={{ borderRadius: 18 }}
+          fallbackIcon={Icon}
+          accentColor={accentColor}
+        />
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>

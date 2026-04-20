@@ -5,8 +5,10 @@ const translations: any = { es, en };
 let currentLanguage = localStorage.getItem('app_language') || 'es';
 
 export const t = (path: string, options?: any): string => {
+    // Debug: console.log('Translating:', path, 'Lang:', currentLanguage, 'Translations Loaded:', !!translations[currentLanguage]);
     const keys = path.split('.');
     let result: any = translations[currentLanguage];
+    if (result && result.default) result = result.default;
 
     if (options && typeof options.count === 'number') {
         const count = options.count;
@@ -47,6 +49,7 @@ export const t = (path: string, options?: any): string => {
         }
 
         let fallback: any = translations['es'];
+        if (fallback && fallback.default) fallback = fallback.default;
         for (const fkey of keys) {
             if (fallback && fallback[fkey] !== undefined) {
                 fallback = fallback[fkey];
