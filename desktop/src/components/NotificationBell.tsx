@@ -9,10 +9,11 @@ import type { NotificationCategory } from '@/types';
 interface NotificationBellProps {
   category?: NotificationCategory;
   categories?: NotificationCategory[];
+  section?: string;
   size?: number;
 }
 
-export function NotificationBell({ category, categories, size = 22 }: NotificationBellProps) {
+export function NotificationBell({ category, categories, section, size = 22 }: NotificationBellProps) {
   const { colors } = useTheme();
   const navigate = useNavigate();
   const [count, setCount] = useState(0);
@@ -34,13 +35,13 @@ export function NotificationBell({ category, categories, size = 22 }: Notificati
 
   const handlePress = (e: React.MouseEvent) => {
     e.stopPropagation();
-    let params = '';
-    if (categories) {
-      params = `?categories=${categories.join(',')}`;
-    } else if (category) {
-      params = `?category=${category}`;
-    }
-    navigate(`/notifications${params}`);
+    const params = new URLSearchParams();
+    if (section) params.set('section', section);
+    if (categories) params.set('categories', categories.join(','));
+    else if (category) params.set('category', category);
+    
+    const query = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/notifications${query}`);
   };
 
   return (

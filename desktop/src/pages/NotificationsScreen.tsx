@@ -29,18 +29,20 @@ function timeAgo(date: any, t: any): string {
 }
 
 function getGroupKey(n: NotificationItem): string {
-  if (n.meta?.channelId) return n.meta.channelId;
-  if (n.meta?.participantId) return n.meta.participantId;
-  if (n.meta?.groupId) return n.meta.groupId;
-  if (n.meta?.postId) return n.meta.postId;
+  if (n.meta?.channelId) return `channel_${n.meta.channelId}`;
+  if (n.meta?.participantId) return `dm_${n.meta.participantId}`;
+  if (n.meta?.groupId) return `group_${n.meta.groupId}`;
+  if (n.meta?.postId) return `post_${n.meta.postId}`;
+  if (n.category === 'friend' && n.meta?.isRequest === 'true') return 'friend_requests';
   return n.category;
 }
 
-function getGroupLabel(n: NotificationItem): string {
+function getGroupLabel(n: NotificationItem, t: any): string {
   if (n.meta?.channelName) return n.meta.channelName;
   if (n.meta?.participantName) return n.meta.participantName;
   if (n.meta?.groupName) return n.meta.groupName;
-  return n.title;
+  if (n.category === 'friend' && n.meta?.isRequest === 'true') return t('notifications_screen.friends.new_requests', 'Solicitudes de amistad');
+  return n.titleKey ? t(n.titleKey, n.meta) : n.title;
 }
 
 type Section = {
@@ -48,8 +50,9 @@ type Section = {
   title: string;
   icon: React.ReactNode;
   iconBg: string;
-  categories: NotificationCategory[];
+  categories: string[];
   subGroups?: boolean;
+  containers?: { id: string; title: string; categories: string[] }[];
 };
 
 function GroupRow({
@@ -239,44 +242,47 @@ export default function NotificationsScreen() {
 
   const SECTIONS: Section[] = useMemo(() => [
     {
-      id: 'canales',
-      title: t('notifications_screen.sections.canales'),
-      icon: <Hash size={22} color="#fff" />,
+      id: 'inicio',
+      title: t('notifications_screen.screens.inicio', 'Inicio'),
+      icon: <Bell size={22} color="#fff" />,
       iconBg: colors.primary,
-      categories: ['channel', 'general'],
-      subGroups: true,
+      categories: ['channel', 'general', 'group'],
+      containers: [
+        { id: 'canales', title: t('notifications_screen.groups.your_channels', 'Tus Canales'), categories: ['channel', 'general'] },
+        { id: 'grupos', title: t('notifications_screen.groups.your_groups', 'Tus Grupos'), categories: ['group'] }
+      ]
     },
     {
       id: 'campus',
-      title: t('notifications_screen.sections.campus'),
+      title: t('notifications_screen.screens.campus', 'Campus'),
       icon: <Megaphone size={22} color="#fff" />,
       iconBg: '#8B5CF6',
       categories: ['campus'],
       subGroups: true,
     },
     {
+      id: 'explorar',
+      title: t('notifications_screen.screens.explorar', 'Explorar'),
+      icon: <Hash size={22} color="#fff" />,
+      iconBg: '#EC4899',
+      categories: ['social'],
+      subGroups: true,
+    },
+    {
       id: 'mensajes',
-      title: t('notifications_screen.sections.mensajes'),
+      title: t('notifications_screen.screens.mensajes', 'Mensajes'),
       icon: <MessageSquare size={22} color="#fff" />,
       iconBg: '#10B981',
       categories: ['dm'],
       subGroups: true,
     },
     {
-      id: 'amigos',
-      title: t('notifications_screen.sections.amigos'),
+      id: 'perfil',
+      title: t('notifications_screen.screens.perfil', 'Perfil'),
       icon: <Users size={22} color="#fff" />,
       iconBg: '#F59E0B',
       categories: ['friend'],
       subGroups: false,
-    },
-    {
-      id: 'social',
-      title: t('notifications_screen.sections.social'),
-      icon: <Bell size={22} color="#fff" />,
-      iconBg: '#EC4899',
-      categories: ['social'],
-      subGroups: true,
     },
   ], [colors, t]);
 
@@ -298,7 +304,7 @@ export default function NotificationsScreen() {
     return Array.from(map.entries())
       .map(([key, items]) => ({
         key,
-        label: getGroupLabel(items[0]),
+        label: getGroupLabel(items[0], t),
         items: items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
         latestItem: items[0],
         unread: items.filter(i => !i.read).length,
@@ -314,7 +320,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     if (currentSection) {
-      currentSection.categories.forEach(cat => notificationService.markAllRead(cat));
+      currentSection.categories.forEach(cat => notificationService.markAllRead(cat as any));
     }
     if (categoryFilter) {
       notificationService.markAllRead(categoryFilter);
@@ -374,7 +380,7 @@ export default function NotificationsScreen() {
 
   const handleMarkAllRead = useCallback(() => {
     if (currentSection) {
-      currentSection.categories.forEach(cat => notificationService.markAllRead(cat));
+      currentSection.categories.forEach(cat => notificationService.markAllRead(cat as any));
     } else {
       notificationService.markAllRead();
     }
@@ -436,7 +442,64 @@ export default function NotificationsScreen() {
   const renderSection = () => {
     if (!currentSection) return null;
 
-    if (currentSection.id === 'amigos') {
+    if (currentSection.id === 'inicio' && currentSection.containers) {
+      return (
+        <div style={{ padding: '12px 16px' }}>
+          {currentSection.containers.map(container => {
+            const containerNotifs = sectionNotifs.filter(n => container.categories.includes(n.category as any));
+            if (containerNotifs.length === 0) return null;
+
+            const subGroups = new Map<string, NotificationItem[]>();
+            for (const n of containerNotifs) {
+              const key = getGroupKey(n);
+              if (!subGroups.has(key)) subGroups.set(key, []);
+              subGroups.get(key)!.push(n);
+            }
+
+            const groups = Array.from(subGroups.entries())
+              .map(([key, items]) => ({
+                key,
+                label: getGroupLabel(items[0], t),
+                items,
+                unread: items.filter(i => !i.read).length,
+                latest: items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+              }))
+              .sort((a, b) => new Date(b.latest.createdAt).getTime() - new Date(a.latest.createdAt).getTime());
+
+            return (
+              <div key={container.id} style={{ marginBottom: 24 }}>
+                <span style={{ 
+                  fontSize: 12, fontWeight: '800', color: colors.primary, 
+                  textTransform: 'uppercase', letterSpacing: '1px', 
+                  display: 'block', marginBottom: 12, paddingLeft: 4 
+                }}>
+                  {container.title}
+                </span>
+                {groups.map(group => (
+                  <GroupRow
+                    key={group.key}
+                    label={group.label}
+                    preview={group.latest.bodyKey ? t(group.latest.bodyKey, group.latest.meta) : group.latest.body}
+                    timeStr={timeAgo(group.latest.createdAt, t)}
+                    icon={getNotifIcon(group.latest, 22)}
+                    iconBg={getNotifIconBg(group.latest)}
+                    unread={group.unread}
+                    onClick={() => {
+                      if (group.items.length === 1) handlePress(group.items[0]);
+                      else navigate(`/notifications?section=inicio&group=${encodeURIComponent(group.key)}`);
+                    }}
+                    colors={colors}
+                  />
+                ))}
+              </div>
+            );
+          })}
+          {sectionNotifs.length === 0 && renderEmpty()}
+        </div>
+      );
+    }
+
+    if (currentSection.id === 'perfil') {
       const { requests, accepted } = friendSubSections;
       return (
         <div style={{ padding: '12px 16px' }}>
@@ -615,7 +678,7 @@ export default function NotificationsScreen() {
   const pageTitle = groupDetail
     ? (groupParam && CAMPUS_GROUP_TITLES[groupParam]
         ? CAMPUS_GROUP_TITLES[groupParam]
-        : groupDetail[0] ? getGroupLabel(groupDetail[0]) : t('notifications_screen.title'))
+        : groupDetail[0] ? getGroupLabel(groupDetail[0], t) : t('notifications_screen.title'))
     : currentSection
       ? currentSection.title
       : t('notifications_screen.title');

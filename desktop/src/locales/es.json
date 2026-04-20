@@ -60,6 +60,7 @@
     "leave": "Salir",
     "more": "Más",
     "all": "Todos",
+    "participants": "Participantes",
     "yesterday": "Ayer",
     "group": "Grupo",
     "departments": {
@@ -718,6 +719,64 @@
       "received": "Responder"
     }
   },
+  "friends_screen": {
+    "title": "Amigos",
+    "tabs": {
+      "all": "Todos",
+      "best": "Mejores",
+      "requests": "Solicitudes",
+      "add": "Añadir"
+    },
+    "search": {
+      "placeholder": "Buscar amigos...",
+      "add_placeholder": "Buscar por nombre o email..."
+    },
+    "roles": {
+      "all": "Todos",
+      "teacher": "Profesores",
+      "admin": "Admin",
+      "student": "Alumnos"
+    },
+    "status": {
+      "pending_requests": "Solicitudes pendientes",
+      "no_requests": "No tienes solicitudes pendientes",
+      "searching": "Buscando...",
+      "explore": "Descubrir",
+      "no_results": "Sin resultados",
+      "no_matches": "Sin coincidencias"
+    },
+    "labels": {
+      "sent_request": "Te envió una solicitud",
+      "teacher": "Profesor",
+      "admin": "Administrador",
+      "student": "Estudiante",
+      "friend": "Amigos"
+    },
+    "alerts": {
+      "accepted_title": "Amistad aceptada",
+      "accepted_msg": "Ahora eres amigo de {{name}}",
+      "remove_friend_title": "Eliminar Amigo",
+      "remove_friend_msg": "¿Estás seguro de que quieres eliminar a {{name}} de tu lista de amigos?",
+      "remove_success_title": "¡Éxito!",
+      "remove_success_msg": "Amigo eliminado correctamente",
+      "request_sent_title": "Solicitud enviada",
+      "request_sent_msg": "Solicitud enviada a {{name}}"
+    },
+    "buttons": {
+      "remove": "Eliminar",
+      "removing": "Eliminando..."
+    },
+    "errors": {
+      "generic": "Error",
+      "request_failed": "No se pudo enviar la solicitud",
+      "remove_failed": "No se pudo eliminar al amigo"
+    },
+    "empty": {
+      "no_friends": "No tienes amigos todavía",
+      "no_best": "No tienes mejores amigos",
+      "no_matches": "No se encontraron amigos con ese nombre"
+    }
+  },
   "saved": {
     "title": "Guardados",
     "tabs": {
@@ -1018,21 +1077,25 @@
       "stop_viewing": "Dejar de ver",
       "audio_devices": "Dispositivos de Audio",
       "video_devices": "Dispositivos de Vídeo",
+      "audio_input": "Micrófono",
+      "audio_output": "Altavoces",
       "unknown_device": "Dispositivo desconocido",
       "admission_request": "Solicitud de admisión",
       "admit": "Aceptar",
       "reject": "Rechazar",
-      "waiting_admission": "Esperando admisión",
+      "waiting_admission": "Personas esperando",
       "waiting_approval": "Esperando aprobación",
       "incoming_call": "Llamada entrante",
       "incoming_call_desc": "Llamada entrante...",
+      "incoming_conference": "Videoconferencia entrante",
       "ringing": "Llamando...",
       "you": "Tú",
       "your_screen": "Tu pantalla",
       "user_screen": "Pantalla de {{name}}",
       "video_on": "Activar cámara",
       "video_off": "Cámara desactivada",
-      "listen": "Escuchar"
+      "listen": "Escuchar",
+      "member": "Miembro"
     },
     "group": {
       "leave_group": "Salir del grupo",
@@ -1769,12 +1832,16 @@
   },
   "notifications_screen": {
     "title": "Notificaciones",
-    "sections": {
-      "canales": "Canales",
+    "screens": {
+      "inicio": "Inicio",
       "campus": "Campus",
+      "explorar": "Explorar",
       "mensajes": "Mensajes",
-      "amigos": "Amigos",
-      "social": "Social"
+      "perfil": "Perfil"
+    },
+    "groups": {
+      "your_channels": "Tus Canales",
+      "your_groups": "Tus Grupos"
     },
     "mark_all": "Marcar todo como leído",
     "empty": "Sin notificaciones",
@@ -1831,68 +1898,6 @@
       "media": "Multimedia",
       "voice_message": "Mensaje de voz"
     }
-  },
-  "friends_screen": {
-    "title": "Amigos",
-    "tabs": {
-      "all": "Todos",
-      "best": "Mejores Amigos",
-      "add": "Añadir Amigo"
-    },
-    "search_placeholder": "Buscar amigos...",
-    "empty": {
-      "no_friends": "Sin amigos todavía",
-      "start_connecting": "¡Empieza a conectar con otros estudiantes!",
-      "no_best": "Sin mejores amigos todavia",
-      "no_matches": "Sin coincidencias"
-    },
-    "alerts": {
-      "remove_friend_msg": "Seguro que quieres eliminar este amigo?",
-      "remove_friend_title": "Eliminar amigo",
-      "request_sent_title": "Solicitud enviada",
-      "request_sent_msg": "Solicitud de amistad enviada",
-      "remove_success_title": "Amigo eliminado",
-      "remove_success_msg": "Amigo eliminado correctamente"
-    },
-    "search": {
-      "placeholder": "Buscar amigos...",
-      "add_placeholder": "Buscar por nombre o correo..."
-    },
-    "roles": {
-      "all": "Todos",
-      "student": "Estudiante",
-      "teacher": "Profesor",
-      "admin": "Admin",
-      "searcher": "Buscar"
-    },
-    "labels": {
-      "friend": "Amigo",
-      "student": "Estudiante",
-      "teacher": "Profesor",
-      "admin": "Admin"
-    },
-    "status": {
-      "explore": "Explorar",
-      "searching": "Buscando...",
-      "no_results": "Sin resultados"
-    },
-    "buttons": {
-      "remove": "Eliminar",
-      "removing": "Eliminando..."
-    },
-    "errors": {
-      "generic": "Ha ocurrido un error",
-      "remove_failed": "No se pudo eliminar el amigo",
-      "request_failed": "No se pudo enviar la solicitud"
-    },
-    "status_label": {
-      "student": "Estudiante",
-      "teacher": "Profesor",
-      "admin": "Administrador"
-    },
-    "no_friends": "Aún no tienes amigos",
-    "search_add": "Buscar por nombre o email...",
-    "pending_requests": "Solicitudes Pendientes"
   },
   "manage_accounts": {
     "title": "Gestionar Cuentas",
@@ -2226,8 +2231,6 @@
         "waiting_admission": "Esperando admisión...",
         "waiting": "Esperando...",
         "active_session": "Sesión de {{type}} activa",
-        "video": "vídeo",
-        "audio": "audio",
         "talking": "Hablando...",
     "stream_volume": "Volumen de la transmisión",
     "you": "Tú",
