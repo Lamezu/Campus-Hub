@@ -432,6 +432,10 @@ export default function GroupCallScreen({
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
       const track = s.getAudioTracks()[0]; if (!track) return;
+      
+      // Stop old tracks
+      localStreamRef.current?.getAudioTracks().forEach(t => t.stop());
+      
       let targetTrack = track;
       if (gainCtxRef.current && gainNodeRef.current && gainDestRef.current) {
         gainSourceRef.current?.disconnect();
@@ -439,8 +443,34 @@ export default function GroupCallScreen({
         gainSourceRef.current = nsrc; nsrc.connect(gainNodeRef.current);
         targetTrack = gainDestRef.current.stream.getAudioTracks()[0] || track;
       }
-      pcsRef.current.forEach(pc => pc.getSenders()[0].replaceTrack(targetTrack));
-    } catch {}
+      
+      // Update local stream ref
+      const vTracks = localStreamRef.current?.getVideoTracks() || [];
+      localStreamRef.current = new MediaStream([targetTrack, ...vTracks]);
+      setLocalStream(localStreamRef.current);
+      
+      pcsRef.current.forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+        if (sender) sender.replaceTrack(targetTrack);
+      });
+      setMicOn(true);
+    } catch (err) {
+      console.error("Error changing audio input:", err);
+    }
+  };
+
+  const [selectedOutputId, setSelectedOutputId] = useState('');
+  const changeAudioOutput = async (deviceId: string) => {
+    setSelectedOutputId(deviceId);
+    remoteAudioElsRef.current.forEach(async (el) => {
+      if ((el as any).setSinkId) {
+        try {
+          await (el as any).setSinkId(deviceId);
+        } catch (err) {
+          console.error("Error setting sink ID:", err);
+        }
+      }
+    });
   };
   const changeVideoInput = async (deviceId: string) => {
     setSelectedCamId(deviceId);
@@ -615,14 +645,35 @@ export default function GroupCallScreen({
         </div>
       )}
       {(showDevices || showCamPicker) && (
-        <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1E1F22', borderRadius: '12px', padding: '12px', width: '280px', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: '11px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>{showDevices ? t('call.audio_devices') : t('call.video_devices')}</div>
-          {devices.filter(d => showDevices ? d.kind.startsWith('audio') : d.kind === 'videoinput').map((d, i) => (
-            <div key={i} onClick={() => d.kind === 'videoinput' ? changeVideoInput(d.deviceId) : changeAudioInput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: (selectedMicId === d.deviceId || selectedCamId === d.deviceId) ? 'rgba(88,101,242,0.1)' : 'transparent' }}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Device ${i}`}</span>
-              {(selectedMicId === d.deviceId || selectedCamId === d.deviceId) && <Check size={14} color="#5865f2" />}
-            </div>
-          ))}
+        <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1E1F22', borderRadius: '12px', padding: '12px', width: '300px', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {showDevices ? (
+            <>
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>{t('call.audio_input', 'Micrófono')}</div>
+              {devices.filter(d => d.kind === 'audioinput').map((d, i) => (
+                <div key={`mic-${i}`} onClick={() => changeAudioInput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedMicId === d.deviceId ? 'rgba(88,101,242,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Mic ${i + 1}`}</span>
+                  {selectedMicId === d.deviceId && <Check size={14} color="#5865f2" />}
+                </div>
+              ))}
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', marginTop: '12px', letterSpacing: '0.5px' }}>{t('call.audio_output', 'Altavoces')}</div>
+              {devices.filter(d => d.kind === 'audiooutput').map((d, i) => (
+                <div key={`out-${i}`} onClick={() => changeAudioOutput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedOutputId === d.deviceId ? 'rgba(34,197,94,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Speaker ${i + 1}`}</span>
+                  {selectedOutputId === d.deviceId && <Check size={14} color="#22c55e" />}
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>{t('call.video_devices')}</div>
+              {devices.filter(d => d.kind === 'videoinput').map((d, i) => (
+                <div key={`cam-${i}`} onClick={() => changeVideoInput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedCamId === d.deviceId ? 'rgba(88,101,242,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Cam ${i + 1}`}</span>
+                  {selectedCamId === d.deviceId && <Check size={14} color="#5865f2" />}
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
       {showShareModal && <ScreenShareModal onClose={() => setShowShareModal(false)} onSelect={onHandleSourceSelect} />}
