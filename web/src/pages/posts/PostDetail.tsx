@@ -333,7 +333,7 @@ export default function PostDetail() {
 
         <div style={{ padding: '16px' }}>
           <div style={{ fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 16 }}>
-            Comentarios ({comments.length})
+            {t('post.comments_count', { count: comments.length })}
           </div>
 
           {comments.length === 0 && (
