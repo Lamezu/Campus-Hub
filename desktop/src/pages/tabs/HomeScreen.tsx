@@ -13,7 +13,7 @@ import { useStudyGroups } from '@/hooks/useStudyGroups';
 import { subscribeToChannelUnread } from '@/services/channelReadService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import type { Channel, UserRole } from '@/types';
-import { subscribeToIncomingConferences, createConference } from '@/services/studyGroupConferenceService';
+import { subscribeToIncomingConferences, createConference } from '@/services/groupCallService';
 import { useCall } from '@/contexts/CallContext';
 import { Video, Phone, Users as UsersIcon } from 'lucide-react';
 import { Avatar } from '@/components/common/Avatar';
@@ -90,16 +90,21 @@ export default function HomeScreen() {
     const members = group.memberIds || [user.uid];
     const participantData: Record<string, any> = {};
     members.forEach((m: string) => {
+      const isMe = m === user.uid;
+      const myBestName = [userData?.displayName, userData?.username, user.displayName, (user as any).username].find(c => c && c !== 'Usuario' && c !== 'Member' && c !== 'Anonymous');
       participantData[m] = {
-        name: m === user.uid ? (userData?.displayName || user.displayName || 'User') : 'Member',
-        photo: m === user.uid ? (userData?.photoURL || user.photoURL || null) : null
+        displayName: isMe ? (myBestName || 'Usuario') : 'Usuario',
+        photoURL: isMe ? (userData?.photoURL || user.photoURL || null) : null
       };
     });
+
+    const initiatorBestName = [userData?.displayName, userData?.username, user.displayName, (user as any).username].find(c => c && c !== 'Usuario' && c !== 'Member' && c !== 'Anonymous');
+    const initiatorName = initiatorBestName || userData?.displayName || userData?.username || user.displayName || (user as any).username || 'Usuario';
 
     const callId = await createConference(
       group.id, group.name, group.photoURL || null,
       user.uid,
-      userData?.displayName || user.displayName || 'Usuario',
+      initiatorName,
       userData?.photoURL || user.photoURL || null,
       type, members, participantData
     );
@@ -107,7 +112,7 @@ export default function HomeScreen() {
     setActiveConference({
       callId, groupName: group.name, groupPhoto: group.photoURL || null,
       myUid: user.uid,
-      myName: userData?.displayName || user.displayName || 'Usuario',
+      myName: initiatorName,
       myPhoto: userData?.photoURL || user.photoURL || null,
       isInitiator: true, type
     } as any);

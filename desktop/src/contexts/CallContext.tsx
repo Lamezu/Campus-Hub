@@ -11,15 +11,12 @@ import {
 } from '../services/callService';
 import {
   subscribeToIncomingGroupCalls,
-  leaveGroupCall as leaveGroupCallDM,
-  type GroupCall
-} from '../services/groupCallService';
-import {
+  leaveGroupCall,
   subscribeToIncomingConferences,
   requestToJoinConference,
   subscribeToGroupCall as subscribeToConference,
-  leaveGroupCall as leaveConferenceCall,
-} from '../services/studyGroupConferenceService';
+  type GroupCall
+} from '../services/groupCallService';
 import { playCallTone, stopCallTone } from '../utils/toneGenerator';
 export interface ActiveCall {
   callId: string;
@@ -163,8 +160,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const groupCallId = activeGroupCallIdRef.current;
       const conferenceId = activeConferenceIdRef.current;
       if (callId) endCall(callId).catch(() => {});
-      if (groupCallId) leaveGroupCallDM(groupCallId, uid).catch(() => {});
-      if (conferenceId) leaveConferenceCall(conferenceId, uid).catch(() => {});
+      if (groupCallId) leaveGroupCall(groupCallId, uid).catch(() => {});
+      if (conferenceId) leaveGroupCall(conferenceId, uid, true).catch(() => {});
     }
     window.addEventListener('beforeunload', handleUnload);
     window.addEventListener('pagehide', handleUnload);
@@ -362,9 +359,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       myName: userNameRef.current,
       myPhoto: userPhotoRef.current
     });
+    const bestName = [userNameRef.current, auth.currentUser?.displayName, (auth.currentUser as any)?.username].find(c => c && c !== 'Usuario' && c !== 'Member' && c !== 'Anonymous');
     requestToJoinConference(call.id, userId, {
-      name: userNameRef.current,
-      photo: userPhotoRef.current
+      displayName: bestName || userNameRef.current || 'Usuario',
+      photoURL: userPhotoRef.current
     }).catch(() => {});
   }
   useEffect(() => {

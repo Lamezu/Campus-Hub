@@ -26,7 +26,7 @@ import { MOCK_CHANNELS } from '@/constants/mockData';
 import { auth, db } from '@/config/firebase';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useCall } from '@/contexts/CallContext';
-import { createConference, subscribeToActiveConferenceForGroup } from '@/services/studyGroupConferenceService';
+import { createConference, subscribeToActiveConferenceForGroup } from '@/services/groupCallService';
 import type { GroupCall } from '@/services/groupCallService';
 import { markChannelRead } from '@/services/channelReadService';
 import { notificationService } from '@/services/notificationService';
@@ -236,7 +236,7 @@ export default function ChatScreen() {
       targets = usnap.docs.map(u => u.id);
     }
     const uniqueTargets = Array.from(new Set(targets.filter(t => t && t !== currentUser.uid)));
-    const senderName = userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder');
+    const senderName = userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder');
     const channelNameDisplay = dynamicChannelName || MOCK_CHANNELS.find(c => c.id === cleanId)?.name || t('chat_ui.channel_label');
     const notifyPromises = uniqueTargets.map(mId =>
       notificationService.addNotification(mId, {
@@ -271,7 +271,7 @@ export default function ChatScreen() {
       } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
-        senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+        senderName: userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
         senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
         text,
         createdAt: serverTimestamp(),
@@ -305,7 +305,7 @@ export default function ChatScreen() {
       } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
-        senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+        senderName: userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
         senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
         text: '',
         attachments: [{ url, type: 'audio', duration }],
@@ -339,7 +339,7 @@ export default function ChatScreen() {
       } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
-        senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+        senderName: userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
         senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
         text: '',
         attachments: [{
@@ -388,7 +388,7 @@ export default function ChatScreen() {
       } : null;
       const docRef = await addDoc(messagesRef, {
         senderId: currentUser.uid,
-        senderName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+        senderName: userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
         senderPhoto: userProfile?.photoURL || currentUser.photoURL || null,
         text: '',
         poll: pollData,
@@ -690,7 +690,7 @@ export default function ChatScreen() {
                         groupName: activeGroupConference.groupName,
                         groupPhoto: activeGroupConference.groupPhoto ?? null,
                         myUid: currentUser.uid,
-                        myName: userProfile?.displayName || currentUser.displayName || 'User',
+                        myName: userProfile?.displayName || userProfile?.username || currentUser.displayName || 'User',
                         myPhoto: userProfile?.photoURL || currentUser.photoURL || null,
                         isInitiator: false, type: activeGroupConference.type
                       } as any);
@@ -699,16 +699,18 @@ export default function ChatScreen() {
                     const members = channelMembers.length > 0 ? channelMembers : [currentUser.uid];
                     const participantData: Record<string, any> = {};
                     members.forEach(m => {
+                      const isMe = m === currentUser.uid;
+                      const myBestName = [userProfile?.displayName, userProfile?.username, currentUser.displayName, (currentUser as any).username].find(c => c && c !== 'Usuario' && c !== 'Member' && c !== 'Anonymous');
                       participantData[m] = {
-                        name: m === currentUser.uid ? (userProfile?.displayName || currentUser.displayName || 'User') : 'Member',
-                        photo: m === currentUser.uid ? (userProfile?.photoURL || currentUser.photoURL || null) : null
+                        displayName: isMe ? (myBestName || 'Usuario') : 'Usuario',
+                        photoURL: isMe ? (userProfile?.photoURL || currentUser.photoURL || null) : null
                       };
                     });
                     const callType = 'video';
                     const callId = await createConference(
                       cleanId, channelName || t('conference.group_fallback'), channelPhoto,
                       currentUser.uid,
-                      userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+                      userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
                       userProfile?.photoURL || currentUser.photoURL || null,
                       callType, members, participantData
                     );
@@ -716,7 +718,7 @@ export default function ChatScreen() {
                     setActiveConference({
                       callId, groupName: channelName || t('conference.group_fallback'), groupPhoto: channelPhoto,
                       myUid: currentUser.uid,
-                      myName: userProfile?.displayName || currentUser.displayName || t('profile.username_placeholder'),
+                      myName: userProfile?.displayName || userProfile?.username || currentUser.displayName || t('profile.username_placeholder'),
                       myPhoto: userProfile?.photoURL || currentUser.photoURL || null,
                       isInitiator: true, type: callType
                     } as any);
