@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { useCall } from '../../contexts/CallContext';
 import CallScreen, { IncomingCallModal } from './CallScreen';
 import GroupCallScreen, { IncomingGroupCallModal } from './GroupCallScreen';
-import ConferenceScreen from './ConferenceScreen';
+import { ConferenceScreen } from './ConferenceScreen';
 import { IncomingConferenceModal } from './ConferenceScreen';
 
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -83,7 +83,6 @@ export default function GlobalCallOverlay() {
           myUid={activeConference.myUid}
           myName={activeConference.myName}
           myPhoto={activeConference.myPhoto}
-          myRole={activeConference.myRole}
           onClose={() => {
             setActiveConference(null);
             setActiveConferenceId(null);
@@ -101,10 +100,10 @@ export default function GlobalCallOverlay() {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
             minWidth: 300, boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
           }}>
-            <Avatar 
-              src={awaitingConference.groupPhoto} 
-              name={awaitingConference.groupName} 
-              size={64} 
+            <Avatar
+              src={awaitingConference.groupPhoto}
+              name={awaitingConference.groupName}
+              size={64}
               fallbackIcon={Users}
             />
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, textAlign: 'center' }}>

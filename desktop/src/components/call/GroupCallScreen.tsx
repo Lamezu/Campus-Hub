@@ -15,6 +15,7 @@ import {
   updateConnectionOffer,
   answerConnection,
   updateConnectionCamState,
+  updateConnectionSharingState,
   signalConnectionVideo,
   updateConnectionReceiverOffer,
   updateConnectionCallerReanswer,
@@ -169,16 +170,14 @@ export default function GroupCallScreen({
     if (pcsRef.current.has(peerUid) || cancelledRef.current) return;
     const connId = getConnectionId(myUid, peerUid); const iAmCaller = myUid < peerUid;
     const pc = new RTCPeerConnection(ICE_SERVERS); pcsRef.current.set(peerUid, pc);
-    if (iAmCaller) {
-      const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current?.getAudioTracks()[0];
-      const videoT = localStreamRef.current?.getVideoTracks()[0];
-      if (audioT) pc.addTransceiver(audioT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
-      else pc.addTransceiver('audio', { direction: 'sendrecv' });
-      if (videoT) pc.addTransceiver(videoT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
-      else pc.addTransceiver('video', { direction: 'sendrecv' });
-      if (screenTrackRef.current) pc.addTransceiver(screenTrackRef.current, { direction: 'sendrecv' });
-      else pc.addTransceiver('video', { direction: 'sendrecv' });
-    }
+    const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current?.getAudioTracks()[0];
+    const videoT = localStreamRef.current?.getVideoTracks()[0];
+    if (audioT) pc.addTransceiver(audioT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
+    else pc.addTransceiver('audio', { direction: 'sendrecv' });
+    if (videoT && camOn) pc.addTransceiver(videoT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
+    else pc.addTransceiver('video', { direction: 'sendrecv' });
+    if (screenTrackRef.current) pc.addTransceiver(screenTrackRef.current, { direction: 'sendrecv' });
+    else pc.addTransceiver('video', { direction: 'sendrecv' });
     const rStream = new MediaStream(); remoteStreamsRef.current.set(peerUid, rStream);
     const rsStream = new MediaStream(); remoteShareStreamsRef.current.set(peerUid, rsStream);
     pc.onicecandidate = (e) => {
@@ -240,14 +239,9 @@ export default function GroupCallScreen({
       } else if (idx === 1) {
         rStream.getVideoTracks().forEach(t => rStream.removeTrack(t));
         rStream.addTrack(e.track);
-        setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: false } : p));
       } else if (idx === 2) {
         rsStream.getVideoTracks().forEach(t => rsStream.removeTrack(t));
         rsStream.addTrack(e.track);
-        setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: true } : p));
-        e.track.onended = () => {
-          setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, sharing: false } : p));
-        };
       }
       update();
     };
@@ -263,7 +257,7 @@ export default function GroupCallScreen({
             await pc.setRemoteDescription(new RTCSessionDescription(description));
             if (description.type === "offer") {
               const transceivers = pc.getTransceivers();
-              transceivers.forEach(t => { t.direction = 'sendrecv'; });
+              transceivers.forEach(t => { if (t.direction !== 'stopped') t.direction = 'sendrecv'; });
               if (localStreamRef.current) {
                 const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current.getAudioTracks()[0];
                 const videoT = localStreamRef.current.getVideoTracks()[0];
@@ -285,7 +279,8 @@ export default function GroupCallScreen({
         }
       } finally { signalingLockRef.current.set(peerUid, false); }
       const peerCam = iAmCaller ? conn.receiverCamOff : conn.callerCamOff;
-      setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: !!peerCam } : p));
+      const peerSharing = iAmCaller ? conn.receiverSharing : conn.callerSharing;
+      setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: !!peerCam, sharing: !!peerSharing } : p));
     });
     const candSub = iAmCaller ? subscribeToConnectionReceiverCandidates : subscribeToConnectionCallerCandidates;
     const unsubCand = candSub(callId, connId, async (c) => {
@@ -302,12 +297,13 @@ export default function GroupCallScreen({
       speaking: false,
       sharing: false
     }]);
-    const senders = pc.getSenders();
-    if (localStreamRef.current) {
-      const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current.getAudioTracks()[0];
-      if (audioT && senders[0]) senders[0].replaceTrack(audioT);
-      const videoT = localStreamRef.current.getVideoTracks()[0];
-      if (videoT && camOn && senders[1]) senders[1].replaceTrack(videoT);
+    if (iAmCaller) {
+      makingOfferRef.current.set(peerUid, true);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await updateConnectionOffer(callId, connId, pc.localDescription!.toJSON());
+      } catch { } finally { makingOfferRef.current.set(peerUid, false); }
     }
   }, [callId, myUid, camOn, sharing, peerMuted, peerVolumes, deafened]);
   useEffect(() => {
@@ -398,24 +394,19 @@ export default function GroupCallScreen({
           localStreamRef.current.addTrack(t);
           setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
           pcsRef.current.forEach(pc => {
-            const sender = pc.getSenders().find(s => s.track?.kind === 'video' || (s as any).track === null);
+            const sender = pc.getSenders()[1];
             if (sender) sender.replaceTrack(t);
           });
-          pcsRef.current.forEach((_, uid) => signalConnectionVideo(callId, getConnectionId(myUid, uid), myUid < uid));
+          pcsRef.current.forEach((_, uid) => updateConnectionCamState(callId, getConnectionId(myUid, uid), myUid < uid, false));
           setCamOn(true);
           setStreamVersion(v => v + 1);
         }
-      } catch (err) {
-        console.error("Error enabling camera:", err);
-      }
+      } catch (err) { }
     } else {
-      localStreamRef.current?.getVideoTracks().forEach(t => {
-        t.stop();
-        localStreamRef.current?.removeTrack(t);
-      });
+      localStreamRef.current?.getVideoTracks().forEach(t => { t.stop(); localStreamRef.current?.removeTrack(t); });
       setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
       pcsRef.current.forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        const sender = pc.getSenders()[1];
         if (sender) sender.replaceTrack(null);
       });
       pcsRef.current.forEach((_, uid) => updateConnectionCamState(callId, getConnectionId(myUid, uid), myUid < uid, true));
@@ -493,12 +484,36 @@ export default function GroupCallScreen({
   const toggleHiddenStream = (id: string) => { setHiddenStreams(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
   const togglePeerMuted = (uid: string) => { setPeerMuted(prev => { const n = new Set(prev); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; }); };
   const setPeerVolume = (uid: string, vol: number) => { setPeerVolumes(prev => ({ ...prev, [uid]: vol })); };
+  const stopSharing = useCallback(() => {
+    if (screenTrackRef.current) {
+      screenTrackRef.current.stop();
+      screenTrackRef.current = null;
+    }
+    setSharing(false);
+    setLocalSharingStream(null);
+    pcsRef.current.forEach((pc, uid) => {
+      const sender = pc.getSenders()[2];
+      if (sender) sender.replaceTrack(null);
+      updateConnectionSharingState(callId, getConnectionId(myUid, uid), myUid < uid, false).catch(() => { });
+    });
+  }, [callId, myUid]);
   const onHandleSourceSelect = async (sid: string) => {
     if (screenTrackRef.current) screenTrackRef.current.stop();
-    const s = await (navigator.mediaDevices as any).getUserMedia({ video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sid } } });
-    const t = s.getVideoTracks()[0]; screenTrackRef.current = t; setLocalSharingStream(s); setSharing(true); setShowShareModal(false);
-    pcsRef.current.forEach(pc => pc.getSenders()[2].replaceTrack(t));
-    t.onended = () => { setSharing(false); setLocalSharingStream(null); pcsRef.current.forEach(pc => pc.getSenders()[2].replaceTrack(null)); };
+    try {
+      const s = await (navigator.mediaDevices as any).getUserMedia({ video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sid } } });
+      const t = s.getVideoTracks()[0];
+      if (!t) return;
+      screenTrackRef.current = t;
+      setLocalSharingStream(s);
+      setSharing(true);
+      setShowShareModal(false);
+      pcsRef.current.forEach((pc, uid) => {
+        const sender = pc.getSenders()[2];
+        if (sender) sender.replaceTrack(t);
+        updateConnectionSharingState(callId, getConnectionId(myUid, uid), myUid < uid, true).catch(() => { });
+      });
+      t.onended = stopSharing;
+    } catch { stopSharing(); }
   };
   const totalMembers = peers.length + (sharing ? 1 : 0) + peers.filter(p => p.sharing).length + 1;
   const basis = totalMembers <= 2 ? 'calc(50% - 24px)' : totalMembers <= 4 ? 'calc(48% - 12px)' : 'calc(32% - 12px)';
@@ -588,7 +603,7 @@ export default function GroupCallScreen({
                     stream={localSharingStream}
                     sharing
                     isLocal
-                    onStopSharing={() => { screenTrackRef.current?.stop(); setSharing(false); }}
+                    onStopSharing={stopSharing}
                     onClick={() => setFocusedTile('localShare')}
                   />
                 </div>
@@ -598,7 +613,7 @@ export default function GroupCallScreen({
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '80px' }}>
               <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
                 {focusedTile === 'local' && <VideoTile key={`focused-local-${streamVersion}`} uid="local" name={t('call.you')} stream={localStream} speaking={localSpeaking} camOff={!camOn} isLocal onClick={() => setFocusedTile(null)} />}
-                {focusedTile === 'localShare' && <VideoTile key={`focused-localshare-${streamVersion}`} uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={() => { screenTrackRef.current?.stop(); setSharing(false); }} onClick={() => setFocusedTile(null)} />}
+                {focusedTile === 'localShare' && <VideoTile key={`focused-localshare-${streamVersion}`} uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onClick={() => setFocusedTile(null)} />}
                 {focusedTile.endsWith('-s') ?
                   <VideoTile key={`focused-${focusedTile}-${streamVersion}`} uid={focusedTile} name={t('call.user_screen', { name: peers.find(p => p.uid + '-s' === focusedTile)?.name || '' })} stream={remoteShareStreamsRef.current.get(focusedTile.slice(0, -2)) || null} sharing onClick={() => setFocusedTile(null)} /> :
                   <VideoTile key={`focused-${focusedTile}-${streamVersion}`} uid={focusedTile} name={peers.find(p => p.uid === focusedTile)?.name || ''} stream={remoteStreamsRef.current.get(focusedTile) || null} speaking={peers.find(p => p.uid === focusedTile)?.speaking} camOff={peers.find(p => p.uid === focusedTile)?.camOff} onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, peerUid: focusedTile }); }} onClick={() => setFocusedTile(null)} />
@@ -620,7 +635,7 @@ export default function GroupCallScreen({
         <CompoundBtn icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={t('call.mic')} onClick={toggleMic} onChevron={openDevicePicker} muted={!micOn} chevronActive={showDevices} />
         <CtrlBtn icon={deafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />} label={t('call.deafen')} onClick={toggleDeafen} active={deafened} />
         {callType === 'video' && <CompoundBtn icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={t('call.video')} onClick={toggleCam} onChevron={openCamPicker} muted={!camOn} chevronActive={showCamPicker} />}
-        <CtrlBtn icon={sharing ? <MonitorOff size={20} /> : <Monitor size={20} />} label={t('call.share_screen')} onClick={() => sharing ? screenTrackRef.current?.stop() : setShowShareModal(true)} active={sharing} />
+        <CtrlBtn icon={sharing ? <MonitorOff size={20} /> : <Monitor size={20} />} label={t('call.share_screen')} onClick={() => sharing ? stopSharing() : setShowShareModal(true)} active={sharing} />
         <CtrlBtn icon={<PhoneOff size={20} />} label={t('call.hang_up')} onClick={handleLeave} danger />
       </div>
       { }
