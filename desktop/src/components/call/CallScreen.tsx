@@ -9,7 +9,7 @@ import {
   Volume2, VolumeX, Maximize2, Minimize2, ScreenShare, User, Phone, Monitor, MonitorOff, Check, ExternalLink, Users
 } from 'lucide-react';
 import { ScreenShareModal } from './ScreenShareModal';
-import { playCallTone, stopCallTone } from '../../utils/toneGenerator';
+import { playCallTone, stopCallTone, getCtx } from '../../utils/toneGenerator';
 import {
   ICE_SERVERS,
   answerCall,
@@ -148,7 +148,7 @@ export default function CallScreen({
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenTrackRef.current?.stop();
-    if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => { }); audioCtxRef.current = null; }
+    if (audioCtxRef.current) { audioCtxRef.current = null; }
     if (ringtoneRef.current) { ringtoneRef.current.pause(); ringtoneRef.current = null; }
   }, []);
   const handleLeave = useCallback(() => {
@@ -187,9 +187,7 @@ export default function CallScreen({
     remoteAudioSetupDoneRef.current = track.id;
     try {
       if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-          latencyHint: 'interactive'
-        });
+        audioCtxRef.current = await getCtx();
       }
       const ctx = audioCtxRef.current;
       if (!ctx) return;
@@ -349,7 +347,7 @@ export default function CallScreen({
       if (initAudio) {
         try {
           if (!audioCtxRef.current) {
-            audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioCtxRef.current = await getCtx();
           }
           const ctx = audioCtxRef.current;
           if (ctx.state === 'suspended') ctx.resume().catch(() => { });
@@ -468,7 +466,7 @@ export default function CallScreen({
       unsubsRef.current = [];
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-      if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => { }); audioCtxRef.current = null; }
+      if (audioCtxRef.current) { audioCtxRef.current = null; }
       remoteAudioSetupDoneRef.current = null;
     };
   }, [callId, isCaller, callType, startTimer, cleanup, resumeAudio]);
@@ -805,7 +803,8 @@ export default function CallScreen({
                     <div style={{
                       position: 'relative', borderRadius: '12px', overflow: 'hidden',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)', backgroundColor: '#1E1F22',
-                      border: '1px solid rgba(255,255,255,0.05)'
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      height: '100%'
                     }}>
                       <VideoTile
                         uid="remoteShare"
@@ -853,7 +852,7 @@ export default function CallScreen({
                     </div>
                   </div>
                 )}
-                {sharing && <div style={{ width: '640px', maxWidth: '100%' }}><VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile('localShare')} /></div>}
+                {sharing && <div style={{ width: '640px', maxWidth: '100%', aspectRatio: '16/9' }}><VideoTile uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onChangeSource={() => (window as any).electronAPI ? setShowShareModal(true) : handleStartSharing()} onClick={() => setFocusedTile('localShare')} /></div>}
               </div>
             </div>
           ) : (

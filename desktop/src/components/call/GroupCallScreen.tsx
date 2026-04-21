@@ -31,6 +31,7 @@ import {
   approveConferenceParticipant,
   type GroupCall
 } from '../../services/groupCallService';
+import { getCtx } from '../../utils/toneGenerator';
 import { type CallType } from '../../services/callService';
 import VideoTile from './VideoTile';
 interface CtrlBtnProps {
@@ -157,15 +158,18 @@ export default function GroupCallScreen({
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenTrackRef.current?.stop();
   }, [cleanupPeer]);
+
   const handleLeave = useCallback(async () => {
     cleanup(); try { await leaveGroupCall(callId, myUid); } catch { } onClose();
   }, [callId, myUid, cleanup, onClose]);
+
   useEffect(() => {
     remoteGainNodesRef.current.forEach((gn, uid) => {
       const vol = (peerMuted.has(uid) || deafened) ? 0 : (peerVolumes[uid] ?? 1);
       gn.gain.setTargetAtTime(vol, 0, 0.05);
     });
   }, [peerMuted, peerVolumes, deafened]);
+
   const setupConnectionWithPeer = useCallback(async (peerUid: string, peerData: any) => {
     if (pcsRef.current.has(peerUid) || cancelledRef.current) return;
     const connId = getConnectionId(myUid, peerUid); const iAmCaller = myUid < peerUid;
@@ -178,24 +182,26 @@ export default function GroupCallScreen({
     else pc.addTransceiver('video', { direction: 'sendrecv' });
     if (screenTrackRef.current) pc.addTransceiver(screenTrackRef.current, { direction: 'sendrecv' });
     else pc.addTransceiver('video', { direction: 'sendrecv' });
+
     const rStream = new MediaStream(); remoteStreamsRef.current.set(peerUid, rStream);
     const rsStream = new MediaStream(); remoteShareStreamsRef.current.set(peerUid, rsStream);
+
     pc.onicecandidate = (e) => {
       if (!e.candidate) return;
       const add = iAmCaller ? addConnectionCallerCandidate : addConnectionReceiverCandidate;
       add(callId, connId, e.candidate.toJSON()).catch(() => { });
     };
+
     const resumeAudio = () => {
       if (audioCtxRef.current?.state === 'suspended') {
         audioCtxRef.current.resume().catch(() => { });
       }
     };
+
     const setupRemoteAudio = async (uid: string, track: MediaStreamTrack) => {
       try {
         if (!audioCtxRef.current) {
-          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-            latencyHint: 'interactive'
-          });
+          audioCtxRef.current = await getCtx();
         }
         const ctx = audioCtxRef.current;
         if (ctx.state === 'suspended') {
@@ -218,6 +224,7 @@ export default function GroupCallScreen({
         remoteGainNodesRef.current.set(uid, gn);
       } catch (err) { }
     };
+
     pc.onnegotiationneeded = async () => {
       if (makingOfferRef.current.get(peerUid)) return;
       try {
@@ -226,6 +233,7 @@ export default function GroupCallScreen({
         await sync(callId, connId, pc.localDescription!.toJSON());
       } catch { } finally { makingOfferRef.current.set(peerUid, false); }
     };
+
     pc.ontrack = (e) => {
       const transceivers = pc.getTransceivers();
       const idx = transceivers.findIndex(t => t.receiver === e.receiver);
@@ -245,6 +253,7 @@ export default function GroupCallScreen({
       }
       update();
     };
+
     const unsubConn = subscribeToConnection(callId, connId, async (conn) => {
       if (!conn || cancelledRef.current || signalingLockRef.current.get(peerUid)) return;
       signalingLockRef.current.set(peerUid, true);
@@ -282,11 +291,13 @@ export default function GroupCallScreen({
       const peerSharing = iAmCaller ? conn.receiverSharing : conn.callerSharing;
       setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: !!peerCam, sharing: !!peerSharing } : p));
     });
+
     const candSub = iAmCaller ? subscribeToConnectionReceiverCandidates : subscribeToConnectionCallerCandidates;
     const unsubCand = candSub(callId, connId, async (c) => {
       if (pc.remoteDescription) pc.addIceCandidate(c).catch(() => { });
       else { const q = candQueueRef.current.get(peerUid) || []; q.push(c); candQueueRef.current.set(peerUid, q); }
     });
+
     if (iAmCaller) await createConnection(callId, connId, myUid, peerUid);
     connUnsubsRef.current.set(peerUid, [unsubConn, unsubCand]);
     setPeers(prev => [...prev.filter(p => p.uid !== peerUid), {
@@ -297,6 +308,7 @@ export default function GroupCallScreen({
       speaking: false,
       sharing: false
     }]);
+
     if (iAmCaller) {
       makingOfferRef.current.set(peerUid, true);
       try {
@@ -314,7 +326,10 @@ export default function GroupCallScreen({
       const audioT = stream.getAudioTracks()[0];
       if (audioT) {
         try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          if (!audioCtxRef.current) {
+            audioCtxRef.current = await getCtx();
+          }
+          const ctx = audioCtxRef.current;
           gainCtxRef.current = ctx; const g = ctx.createGain(); g.gain.value = 1.0; gainNodeRef.current = g;
           const src = ctx.createMediaStreamSource(new MediaStream([audioT])); gainSourceRef.current = src;
           const dst = ctx.createMediaStreamDestination(); gainDestRef.current = dst;
@@ -432,10 +447,7 @@ export default function GroupCallScreen({
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
       const track = s.getAudioTracks()[0]; if (!track) return;
-
-      // Stop old tracks
       localStreamRef.current?.getAudioTracks().forEach(t => t.stop());
-
       let targetTrack = track;
       if (gainCtxRef.current && gainNodeRef.current && gainDestRef.current) {
         gainSourceRef.current?.disconnect();
@@ -443,12 +455,9 @@ export default function GroupCallScreen({
         gainSourceRef.current = nsrc; nsrc.connect(gainNodeRef.current);
         targetTrack = gainDestRef.current.stream.getAudioTracks()[0] || track;
       }
-
-      // Update local stream ref
       const vTracks = localStreamRef.current?.getVideoTracks() || [];
       localStreamRef.current = new MediaStream([targetTrack, ...vTracks]);
       setLocalStream(localStreamRef.current);
-
       pcsRef.current.forEach(pc => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
         if (sender) sender.replaceTrack(targetTrack);

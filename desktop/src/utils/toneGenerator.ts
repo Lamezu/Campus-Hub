@@ -150,9 +150,22 @@ const CALL_TONE_DEFINITIONS: Record<string, ToneSegment[]> = {
 export const MESSAGE_TONE_NAMES = Object.keys(MESSAGE_TONES);
 export const CALL_TONE_NAMES = Object.keys(CALL_TONE_DEFINITIONS);
 
-const FADE_OUT_SAMPLES = Math.floor(0.022 * SAMPLE_RATE);
+let audioCtx: AudioContext | null = null;
+
+export async function getCtx(): Promise<AudioContext> {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+const FADE_OUT_SAMPLES_MS = 22;
 
 function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuffer {
+  const sampleRate = ctx.sampleRate;
   let currentPos = 0;
   const segmentsWithTimes = segments.map(s => {
     const start = s.startTime !== undefined ? s.startTime : currentPos;
@@ -161,24 +174,26 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
   });
 
   const maxDuration = segmentsWithTimes.reduce((acc, s) => Math.max(acc, s.start + s.duration), 0);
-  const totalSamples = Math.floor(maxDuration * SAMPLE_RATE);
-  const buffer = ctx.createBuffer(1, Math.max(totalSamples, 1), SAMPLE_RATE);
+  const totalSamples = Math.ceil(maxDuration * sampleRate);
+  const buffer = ctx.createBuffer(1, Math.max(totalSamples, 1), sampleRate);
   const data = buffer.getChannelData(0);
 
+  const fadeOutSamples = Math.floor((FADE_OUT_SAMPLES_MS / 1000) * sampleRate);
+
   for (const seg of segmentsWithTimes) {
-    const startOffset = Math.floor(seg.start * SAMPLE_RATE);
-    const n = Math.floor(seg.duration * SAMPLE_RATE);
-    
+    const startOffset = Math.floor(seg.start * sampleRate);
+    const n = Math.floor(seg.duration * sampleRate);
+
     if (seg.freq !== 0) {
       const amp = seg.amplitude ?? 0.55;
       const harmonics = seg.harmonics ?? [];
       const fadeInSamples = Math.floor((seg.fadeIn ?? 0) * n);
-      const fadeOutStart = Math.max(fadeInSamples, n - FADE_OUT_SAMPLES);
+      const fadeOutStart = Math.max(fadeInSamples, n - fadeOutSamples);
       const normFactor = 1 + harmonics.reduce((s, h) => s + h.amp, 0);
 
       const vRate = seg.vibrato?.rate ?? 0;
       const vDepth = seg.vibrato?.depth ?? 0;
-      const vDelay = seg.vibrato?.delay ?? 0;
+      const vDelay = (seg.vibrato?.delay ?? 0) * sampleRate;
       const chorusAmt = seg.chorus ?? 0;
 
       let mainPhase = 0;
@@ -186,7 +201,7 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
       const hPhases = harmonics.map(() => 0);
 
       for (let i = 0; i < n; i++) {
-        const t = i / SAMPLE_RATE;
+        const t = i / sampleRate;
 
         let env: number;
         if (i < fadeInSamples) {
@@ -202,8 +217,8 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
           env = Math.min(env, 1 - (i - fadeOutStart) / Math.max(1, n - fadeOutStart));
         }
 
-        const dt = ( (vRate > 0 && t > vDelay) ? 1 + vDepth * Math.sin(2 * Math.PI * vRate * (t - vDelay)) : 1 ) / SAMPLE_RATE;
-        
+        const dt = ((vRate > 0 && t > vDelay / sampleRate) ? 1 + vDepth * Math.sin(2 * Math.PI * vRate * (t - vDelay / sampleRate)) : 1) / sampleRate;
+
         let currentFreq = seg.freq;
         if (seg.pitchDrop && seg.pitchDrop !== 0) {
           currentFreq = seg.freq * Math.exp(-seg.pitchDrop * (i / n));
@@ -232,7 +247,7 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
         for (let h = 0; h < harmonics.length; h++) {
           sample += harmonics[h].amp * Math.sin(hPhases[h]);
         }
-        
+
         data[startOffset + i] += (sample / normFactor) * amp * env;
       }
     }
@@ -240,16 +255,6 @@ function buildAudioBuffer(ctx: AudioContext, segments: ToneSegment[]): AudioBuff
   return buffer;
 }
 
-let audioCtx: AudioContext | null = null;
-async function getCtx(): Promise<AudioContext> {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') {
-    await audioCtx.resume();
-  }
-  return audioCtx;
-}
 
 export async function playMessageTone(name: string): Promise<void> {
   const segments = MESSAGE_TONES[name] ?? MESSAGE_TONES.default;
@@ -280,7 +285,7 @@ export function stopCallTone(): void {
     try {
       callSource.stop();
       callSource.disconnect();
-    } catch {}
+    } catch { }
     callSource = null;
   }
 }
@@ -299,9 +304,9 @@ export async function playCallTone(name: string, durationMs?: number): Promise<v
     stopCallTone();
     const source = ctx.createBufferSource();
     source.buffer = buildAudioBuffer(ctx, segments);
-    
+
     source.loop = !actualDuration;
-    
+
     source.connect(ctx.destination);
     source.start();
     callSource = source;
@@ -350,11 +355,11 @@ export async function playRingback(): Promise<void> {
         src.connect(ctx.destination);
         src.start();
         ringbackSource = src;
-      } catch {}
+      } catch { }
     };
     beep();
     ringbackIntervalId = setInterval(beep, 3000);
-  } catch {}
+  } catch { }
 }
 
 export function stopRingback(): void {
@@ -363,7 +368,7 @@ export function stopRingback(): void {
     ringbackIntervalId = null;
   }
   if (ringbackSource) {
-    try { ringbackSource.stop(); } catch {}
+    try { ringbackSource.stop(); } catch { }
     ringbackSource = null;
   }
 }
