@@ -1,50 +1,83 @@
-# Welcome to your Expo app 👋
+# CampusHub — Desktop
+Cliente de escritorio oficial de CampusHub, el entorno virtual y social para centros educativos. Desarrollada con **React + Vite + TypeScript + Electron**, esta aplicación ofrece una experiencia nativa optimizada para sistemas operativos de escritorio (Windows, macOS y Linux), integrando funcionalidades avanzadas de comunicación y gestión académica.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Parte del monorepo Campus-Hub · Equipo A&S Technologies · CIFP Villa de Agüimes 2025–2026
 
-## Get started
+## 🏗️ Estructura del proyecto
+`desktop/`
+├── `electron/`              # Código principal de Electron (Main process, Preload)
+├── `src/`                   # Código fuente de React (Renderer process)
+│   ├── `components/`        # Componentes UI (Call, Chat, Campus, UI...)
+│   ├── `config/`            # Inicialización de Firebase y servicios
+│   ├── `contexts/`          # Providers globales (Call, Theme, Language...)
+│   ├── `hooks/`             # Custom hooks
+│   ├── `pages/`             # Vistas principales de la aplicación
+│   ├── `services/`          # Integración con Firebase y WebRTC
+│   └── `utils/`             # Helpers y generador de tonos
+├── `public/`                # Recursos estáticos
+└── `package.json`           # Scripts de ejecución y dependencias
 
-1. Install dependencies
+## ✨ Funcionalidades Destacadas
+La versión de escritorio incluye todas las capacidades de la plataforma social y añade mejoras nativas:
 
-   ```bash
-   npm install
-   ```
+### 📞 Sistema de llamadas y videoconferencias
+Es el núcleo técnico de la aplicación, utilizando una arquitectura **Mesh P2P completa** mediante WebRTC.
+- **Llamadas 1 a 1**: Voz y vídeo de alta fidelidad.
+- **Llamadas grupales**: Conexiones simultáneas entre múltiples miembros de un grupo.
+- **Videoconferencias**: Salas para grupos de estudio con control de admisión y gestión de participantes.
+- **Picture-in-Picture Nativo**: Ventana flotante que permanece siempre visible al navegar fuera de la app o cambiar de ventana en el SO.
 
-2. Start the app
+### 🖥️ Integración con el Sistema Operativo
+- **Notificaciones Nativas**: Avisos integrados en el centro de notificaciones del sistema.
+- **Badge en el Icono**: Indicador de mensajes no leídos en la barra de tareas o dock.
+- **Compartición de Pantalla**: Selección de ventanas o pantallas completas de forma nativa.
+- **Gestión de Dispositivos**: Selector independiente para micrófono, cámara y salida de audio.
 
-   ```bash
-   npx expo start
-   ```
+### 🎓 Gestión del Campus
+- **Tablón de Anuncios**: Notificaciones institucionales en tiempo real.
+- **Calendario Académico**: Sincronización de exámenes, eventos y clases.
+- **Grupos de Estudio**: Espacios colaborativos con chat y videoconferencia integrados.
 
-In the output, you'll find options to open the app in a
+## 🚀 Inicio Rápido
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Requisitos previos
+- **Node.js** 18 o superior.
+- **npm** o **yarn**.
+- Configuración de Firebase (asegúrate de tener el archivo `.env` configurado).
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### Instalación
 ```bash
-npm run reset-project
+cd desktop
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Ejecución en desarrollo
+Para iniciar la aplicación en modo desarrollo con recarga en caliente:
+```bash
+npm run electron:dev
+```
 
-## Learn more
+### Construcción para producción
+Para generar el ejecutable instalable para tu sistema operativo:
+```bash
+npm run electron:build
+```
+*Los binarios generados se encontrarán en la carpeta `release/`.*
 
-To learn more about developing your project with Expo, look at the following resources:
+## 🧰 Tech Stack
+| Capa | Tecnología |
+| :--- | :--- |
+| **Framework** | React 18 + Vite |
+| **Entorno Desktop** | Electron |
+| **Lenguaje** | TypeScript |
+| **Base de Datos** | Cloud Firestore (Real-time) |
+| **Almacenamiento** | Cloudinary (Imágenes y Vídeos) + Firebase Storage |
+| **Llamadas** | WebRTC (Señalización vía Firestore) |
+| **Notificaciones** | Firebase Cloud Messaging (FCM) |
+| **Iconos** | Lucide React |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 👤 Autor
+**Samuel Jesús Morán Hernández** — Desarrollo del cliente de escritorio, integración de Electron, infraestructura de Backend (Firebase Functions & Firestore), sistema WebRTC y validación funcional.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+Proyecto A&S Technologies · CIFP Villa de Agüimes · 2025–2026
