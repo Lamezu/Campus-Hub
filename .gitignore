@@ -100,3 +100,7 @@ test-firebase.js
 **/*.test.local.js
 coverage/
 .nyc_output/
+
+# Electron build outputs
+desktop/dist-electron/
+desktop/release/
