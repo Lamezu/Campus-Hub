@@ -1,0 +1,65 @@
+.call-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  border: none;
+}
+.call-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+}
+.call-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+}
+
+.dev-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 11px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.dev-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dev-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px 8px 22px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.dev-sub:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.share-overlay-hover {
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+.share-overlay-hover:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}

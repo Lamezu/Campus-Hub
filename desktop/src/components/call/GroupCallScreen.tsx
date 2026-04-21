@@ -1,0 +1,763 @@
+import React, { useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from '../../contexts/LanguageContext';
+import { auth } from '../../config/firebase';
+import {
+  PhoneOff, Video, VideoOff, Mic, MicOff,
+  Headphones, HeadphoneOff, Monitor, MonitorOff,
+  ChevronUp, Check, ExternalLink, Users, Eye, EyeOff, Volume2, VolumeX
+} from 'lucide-react';
+import { ScreenShareModal } from './ScreenShareModal';
+import {
+  ICE_SERVERS,
+  getConnectionId,
+  createConnection,
+  updateConnectionOffer,
+  answerConnection,
+  updateConnectionCamState,
+  updateConnectionSharingState,
+  signalConnectionVideo,
+  updateConnectionReceiverOffer,
+  updateConnectionCallerReanswer,
+  addConnectionCallerCandidate,
+  addConnectionReceiverCandidate,
+  subscribeToGroupCall,
+  subscribeToConnection,
+  subscribeToConnectionCallerCandidates,
+  subscribeToConnectionReceiverCandidates,
+  joinGroupCall,
+  leaveGroupCall,
+  denyConferenceParticipant,
+  approveConferenceParticipant,
+  type GroupCall
+} from '../../services/groupCallService';
+import { getCtx } from '../../utils/toneGenerator';
+import { type CallType } from '../../services/callService';
+import VideoTile from './VideoTile';
+interface CtrlBtnProps {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  muted?: boolean;
+  green?: boolean;
+  danger?: boolean;
+  active?: boolean;
+  mobile?: boolean;
+}
+function CtrlBtn({ icon, label, onClick, muted, green, danger, active, mobile }: CtrlBtnProps) {
+  const bg = danger || muted ? '#ed4245' : green ? '#23a55a' : active ? '#5865f2' : 'rgba(79,84,92,0.75)';
+  const size = mobile ? 44 : 48;
+  return (
+    <div style={{ position: 'relative', cursor: 'pointer' }} onClick={onClick}>
+      <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        {icon}
+      </div>
+    </div>
+  );
+}
+function CompoundBtn({ icon, label, onClick, onChevron, muted, chevronActive, mobile }: { icon: ReactNode; label: string; onClick: () => void; onChevron: () => void; muted?: boolean; chevronActive?: boolean; mobile?: boolean }) {
+  const bg = muted ? '#ed4245' : 'rgba(79,84,92,0.75)';
+  const size = mobile ? 44 : 48;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <button onClick={onClick} style={{ width: size, height: size, borderRadius: '50% 0 0 50%', backgroundColor: bg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>{icon}</button>
+      <button onClick={onChevron} style={{ width: 20, height: size, borderRadius: '0 50% 50% 0', backgroundColor: chevronActive ? '#5865f2' : 'rgba(79,84,92,0.8)', border: 'none', cursor: 'pointer', color: '#fff', marginLeft: '1px' }}><ChevronUp size={12} /></button>
+    </div>
+  );
+}
+interface PeerState {
+  uid: string;
+  name: string;
+  photo: string | null;
+  camOff: boolean;
+  speaking: boolean;
+  sharing: boolean;
+}
+interface GroupCallScreenProps {
+  callId: string;
+  isInitiator: boolean;
+  callType: CallType;
+  groupName: string;
+  groupPhoto: string | null;
+  myUid: string;
+  myName: string;
+  myPhoto: string | null;
+  onClose: () => void;
+}
+export default function GroupCallScreen({
+  callId, isInitiator, callType, groupName, groupPhoto,
+  myUid, myName, myPhoto, onClose
+}: GroupCallScreenProps) {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<'connecting' | 'waiting' | 'active' | 'ended'>('connecting');
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(callType === 'video');
+  const [deafened, setDeafened] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [peers, setPeers] = useState<PeerState[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<{ uid: string; name: string; photo: string | null }[]>([]);
+  const [duration, setDuration] = useState(0);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localSharingStream, setLocalSharingStream] = useState<MediaStream | null>(null);
+  const [focusedTile, setFocusedTile] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const [miniPos, setMiniPos] = useState({ x: 20, y: 20 });
+  const [inPip, setInPip] = useState(false);
+  const [isAudioBlocked, setIsAudioBlocked] = useState(false);
+  const [streamVersion, setStreamVersion] = useState(0);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [showDevices, setShowDevices] = useState(false);
+  const [showCamPicker, setShowCamPicker] = useState(false);
+  const [selectedMicId, setSelectedMicId] = useState('default');
+  const [selectedCamId, setSelectedCamId] = useState('default');
+  const [peerVolumes, setPeerVolumes] = useState<Record<string, number>>({});
+  const [peerMuted, setPeerMuted] = useState<Set<string>>(new Set());
+  const [hiddenStreams, setHiddenStreams] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; peerUid: string } | null>(null);
+  const [localSpeaking, setLocalSpeaking] = useState(false);
+  const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
+  const signalingLockRef = useRef<Map<string, boolean>>(new Map());
+  const connUnsubsRef = useRef<Map<string, (() => void)[]>>(new Map());
+  const candQueueRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const remoteShareStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const remoteAudioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const remoteAnalysersRef = useRef<Map<string, AnalyserNode>>(new Map());
+  const remoteGainNodesRef = useRef<Map<string, GainNode>>(new Map());
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const localAnalyserRef = useRef<AnalyserNode | null>(null);
+  const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
+  const unsubsRef = useRef<(() => void)[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const gainCtxRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const gainSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const gainDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const remoteAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const docPipAreaRef = useRef<HTMLDivElement | null>(null);
+  const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const startTimer = useCallback(() => { if (!timerRef.current) timerRef.current = setInterval(() => setDuration(d => d + 1), 1000); }, []);
+  const cleanupPeer = useCallback((uid: string) => {
+    const pc = pcsRef.current.get(uid); if (pc) { pc.close(); pcsRef.current.delete(uid); }
+    connUnsubsRef.current.get(uid)?.forEach(u => u()); connUnsubsRef.current.delete(uid);
+    candQueueRef.current.delete(uid); remoteStreamsRef.current.delete(uid);
+    remoteShareStreamsRef.current.delete(uid);
+    const audioEl = remoteAudioElsRef.current.get(uid); if (audioEl) audioEl.remove();
+    remoteAudioElsRef.current.delete(uid); remoteAnalysersRef.current.delete(uid);
+    remoteGainNodesRef.current.delete(uid);
+    setPeers(prev => prev.filter(p => p.uid !== uid));
+  }, []);
+  const cleanup = useCallback(() => {
+    cancelledRef.current = true; unsubsRef.current.forEach(u => u());
+    for (const uid of pcsRef.current.keys()) cleanupPeer(uid);
+    if (timerRef.current) clearInterval(timerRef.current);
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    screenTrackRef.current?.stop();
+  }, [cleanupPeer]);
+
+  const handleLeave = useCallback(async () => {
+    cleanup(); try { await leaveGroupCall(callId, myUid); } catch { } onClose();
+  }, [callId, myUid, cleanup, onClose]);
+
+  useEffect(() => {
+    remoteGainNodesRef.current.forEach((gn, uid) => {
+      const vol = (peerMuted.has(uid) || deafened) ? 0 : (peerVolumes[uid] ?? 1);
+      gn.gain.setTargetAtTime(vol, 0, 0.05);
+    });
+  }, [peerMuted, peerVolumes, deafened]);
+
+  const setupConnectionWithPeer = useCallback(async (peerUid: string, peerData: any) => {
+    if (pcsRef.current.has(peerUid) || cancelledRef.current) return;
+    const connId = getConnectionId(myUid, peerUid); const iAmCaller = myUid < peerUid;
+    const pc = new RTCPeerConnection(ICE_SERVERS); pcsRef.current.set(peerUid, pc);
+    const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current?.getAudioTracks()[0];
+    const videoT = localStreamRef.current?.getVideoTracks()[0];
+    if (audioT) pc.addTransceiver(audioT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
+    else pc.addTransceiver('audio', { direction: 'sendrecv' });
+    if (videoT && camOn) pc.addTransceiver(videoT, { direction: 'sendrecv', streams: [localStreamRef.current!] });
+    else pc.addTransceiver('video', { direction: 'sendrecv' });
+    if (screenTrackRef.current) pc.addTransceiver(screenTrackRef.current, { direction: 'sendrecv' });
+    else pc.addTransceiver('video', { direction: 'sendrecv' });
+
+    const rStream = new MediaStream(); remoteStreamsRef.current.set(peerUid, rStream);
+    const rsStream = new MediaStream(); remoteShareStreamsRef.current.set(peerUid, rsStream);
+
+    pc.onicecandidate = (e) => {
+      if (!e.candidate) return;
+      const add = iAmCaller ? addConnectionCallerCandidate : addConnectionReceiverCandidate;
+      add(callId, connId, e.candidate.toJSON()).catch(() => { });
+    };
+
+    const resumeAudio = () => {
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => { });
+      }
+    };
+
+    const setupRemoteAudio = async (uid: string, track: MediaStreamTrack) => {
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = await getCtx();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') {
+          try {
+            await ctx.resume();
+            setIsAudioBlocked(ctx.state === 'suspended');
+          } catch {
+            setIsAudioBlocked(true);
+          }
+        }
+        const stream = new MediaStream([track]);
+        const src = ctx.createMediaStreamSource(stream);
+        const an = ctx.createAnalyser(); an.fftSize = 32;
+        const gn = ctx.createGain();
+        gn.gain.value = (peerMuted.has(uid) || deafened) ? 0 : (peerVolumes[uid] ?? 1);
+        src.connect(an);
+        an.connect(gn);
+        gn.connect(ctx.destination);
+        remoteAnalysersRef.current.set(uid, an);
+        remoteGainNodesRef.current.set(uid, gn);
+      } catch (err) { }
+    };
+
+    pc.onnegotiationneeded = async () => {
+      if (makingOfferRef.current.get(peerUid)) return;
+      try {
+        makingOfferRef.current.set(peerUid, true); await pc.setLocalDescription();
+        const sync = iAmCaller ? updateConnectionOffer : updateConnectionReceiverOffer;
+        await sync(callId, connId, pc.localDescription!.toJSON());
+      } catch { } finally { makingOfferRef.current.set(peerUid, false); }
+    };
+
+    pc.ontrack = (e) => {
+      const transceivers = pc.getTransceivers();
+      const idx = transceivers.findIndex(t => t.receiver === e.receiver);
+      const update = () => setStreamVersion(v => v + 1);
+      e.track.onunmute = update; e.track.onmute = update; e.track.onended = update;
+      if (idx === 0) {
+        rStream.getAudioTracks().forEach(t => rStream.removeTrack(t));
+        rStream.addTrack(e.track);
+        if (remoteAudioElRef.current) remoteAudioElRef.current.srcObject = rStream;
+        setupRemoteAudio(peerUid, e.track);
+      } else if (idx === 1) {
+        rStream.getVideoTracks().forEach(t => rStream.removeTrack(t));
+        rStream.addTrack(e.track);
+      } else if (idx === 2) {
+        rsStream.getVideoTracks().forEach(t => rsStream.removeTrack(t));
+        rsStream.addTrack(e.track);
+      }
+      update();
+    };
+
+    const unsubConn = subscribeToConnection(callId, connId, async (conn) => {
+      if (!conn || cancelledRef.current || signalingLockRef.current.get(peerUid)) return;
+      signalingLockRef.current.set(peerUid, true);
+      try {
+        const description = iAmCaller ? conn.receiverOffer : conn.offer;
+        if (description && pc.signalingState !== 'closed') {
+          const isPolite = myUid > peerUid;
+          const ready = !makingOfferRef.current.get(peerUid) && pc.signalingState === "stable";
+          if (!(description.type === "offer" && !ready && !isPolite)) {
+            await pc.setRemoteDescription(new RTCSessionDescription(description));
+            if (description.type === "offer") {
+              const transceivers = pc.getTransceivers();
+              transceivers.forEach(t => { if (t.direction !== 'stopped') t.direction = 'sendrecv'; });
+              if (localStreamRef.current) {
+                const audioT = gainDestRef.current?.stream.getAudioTracks()[0] || localStreamRef.current.getAudioTracks()[0];
+                const videoT = localStreamRef.current.getVideoTracks()[0];
+                if (audioT && transceivers[0]) await transceivers[0].sender.replaceTrack(audioT);
+                if (videoT && camOn && transceivers[1]) await transceivers[1].sender.replaceTrack(videoT);
+              }
+              if (screenTrackRef.current && transceivers[2]) await transceivers[2].sender.replaceTrack(screenTrackRef.current);
+              await pc.setLocalDescription();
+              const sync = iAmCaller ? updateConnectionCallerReanswer : answerConnection;
+              await sync(callId, connId, pc.localDescription!.toJSON());
+            }
+          }
+        }
+        const answer = iAmCaller ? (conn.answer || conn.callerReanswer) : conn.callerReanswer;
+        if (answer && pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          const q = candQueueRef.current.get(peerUid) || [];
+          while (q.length > 0) { const c = q.shift(); if (c) pc.addIceCandidate(c).catch(() => { }); }
+        }
+      } finally { signalingLockRef.current.set(peerUid, false); }
+      const peerCam = iAmCaller ? conn.receiverCamOff : conn.callerCamOff;
+      const peerSharing = iAmCaller ? conn.receiverSharing : conn.callerSharing;
+      setPeers(prev => prev.map(p => p.uid === peerUid ? { ...p, camOff: !!peerCam, sharing: !!peerSharing } : p));
+    });
+
+    const candSub = iAmCaller ? subscribeToConnectionReceiverCandidates : subscribeToConnectionCallerCandidates;
+    const unsubCand = candSub(callId, connId, async (c) => {
+      if (pc.remoteDescription) pc.addIceCandidate(c).catch(() => { });
+      else { const q = candQueueRef.current.get(peerUid) || []; q.push(c); candQueueRef.current.set(peerUid, q); }
+    });
+
+    if (iAmCaller) await createConnection(callId, connId, myUid, peerUid);
+    connUnsubsRef.current.set(peerUid, [unsubConn, unsubCand]);
+    setPeers(prev => [...prev.filter(p => p.uid !== peerUid), {
+      uid: peerUid,
+      name: peerData.displayName || peerData.name || 'Usuario',
+      photo: peerData.photoURL || peerData.photo || null,
+      camOff: false,
+      speaking: false,
+      sharing: false
+    }]);
+
+    if (iAmCaller) {
+      makingOfferRef.current.set(peerUid, true);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await updateConnectionOffer(callId, connId, pc.localDescription!.toJSON());
+      } catch { } finally { makingOfferRef.current.set(peerUid, false); }
+    }
+  }, [callId, myUid, camOn, sharing, peerMuted, peerVolumes, deafened]);
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' ? { width: 1280, height: 720 } : false }).catch(() => new MediaStream());
+      if (cancelled) return; localStreamRef.current = stream; setLocalStream(stream);
+      const audioT = stream.getAudioTracks()[0];
+      if (audioT) {
+        try {
+          if (!audioCtxRef.current) {
+            audioCtxRef.current = await getCtx();
+          }
+          const ctx = audioCtxRef.current;
+          gainCtxRef.current = ctx; const g = ctx.createGain(); g.gain.value = 1.0; gainNodeRef.current = g;
+          const src = ctx.createMediaStreamSource(new MediaStream([audioT])); gainSourceRef.current = src;
+          const dst = ctx.createMediaStreamDestination(); gainDestRef.current = dst;
+          const an = ctx.createAnalyser(); an.fftSize = 256; localAnalyserRef.current = an;
+          src.connect(g); g.connect(dst); g.connect(an);
+        } catch { }
+      }
+      if (isInitiator) {
+        setStatus('active');
+        startTimer();
+      }
+      const unsubGroup = subscribeToGroupCall(callId, async (call) => {
+        if (!call || cancelledRef.current) return;
+        if (call.status === 'ended') { cleanup(); onClose(); return; }
+        if (isInitiator) setPendingApprovals((call.pendingParticipants || []).map(uid => {
+          const p = call.participantData[uid] as any;
+          return {
+            uid,
+            name: p?.displayName || p?.username || p?.name || 'Usuario',
+            photo: p?.photoURL || p?.photo || null
+          };
+        }));
+        else {
+          const active = call.activeParticipants.includes(myUid);
+          if (active && status !== 'active') { setStatus('active'); startTimer(); }
+          else if (!active && call.pendingParticipants?.includes(myUid)) setStatus('waiting');
+        }
+        const others = call.activeParticipants.filter(uid => uid !== myUid);
+        for (const uid of others) {
+          const pData = call.participantData[uid] || {};
+          const peerName = (pData as any).displayName || (pData as any).username || (pData as any).name || 'Usuario';
+          const peerPhoto = (pData as any).photoURL || (pData as any).photo || null;
+          await setupConnectionWithPeer(uid, { ...pData, displayName: peerName, photoURL: peerPhoto } as any);
+        }
+        pcsRef.current.forEach((_, uid) => {
+          if (!call.activeParticipants.includes(uid)) {
+            cleanupPeer(uid);
+          }
+        });
+      }, false);
+      unsubsRef.current.push(unsubGroup);
+      if (!isInitiator) joinGroupCall(callId, myUid);
+    }
+    init(); return () => { cancelled = true; };
+  }, [callId, myUid, isInitiator, callType, startTimer, cleanupPeer, setupConnectionWithPeer, handleLeave]);
+  useEffect(() => {
+    if (status !== 'active') return;
+    const buf = new Uint8Array(128); let lspeak = 0; let remS = new Map<string, number>();
+    const tick = () => {
+      const now = performance.now();
+      if (localAnalyserRef.current) { localAnalyserRef.current.getByteFrequencyData(buf); if (buf.reduce((a, b) => a + b, 0) / 128 > 15) lspeak = now + 500; }
+      remoteAnalysersRef.current.forEach((an, uid) => { an.getByteFrequencyData(buf); if (buf.reduce((a, b) => a + b, 0) / 128 > 15) remS.set(uid, now + 500); });
+      setLocalSpeaking(now < lspeak); setPeers(prev => prev.map(p => ({ ...p, speaking: now < (remS.get(p.uid) || 0) })));
+      requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
+  }, [status]);
+  const toggleMic = () => {
+    const next = !micOn; setMicOn(next);
+    const audioTrack = localStreamRef.current?.getAudioTracks()[0];
+    if (audioTrack) audioTrack.enabled = next;
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.setTargetAtTime(next ? 1.0 : 0.0, 0, 0.05);
+    }
+  };
+  const toggleCam = async () => {
+    const next = !camOn;
+    if (next) {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        const t = s.getVideoTracks()[0];
+        if (t && localStreamRef.current) {
+          localStreamRef.current.getVideoTracks().forEach(old => {
+            old.stop();
+            localStreamRef.current?.removeTrack(old);
+          });
+          localStreamRef.current.addTrack(t);
+          setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+          pcsRef.current.forEach(pc => {
+            const sender = pc.getSenders()[1];
+            if (sender) sender.replaceTrack(t);
+          });
+          pcsRef.current.forEach((_, uid) => updateConnectionCamState(callId, getConnectionId(myUid, uid), myUid < uid, false));
+          setCamOn(true);
+          setStreamVersion(v => v + 1);
+        }
+      } catch (err) { }
+    } else {
+      localStreamRef.current?.getVideoTracks().forEach(t => { t.stop(); localStreamRef.current?.removeTrack(t); });
+      setLocalStream(new MediaStream(localStreamRef.current?.getTracks() || []));
+      pcsRef.current.forEach(pc => {
+        const sender = pc.getSenders()[1];
+        if (sender) sender.replaceTrack(null);
+      });
+      pcsRef.current.forEach((_, uid) => updateConnectionCamState(callId, getConnectionId(myUid, uid), myUid < uid, true));
+      setCamOn(false);
+      setStreamVersion(v => v + 1);
+    }
+  };
+  const toggleDeafen = () => {
+    const next = !deafened; setDeafened(next);
+    remoteAudioElsRef.current.forEach(el => el.muted = next);
+    if (next) setMicOn(false);
+  };
+  const openDevicePicker = async () => {
+    const list = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
+    setDevices(list); setShowDevices(!showDevices); setShowCamPicker(false);
+  };
+  const openCamPicker = async () => {
+    const list = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);
+    setDevices(list); setShowCamPicker(!showCamPicker); setShowDevices(false);
+  };
+  const changeAudioInput = async (deviceId: string) => {
+    setSelectedMicId(deviceId);
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
+      const track = s.getAudioTracks()[0]; if (!track) return;
+      localStreamRef.current?.getAudioTracks().forEach(t => t.stop());
+      let targetTrack = track;
+      if (gainCtxRef.current && gainNodeRef.current && gainDestRef.current) {
+        gainSourceRef.current?.disconnect();
+        const nsrc = gainCtxRef.current.createMediaStreamSource(new MediaStream([track]));
+        gainSourceRef.current = nsrc; nsrc.connect(gainNodeRef.current);
+        targetTrack = gainDestRef.current.stream.getAudioTracks()[0] || track;
+      }
+      const vTracks = localStreamRef.current?.getVideoTracks() || [];
+      localStreamRef.current = new MediaStream([targetTrack, ...vTracks]);
+      setLocalStream(localStreamRef.current);
+      pcsRef.current.forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'audio');
+        if (sender) sender.replaceTrack(targetTrack);
+      });
+      setMicOn(true);
+    } catch (err) {
+      console.error("Error changing audio input:", err);
+    }
+  };
+
+  const [selectedOutputId, setSelectedOutputId] = useState('');
+  const changeAudioOutput = async (deviceId: string) => {
+    setSelectedOutputId(deviceId);
+    remoteAudioElsRef.current.forEach(async (el) => {
+      if ((el as any).setSinkId) {
+        try {
+          await (el as any).setSinkId(deviceId);
+        } catch (err) {
+          console.error("Error setting sink ID:", err);
+        }
+      }
+    });
+  };
+  const changeVideoInput = async (deviceId: string) => {
+    setSelectedCamId(deviceId);
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+      const track = s.getVideoTracks()[0]; if (!track) return;
+      pcsRef.current.forEach(pc => pc.getSenders()[1].replaceTrack(track));
+      setCamOn(true);
+    } catch { }
+  };
+  const toggleHiddenStream = (id: string) => { setHiddenStreams(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
+  const togglePeerMuted = (uid: string) => { setPeerMuted(prev => { const n = new Set(prev); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; }); };
+  const setPeerVolume = (uid: string, vol: number) => { setPeerVolumes(prev => ({ ...prev, [uid]: vol })); };
+  const stopSharing = useCallback(() => {
+    if (screenTrackRef.current) {
+      screenTrackRef.current.stop();
+      screenTrackRef.current = null;
+    }
+    setSharing(false);
+    setLocalSharingStream(null);
+    pcsRef.current.forEach((pc, uid) => {
+      const sender = pc.getSenders()[2];
+      if (sender) sender.replaceTrack(null);
+      updateConnectionSharingState(callId, getConnectionId(myUid, uid), myUid < uid, false).catch(() => { });
+    });
+  }, [callId, myUid]);
+  const onHandleSourceSelect = async (sid: string) => {
+    if (screenTrackRef.current) screenTrackRef.current.stop();
+    try {
+      const s = await (navigator.mediaDevices as any).getUserMedia({ video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sid } } });
+      const t = s.getVideoTracks()[0];
+      if (!t) return;
+      screenTrackRef.current = t;
+      setLocalSharingStream(s);
+      setSharing(true);
+      setShowShareModal(false);
+      pcsRef.current.forEach((pc, uid) => {
+        const sender = pc.getSenders()[2];
+        if (sender) sender.replaceTrack(t);
+        updateConnectionSharingState(callId, getConnectionId(myUid, uid), myUid < uid, true).catch(() => { });
+      });
+      t.onended = stopSharing;
+    } catch { stopSharing(); }
+  };
+  const totalMembers = peers.length + (sharing ? 1 : 0) + peers.filter(p => p.sharing).length + 1;
+  const basis = totalMembers <= 2 ? 'calc(50% - 24px)' : totalMembers <= 4 ? 'calc(48% - 12px)' : 'calc(32% - 12px)';
+  const resumeAudio = () => {
+    if (audioCtxRef.current?.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => { });
+    }
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: '#111214', zIndex: 9999, display: 'flex', flexDirection: 'column' }} onClick={resumeAudio}>
+      <audio ref={remoteAudioElRef} autoPlay playsInline style={{ display: 'none' }} />
+      {isAudioBlocked && (
+        <div style={{
+          position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 10002, backgroundColor: '#ed4245', color: '#fff',
+          padding: '12px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center',
+          gap: '12px', boxShadow: '0 8px 16px rgba(0,0,0,0.4)', animation: 'slideDown 0.3s ease'
+        }}>
+          <style>{`@keyframes slideDown { from { transform: translate(-50%, -100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }`}</style>
+          <VolumeX size={20} />
+          <span style={{ fontWeight: 600 }}>{t('call.audio_blocked')}</span>
+          <button
+            onClick={() => { resumeAudio(); setIsAudioBlocked(false); }}
+            style={{
+              backgroundColor: '#fff', color: '#ed4245', border: 'none',
+              padding: '6px 12px', borderRadius: '6px', fontWeight: 700,
+              cursor: 'pointer', fontSize: '12px'
+            }}
+          >
+            {t('call.enable_audio')}
+          </button>
+        </div>
+      )}
+      { }
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        {status === 'connecting' && <div style={{ color: '#fff' }}><h2>{groupName}</h2><p>{t('call.connecting')}...</p></div>}
+        {status === 'waiting' && <div style={{ color: '#fff' }}><h2>{groupName}</h2><p>{t('call.waiting_admission')}...</p></div>}
+        {status === 'active' && (
+          !focusedTile ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', width: '100%', maxWidth: '1400px', justifyContent: 'center', overflowY: 'auto' }}>
+              {peers.map(p => (
+                <div key={`${p.uid}-${streamVersion}`} style={{ width: basis, minWidth: '300px', aspectRatio: '16/9' }}>
+                  <VideoTile
+                    uid={p.uid}
+                    name={p.name}
+                    photo={p.photo}
+                    stream={remoteStreamsRef.current.get(p.uid) || null}
+                    speaking={p.speaking}
+                    camOff={p.camOff}
+                    muted={peerMuted.has(p.uid)}
+                    volume={peerVolumes[p.uid] ?? 1}
+                    onMuteToggle={(m) => setPeerMuted(prev => { const n = new Set(prev); if (m) n.add(p.uid); else n.delete(p.uid); return n; })}
+                    onVolumeChange={(v) => setPeerVolumes(prev => ({ ...prev, [p.uid]: v / 100 }))}
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, peerUid: p.uid }); }}
+                    onClick={() => setFocusedTile(p.uid)}
+                  />
+                </div>
+              ))}
+              {peers.filter(p => p.sharing).map(p => (
+                <div key={`${p.uid}-s-${streamVersion}`} style={{ width: basis, minWidth: '300px', aspectRatio: '16/9' }}>
+                  <VideoTile
+                    uid={p.uid + '-s'}
+                    name={t('call.user_screen', { name: p.name })}
+                    stream={remoteShareStreamsRef.current.get(p.uid) || null}
+                    sharing
+                    onClick={() => setFocusedTile(p.uid + '-s')}
+                  />
+                </div>
+              ))}
+              <div style={{ width: basis, minWidth: '300px', aspectRatio: '16/9' }}>
+                <VideoTile
+                  uid="local"
+                  name={t('call.you')}
+                  photo={myPhoto}
+                  stream={localStream}
+                  speaking={localSpeaking}
+                  camOff={!camOn}
+                  isLocal
+                  onClick={() => setFocusedTile('local')}
+                />
+              </div>
+              {sharing && (
+                <div style={{ width: basis, minWidth: '300px', aspectRatio: '16/9' }}>
+                  <VideoTile
+                    uid="localShare"
+                    name={t('call.your_screen')}
+                    stream={localSharingStream}
+                    sharing
+                    isLocal
+                    onStopSharing={stopSharing}
+                    onClick={() => setFocusedTile('localShare')}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '80px' }}>
+              <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+                {focusedTile === 'local' && <VideoTile key={`focused-local-${streamVersion}`} uid="local" name={t('call.you')} stream={localStream} speaking={localSpeaking} camOff={!camOn} isLocal onClick={() => setFocusedTile(null)} />}
+                {focusedTile === 'localShare' && <VideoTile key={`focused-localshare-${streamVersion}`} uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onStopSharing={stopSharing} onClick={() => setFocusedTile(null)} />}
+                {focusedTile.endsWith('-s') ?
+                  <VideoTile key={`focused-${focusedTile}-${streamVersion}`} uid={focusedTile} name={t('call.user_screen', { name: peers.find(p => p.uid + '-s' === focusedTile)?.name || '' })} stream={remoteShareStreamsRef.current.get(focusedTile.slice(0, -2)) || null} sharing onClick={() => setFocusedTile(null)} /> :
+                  <VideoTile key={`focused-${focusedTile}-${streamVersion}`} uid={focusedTile} name={peers.find(p => p.uid === focusedTile)?.name || ''} stream={remoteStreamsRef.current.get(focusedTile) || null} speaking={peers.find(p => p.uid === focusedTile)?.speaking} camOff={peers.find(p => p.uid === focusedTile)?.camOff} onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, peerUid: focusedTile }); }} onClick={() => setFocusedTile(null)} />
+                }
+              </div>
+              <div style={{ height: '110px', display: 'flex', gap: '12px', overflowX: 'auto', padding: '4px', justifyContent: 'center' }}>
+                {peers.filter(p => !hiddenStreams.has(p.uid) && p.uid !== focusedTile).map(p => <div key={`${p.uid}-mini-${streamVersion}`} style={{ width: '160px', flexShrink: 0 }}><VideoTile uid={p.uid} name={p.name} photo={p.photo} stream={remoteStreamsRef.current.get(p.uid) || null} onMuteToggle={() => togglePeerMuted(p.uid)} onVolumeChange={(v) => setPeerVolume(p.uid, v / 100)} onClick={() => setFocusedTile(p.uid)} /></div>)}
+                {peers.filter(p => p.sharing && p.uid + '-s' !== focusedTile).map(p => <div key={`${p.uid}-s-mini-${streamVersion}`} style={{ width: '160px', flexShrink: 0 }}><VideoTile uid={p.uid + '-s'} name={t('call.user_screen', { name: p.name })} stream={remoteShareStreamsRef.current.get(p.uid) || null} sharing onClick={() => setFocusedTile(p.uid + '-s')} /></div>)}
+                {focusedTile !== 'local' && <div style={{ width: '160px', flexShrink: 0 }}><VideoTile key={`local-mini-${streamVersion}`} uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} isLocal onClick={() => setFocusedTile('local')} /></div>}
+                {sharing && focusedTile !== 'localShare' && <div style={{ width: '160px', flexShrink: 0 }}><VideoTile key={`localshare-mini-${streamVersion}`} uid="localShare" name={t('call.your_screen')} stream={localSharingStream} sharing isLocal onClick={() => setFocusedTile('localShare')} /></div>}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+      { }
+      <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(30,31,34,0.85)', backdropFilter: 'blur(20px)', borderRadius: '16px', padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '16px', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ color: '#fff', fontSize: '13px', fontWeight: 700, minWidth: 40 }}>{status === 'active' ? formatDuration(duration) : t(`call.${status}`)}</div>
+        <CompoundBtn icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={t('call.mic')} onClick={toggleMic} onChevron={openDevicePicker} muted={!micOn} chevronActive={showDevices} />
+        <CtrlBtn icon={deafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />} label={t('call.deafen')} onClick={toggleDeafen} active={deafened} />
+        {callType === 'video' && <CompoundBtn icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={t('call.video')} onClick={toggleCam} onChevron={openCamPicker} muted={!camOn} chevronActive={showCamPicker} />}
+        <CtrlBtn icon={sharing ? <MonitorOff size={20} /> : <Monitor size={20} />} label={t('call.share_screen')} onClick={() => sharing ? stopSharing() : setShowShareModal(true)} active={sharing} />
+        <CtrlBtn icon={<PhoneOff size={20} />} label={t('call.hang_up')} onClick={handleLeave} danger />
+      </div>
+      { }
+      {contextMenu && (
+        <div style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, backgroundColor: '#111214', borderRadius: 12, padding: '16px', width: 220, zIndex: 10005, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <button onClick={() => { toggleHiddenStream(contextMenu.peerUid); setContextMenu(null); }} style={{ width: '100%', padding: '10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', color: '#dbdee1', cursor: 'pointer', textAlign: 'left', fontSize: '13px' }}>
+            {hiddenStreams.has(contextMenu.peerUid) ? <Eye size={18} /> : <EyeOff size={18} />} {hiddenStreams.has(contextMenu.peerUid) ? t('call.view_stream') : t('call.stop_viewing')}
+          </button>
+          <button onClick={() => { togglePeerMuted(contextMenu.peerUid); setContextMenu(null); }} style={{ width: '100%', padding: '10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', color: '#dbdee1', cursor: 'pointer', textAlign: 'left', fontSize: '13px' }}>
+            {peerMuted.has(contextMenu.peerUid) ? <Volume2 size={18} /> : <VolumeX size={18} />} {peerMuted.has(contextMenu.peerUid) ? t('call.unmute_user') : t('call.mute_user')}
+          </button>
+          <div style={{ padding: '0 10px 10px 10px' }}>
+            <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: 8 }}>{t('call.user_volume')}</div>
+            <input type="range" min="0" max="1" step="0.01" value={peerVolumes[contextMenu.peerUid] ?? 1} onChange={(e) => setPeerVolume(contextMenu.peerUid, parseFloat(e.target.value))} style={{ width: '100%', cursor: 'pointer' }} />
+          </div>
+        </div>
+      )}
+      {contextMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 10004 }} onClick={() => setContextMenu(null)} />}
+      {pendingApprovals.length > 0 && isInitiator && (
+        <div style={{ position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1E1F22', borderRadius: '12px', padding: '16px', zIndex: 10002, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: '320px' }}>
+          <div style={{ marginBottom: '12px', color: '#fff', fontWeight: 700 }}>{t('call.admission_request')} ({pendingApprovals.length})</div>
+          {pendingApprovals.map(req => (
+            <div key={req.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '8px' }}>
+              <span style={{ color: '#fff', fontSize: '13px' }}>{req.name}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => denyConferenceParticipant(callId, req.uid)} style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(237,66,69,0.1)', color: '#ed4245', border: 'none', cursor: 'pointer' }}>{t('call.reject')}</button>
+                <button onClick={() => approveConferenceParticipant(callId, req.uid)} style={{ padding: '6px 14px', borderRadius: '6px', background: '#23a559', color: '#fff', border: 'none', cursor: 'pointer' }}>{t('call.admit')}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {(showDevices || showCamPicker) && (
+        <div style={{ position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1E1F22', borderRadius: '12px', padding: '12px', width: '300px', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {showDevices ? (
+            <>
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>{t('call.audio_input', 'Micrófono')}</div>
+              {devices.filter(d => d.kind === 'audioinput').map((d, i) => (
+                <div key={`mic-${i}`} onClick={() => changeAudioInput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedMicId === d.deviceId ? 'rgba(88,101,242,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Mic ${i + 1}`}</span>
+                  {selectedMicId === d.deviceId && <Check size={14} color="#5865f2" />}
+                </div>
+              ))}
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', marginTop: '12px', letterSpacing: '0.5px' }}>{t('call.audio_output', 'Altavoces')}</div>
+              {devices.filter(d => d.kind === 'audiooutput').map((d, i) => (
+                <div key={`out-${i}`} onClick={() => changeAudioOutput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedOutputId === d.deviceId ? 'rgba(34,197,94,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Speaker ${i + 1}`}</span>
+                  {selectedOutputId === d.deviceId && <Check size={14} color="#22c55e" />}
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '10px', color: '#949ba4', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>{t('call.video_devices')}</div>
+              {devices.filter(d => d.kind === 'videoinput').map((d, i) => (
+                <div key={`cam-${i}`} onClick={() => changeVideoInput(d.deviceId)} style={{ padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#dbdee1', fontSize: '13px', background: selectedCamId === d.deviceId ? 'rgba(88,101,242,0.15)' : 'transparent', marginBottom: '2px' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label || `Cam ${i + 1}`}</span>
+                  {selectedCamId === d.deviceId && <Check size={14} color="#5865f2" />}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+      {showShareModal && <ScreenShareModal onClose={() => setShowShareModal(false)} onSelect={onHandleSourceSelect} />}
+    </div>
+  );
+}
+export function IncomingGroupCallModal({ call, onJoin, onDismiss }: { call: any; onJoin: () => void; onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return createPortal(
+    <div style={{ position: 'fixed', top: '24px', right: '24px', width: '340px', backgroundColor: 'rgba(30,31,34,0.95)', backdropFilter: 'blur(20px)', borderRadius: '16px', padding: '20px', zIndex: 10000, boxShadow: '0 12px 48px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', animation: 'slideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)' }}>
+      <style>{`@keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+        <div style={{ position: 'relative' }}>
+          {call.groupPhoto ? (
+            <img src={call.groupPhoto} style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '2px solid #5865f2' }} />
+          ) : (
+            <div style={{ width: '56px', height: '56px', borderRadius: '12px', backgroundColor: '#5865f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '20px', fontWeight: 700 }}>
+              {call.groupName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: '16px', height: '16px', backgroundColor: '#5865f2', borderRadius: '50%', border: '3px solid #1E1F22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Users size={10} color="#fff" />
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: '16px', marginBottom: '2px' }}>{call.groupName}</div>
+          <div style={{ color: '#b5bac1', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#5865f2', animation: 'pulse 1.5s infinite' }} />
+            {t('call.incoming_call', 'Llamada entrante')}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <button
+          onClick={onDismiss}
+          style={{ flex: 1, height: '38px', borderRadius: '8px', background: 'rgba(237,66,69,0.15)', color: '#ed4245', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}
+          onMouseOver={(e) => e.currentTarget.style.background = 'rgba(237,66,69,0.25)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'rgba(237,66,69,0.15)'}
+        >
+          {t('call.reject', 'Rechazar')}
+        </button>
+        <button
+          onClick={onJoin}
+          style={{ flex: 1, height: '38px', borderRadius: '8px', background: '#23a557', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}
+          onMouseOver={(e) => e.currentTarget.style.background = '#1a8a47'}
+          onMouseOut={(e) => e.currentTarget.style.background = '#23a55a'}
+        >
+          {t('call.admit', 'Aceptar')}
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}

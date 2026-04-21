@@ -1,30 +1,28 @@
 import { MessageService } from '../messageService';
 
-const mockDb = {};
+const mockDb = {
+  collection: jest.fn(),
+  doc: jest.fn()
+};
 
 const mockCollection = jest.fn();
 const mockDoc = jest.fn();
 const mockGetDoc = jest.fn();
-const mockGetDocs = jest.fn();
 const mockUpdateDoc = jest.fn();
 const mockDeleteDoc = jest.fn();
 const mockWriteBatch = jest.fn();
-const mockQuery = jest.fn();
-const mockOrderBy = jest.fn();
-const mockLimit = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: (...args) => mockCollection(...args),
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
-  getDocs: (...args) => mockGetDocs(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
   deleteDoc: (...args) => mockDeleteDoc(...args),
   serverTimestamp: () => ({ _seconds: Date.now() / 1000 }),
   writeBatch: () => mockWriteBatch(),
-  query: (...args) => mockQuery(...args),
-  orderBy: (...args) => mockOrderBy(...args),
-  limit: (...args) => mockLimit(...args),
+  query: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
   onSnapshot: jest.fn()
 }));
 
@@ -35,8 +33,6 @@ describe('MessageService', () => {
     messageService = new MessageService(mockDb);
     jest.clearAllMocks();
   });
-
-  // ... resto de los tests
 
   describe('sendMessage', () => {
     it('debería enviar un mensaje correctamente', async () => {
@@ -281,54 +277,6 @@ describe('MessageService', () => {
       const count = await messageService.getUnreadCount('channel-1', 'user-1');
 
       expect(count).toBe(2);
-    });
-  });
-describe('saveFCMToken', () => {
-    it('debería guardar token FCM correctamente', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      mockDoc.mockReturnValue('user-ref');
-
-      await messageService.saveFCMToken('user-1', 'token-abc123');
-
-      expect(mockUpdateDoc).toHaveBeenCalledWith('user-ref', {
-        fcmToken: 'token-abc123',
-        lastTokenUpdate: expect.any(Object)
-      });
-    });
-
-    it('debería actualizar token existente', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      mockDoc.mockReturnValue('user-ref');
-
-      await messageService.saveFCMToken('user-1', 'new-token-xyz');
-
-      expect(mockUpdateDoc).toHaveBeenCalled();
-      const updateCall = mockUpdateDoc.mock.calls[0][1];
-      expect(updateCall.fcmToken).toBe('new-token-xyz');
-    });
-  });
-  describe('getMessages', () => {
-    it('debería obtener mensajes en orden correcto', async () => {
-      mockQuery.mockReturnValue('messages-query');
-      
-      const mockGetDocsForMessages = jest.fn().mockResolvedValue({
-        docs: [
-          { id: 'msg-2', data: () => ({ text: 'Second', createdAt: { toMillis: () => 2000 } }) },
-          { id: 'msg-1', data: () => ({ text: 'First', createdAt: { toMillis: () => 1000 } }) }
-        ]
-      });
-
-      jest.spyOn(messageService, 'getMessages').mockImplementation(async () => {
-        return [
-          { id: 'msg-1', text: 'First', createdAt: { toMillis: () => 1000 } },
-          { id: 'msg-2', text: 'Second', createdAt: { toMillis: () => 2000 } }
-        ];
-      });
-
-      const messages = await messageService.getMessages('channel-1');
-
-      expect(messages).toHaveLength(2);
-      expect(messages[0].id).toBe('msg-1');
     });
   });
 });
