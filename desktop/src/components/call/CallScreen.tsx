@@ -790,18 +790,18 @@ export default function CallScreen({
           !focusedTile ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', width: '100%', maxWidth: '1400px', justifyContent: 'center', alignContent: 'center' }}>
               {(!hideNonVideo || !peerCamOff || peerSharing) && (
-                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
+                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%', aspectRatio: '16/9' }}>
                   <VideoTile uid="remote" name={otherUserName} photo={otherUserPhoto} stream={remoteStream} speaking={peerSpeaking} camOff={peerCamOff} muted={peerMuted} volume={peerVolume} onMuteToggle={setPeerMuted} onVolumeChange={(v) => setPeerVolume(v / 100)} onClick={() => setFocusedTile('remote')} />
                 </div>
               )}
               {(!hideNonVideo || camOn || sharing) && (
-                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%' }}>
+                <div style={{ width: (hasRemoteShare || sharing) ? '380px' : '45%', aspectRatio: '16/9' }}>
                   <VideoTile uid="local" name={t('call.you')} photo={myPhoto} stream={localStream} speaking={localSpeaking} camOff={!camOn} muted={!micOn} isLocal onClick={() => setFocusedTile('local')} />
                 </div>
               )}
               <div style={{ width: '100%', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 {hasRemoteShare && (
-                  <div style={{ width: '640px', maxWidth: '100%', position: 'relative', borderRadius: '12px', overflow: 'hidden' }}>
+                  <div style={{ width: '640px', maxWidth: '100%', position: 'relative', borderRadius: '12px', overflow: 'hidden', aspectRatio: '16/9' }}>
                     <div style={{
                       position: 'relative', borderRadius: '12px', overflow: 'hidden',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)', backgroundColor: '#1E1F22',
