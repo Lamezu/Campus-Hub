@@ -303,12 +303,13 @@ interface ConferenceScreenProps {
   myUid: string;
   myName: string;
   myPhoto: string | null;
+  myRole?: string;
   onClose: () => void;
 }
 
 export default function ConferenceScreen({
   callId, isInitiator, canApprove, callType, groupName, groupPhoto,
-  myUid, myName, myPhoto, onClose
+  myUid, myName, myPhoto, myRole, onClose
 }: ConferenceScreenProps) {
   const [status, setStatus] = useState<'connecting' | 'waiting' | 'active' | 'ended'>('connecting');
   const [micOn, setMicOn] = useState(true);
