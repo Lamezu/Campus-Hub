@@ -60,9 +60,9 @@ Explore our detailed documentation in the `/docs` directory:
 
 ## 👥 Development Team: A&S Technologies
 
-- **Alejandro Mejías Ramírez** - Lead UI/UX Mobile & Frontend Engineer - (mobile/README.md)
-- **Samuel Morán Hernández** - Backend Architect & Firebase Specialist - (desktop/README.md)
-- **Sara Alonso Perdomo** - QA Engineering & Admin Panel Lead - (web/README.md)
+- **Alejandro Mejías Ramírez** - Lead UI/UX Mobile & Frontend Engineer - [**REAME.md mobile**](mobile/README.md)
+- **Samuel Morán Hernández** - Backend Architect & Firebase Specialist - [**README.md desktop**](desktop/README.md)
+- **Sara Alonso Perdomo** - QA Engineering & Admin Panel Lead - [**README.md web**](web/README.md)
 
 **CIFP Villa de Agüimes** | *Senior Graduation Project 2025-2026*
 
