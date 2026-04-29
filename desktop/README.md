@@ -64,6 +64,8 @@ npm run electron:build
 ```
 *Los binarios generados se encontrarán en la carpeta `release/`.*
 
+*En caso de que windows no te permita abrir el .exe desactiva el control inteligente de aplicaciones (seguridad de windows -> Control inteligente de aplicaciones -> Desactivar)*
+
 ## 🧰 Tech Stack
 | Capa | Tecnología |
 | :--- | :--- |
