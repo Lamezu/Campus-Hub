@@ -4,6 +4,7 @@ Cliente de escritorio oficial de CampusHub, el entorno virtual y social para cen
 Parte del monorepo Campus-Hub · Equipo A&S Technologies · CIFP Villa de Agüimes 2025–2026
 
 ## 🏗️ Estructura del proyecto
+```
 `desktop/`
 ├── `electron/`              # Código principal de Electron (Main process, Preload)
 ├── `src/`                   # Código fuente de React (Renderer process)
@@ -16,6 +17,7 @@ Parte del monorepo Campus-Hub · Equipo A&S Technologies · CIFP Villa de Agüim
 │   └── `utils/`             # Helpers y generador de tonos
 ├── `public/`                # Recursos estáticos
 └── `package.json`           # Scripts de ejecución y dependencias
+```
 
 ## ✨ Funcionalidades Destacadas
 La versión de escritorio incluye todas las capacidades de la plataforma social y añade mejoras nativas:
