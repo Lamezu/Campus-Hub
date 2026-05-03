@@ -4,6 +4,47 @@ Bienvenido/a a **CampusHub**, la plataforma definitiva para tu experiencia unive
 
 ---
 
+## 📲 0. Instalación y Acceso
+
+CampusHub está disponible en cuatro modalidades. Elige la que mejor se adapte a tu dispositivo.
+
+### Opción A — Versión Web (sin instalación)
+1. Abre **Chrome, Firefox, Edge o Safari**.
+2. Accede a: **[https://campus-hub-one-alpha.vercel.app/](https://campus-hub-one-alpha.vercel.app/)**
+3. Regístrate o inicia sesión.
+
+> [!TIP]
+> Para Picture-in-Picture en llamadas y la mejor experiencia, usa **Google Chrome 116+**.
+
+### Opción B — App Móvil con Expo Go (iOS y Android)
+1. Instala **Expo Go** desde la App Store o Google Play.
+2. Escanea el **código QR** proporcionado por el equipo de desarrollo.
+   - Android: abre Expo Go → "Scan QR Code".
+   - iOS: usa la cámara nativa del iPhone; se abre automáticamente.
+3. Concede permisos de **cámara, micrófono y notificaciones** cuando se soliciten.
+
+### Opción C — APK directo (solo Android)
+1. Descarga el archivo `.apk` proporcionado.
+2. Ve a **Ajustes → Seguridad** y activa "Fuentes desconocidas".
+3. Abre el `.apk` e instala. Luego abre CampusHub.
+
+### Opción D — App de Escritorio (Windows / macOS / Linux)
+- **Windows**: ejecuta `CampusHub-Setup.exe`.
+  > Si Windows lo bloquea: *Seguridad de Windows → Control inteligente de aplicaciones → Desactivar*.
+- **macOS**: abre el `.dmg` y arrastra CampusHub a Aplicaciones.
+- **Linux**: `chmod +x CampusHub.AppImage && ./CampusHub.AppImage`
+
+### Problemas comunes de instalación
+
+| Problema | Solución |
+|----------|----------|
+| Expo Go no carga la app | Comprueba que el móvil y el servidor están en la misma red Wi-Fi. |
+| No recibo notificaciones | Ajustes del dispositivo → CampusHub → Notificaciones → Activar. |
+| Windows bloquea el .exe | Desactiva el Control Inteligente de Aplicaciones (ver Opción D). |
+| Llamadas cortadas en la red del centro | Prueba con datos móviles; el Wi-Fi puede bloquear tráfico WebRTC. |
+
+---
+
 ## 🚀 1. Primeros Pasos
 
 ### **Configuración del Perfil**
